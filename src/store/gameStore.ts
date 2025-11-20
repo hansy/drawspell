@@ -1,0 +1,244 @@
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { v4 as uuidv4 } from 'uuid';
+import { GameState, Zone } from '../types';
+import { peerService } from '../services/peerService';
+import { getSnappedPosition, SNAP_GRID_SIZE } from '../lib/snapping';
+
+interface GameStore extends GameState {
+    // Additional actions or computed properties can go here
+}
+
+export const useGameStore = create<GameStore>()(
+    persist(
+        (set, get) => ({
+            players: {},
+            cards: {},
+            zones: {},
+            sessionId: uuidv4(), // Generate a new session ID by default
+            myPlayerId: uuidv4(), // Generate a temporary ID for the local player
+            hasHydrated: false,
+
+            setHasHydrated: (state) => {
+                set({ hasHydrated: state });
+            },
+
+            addPlayer: (player, isRemote) => {
+                set((state) => ({
+                    players: { ...state.players, [player.id]: player },
+                }));
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'addPlayer', args: [player] } });
+            },
+
+            updatePlayer: (id, updates, isRemote) => {
+                set((state) => ({
+                    players: {
+                        ...state.players,
+                        [id]: { ...state.players[id], ...updates },
+                    },
+                }));
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'updatePlayer', args: [id, updates] } });
+            },
+
+            addZone: (zone: Zone, isRemote?: boolean) => {
+                set((state) => ({
+                    zones: { ...state.zones, [zone.id]: zone },
+                }));
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'addZone', args: [zone] } });
+            },
+
+            addCard: (card, isRemote) => {
+                set((state) => ({
+                    cards: { ...state.cards, [card.id]: card },
+                    zones: {
+                        ...state.zones,
+                        [card.zoneId]: {
+                            ...state.zones[card.zoneId],
+                            cardIds: [...state.zones[card.zoneId].cardIds, card.id],
+                        },
+                    },
+                }));
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'addCard', args: [card] } });
+            },
+
+            updateCard: (id, updates, isRemote) => {
+                set((state) => ({
+                    cards: {
+                        ...state.cards,
+                        [id]: { ...state.cards[id], ...updates },
+                    },
+                }));
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'updateCard', args: [id, updates] } });
+            },
+
+            moveCard: (cardId, toZoneId, position, isRemote) => {
+                set((state) => {
+                    const card = state.cards[cardId];
+                    if (!card) return state;
+
+                    const fromZoneId = card.zoneId;
+                    const fromZone = state.zones[fromZoneId];
+                    const toZone = state.zones[toZoneId];
+
+                    if (!fromZone || !toZone) return state;
+
+                    // Calculate new position with snapping and collision handling
+                    let newPosition = position || { x: 0, y: 0 };
+
+                    // Only apply snapping/collision if moving to a battlefield (which is free-form)
+                    // We assume 'battlefield' type zones are free-form.
+                    if (toZone.type === 'battlefield' && position) {
+                        // Snap to grid
+                        newPosition = getSnappedPosition(position.x, position.y);
+
+                        // Collision detection / Staggering
+                        // Check against other cards in the target zone
+                        const otherCardIds = toZone.cardIds.filter(id => id !== cardId);
+                        let collision = true;
+                        let attempts = 0;
+                        const maxAttempts = 10;
+                        const staggerOffset = SNAP_GRID_SIZE;
+
+                        while (collision && attempts < maxAttempts) {
+                            collision = false;
+                            for (const otherId of otherCardIds) {
+                                const otherCard = state.cards[otherId];
+                                if (!otherCard) continue;
+
+                                // Simple point distance check or bounding box?
+                                // Cards are w-24 (96px) h-32 (128px).
+                                // We only want to prevent *exact* overlap (or very close to it).
+                                // Since we snap to 20px, checking for < 10px is sufficient to catch (0,0) delta.
+                                if (Math.abs(otherCard.position.x - newPosition.x) < 10 && Math.abs(otherCard.position.y - newPosition.y) < 10) {
+                                    collision = true;
+                                    break;
+                                }
+                            }
+
+                            if (collision) {
+                                newPosition.x += staggerOffset;
+                                newPosition.y += staggerOffset;
+                                attempts++;
+                            }
+                        }
+
+                        // Debug Info
+                        console.log('Move Card Logic:', {
+                            snappedPos: getSnappedPosition(position.x, position.y),
+                            collision: attempts > 0,
+                            attempts,
+                            finalPos: newPosition
+                        });
+                    }
+
+                    // If moving within the same zone
+                    if (fromZoneId === toZoneId) {
+                        return {
+                            cards: {
+                                ...state.cards,
+                                [cardId]: {
+                                    ...card,
+                                    position: newPosition,
+                                },
+                            },
+                            // No change to zones needed if order doesn't matter or is handled elsewhere
+                            // If we want to move to end of array (reorder):
+                            zones: {
+                                ...state.zones,
+                                [fromZoneId]: {
+                                    ...fromZone,
+                                    cardIds: [...fromZone.cardIds.filter(id => id !== cardId), cardId]
+                                }
+                            }
+                        };
+                    }
+
+                    // Remove from old zone
+                    const newFromZoneCardIds = fromZone.cardIds.filter((id) => id !== cardId);
+
+                    // Add to new zone
+                    const newToZoneCardIds = [...toZone.cardIds, cardId];
+
+                    return {
+                        cards: {
+                            ...state.cards,
+                            [cardId]: {
+                                ...card,
+                                zoneId: toZoneId,
+                                position: newPosition,
+                            },
+                        },
+                        zones: {
+                            ...state.zones,
+                            [fromZoneId]: { ...fromZone, cardIds: newFromZoneCardIds },
+                            [toZoneId]: { ...toZone, cardIds: newToZoneCardIds },
+                        },
+                    };
+                });
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'moveCard', args: [cardId, toZoneId, position] } });
+            },
+
+            tapCard: (cardId, isRemote) => {
+                set((state) => {
+                    const card = state.cards[cardId];
+                    if (!card) return state;
+                    return {
+                        cards: {
+                            ...state.cards,
+                            [cardId]: { ...card, tapped: !card.tapped },
+                        },
+                    };
+                });
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'tapCard', args: [cardId] } });
+            },
+
+            untapAll: (playerId, isRemote) => {
+                set((state) => {
+                    const newCards = { ...state.cards };
+                    Object.values(newCards).forEach(card => {
+                        if (card.controllerId === playerId && card.tapped) {
+                            newCards[card.id] = { ...card, tapped: false };
+                        }
+                    });
+                    return { cards: newCards };
+                });
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'untapAll', args: [playerId] } });
+            },
+
+            drawCard: (playerId, _isRemote) => {
+                const state = get();
+                const libraryZone = Object.values(state.zones).find(z => z.ownerId === playerId && z.type === 'library');
+                const handZone = Object.values(state.zones).find(z => z.ownerId === playerId && z.type === 'hand');
+
+                if (!libraryZone || !handZone || libraryZone.cardIds.length === 0) return;
+
+                const cardId = libraryZone.cardIds[libraryZone.cardIds.length - 1];
+                state.moveCard(cardId, handZone.id);
+            },
+
+            shuffleLibrary: (playerId, isRemote) => {
+                set((state) => {
+                    const libraryZone = Object.values(state.zones).find(z => z.ownerId === playerId && z.type === 'library');
+                    if (!libraryZone) return state;
+
+                    const shuffledIds = [...libraryZone.cardIds].sort(() => Math.random() - 0.5);
+
+                    return {
+                        zones: {
+                            ...state.zones,
+                            [libraryZone.id]: { ...libraryZone, cardIds: shuffledIds },
+                        },
+                    };
+                });
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'shuffleLibrary', args: [playerId] } });
+            }
+        }),
+        {
+            name: 'snapstack-storage',
+            storage: createJSONStorage(() => localStorage),
+            onRehydrateStorage: () => (state) => {
+                state?.setHasHydrated(true);
+            },
+        }
+    )
+);
