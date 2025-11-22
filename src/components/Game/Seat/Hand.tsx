@@ -36,12 +36,12 @@ export const Hand: React.FC<HandProps> = ({ zone, cards, isTop, isMe, onCardCont
                         <div
                             key={card.id}
                             className={cn(
-                                "relative shrink-0 -ml-6 first:ml-0 transition-all duration-200 ease-out z-0 hover:z-50 hover:scale-110 group",
+                                "relative shrink-0 -ml-6 first:ml-0 z-0 hover:z-50 hover:scale-110 group",
                                 CARD_HEIGHT,
                                 CARD_ASPECT_RATIO
                             )}>
                             <div className={cn(
-                                "w-full h-full transition-transform duration-200",
+                                "w-full h-full",
                                 isTop ? "group-hover:translate-y-[60%]" : "group-hover:-translate-y-[10%]"
                             )}>
                                 <Card

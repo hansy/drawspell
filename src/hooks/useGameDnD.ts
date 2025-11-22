@@ -95,47 +95,43 @@ export const useGameDnD = () => {
                 const overRect = over.rect;
                 const scale = over.data.current?.scale || 1;
 
-                const initialRect = active.rect.current?.initial;
-                if (overRect && initialRect) {
-                    // Work in screen space: pointer start + delta + stored offset to center if available
-                    const centerScreen = dragPointerStart.current
-                        ? {
-                            x: dragPointerStart.current.x + event.delta.x + dragPointerToCenter.current.x,
-                            y: dragPointerStart.current.y + event.delta.y + dragPointerToCenter.current.y
-                        }
-                        : {
-                            x: initialRect.left + initialRect.width / 2 + event.delta.x,
-                            y: initialRect.top + initialRect.height / 2 + event.delta.y
-                        };
+                if (!dragPointerStart.current) return;
 
-                    const relativeX = (centerScreen.x - overRect.left) / scale;
-                    const relativeY = (centerScreen.y - overRect.top) / scale;
+                // Source of truth: live pointer (start + delta) plus the grab offset to reach the card center.
+                const centerScreen = {
+                    x: dragPointerStart.current.x + event.delta.x + dragPointerToCenter.current.x,
+                    y: dragPointerStart.current.y + event.delta.y + dragPointerToCenter.current.y
+                };
 
-                    // Snap to grid
-                    const snappedPos = getSnappedPosition(relativeX, relativeY);
+                const relativeX = (centerScreen.x - overRect.left) / scale;
+                const relativeY = (centerScreen.y - overRect.top) / scale;
 
-                    // Minimal debug: cursor (center), ghost, start, and conversion inputs
-                    const cursorX = centerScreen.x;
-                    const cursorY = centerScreen.y;
-                    const startPos = activeCard?.position || { x: 0, y: 0 };
-                    console.log(
-                        `🎯 move cursor=(${cursorX.toFixed(1)},${cursorY.toFixed(1)}) ` +
-                        `ghost=(${snappedPos.x},${snappedPos.y}) ` +
-                        `start=(${startPos.x},${startPos.y}) ` +
-                        `scale=${scale.toFixed(3)} ` +
-                        `over=(${overRect.left.toFixed(1)},${overRect.top.toFixed(1)}) ` +
-                        `rel=(${relativeX.toFixed(1)},${relativeY.toFixed(1)}) ` +
-                        `delta=(${event.delta.x.toFixed(1)},${event.delta.y.toFixed(1)}) ` +
-                        `pStart=${dragPointerStart.current ? `(${dragPointerStart.current.x.toFixed(1)},${dragPointerStart.current.y.toFixed(1)})` : 'n/a'} ` +
-                        `pOffset=(${dragPointerToCenter.current.x.toFixed(1)},${dragPointerToCenter.current.y.toFixed(1)})`
-                    );
+                // Keep the ghost glued to the cursor during hover; we'll snap on drop.
+                const unsnappedPos = { x: relativeX, y: relativeY };
+                const snappedPos = getSnappedPosition(relativeX, relativeY); // for logging only
 
-                    setGhostCard({
-                        zoneId,
-                        position: snappedPos,
-                        tapped: isTapped
-                    });
-                }
+                // Minimal debug: cursor (center), ghost, start, and conversion inputs
+                const cursorX = centerScreen.x;
+                const cursorY = centerScreen.y;
+                const startPos = activeCard?.position || { x: 0, y: 0 };
+                console.log(
+                    `🎯 move cursor=(${cursorX.toFixed(1)},${cursorY.toFixed(1)}) ` +
+                    `ghost=(${unsnappedPos.x.toFixed(1)},${unsnappedPos.y.toFixed(1)}) ` +
+                    `snap=(${snappedPos.x},${snappedPos.y}) ` +
+                    `start=(${startPos.x},${startPos.y}) ` +
+                    `scale=${scale.toFixed(3)} ` +
+                    `over=(${overRect.left.toFixed(1)},${overRect.top.toFixed(1)}) ` +
+                    `rel=(${relativeX.toFixed(1)},${relativeY.toFixed(1)}) ` +
+                    `delta=(${event.delta.x.toFixed(1)},${event.delta.y.toFixed(1)}) ` +
+                    `pStart=${dragPointerStart.current ? `(${dragPointerStart.current.x.toFixed(1)},${dragPointerStart.current.y.toFixed(1)})` : 'n/a'} ` +
+                    `pOffset=(${dragPointerToCenter.current.x.toFixed(1)},${dragPointerToCenter.current.y.toFixed(1)})`
+                );
+
+                setGhostCard({
+                    zoneId,
+                    position: unsnappedPos,
+                    tapped: isTapped
+                });
             }
         } else {
             setGhostCard(null);
@@ -169,23 +165,17 @@ export const useGameDnD = () => {
                 const overRect = over.rect;
                 const scale = over.data.current?.scale || 1;
 
-                const initialRect = active.rect.current?.initial;
-                if (overRect && initialRect) {
-                    const centerScreen = dragPointerStart.current
-                        ? {
-                            x: dragPointerStart.current.x + event.delta.x + dragPointerToCenter.current.x,
-                            y: dragPointerStart.current.y + event.delta.y + dragPointerToCenter.current.y
-                        }
-                        : {
-                            x: initialRect.left + initialRect.width / 2 + event.delta.x,
-                            y: initialRect.top + initialRect.height / 2 + event.delta.y
-                        };
+                if (!dragPointerStart.current) return;
 
-                    position = {
-                        x: (centerScreen.x - overRect.left) / scale,
-                        y: (centerScreen.y - overRect.top) / scale
-                    };
-                }
+                const centerScreen = {
+                    x: dragPointerStart.current.x + event.delta.x + dragPointerToCenter.current.x,
+                    y: dragPointerStart.current.y + event.delta.y + dragPointerToCenter.current.y
+                };
+
+                position = {
+                    x: (centerScreen.x - overRect.left) / scale,
+                    y: (centerScreen.y - overRect.top) / scale
+                };
 
                 moveCard(cardId, toZoneId, position);
 

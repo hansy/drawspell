@@ -37,6 +37,8 @@ export const Card: React.FC<CardProps> = ({ card, style: propStyle, className, o
         ...restPropStyle,
         transform: transformParts.length ? transformParts.join(' ') : undefined,
         transformOrigin: 'center center',
+        // Kill transitions while dragging so the card tracks the pointer/ghost without easing lag.
+        transition: isDragging ? 'none' : restPropStyle.transition,
     };
 
     // Logging removed to reduce noise; drag diagnostics live in useGameDnD.
