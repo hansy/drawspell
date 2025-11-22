@@ -24,7 +24,6 @@ interface SeatProps {
   onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
   onZoneContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   onLoadDeck?: () => void;
-  ghostCard?: { zoneId: string; position: { x: number; y: number }; tapped?: boolean } | null;
   opponentColors: Record<string, string>;
 }
 
@@ -40,7 +39,6 @@ export const Seat: React.FC<SeatProps> = ({
   onCardContextMenu,
   onZoneContextMenu,
   onLoadDeck,
-  ghostCard,
   opponentColors
 }) => {
   const isTop = position.startsWith('top');
@@ -208,7 +206,6 @@ export const Seat: React.FC<SeatProps> = ({
               player={player}
               isTop={isTop}
               scale={scale}
-              ghostCard={ghostCard}
               onCardContextMenu={onCardContextMenu}
             />
           )}

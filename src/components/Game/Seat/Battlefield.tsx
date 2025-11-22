@@ -11,7 +11,6 @@ interface BattlefieldProps {
     player: Player;
     isTop: boolean;
     scale?: number;
-    ghostCard?: { zoneId: string; position: { x: number; y: number }; tapped?: boolean } | null;
     onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
 }
 
@@ -21,7 +20,6 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     player,
     isTop,
     scale = 1,
-    ghostCard,
     onCardContextMenu
 }) => {
     return (
@@ -34,8 +32,6 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                 className="w-full h-full relative bg-[linear-gradient(to_right,#3f3f46_1px,transparent_1px),linear-gradient(to_bottom,#3f3f46_1px,transparent_1px)] [background-size:30px_30px]"
                 layout="free-form"
                 scale={scale}
-                ghostPosition={ghostCard?.zoneId === zone.id ? ghostCard.position : undefined}
-                ghostTapped={ghostCard?.zoneId === zone.id ? ghostCard.tapped : undefined}
             >
                 {cards.map(card => {
                     const left = card.position.x - CARD_WIDTH_PX / 2;
@@ -51,6 +47,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                                 transform: isTop ? 'rotate(180deg)' : undefined
                             }}
                             onContextMenu={(e) => onCardContextMenu?.(e, card)}
+                            scale={scale}
                         />
                     );
                 })}

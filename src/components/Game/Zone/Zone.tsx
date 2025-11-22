@@ -3,6 +3,7 @@ import { useDroppable, useDndContext } from '@dnd-kit/core';
 import { Zone as ZoneType } from '../../../types';
 import { cn } from '../../../lib/utils';
 import { CARD_WIDTH_PX, CARD_HEIGHT_PX } from '../../../lib/constants';
+import { useDragStore } from '../../../store/dragStore';
 
 interface ZoneProps {
     zone: ZoneType;
@@ -10,11 +11,14 @@ interface ZoneProps {
     children?: React.ReactNode;
     layout?: 'stack' | 'fan' | 'grid' | 'free-form';
     scale?: number;
-    ghostPosition?: { x: number; y: number };
-    ghostTapped?: boolean;
 }
 
-export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, ghostPosition, ghostTapped }) => {
+export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1 }) => {
+    const ghostCard = useDragStore((state) => state.ghostCard);
+    const isGhostHere = ghostCard?.zoneId === zone.id;
+    const ghostPosition = isGhostHere ? ghostCard.position : undefined;
+    const ghostTapped = isGhostHere ? ghostCard.tapped : undefined;
+
     const { setNodeRef, isOver } = useDroppable({
         id: zone.id,
         data: {

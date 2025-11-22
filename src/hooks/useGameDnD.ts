@@ -4,16 +4,26 @@ import {
     useSensors,
     PointerSensor,
     DragEndEvent,
-    DragMoveEvent
+    DragMoveEvent,
+    DragStartEvent
 } from '@dnd-kit/core';
 import { useGameStore } from '../store/gameStore';
-import { getSnappedPosition } from '../lib/snapping';
+import { useDragStore } from '../store/dragStore';
 import { ZoneId, CardId } from '../types';
+import {
+    getEventCoordinates,
+    calculatePointerOffset,
+    calculateRelativePosition,
+    canDropToZone,
+    DragPosition,
+    DragOffset
+} from '../lib/dnd';
 
 export const useGameDnD = () => {
     const cards = useGameStore((state) => state.cards);
     const zones = useGameStore((state) => state.zones);
     const moveCard = useGameStore((state) => state.moveCard);
+    const setGhostCard = useDragStore((state) => state.setGhostCard);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -23,29 +33,18 @@ export const useGameDnD = () => {
         })
     );
 
-    const [ghostCard, setGhostCard] = React.useState<{ zoneId: string; position: { x: number; y: number }; tapped?: boolean } | null>(null);
-
     // Track pointer start and offset to card center so positioning follows the cursor.
-    const dragPointerStart = React.useRef<{ x: number; y: number } | null>(null);
-    const dragPointerToCenter = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+    const dragPointerStart = React.useRef<DragPosition | null>(null);
+    const dragPointerToCenter = React.useRef<DragOffset>({ x: 0, y: 0 });
 
-    const handleDragStart = (event: any) => {
+    const handleDragStart = (event: DragStartEvent) => {
         setGhostCard(null);
 
         const { active } = event;
+        // @ts-ignore - rect is available on active
         const activeRect = active.rect.current?.initial || active.rect.current?.translated;
 
-        // Activation can be delayed (distance constraint), so grab the original pointer down if present.
-        const activator = (event as any).activatorEvent || active?.activatorEvent;
-        const getPoint = (evt: any) => {
-            if (!evt) return null;
-            if (typeof evt.clientX === 'number' && typeof evt.clientY === 'number') return { x: evt.clientX, y: evt.clientY };
-            if (evt.touches && evt.touches[0]) {
-                return { x: evt.touches[0].clientX, y: evt.touches[0].clientY };
-            }
-            return null;
-        };
-        const pointer = getPoint(activator);
+        const pointer = getEventCoordinates(event);
 
         // Fallback to card center if we couldn't read the pointer (keeps the ghost anchored).
         const center = activeRect
@@ -53,9 +52,12 @@ export const useGameDnD = () => {
             : null;
 
         dragPointerStart.current = pointer || center;
-        dragPointerToCenter.current = center && pointer
-            ? { x: center.x - pointer.x, y: center.y - pointer.y }
-            : { x: 0, y: 0 };
+
+        if (center && pointer && activeRect) {
+            dragPointerToCenter.current = calculatePointerOffset(pointer, activeRect);
+        } else {
+            dragPointerToCenter.current = { x: 0, y: 0 };
+        }
     };
 
     const handleDragMove = (event: DragMoveEvent) => {
@@ -76,56 +78,38 @@ export const useGameDnD = () => {
             const targetZone = zones[zoneId];
 
             if (activeCard && targetZone) {
-                // Permission Check:
-                // 1. Battlefield: Always allowed
-                // 2. Other: Only owner's zones (though this block is specifically for battlefield type check above)
-
-                // Actually, the ghost card logic specifically checks `over.data.current.type === 'battlefield'`.
-                // So we only need to check permissions if we want to restrict battlefield drops too (which we don't).
-                // BUT, if we want to show ghost for other zones (future), we should check.
-                // For now, the requirement says "any battlefield" is OK.
-                // So ghost logic is fine as is for battlefield.
-
-                // Wait, if I drag to an opponent's battlefield, it IS allowed.
-                // So ghost should show.
-
-
-                // Calculate position relative to the target zone using pointer + stored offset
                 // @ts-ignore - over.rect is available at runtime
                 const overRect = over.rect;
                 const scale = over.data.current?.scale || 1;
 
                 if (!dragPointerStart.current) return;
 
-                // Source of truth: live pointer (start + delta) plus the grab offset to reach the card center.
-                const centerScreen = {
-                    x: dragPointerStart.current.x + event.delta.x + dragPointerToCenter.current.x,
-                    y: dragPointerStart.current.y + event.delta.y + dragPointerToCenter.current.y
+                const unsnappedPos = calculateRelativePosition(
+                    dragPointerStart.current,
+                    dragPointerToCenter.current,
+                    { x: event.delta.x, y: event.delta.y },
+                    overRect,
+                    scale
+                );
+
+                // Debug Logging
+                const cursorScreen = {
+                    x: dragPointerStart.current.x + event.delta.x,
+                    y: dragPointerStart.current.y + event.delta.y
+                };
+                const cardStartPos = activeCard?.position || { x: 0, y: 0 };
+                const cardCurrentPos = {
+                    x: cardStartPos.x + (event.delta.x / scale),
+                    y: cardStartPos.y + (event.delta.y / scale)
                 };
 
-                const relativeX = (centerScreen.x - overRect.left) / scale;
-                const relativeY = (centerScreen.y - overRect.top) / scale;
-
-                // Keep the ghost glued to the cursor during hover; we'll snap on drop.
-                const unsnappedPos = { x: relativeX, y: relativeY };
-                const snappedPos = getSnappedPosition(relativeX, relativeY); // for logging only
-
-                // Minimal debug: cursor (center), ghost, start, and conversion inputs
-                const cursorX = centerScreen.x;
-                const cursorY = centerScreen.y;
-                const startPos = activeCard?.position || { x: 0, y: 0 };
-                console.log(
-                    `🎯 move cursor=(${cursorX.toFixed(1)},${cursorY.toFixed(1)}) ` +
-                    `ghost=(${unsnappedPos.x.toFixed(1)},${unsnappedPos.y.toFixed(1)}) ` +
-                    `snap=(${snappedPos.x},${snappedPos.y}) ` +
-                    `start=(${startPos.x},${startPos.y}) ` +
-                    `scale=${scale.toFixed(3)} ` +
-                    `over=(${overRect.left.toFixed(1)},${overRect.top.toFixed(1)}) ` +
-                    `rel=(${relativeX.toFixed(1)},${relativeY.toFixed(1)}) ` +
-                    `delta=(${event.delta.x.toFixed(1)},${event.delta.y.toFixed(1)}) ` +
-                    `pStart=${dragPointerStart.current ? `(${dragPointerStart.current.x.toFixed(1)},${dragPointerStart.current.y.toFixed(1)})` : 'n/a'} ` +
-                    `pOffset=(${dragPointerToCenter.current.x.toFixed(1)},${dragPointerToCenter.current.y.toFixed(1)})`
-                );
+                console.log('--- Drag Debug ---');
+                console.log(`Scale: ${scale}`);
+                console.log(`Cursor (Screen): (${cursorScreen.x.toFixed(1)}, ${cursorScreen.y.toFixed(1)})`);
+                console.log(`Delta (Screen): (${event.delta.x.toFixed(1)}, ${event.delta.y.toFixed(1)})`);
+                console.log(`Ghost (Zone): (${unsnappedPos.x.toFixed(1)}, ${unsnappedPos.y.toFixed(1)})`);
+                console.log(`Card (Zone Calc): (${cardCurrentPos.x.toFixed(1)}, ${cardCurrentPos.y.toFixed(1)})`);
+                console.log('------------------');
 
                 setGhostCard({
                     zoneId,
@@ -150,16 +134,10 @@ export const useGameDnD = () => {
             const targetZone = zones[toZoneId];
 
             if (cardId && toZoneId && activeCard && targetZone) {
-                // Permission Check
-                const isBattlefield = targetZone.type === 'battlefield';
-                const isOwner = targetZone.ownerId === activeCard.ownerId;
-
-                if (!isBattlefield && !isOwner) {
+                if (!canDropToZone(activeCard, targetZone)) {
                     console.warn('Permission denied: Cannot move card to this zone.');
                     return;
                 }
-
-                let position: { x: number; y: number } | undefined;
 
                 // @ts-ignore - over.rect is available at runtime
                 const overRect = over.rect;
@@ -167,31 +145,21 @@ export const useGameDnD = () => {
 
                 if (!dragPointerStart.current) return;
 
-                const centerScreen = {
-                    x: dragPointerStart.current.x + event.delta.x + dragPointerToCenter.current.x,
-                    y: dragPointerStart.current.y + event.delta.y + dragPointerToCenter.current.y
-                };
-
-                position = {
-                    x: (centerScreen.x - overRect.left) / scale,
-                    y: (centerScreen.y - overRect.top) / scale
-                };
+                const position = calculateRelativePosition(
+                    dragPointerStart.current,
+                    dragPointerToCenter.current,
+                    { x: event.delta.x, y: event.delta.y },
+                    overRect,
+                    scale
+                );
 
                 moveCard(cardId, toZoneId, position);
-
-                // Log start/end snapshots
-                const startPos = activeCard.position;
-                const endPos = position || startPos;
-                console.log(
-                    `🎯 drop start=(${startPos.x},${startPos.y}) end=(${endPos.x},${endPos.y})`
-                );
             }
         }
     };
 
     return {
         sensors,
-        ghostCard,
         handleDragStart,
         handleDragMove,
         handleDragEnd

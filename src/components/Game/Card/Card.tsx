@@ -11,9 +11,10 @@ interface CardProps {
     className?: string;
     onContextMenu?: (e: React.MouseEvent) => void;
     faceDown?: boolean;
+    scale?: number;
 }
 
-export const Card: React.FC<CardProps> = ({ card, style: propStyle, className, onContextMenu, faceDown }) => {
+export const Card: React.FC<CardProps> = ({ card, style: propStyle, className, onContextMenu, faceDown, scale = 1 }) => {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: card.id,
         data: {
@@ -29,7 +30,14 @@ export const Card: React.FC<CardProps> = ({ card, style: propStyle, className, o
     // Compose all transforms on a single element so translation isn't affected by rotation.
     // Order matters: translate first (screen-space), then seat transform, then tap rotation.
     const transformParts: string[] = [];
-    if (transform) transformParts.push(`translate3d(${transform.x}px, ${transform.y}px, 0)`);
+    if (transform) {
+        const x = transform.x / scale;
+        const y = transform.y / scale;
+        transformParts.push(`translate3d(${x}px, ${y}px, 0)`);
+        if (isDragging) {
+            console.log(`[Card ${card.name}] Scale: ${scale}, DndTransform: (${transform.x}, ${transform.y}), Applied: (${x}, ${y})`);
+        }
+    }
     if (typeof propTransform === 'string') transformParts.push(propTransform);
     if (card.tapped) transformParts.push('rotate(90deg)');
 

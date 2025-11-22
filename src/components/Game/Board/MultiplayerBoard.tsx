@@ -12,7 +12,7 @@ import { usePlayerLayout } from '../../../hooks/usePlayerLayout';
 export const MultiplayerBoard: React.FC = () => {
     const cards = useGameStore((state) => state.cards);
     const zones = useGameStore((state) => state.zones);
-    const { sensors, ghostCard, handleDragStart, handleDragMove, handleDragEnd } = useGameDnD();
+    const { sensors, handleDragStart, handleDragMove, handleDragEnd } = useGameDnD();
     const { slots, layoutMode, myPlayerId } = usePlayerLayout();
     const { contextMenu, handleCardContextMenu, handleZoneContextMenu, closeContextMenu } = useGameContextMenu(myPlayerId);
     const hasHydrated = useGameStore((state) => state.hasHydrated);
@@ -136,7 +136,6 @@ export const MultiplayerBoard: React.FC = () => {
                                     onCardContextMenu={handleCardContextMenu}
                                     onZoneContextMenu={handleZoneContextMenu}
                                     onLoadDeck={() => setIsLoadDeckModalOpen(true)}
-                                    ghostCard={ghostCard}
                                     opponentColors={playerColors}
                                     scale={scale}
                                 />
