@@ -28,6 +28,9 @@ export const Hand: React.FC<HandProps> = ({ zone, cards, isTop, isMe, onCardCont
                     const centerIndex = (totalCards - 1) / 2;
                     const rotate = (index - centerIndex) * 3;
                     const translateY = Math.abs(index - centerIndex) * 2;
+                    const fanTransform = isTop
+                        ? `translateY(-20%) rotate(${180 - rotate}deg) translateY(${translateY}px)`
+                        : `translateY(20%) rotate(${rotate}deg) translateY(${translateY}px)`;
 
                     return (
                         <div
@@ -36,19 +39,16 @@ export const Hand: React.FC<HandProps> = ({ zone, cards, isTop, isMe, onCardCont
                                 "relative shrink-0 -ml-6 first:ml-0 transition-all duration-200 ease-out z-0 hover:z-50 hover:scale-110 group",
                                 CARD_HEIGHT,
                                 CARD_ASPECT_RATIO
-                            )}
-                            style={{
-                                transform: isTop
-                                    ? `translateY(-20%) rotate(${180 - rotate}deg) translateY(${translateY}px)`
-                                    : `translateY(20%) rotate(${rotate}deg) translateY(${translateY}px)`,
-                            }}
-                        >
+                            )}>
                             <div className={cn(
                                 "w-full h-full transition-transform duration-200",
                                 isTop ? "group-hover:translate-y-[60%]" : "group-hover:-translate-y-[10%]"
                             )}>
                                 <Card
                                     card={card}
+                                    style={{
+                                        transform: fanTransform
+                                    }}
                                     className="shadow-xl ring-1 ring-black/50"
                                     faceDown={!isMe && false}
                                     onContextMenu={(e) => onCardContextMenu?.(e, card)}

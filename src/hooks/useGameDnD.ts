@@ -34,22 +34,28 @@ export const useGameDnD = () => {
 
         const { active } = event;
         const activeRect = active.rect.current?.initial || active.rect.current?.translated;
-        const activator = (event as any).activatorEvent;
-        if (activeRect && activator && typeof activator.clientX === 'number' && typeof activator.clientY === 'number') {
-            const pointer = { x: activator.clientX, y: activator.clientY };
-            dragPointerStart.current = pointer;
-            const center = {
-                x: activeRect.left + activeRect.width / 2,
-                y: activeRect.top + activeRect.height / 2
-            };
-            dragPointerToCenter.current = {
-                x: center.x - pointer.x,
-                y: center.y - pointer.y
-            };
-        } else {
-            dragPointerStart.current = null;
-            dragPointerToCenter.current = { x: 0, y: 0 };
-        }
+
+        // Activation can be delayed (distance constraint), so grab the original pointer down if present.
+        const activator = (event as any).activatorEvent || active?.activatorEvent;
+        const getPoint = (evt: any) => {
+            if (!evt) return null;
+            if (typeof evt.clientX === 'number' && typeof evt.clientY === 'number') return { x: evt.clientX, y: evt.clientY };
+            if (evt.touches && evt.touches[0]) {
+                return { x: evt.touches[0].clientX, y: evt.touches[0].clientY };
+            }
+            return null;
+        };
+        const pointer = getPoint(activator);
+
+        // Fallback to card center if we couldn't read the pointer (keeps the ghost anchored).
+        const center = activeRect
+            ? { x: activeRect.left + activeRect.width / 2, y: activeRect.top + activeRect.height / 2 }
+            : null;
+
+        dragPointerStart.current = pointer || center;
+        dragPointerToCenter.current = center && pointer
+            ? { x: center.x - pointer.x, y: center.y - pointer.y }
+            : { x: 0, y: 0 };
     };
 
     const handleDragMove = (event: DragMoveEvent) => {
@@ -108,14 +114,20 @@ export const useGameDnD = () => {
                     // Snap to grid
                     const snappedPos = getSnappedPosition(relativeX, relativeY);
 
-                    // Minimal debug: cursor (center), ghost, start
+                    // Minimal debug: cursor (center), ghost, start, and conversion inputs
                     const cursorX = centerScreen.x;
                     const cursorY = centerScreen.y;
                     const startPos = activeCard?.position || { x: 0, y: 0 };
                     console.log(
                         `🎯 move cursor=(${cursorX.toFixed(1)},${cursorY.toFixed(1)}) ` +
                         `ghost=(${snappedPos.x},${snappedPos.y}) ` +
-                        `start=(${startPos.x},${startPos.y})`
+                        `start=(${startPos.x},${startPos.y}) ` +
+                        `scale=${scale.toFixed(3)} ` +
+                        `over=(${overRect.left.toFixed(1)},${overRect.top.toFixed(1)}) ` +
+                        `rel=(${relativeX.toFixed(1)},${relativeY.toFixed(1)}) ` +
+                        `delta=(${event.delta.x.toFixed(1)},${event.delta.y.toFixed(1)}) ` +
+                        `pStart=${dragPointerStart.current ? `(${dragPointerStart.current.x.toFixed(1)},${dragPointerStart.current.y.toFixed(1)})` : 'n/a'} ` +
+                        `pOffset=(${dragPointerToCenter.current.x.toFixed(1)},${dragPointerToCenter.current.y.toFixed(1)})`
                     );
 
                     setGhostCard({
