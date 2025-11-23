@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { DndContext } from '@dnd-kit/core';
+import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { useGameStore } from '../../../store/gameStore';
+import { useDragStore } from '../../../store/dragStore';
 import { Seat } from '../Seat/Seat';
+import { CardView } from '../Card/Card';
 import { Sidenav } from '../UI/Sidenav';
 import { ContextMenu } from '../UI/ContextMenu';
 import { LoadDeckModal } from '../UI/LoadDeckModal';
@@ -13,6 +15,7 @@ export const MultiplayerBoard: React.FC = () => {
     const cards = useGameStore((state) => state.cards);
     const zones = useGameStore((state) => state.zones);
     const { sensors, handleDragStart, handleDragMove, handleDragEnd } = useGameDnD();
+    const activeCardId = useDragStore((state) => state.activeCardId);
     const { slots, layoutMode, myPlayerId } = usePlayerLayout();
     const { contextMenu, handleCardContextMenu, handleZoneContextMenu, closeContextMenu } = useGameContextMenu(myPlayerId);
     const hasHydrated = useGameStore((state) => state.hasHydrated);
@@ -162,6 +165,16 @@ export const MultiplayerBoard: React.FC = () => {
                 onClose={() => setIsLoadDeckModalOpen(false)}
                 playerId={myPlayerId}
             />
+            <DragOverlay dropAnimation={null}>
+                {activeCardId && cards[activeCardId] ? (
+                    <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+                        <CardView
+                            card={cards[activeCardId]}
+                            isDragging
+                        />
+                    </div>
+                ) : null}
+            </DragOverlay>
         </DndContext>
     );
 };

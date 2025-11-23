@@ -14,59 +14,42 @@ interface CardProps {
     scale?: number;
 }
 
-export const Card: React.FC<CardProps> = ({ card, style: propStyle, className, onContextMenu, faceDown, scale = 1 }) => {
-    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-        id: card.id,
-        data: {
-            cardId: card.id,
-            zoneId: card.zoneId,
-            ownerId: card.ownerId,
-            tapped: card.tapped,
-        }
-    });
+export interface CardViewProps {
+    card: CardType;
+    style?: React.CSSProperties;
+    className?: string;
+    onContextMenu?: (e: React.MouseEvent) => void;
+    faceDown?: boolean;
+    isDragging?: boolean;
+    onDoubleClick?: () => void;
+}
 
-    const { transform: propTransform, ...restPropStyle } = propStyle || {};
-
-    // Compose all transforms on a single element so translation isn't affected by rotation.
-    // Order matters: translate first (screen-space), then seat transform, then tap rotation.
-    const transformParts: string[] = [];
-    if (transform) {
-        const x = transform.x / scale;
-        const y = transform.y / scale;
-        transformParts.push(`translate3d(${x}px, ${y}px, 0)`);
-    }
-    if (typeof propTransform === 'string') transformParts.push(propTransform);
-    if (card.tapped) transformParts.push('rotate(90deg)');
-
-    const dragStyle: React.CSSProperties = {
-        ...restPropStyle,
-        transform: transformParts.length ? transformParts.join(' ') : undefined,
-        transformOrigin: 'center center',
-        // Kill transitions while dragging so the card tracks the pointer/ghost without easing lag.
-        transition: isDragging ? 'none' : restPropStyle.transition,
-    };
-
-    // Logging removed to reduce noise; drag diagnostics live in useGameDnD.
-
+export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(({
+    card,
+    style,
+    className,
+    onContextMenu,
+    faceDown,
+    isDragging,
+    onDoubleClick,
+    ...props
+}, ref) => {
     return (
         <div
-            ref={setNodeRef}
-            style={dragStyle}
-            {...listeners}
-            {...attributes}
+            ref={ref}
+            style={style}
             className={cn(
                 CARD_HEIGHT,
                 CARD_ASPECT_RATIO,
-                "bg-zinc-800 rounded-lg border border-zinc-700 shadow-md flex flex-col items-center justify-center select-none hover:scale-105 hover:shadow-xl hover:z-10 hover:border-indigo-500/50",
-                // Transitions disabled per user request
-                // !isDragging && "transition-transform duration-300 ease-out",
+                "bg-zinc-800 rounded-lg border border-zinc-700 shadow-md flex flex-col items-center justify-center select-none",
+                !isDragging && "hover:scale-105 hover:shadow-xl hover:z-10 hover:border-indigo-500/50 cursor-grab active:cursor-grabbing",
                 card.tapped && "border-zinc-600 bg-zinc-900",
-                isDragging && "opacity-90 scale-110 z-50 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-indigo-500 cursor-grabbing",
-                !isDragging && "cursor-grab active:cursor-grabbing",
+                isDragging && "shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-indigo-500 cursor-grabbing",
                 className
             )}
-            onDoubleClick={() => useGameStore.getState().tapCard(card.id)}
+            onDoubleClick={onDoubleClick}
             onContextMenu={onContextMenu}
+            {...props}
         >
             {faceDown ? (
                 <div className="w-full h-full bg-indigo-900/50 rounded border-2 border-indigo-500/30 flex items-center justify-center bg-[url('https://upload.wikimedia.org/wikipedia/en/a/aa/Magic_the_gathering-card_back.jpg')] bg-cover bg-center">
@@ -89,5 +72,46 @@ export const Card: React.FC<CardProps> = ({ card, style: propStyle, className, o
                 </div>
             )}
         </div>
+    );
+});
+
+export const Card: React.FC<CardProps> = ({ card, style: propStyle, className, onContextMenu, faceDown, scale = 1 }) => {
+    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+        id: card.id,
+        data: {
+            cardId: card.id,
+            zoneId: card.zoneId,
+            ownerId: card.ownerId,
+            tapped: card.tapped,
+        }
+    });
+
+    const { transform: propTransform, ...restPropStyle } = propStyle || {};
+
+    // Compose transforms
+    const transformParts: string[] = [];
+    if (typeof propTransform === 'string') transformParts.push(propTransform);
+    if (card.tapped) transformParts.push('rotate(90deg)');
+
+    const style: React.CSSProperties = {
+        ...restPropStyle,
+        transform: transformParts.length ? transformParts.join(' ') : undefined,
+        transformOrigin: 'center center',
+        opacity: isDragging ? 0 : 1, // Hide original when dragging
+    };
+
+    return (
+        <CardView
+            ref={setNodeRef}
+            card={card}
+            style={style}
+            className={className}
+            onContextMenu={onContextMenu}
+            faceDown={faceDown}
+            isDragging={isDragging}
+            onDoubleClick={() => useGameStore.getState().tapCard(card.id)}
+            {...listeners}
+            {...attributes}
+        />
     );
 };

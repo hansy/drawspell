@@ -24,6 +24,7 @@ export const useGameDnD = () => {
     const zones = useGameStore((state) => state.zones);
     const moveCard = useGameStore((state) => state.moveCard);
     const setGhostCard = useDragStore((state) => state.setGhostCard);
+    const setActiveCardId = useDragStore((state) => state.setActiveCardId);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -39,6 +40,9 @@ export const useGameDnD = () => {
 
     const handleDragStart = (event: DragStartEvent) => {
         setGhostCard(null);
+        if (event.active.data.current?.cardId) {
+            setActiveCardId(event.active.data.current.cardId);
+        }
 
         const { active } = event;
         // @ts-ignore - rect is available on active
@@ -108,6 +112,7 @@ export const useGameDnD = () => {
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         setGhostCard(null);
+        setActiveCardId(null);
 
         if (over && active.id !== over.id) {
             const cardId = active.data.current?.cardId as CardId;
