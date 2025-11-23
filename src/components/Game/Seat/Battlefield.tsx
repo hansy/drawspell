@@ -29,7 +29,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
         )}>
             <Zone
                 zone={zone}
-                className="w-full h-full relative bg-[linear-gradient(to_right,#3f3f46_1px,transparent_1px),linear-gradient(to_bottom,#3f3f46_1px,transparent_1px)] [background-size:30px_30px]"
+                className="w-full h-full relative"
                 layout="free-form"
                 scale={scale}
             >

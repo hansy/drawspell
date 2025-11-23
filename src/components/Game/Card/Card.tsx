@@ -34,9 +34,6 @@ export const Card: React.FC<CardProps> = ({ card, style: propStyle, className, o
         const x = transform.x / scale;
         const y = transform.y / scale;
         transformParts.push(`translate3d(${x}px, ${y}px, 0)`);
-        if (isDragging) {
-            console.log(`[Card ${card.name}] Scale: ${scale}, DndTransform: (${transform.x}, ${transform.y}), Applied: (${x}, ${y})`);
-        }
     }
     if (typeof propTransform === 'string') transformParts.push(propTransform);
     if (card.tapped) transformParts.push('rotate(90deg)');

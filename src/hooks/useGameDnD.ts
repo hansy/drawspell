@@ -92,24 +92,7 @@ export const useGameDnD = () => {
                     scale
                 );
 
-                // Debug Logging
-                const cursorScreen = {
-                    x: dragPointerStart.current.x + event.delta.x,
-                    y: dragPointerStart.current.y + event.delta.y
-                };
-                const cardStartPos = activeCard?.position || { x: 0, y: 0 };
-                const cardCurrentPos = {
-                    x: cardStartPos.x + (event.delta.x / scale),
-                    y: cardStartPos.y + (event.delta.y / scale)
-                };
 
-                console.log('--- Drag Debug ---');
-                console.log(`Scale: ${scale}`);
-                console.log(`Cursor (Screen): (${cursorScreen.x.toFixed(1)}, ${cursorScreen.y.toFixed(1)})`);
-                console.log(`Delta (Screen): (${event.delta.x.toFixed(1)}, ${event.delta.y.toFixed(1)})`);
-                console.log(`Ghost (Zone): (${unsnappedPos.x.toFixed(1)}, ${unsnappedPos.y.toFixed(1)})`);
-                console.log(`Card (Zone Calc): (${cardCurrentPos.x.toFixed(1)}, ${cardCurrentPos.y.toFixed(1)})`);
-                console.log('------------------');
 
                 setGhostCard({
                     zoneId,

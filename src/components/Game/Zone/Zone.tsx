@@ -14,10 +14,15 @@ interface ZoneProps {
 }
 
 export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1 }) => {
-    const ghostCard = useDragStore((state) => state.ghostCard);
-    const isGhostHere = ghostCard?.zoneId === zone.id;
-    const ghostPosition = isGhostHere ? ghostCard.position : undefined;
-    const ghostTapped = isGhostHere ? ghostCard.tapped : undefined;
+    const ghostState = useDragStore((state) => {
+        if (state.ghostCard?.zoneId === zone.id) {
+            return state.ghostCard;
+        }
+        return null;
+    });
+
+    const ghostPosition = ghostState?.position;
+    const ghostTapped = ghostState?.tapped;
 
     const { setNodeRef, isOver } = useDroppable({
         id: zone.id,
@@ -55,7 +60,7 @@ export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 
             {children}
             {ghostPosition && (
                 <div
-                    className="absolute border-2 border-dashed border-indigo-400/50 bg-indigo-500/10 rounded-lg pointer-events-none z-0 transition-all duration-75"
+                    className="absolute border-2 border-dashed border-indigo-400/50 bg-indigo-500/10 rounded-lg pointer-events-none z-0"
                     style={{
                         width: CARD_WIDTH_PX,
                         height: CARD_HEIGHT_PX,
