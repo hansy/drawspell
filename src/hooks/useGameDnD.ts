@@ -190,6 +190,13 @@ export const useGameDnD = () => {
                     return;
                 }
 
+                // Non-battlefield zones ignore geometry/size so cards can always be dropped to the owner's zones.
+                if (targetZone.type !== 'battlefield') {
+                    moveCard(cardId, toZoneId);
+                    return;
+                }
+
+                // Battlefield keeps positional logic and bounds clamping.
                 // @ts-ignore - over.rect is available at runtime
                 const overRect = over.rect as any;
                 const scale = over.data.current?.scale || 1;
