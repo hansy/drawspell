@@ -5,6 +5,8 @@ import { cn } from '../../../lib/utils';
 import { useGameStore } from '../../../store/gameStore';
 import { CARD_HEIGHT, CARD_ASPECT_RATIO } from '../../../lib/constants';
 
+import { CardPreview } from './CardPreview';
+
 interface CardProps {
     card: CardType;
     style?: React.CSSProperties;
@@ -22,6 +24,8 @@ export interface CardViewProps {
     faceDown?: boolean;
     isDragging?: boolean;
     onDoubleClick?: () => void;
+    onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void;
+    onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(({
@@ -32,6 +36,8 @@ export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(({
     faceDown,
     isDragging,
     onDoubleClick,
+    onMouseEnter,
+    onMouseLeave,
     ...props
 }, ref) => {
     return (
@@ -49,6 +55,8 @@ export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(({
             )}
             onDoubleClick={onDoubleClick}
             onContextMenu={onContextMenu}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
             {...props}
         >
             {faceDown ? (
@@ -100,18 +108,63 @@ export const Card: React.FC<CardProps> = ({ card, style: propStyle, className, o
         opacity: isDragging ? 0 : 1, // Hide original when dragging
     };
 
+    // Hover Logic
+    const [isHovered, setIsHovered] = React.useState(false);
+    const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null);
+    const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+    const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (isDragging || faceDown) return;
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        setAnchorRect(rect);
+
+        if (card.zoneId.includes('hand')) {
+            setIsHovered(true);
+        } else if (card.zoneId.includes('battlefield')) {
+            hoverTimeoutRef.current = setTimeout(() => {
+                setIsHovered(true);
+            }, 250);
+        }
+    };
+
+    const handleMouseLeave = () => {
+        if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
+            hoverTimeoutRef.current = null;
+        }
+        setIsHovered(false);
+        setAnchorRect(null);
+    };
+
+    // Cleanup on unmount
+    React.useEffect(() => {
+        return () => {
+            if (hoverTimeoutRef.current) {
+                clearTimeout(hoverTimeoutRef.current);
+            }
+        };
+    }, []);
+
     return (
-        <CardView
-            ref={setNodeRef}
-            card={card}
-            style={style}
-            className={className}
-            onContextMenu={onContextMenu}
-            faceDown={faceDown}
-            isDragging={isDragging}
-            onDoubleClick={() => useGameStore.getState().tapCard(card.id)}
-            {...listeners}
-            {...attributes}
-        />
+        <>
+            <CardView
+                ref={setNodeRef}
+                card={card}
+                style={style}
+                className={className}
+                onContextMenu={onContextMenu}
+                faceDown={faceDown}
+                isDragging={isDragging}
+                onDoubleClick={() => useGameStore.getState().tapCard(card.id)}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+                {...listeners}
+                {...attributes}
+            />
+            {isHovered && anchorRect && !isDragging && (
+                <CardPreview card={card} anchorRect={anchorRect} />
+            )}
+        </>
     );
 };
