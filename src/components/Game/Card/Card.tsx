@@ -20,6 +20,7 @@ export interface CardViewProps {
     card: CardType;
     style?: React.CSSProperties;
     className?: string;
+    imageClassName?: string;
     onContextMenu?: (e: React.MouseEvent) => void;
     faceDown?: boolean;
     isDragging?: boolean;
@@ -32,6 +33,7 @@ export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(({
     card,
     style,
     className,
+    imageClassName,
     onContextMenu,
     faceDown,
     isDragging,
@@ -64,7 +66,7 @@ export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(({
                     {/* Optional: Overlay or just use image */}
                 </div>
             ) : card.imageUrl ? (
-                <img src={card.imageUrl} alt={card.name} className="w-full h-full object-cover rounded pointer-events-none" />
+                <img src={card.imageUrl} alt={card.name} className={cn("w-full h-full object-cover rounded pointer-events-none", imageClassName)} />
             ) : (
                 <div className="text-xs text-center font-medium text-zinc-300">{card.name}</div>
             )}

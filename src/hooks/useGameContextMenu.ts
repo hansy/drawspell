@@ -2,7 +2,7 @@ import React from 'react';
 import { useGameStore } from '../store/gameStore';
 import { ZoneId } from '../types';
 
-export const useGameContextMenu = (myPlayerId: string) => {
+export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: ZoneId, count?: number) => void) => {
     const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; items: any[] } | null>(null);
     const zones = useGameStore((state) => state.zones);
     const moveCard = useGameStore((state) => state.moveCard);
@@ -48,11 +48,35 @@ export const useGameContextMenu = (myPlayerId: string) => {
 
     const handleZoneContextMenu = (e: React.MouseEvent, zoneId: ZoneId) => {
         const zone = zones[zoneId];
-        if (zone && zone.type === 'library') {
-            handleContextMenu(e, [
+        if (!zone) return;
+
+        const items: any[] = [];
+
+        if (zone.type === 'library') {
+            items.push(
                 { label: 'Draw Card', action: () => useGameStore.getState().drawCard(myPlayerId) },
                 { label: 'Shuffle Library', action: () => useGameStore.getState().shuffleLibrary(myPlayerId) },
-            ]);
+                { label: 'View All', action: () => onViewZone?.(zoneId) },
+                {
+                    label: 'View Top X...', action: () => {
+                        const countStr = window.prompt("How many cards from top?");
+                        if (countStr) {
+                            const count = parseInt(countStr, 10);
+                            if (!isNaN(count) && count > 0) {
+                                onViewZone?.(zoneId, count);
+                            }
+                        }
+                    }
+                }
+            );
+        } else if (zone.type === 'graveyard' || zone.type === 'exile') {
+            items.push(
+                { label: 'View All', action: () => onViewZone?.(zoneId) }
+            );
+        }
+
+        if (items.length > 0) {
+            handleContextMenu(e, items);
         }
     };
 

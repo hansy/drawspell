@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../ui/dialog';
 import { Button } from '../../ui/button';
 import { toast } from 'sonner';
-import { parseDeckList, fetchScryfallCards } from '../../../utils/deckImport';
+import { parseDeckList, fetchScryfallCards, createCardFromImport } from '../../../utils/deckImport';
 import { useGameStore } from '../../../store/gameStore';
-import { v4 as uuidv4 } from 'uuid';
+
 
 interface LoadDeckModalProps {
     isOpen: boolean;
@@ -40,20 +40,13 @@ export const LoadDeckModal: React.FC<LoadDeckModalProps> = ({ isOpen, onClose, p
                     zoneId = `${playerId}-command`;
                 }
 
-                addCard({
-                    id: uuidv4(),
-                    name: cardData.name || 'Unknown Card',
-                    typeLine: cardData.typeLine || 'Card',
-                    imageUrl: cardData.imageUrl,
-                    controllerId: playerId,
-                    ownerId: playerId,
-                    zoneId: zoneId,
-                    position: { x: 0, y: 0 },
-                    tapped: false,
-                    counters: [],
-                    faceDown: zoneId.includes('library'), // Only face down in library
-                    rotation: 0
-                });
+                const newCard = createCardFromImport(cardData, playerId, zoneId);
+                // Override faceDown for library
+                if (zoneId.includes('library')) {
+                    newCard.faceDown = true;
+                }
+
+                addCard(newCard);
             });
 
             setDeckLoaded(playerId, true);

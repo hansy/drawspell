@@ -12,6 +12,7 @@ import { useGameContextMenu } from '../../../hooks/useGameContextMenu';
 
 import { usePlayerLayout } from '../../../hooks/usePlayerLayout';
 import { BattlefieldGridOverlay } from './BattlefieldGridOverlay';
+import { ZoneViewerModal } from '../UI/ZoneViewerModal';
 
 
 
@@ -37,8 +38,17 @@ export const MultiplayerBoard: React.FC = () => {
 
 
 
+    const [zoneViewerState, setZoneViewerState] = useState<{ isOpen: boolean; zoneId: string | null; count?: number }>({
+        isOpen: false,
+        zoneId: null
+    });
+
+    const handleViewZone = (zoneId: string, count?: number) => {
+        setZoneViewerState({ isOpen: true, zoneId, count });
+    };
+
     // Debugging moved to DragMonitor component
-    const { contextMenu, handleCardContextMenu, handleZoneContextMenu, closeContextMenu } = useGameContextMenu(myPlayerId);
+    const { contextMenu, handleCardContextMenu, handleZoneContextMenu, closeContextMenu } = useGameContextMenu(myPlayerId, handleViewZone);
     const hasHydrated = useGameStore((state) => state.hasHydrated);
 
     const [isLoadDeckModalOpen, setIsLoadDeckModalOpen] = useState(false);
@@ -194,6 +204,12 @@ export const MultiplayerBoard: React.FC = () => {
                 isOpen={isLoadDeckModalOpen}
                 onClose={() => setIsLoadDeckModalOpen(false)}
                 playerId={myPlayerId}
+            />
+            <ZoneViewerModal
+                isOpen={zoneViewerState.isOpen}
+                onClose={() => setZoneViewerState(prev => ({ ...prev, isOpen: false }))}
+                zoneId={zoneViewerState.zoneId}
+                count={zoneViewerState.count}
             />
             <DragMonitor />
             <DragOverlay dropAnimation={null}>
