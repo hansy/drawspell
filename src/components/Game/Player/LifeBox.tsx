@@ -9,6 +9,7 @@ interface LifeBoxProps {
   isMe?: boolean;
   className?: string;
   opponentColors: Record<string, string>; // Map of playerId -> color
+  isRight?: boolean;
 }
 
 export const LifeBox: React.FC<LifeBoxProps> = ({
@@ -16,6 +17,7 @@ export const LifeBox: React.FC<LifeBoxProps> = ({
   isMe,
   className,
   opponentColors,
+  isRight,
 }) => {
   const updatePlayer = useGameStore((state) => state.updatePlayer);
 
@@ -56,28 +58,49 @@ export const LifeBox: React.FC<LifeBoxProps> = ({
         {player.name}
       </div>
       {/* Main Life Counter */}
-      <div className="flex items-center gap-[10px] mb-1">
+      <div className="flex items-center gap-1">
         <button
           onClick={() => handleLifeChange(-1)}
-          className="w-6 h-6 rounded-full bg-zinc-700 hover:bg-red-900/50 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+          disabled={player.life <= 0}
+          className={cn(
+            "w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100",
+            player.life <= 0
+              ? "opacity-50 cursor-not-allowed text-zinc-500"
+              : "hover:bg-red-900/50"
+          )}
         >
-          <Minus size={12} />
+          <Minus size={16} />
         </button>
 
-        <div className="text-3xl font-bold font-mono text-center leading-none">
+        <div className="text-4xl font-bold font-mono text-center leading-none">
           {player.life}
         </div>
 
         <button
           onClick={() => handleLifeChange(1)}
-          className="w-6 h-6 rounded-full bg-zinc-700 hover:bg-green-900/50 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+          className="w-8 h-8 rounded-full bg-zinc-700 hover:bg-green-900/50 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
         >
-          <Plus size={12} />
+          <Plus size={16} />
         </button>
       </div>
 
-      {/* Commander Damage Rows */}
-      <div className="flex gap-3 mt-1">
+      {/* Commander Damage Drawer */}
+      <div
+        className={cn(
+          "absolute top-1/2 -translate-y-1/2 h-auto py-4 px-4 bg-zinc-900/95 border border-zinc-700 rounded-lg shadow-xl backdrop-blur-md",
+          "flex flex-col gap-3 transition-all duration-200 ease-in-out",
+          "opacity-0 invisible group-hover:opacity-100 group-hover:visible",
+          // Position based on seat side
+          isRight
+            ? "right-full mr-4 origin-right"
+            : "left-full ml-4 origin-left"
+        )}
+      >
+        {/* Label straddling top border */}
+        <div className="absolute left-1/2 -translate-x-1/2 bg-zinc-900 px-2 text-xs font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full z-10 -top-2.5 shadow-sm">
+          CMDR DMG
+        </div>
+
         {Object.entries(opponentColors).map(([opponentId, color]) => {
           // Don't show own commander damage tracking (usually)
           if (opponentId === player.id) return null;
@@ -87,31 +110,36 @@ export const LifeBox: React.FC<LifeBoxProps> = ({
           return (
             <div
               key={opponentId}
-              className="flex flex-col items-center gap-0.5 group/cmd"
+              className="flex items-center justify-center gap-4 group/cmd"
             >
-              <div className={`w-2 h-2 rounded-full bg-${color}-500`} />
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handleCommanderDamageChange(opponentId, -1)}
-                  className="text-zinc-600 hover:text-zinc-300 opacity-0 group-hover/cmd:opacity-100 transition-opacity"
-                >
-                  <Minus size={8} />
-                </button>
-                <span
-                  className={cn(
-                    "text-xs font-mono font-medium",
-                    damage > 0 ? "text-zinc-300" : "text-zinc-600"
-                  )}
-                >
-                  {damage}
-                </span>
-                <button
-                  onClick={() => handleCommanderDamageChange(opponentId, 1)}
-                  className="text-zinc-600 hover:text-zinc-300 opacity-0 group-hover/cmd:opacity-100 transition-opacity"
-                >
-                  <Plus size={8} />
-                </button>
-              </div>
+              <button
+                onClick={() => handleCommanderDamageChange(opponentId, -1)}
+                disabled={damage <= 0}
+                className={cn(
+                  "w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 transition-colors",
+                  damage <= 0
+                    ? "opacity-50 text-zinc-600"
+                    : "hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200"
+                )}
+              >
+                <Minus size={14} />
+              </button>
+
+              <span
+                className={cn(
+                  "text-xl font-mono font-bold w-8 text-center",
+                  `text-${color}-500`
+                )}
+              >
+                {damage}
+              </span>
+
+              <button
+                onClick={() => handleCommanderDamageChange(opponentId, 1)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
+              >
+                <Plus size={14} />
+              </button>
             </div>
           );
         })}

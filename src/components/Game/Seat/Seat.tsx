@@ -110,6 +110,7 @@ export const Seat: React.FC<SeatProps> = ({
               isMe={isMe}
               className="origin-center"
               opponentColors={opponentColors}
+              isRight={isRight}
             />
           </div>
 
