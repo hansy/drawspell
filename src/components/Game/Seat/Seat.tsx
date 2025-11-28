@@ -69,21 +69,19 @@ export const Seat: React.FC<SeatProps> = ({
   return (
     <div
       className={cn(
-        "relative w-full h-full border-zinc-800",
+        "relative w-full h-full",
         // Add borders based on position to create the grid lines
-        position === "bottom-left" && "border-r border-t",
-        position === "bottom-right" && "border-l border-t",
-        position === "top-left" && "border-r border-b",
-        position === "top-right" && "border-l border-b",
-        // Background tint
-        `bg-${color}-950/10`,
+        // position === "bottom-left" && "border-r border-t",
+        // position === "bottom-right" && "border-l border-t",
+        // position === "top-left" && "border-r border-b",
+        // position === "top-right" && "border-l border-b",
         className
       )}
     >
       {/* Scaled Wrapper */}
       <div
         className={cn(
-          "flex w-full h-full",
+          "flex w-full h-full relative",
           isRight && "flex-row-reverse" // If on right, flip so sidebar is on right (edge)
         )}
         style={{
@@ -93,6 +91,24 @@ export const Seat: React.FC<SeatProps> = ({
           transformOrigin: "top left",
         }}
       >
+        {/* Neon Border Glow */}
+        <div
+          className={cn(
+            "absolute inset-0 pointer-events-none",
+            // Base border
+            "border",
+            // Inset Glow
+            "shadow-[inset_0_0_20px_var(--tw-shadow-color)]",
+            "",
+
+            // Color variants
+            color === "rose" && "border-rose-900/20 shadow-rose-400/90",
+            color === "violet" && "border-violet-900/20 shadow-violet-400/90",
+            color === "sky" && "border-sky-900/20 shadow-sky-400/90",
+            color === "amber" && "border-amber-900/20 shadow-amber-400/90"
+          )}
+        />
+
         {/* Sidebar */}
         <div
           className={cn(
@@ -170,7 +186,12 @@ export const Seat: React.FC<SeatProps> = ({
         </div>
 
         {/* Main Area */}
-        <div className="flex-1 relative flex flex-col">
+        <div
+          className={cn(
+            "flex-1 relative flex flex-col",
+            isTop ? "border-b border-white/5" : "border-t border-white/5"
+          )}
+        >
           {battlefieldZone && (
             <Battlefield
               zone={battlefieldZone}
@@ -202,6 +223,7 @@ export const Seat: React.FC<SeatProps> = ({
                 zone={handZone}
                 cards={handCards}
                 isTop={isTop}
+                isRight={isRight}
                 isMe={isMe}
                 onCardContextMenu={onCardContextMenu}
                 scale={scale}

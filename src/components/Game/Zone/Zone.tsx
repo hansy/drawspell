@@ -5,6 +5,8 @@ import { cn } from '../../../lib/utils';
 import { CARD_WIDTH_PX, CARD_HEIGHT_PX } from '../../../lib/constants';
 import { useDragStore } from '../../../store/dragStore';
 import { ZONE } from '../../../constants/zones';
+import { useGameStore } from '../../../store/gameStore';
+import { canMoveCard } from '../../../rules/permissions';
 
 interface ZoneProps {
     zone: ZoneType;
@@ -15,6 +17,10 @@ interface ZoneProps {
 }
 
 export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1 }) => {
+    const cards = useGameStore((state) => state.cards);
+    const zones = useGameStore((state) => state.zones);
+    const myPlayerId = useGameStore((state) => state.myPlayerId);
+
     const ghostState = useDragStore((state) => {
         if (state.ghostCard?.zoneId === zone.id) {
             return state.ghostCard;
@@ -40,13 +46,24 @@ export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 
     const isValidDrop = React.useMemo(() => {
         if (!active || !isOver) return false;
 
-        // Permission Check
-        const cardOwnerId = active.data.current?.ownerId;
-        const isBattlefield = zone.type === ZONE.BATTLEFIELD;
-        const isOwner = zone.ownerId === cardOwnerId;
+        const cardId = active.data.current?.cardId as string | undefined;
+        if (!cardId) return false;
 
-        return isBattlefield || isOwner;
-    }, [active, isOver, zone.type, zone.ownerId]);
+        const card = cards[cardId];
+        if (!card) return false;
+
+        const fromZone = zones[card.zoneId];
+        if (!fromZone) return false;
+
+        const permission = canMoveCard({
+            actorId: myPlayerId,
+            card,
+            fromZone,
+            toZone: zone
+        });
+
+        return permission.allowed;
+    }, [active, cards, isOver, myPlayerId, zone, zones]);
 
     return (
         <div

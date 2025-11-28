@@ -13,6 +13,7 @@ import { Card } from "../../../types";
 import { ContextMenu, ContextMenuItem } from "./ContextMenu";
 import { buildZoneMoveActions } from "../context/menu";
 import { ZONE } from "../../../constants/zones";
+import { canViewZone } from "../../../rules/permissions";
 
 interface ZoneViewerModalProps {
     isOpen: boolean;
@@ -32,6 +33,7 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
     const cards = useGameStore((state) => state.cards);
     const moveCard = useGameStore((state) => state.moveCard);
     const moveCardToBottom = useGameStore((state) => state.moveCardToBottom);
+    const myPlayerId = useGameStore((state) => state.myPlayerId);
 
     const [contextMenu, setContextMenu] = useState<{
         x: number;
@@ -43,6 +45,7 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
     const containerRef = React.useRef<HTMLDivElement>(null);
 
     const zone = zoneId ? zones[zoneId] : null;
+    const canView = zone ? canViewZone({ actorId: myPlayerId }, zone, { viewAll: !count }) : null;
 
     const viewMode = useMemo(() => {
         if (zone?.type === ZONE.LIBRARY && !count) return "grouped";
@@ -124,7 +127,14 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
         if (!zone) return;
 
         const items: ContextMenuItem[] = zone
-            ? buildZoneMoveActions(card, zone, zones, moveCard, moveCardToBottom)
+            ? buildZoneMoveActions(
+                card,
+                zone,
+                zones,
+                myPlayerId,
+                (cardId, toZoneId) => moveCard(cardId, toZoneId, undefined, myPlayerId),
+                (cardId, toZoneId) => moveCardToBottom(cardId, toZoneId, myPlayerId)
+            )
             : [];
 
         if (items.length > 0 && containerRef.current) {
@@ -138,7 +148,7 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
         }
     };
 
-    if (!zone) return null;
+    if (!zone || (canView && !canView.allowed)) return null;
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>

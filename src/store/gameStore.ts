@@ -7,6 +7,7 @@ import { getSnappedPosition, SNAP_GRID_SIZE } from '../lib/snapping';
 import { CARD_HEIGHT_PX, CARD_WIDTH_PX } from '../lib/constants';
 import { getZoneByType } from '../lib/gameSelectors';
 import { ZONE } from '../constants/zones';
+import { canMoveCard, canTapCard } from '../rules/permissions';
 
 interface GameStore extends GameState {
     // Additional actions or computed properties can go here
@@ -85,23 +86,30 @@ export const useGameStore = create<GameStore>()(
                 if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'updateCard', args: [id, updates] } });
             },
 
-            moveCard: (cardId, toZoneId, position, isRemote) => {
+            moveCard: (cardId, toZoneId, position, actorId, isRemote) => {
+                const actor = actorId ?? get().myPlayerId;
+                const snapshot = get();
+                const card = snapshot.cards[cardId];
+                if (!card) return;
+
+                const fromZoneId = card.zoneId;
+                const fromZone = snapshot.zones[fromZoneId];
+                const toZone = snapshot.zones[toZoneId];
+
+                if (!fromZone || !toZone) return;
+
+                const permission = canMoveCard({ actorId: actor, card, fromZone, toZone });
+                if (!permission.allowed) {
+                    console.warn(permission.reason || 'Move denied', { cardId, toZoneId, actor });
+                    return;
+                }
+
                 set((state) => {
-                    const card = state.cards[cardId];
-                    if (!card) return state;
-
-                    const fromZoneId = card.zoneId;
-                    const fromZone = state.zones[fromZoneId];
-                    const toZone = state.zones[toZoneId];
-
-                    if (!fromZone || !toZone) return state;
-
                     // Calculate new position with snapping and collision handling
                     let newPosition = position || { x: 0, y: 0 };
                     const cardsCopy = { ...state.cards };
 
                     // Only apply snapping/collision if moving to a battlefield (which is free-form)
-                    // We assume 'battlefield' type zones are free-form.
                     if (toZone.type === ZONE.BATTLEFIELD && position) {
                         // Snap center to grid (edge-aligned)
                         newPosition = getSnappedPosition(position.x, position.y);
@@ -161,23 +169,21 @@ export const useGameStore = create<GameStore>()(
                         };
                         return {
                             cards: cardsCopy,
-                            // No change to zones needed if order doesn't matter or is handled elsewhere
-                            // If we want to move to end of array (reorder):
                             zones: {
                                 ...state.zones,
                                 [fromZoneId]: {
-                                    ...fromZone,
-                                    cardIds: [...fromZone.cardIds.filter(id => id !== cardId), cardId]
+                                    ...state.zones[fromZoneId],
+                                    cardIds: [...state.zones[fromZoneId].cardIds.filter(id => id !== cardId), cardId]
                                 }
                             }
                         };
                     }
 
                     // Remove from old zone
-                    const newFromZoneCardIds = fromZone.cardIds.filter((id) => id !== cardId);
+                    const newFromZoneCardIds = state.zones[fromZoneId].cardIds.filter((id) => id !== cardId);
 
                     // Add to new zone
-                    const newToZoneCardIds = [...toZone.cardIds, cardId];
+                    const newToZoneCardIds = [...state.zones[toZoneId].cardIds, cardId];
 
                     cardsCopy[cardId] = {
                         ...card,
@@ -189,29 +195,36 @@ export const useGameStore = create<GameStore>()(
                         cards: cardsCopy,
                         zones: {
                             ...state.zones,
-                            [fromZoneId]: { ...fromZone, cardIds: newFromZoneCardIds },
-                            [toZoneId]: { ...toZone, cardIds: newToZoneCardIds },
+                            [fromZoneId]: { ...state.zones[fromZoneId], cardIds: newFromZoneCardIds },
+                            [toZoneId]: { ...state.zones[toZoneId], cardIds: newToZoneCardIds },
                         },
                     };
                 });
-                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'moveCard', args: [cardId, toZoneId, position] } });
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'moveCard', args: [cardId, toZoneId, position, actor] } });
             },
 
-            moveCardToBottom: (cardId, toZoneId, isRemote) => {
+            moveCardToBottom: (cardId, toZoneId, actorId, isRemote) => {
+                const actor = actorId ?? get().myPlayerId;
+                const snapshot = get();
+                const card = snapshot.cards[cardId];
+                if (!card) return;
+
+                const fromZoneId = card.zoneId;
+                const fromZone = snapshot.zones[fromZoneId];
+                const toZone = snapshot.zones[toZoneId];
+                if (!fromZone || !toZone) return;
+
+                const permission = canMoveCard({ actorId: actor, card, fromZone, toZone });
+                if (!permission.allowed) {
+                    console.warn(permission.reason || 'Move denied', { cardId, toZoneId, actor });
+                    return;
+                }
+
                 set((state) => {
-                    const card = state.cards[cardId];
-                    if (!card) return state;
-
-                    const fromZoneId = card.zoneId;
-                    const fromZone = state.zones[fromZoneId];
-                    const toZone = state.zones[toZoneId];
-
-                    if (!fromZone || !toZone) return state;
-
                     const cardsCopy = { ...state.cards };
 
                     // Remove from old zone
-                    const newFromZoneCardIds = fromZone.cardIds.filter((id) => id !== cardId);
+                    const newFromZoneCardIds = state.zones[fromZoneId].cardIds.filter((id) => id !== cardId);
 
                     // Add to new zone (at the beginning/bottom)
                     // If moving within same zone, we still filter out and then unshift
@@ -219,7 +232,7 @@ export const useGameStore = create<GameStore>()(
                     if (fromZoneId === toZoneId) {
                         newToZoneCardIds = [cardId, ...newFromZoneCardIds];
                     } else {
-                        newToZoneCardIds = [cardId, ...toZone.cardIds];
+                        newToZoneCardIds = [cardId, ...state.zones[toZoneId].cardIds];
                     }
 
                     cardsCopy[cardId] = {
@@ -231,26 +244,36 @@ export const useGameStore = create<GameStore>()(
                         cards: cardsCopy,
                         zones: {
                             ...state.zones,
-                            [fromZoneId]: { ...fromZone, cardIds: newFromZoneCardIds },
-                            [toZoneId]: { ...toZone, cardIds: newToZoneCardIds },
+                            [fromZoneId]: { ...state.zones[fromZoneId], cardIds: newFromZoneCardIds },
+                            [toZoneId]: { ...state.zones[toZoneId], cardIds: newToZoneCardIds },
                         },
                     };
                 });
-                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'moveCardToBottom', args: [cardId, toZoneId] } });
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'moveCardToBottom', args: [cardId, toZoneId, actor] } });
             },
 
-            tapCard: (cardId, isRemote) => {
+            tapCard: (cardId, actorId, isRemote) => {
+                const actor = actorId ?? get().myPlayerId;
+                const card = get().cards[cardId];
+                if (!card) return;
+
+                const permission = canTapCard({ actorId: actor }, card);
+                if (!permission.allowed) {
+                    console.warn(permission.reason || 'Tap denied', { cardId, actor });
+                    return;
+                }
+
                 set((state) => {
-                    const card = state.cards[cardId];
-                    if (!card) return state;
+                    const next = state.cards[cardId];
+                    if (!next) return state;
                     return {
                         cards: {
                             ...state.cards,
-                            [cardId]: { ...card, tapped: !card.tapped },
+                            [cardId]: { ...next, tapped: !next.tapped },
                         },
                     };
                 });
-                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'tapCard', args: [cardId] } });
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'tapCard', args: [cardId, actor] } });
             },
 
             untapAll: (playerId, isRemote) => {
@@ -274,7 +297,7 @@ export const useGameStore = create<GameStore>()(
                 if (!libraryZone || !handZone || libraryZone.cardIds.length === 0) return;
 
                 const cardId = libraryZone.cardIds[libraryZone.cardIds.length - 1];
-                state.moveCard(cardId, handZone.id);
+                state.moveCard(cardId, handZone.id, undefined, playerId);
             },
 
             shuffleLibrary: (playerId, isRemote) => {

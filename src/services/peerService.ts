@@ -81,11 +81,15 @@ class PeerService {
                 useGameStore.setState(message.payload);
                 break;
             case 'ACTION':
-                const { action, args } = message.payload;
+                const { action, args, actorId } = message.payload as any;
                 const store = useGameStore.getState() as any;
                 if (typeof store[action] === 'function') {
-                    // Call action with isRemote = true
-                    store[action](...args, true);
+                    // Call action with isRemote = true; pass actorId when provided to preserve permission checks.
+                    if (actorId !== undefined) {
+                        store[action](...args, actorId, true);
+                    } else {
+                        store[action](...args, true);
+                    }
                 }
                 break;
         }

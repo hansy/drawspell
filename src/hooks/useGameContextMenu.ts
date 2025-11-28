@@ -23,8 +23,8 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
             card,
             zones,
             myPlayerId,
-            moveCard,
-            tapCard: (cardId) => useGameStore.getState().tapCard(cardId),
+            moveCard: (cardId, toZoneId) => moveCard(cardId, toZoneId, undefined, myPlayerId),
+            tapCard: (cardId) => useGameStore.getState().tapCard(cardId, myPlayerId),
             addCounter: (cardId) => {
                 const { cards, updateCard } = useGameStore.getState();
                 const existing = cards[cardId];

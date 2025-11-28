@@ -161,7 +161,10 @@ export const Card: React.FC<CardProps> = ({
         onContextMenu={onContextMenu}
         faceDown={faceDown}
         isDragging={isDragging}
-        onDoubleClick={() => useGameStore.getState().tapCard(card.id)}
+        onDoubleClick={() => {
+          const state = useGameStore.getState();
+          state.tapCard(card.id, state.myPlayerId);
+        }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...listeners}

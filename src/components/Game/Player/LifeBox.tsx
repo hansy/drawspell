@@ -87,7 +87,7 @@ export const LifeBox: React.FC<LifeBoxProps> = ({
       {/* Commander Damage Drawer */}
       <div
         className={cn(
-          "absolute top-1/2 -translate-y-1/2 h-auto py-4 px-4 bg-zinc-900/95 border border-zinc-700 rounded-lg shadow-xl backdrop-blur-md",
+          "absolute top-1/2 -translate-y-1/2 h-auto py-4 px-4 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl backdrop-blur-sm",
           "flex flex-col gap-3 transition-all duration-200 ease-in-out",
           "opacity-0 invisible group-hover:opacity-100 group-hover:visible",
           // Position based on seat side
@@ -128,7 +128,10 @@ export const LifeBox: React.FC<LifeBoxProps> = ({
               <span
                 className={cn(
                   "text-xl font-mono font-bold w-8 text-center",
-                  `text-${color}-500`
+                  color === "rose" && "text-rose-500/70",
+                  color === "violet" && "text-violet-500/70",
+                  color === "sky" && "text-sky-500/70",
+                  color === "amber" && "text-amber-500/70"
                 )}
               >
                 {damage}

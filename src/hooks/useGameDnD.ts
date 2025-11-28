@@ -14,7 +14,6 @@ import {
     getEventCoordinates,
     calculatePointerOffset,
     calculateRelativePosition,
-    canDropToZone,
     DragPosition,
     DragOffset
 } from '../lib/dnd';
@@ -22,6 +21,7 @@ import { getSnappedPosition } from '../lib/snapping';
 import { CARD_HEIGHT_PX, CARD_WIDTH_PX } from '../lib/constants';
 import { cardFitsWithinZone, clampToZoneBounds } from '../lib/dndMath';
 import { ZONE } from '../constants/zones';
+import { canMoveCard } from '../rules/permissions';
 
 export const useGameDnD = () => {
     const cards = useGameStore((state) => state.cards);
@@ -29,6 +29,7 @@ export const useGameDnD = () => {
     const moveCard = useGameStore((state) => state.moveCard);
     const setGhostCard = useDragStore((state) => state.setGhostCard);
     const setActiveCardId = useDragStore((state) => state.setActiveCardId);
+    const myPlayerId = useGameStore((state) => state.myPlayerId);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -109,8 +110,20 @@ export const useGameDnD = () => {
         if (over.data.current?.type === ZONE.BATTLEFIELD) {
             const zoneId = over.id as string;
             const targetZone = zones[zoneId];
+            const fromZone = activeCard ? zones[activeCard.zoneId] : undefined;
 
-            if (activeCard && targetZone) {
+            if (activeCard && targetZone && fromZone) {
+                const permission = canMoveCard({
+                    actorId: myPlayerId,
+                    card: activeCard,
+                    fromZone,
+                    toZone: targetZone
+                });
+                if (!permission.allowed) {
+                    setGhostCard(null);
+                    return;
+                }
+
                 // @ts-ignore - over.rect is available at runtime
                 const overRect = over.rect as any;
                 const scale = over.data.current?.scale || 1;
@@ -185,16 +198,23 @@ export const useGameDnD = () => {
 
             const activeCard = cards[cardId];
             const targetZone = zones[toZoneId];
+            const fromZone = activeCard ? zones[activeCard.zoneId] : undefined;
 
-            if (cardId && toZoneId && activeCard && targetZone) {
-                if (!canDropToZone(activeCard, targetZone)) {
-                    console.warn('Permission denied: Cannot move card to this zone.');
+            if (cardId && toZoneId && activeCard && targetZone && fromZone) {
+                const permission = canMoveCard({
+                    actorId: myPlayerId,
+                    card: activeCard,
+                    fromZone,
+                    toZone: targetZone
+                });
+                if (!permission.allowed) {
+                    console.warn(permission.reason || 'Permission denied: Cannot move card to this zone.');
                     return;
                 }
 
                 // Non-battlefield zones ignore geometry/size so cards can always be dropped to the owner's zones.
                 if (targetZone.type !== ZONE.BATTLEFIELD) {
-                    moveCard(cardId, toZoneId);
+                    moveCard(cardId, toZoneId, undefined, myPlayerId);
                     return;
                 }
 
@@ -243,7 +263,7 @@ export const useGameDnD = () => {
                     cardHeight
                 );
 
-                moveCard(cardId, toZoneId, snappedPos);
+                moveCard(cardId, toZoneId, snappedPos, myPlayerId);
             }
         }
 
