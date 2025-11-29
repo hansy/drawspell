@@ -340,6 +340,43 @@ export const useGameStore = create<GameStore>()(
                 if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'moveCardToBottom', args: [cardId, toZoneId], actorId: actor } });
             },
 
+            removeCard: (cardId, actorId, isRemote) => {
+                const actor = actorId ?? get().myPlayerId;
+                const snapshot = get();
+                const card = snapshot.cards[cardId];
+                if (!card) return;
+
+                const zone = snapshot.zones[card.zoneId];
+                if (!zone) return;
+
+                if (!card.isToken) {
+                    logPermission({ action: 'removeCard', actorId: actor, allowed: false, reason: 'Direct remove is allowed only for tokens', details: { cardId } });
+                    return;
+                }
+
+                const actorIsOwner = actor === card.ownerId;
+                const actorIsZoneHost = actor === zone.ownerId;
+                if (!actorIsOwner && !actorIsZoneHost) {
+                    logPermission({ action: 'removeCard', actorId: actor, allowed: false, reason: 'Only owner or zone host may remove this token', details: { cardId } });
+                    return;
+                }
+
+                set((state) => {
+                    const nextCards = { ...state.cards };
+                    delete nextCards[cardId];
+
+                    const nextZones = {
+                        ...state.zones,
+                        [zone.id]: { ...zone, cardIds: zone.cardIds.filter(id => id !== cardId) }
+                    };
+
+                    return { cards: nextCards, zones: nextZones };
+                });
+
+                logPermission({ action: 'removeCard', actorId: actor, allowed: true, details: { cardId } });
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'removeCard', args: [cardId], actorId: actor } });
+            },
+
             reorderZoneCards: (zoneId, orderedCardIds, actorId, isRemote) => {
                 const actor = actorId ?? get().myPlayerId;
                 const zone = get().zones[zoneId];
@@ -480,6 +517,115 @@ export const useGameStore = create<GameStore>()(
                 });
                 logPermission({ action: 'shuffleLibrary', actorId: actor, allowed: true, details: { playerId } });
                 if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'shuffleLibrary', args: [playerId], actorId: actor } });
+            },
+
+            resetDeck: (playerId, actorId, isRemote) => {
+                const actor = actorId ?? playerId;
+                const state = get();
+                const libraryZone = getZoneByType(state.zones, playerId, ZONE.LIBRARY);
+                if (!libraryZone) return;
+
+                const viewPermission = canViewZone({ actorId: actor }, libraryZone, { viewAll: true });
+                if (!viewPermission.allowed) {
+                    logPermission({
+                        action: 'resetDeck',
+                        actorId: actor,
+                        allowed: false,
+                        reason: viewPermission.reason,
+                        details: { playerId }
+                    });
+                    return;
+                }
+
+                set((current) => {
+                    const nextCards = { ...current.cards };
+                    const nextZones = { ...current.zones };
+
+                    const ownedCards = Object.values(current.cards).filter(card => card.ownerId === playerId);
+                    const libraryKeeps = nextZones[libraryZone.id]?.cardIds.filter(id => {
+                        const card = nextCards[id];
+                        return card && card.ownerId !== playerId;
+                    }) ?? [];
+
+                    const toLibrary: string[] = [];
+
+                    ownedCards.forEach(card => {
+                        const fromZone = nextZones[card.zoneId];
+                        if (fromZone) {
+                            nextZones[card.zoneId] = {
+                                ...fromZone,
+                                cardIds: fromZone.cardIds.filter(id => id !== card.id),
+                            };
+                        }
+
+                        if (card.isToken) {
+                            delete nextCards[card.id];
+                            return;
+                        }
+
+                        nextCards[card.id] = {
+                            ...card,
+                            zoneId: libraryZone.id,
+                            tapped: false,
+                            faceDown: false,
+                            position: { x: 0, y: 0 },
+                        };
+                        toLibrary.push(card.id);
+                    });
+
+                    const shuffled = [...libraryKeeps, ...toLibrary].sort(() => Math.random() - 0.5);
+                    nextZones[libraryZone.id] = { ...nextZones[libraryZone.id], cardIds: shuffled };
+
+                    return { cards: nextCards, zones: nextZones };
+                });
+
+                logPermission({ action: 'resetDeck', actorId: actor, allowed: true, details: { playerId } });
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'resetDeck', args: [playerId], actorId: actor } });
+            },
+
+            unloadDeck: (playerId, actorId, isRemote) => {
+                const actor = actorId ?? playerId;
+                const state = get();
+                const libraryZone = getZoneByType(state.zones, playerId, ZONE.LIBRARY);
+                if (!libraryZone) return;
+
+                const viewPermission = canViewZone({ actorId: actor }, libraryZone, { viewAll: true });
+                if (!viewPermission.allowed) {
+                    logPermission({
+                        action: 'unloadDeck',
+                        actorId: actor,
+                        allowed: false,
+                        reason: viewPermission.reason,
+                        details: { playerId }
+                    });
+                    return;
+                }
+
+                set((current) => {
+                    const nextCards = { ...current.cards };
+                    const nextZones: typeof current.zones = {};
+
+                    const removeIds = new Set(Object.values(current.cards).filter(card => card.ownerId === playerId).map(card => card.id));
+
+                    Object.values(current.zones).forEach(zone => {
+                        const filteredIds = zone.cardIds.filter(id => !removeIds.has(id));
+                        nextZones[zone.id] = { ...zone, cardIds: filteredIds };
+                    });
+
+                    removeIds.forEach(id => { delete nextCards[id]; });
+
+                    const nextPlayers = current.players[playerId]
+                        ? {
+                            ...current.players,
+                            [playerId]: { ...current.players[playerId], deckLoaded: false }
+                        }
+                        : current.players;
+
+                    return { cards: nextCards, zones: nextZones, players: nextPlayers };
+                });
+
+                logPermission({ action: 'unloadDeck', actorId: actor, allowed: true, details: { playerId } });
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'unloadDeck', args: [playerId], actorId: actor } });
             }
         }),
         {

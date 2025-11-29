@@ -187,6 +187,8 @@ export const MultiplayerBoard: React.FC = () => {
                                         onLoadDeck={() => setIsLoadDeckModalOpen(true)}
                                         opponentColors={playerColors}
                                         scale={scale}
+                                        onViewZone={handleViewZone}
+                                        onDrawCard={(playerId) => useGameStore.getState().drawCard(playerId, myPlayerId)}
                                     />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-zinc-800 font-bold text-2xl uppercase tracking-widest select-none">

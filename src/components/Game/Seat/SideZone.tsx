@@ -11,6 +11,8 @@ interface SideZoneProps {
   label: string;
   count: number;
   onContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
+  onClick?: (e: React.MouseEvent, zoneId: ZoneId) => void;
+  onDoubleClick?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   emptyContent?: React.ReactNode;
   cardClassName?: string;
   faceDown?: boolean;
@@ -23,6 +25,8 @@ export const SideZone: React.FC<SideZoneProps> = ({
   label,
   count,
   onContextMenu,
+  onClick,
+  onDoubleClick,
   emptyContent,
   cardClassName,
   faceDown,
@@ -31,6 +35,8 @@ export const SideZone: React.FC<SideZoneProps> = ({
     <div
       className="relative group"
       onContextMenu={(e) => onContextMenu?.(e, zone.id)}
+      onClick={(e) => onClick?.(e, zone.id)}
+      onDoubleClick={(e) => onDoubleClick?.(e, zone.id)}
     >
       <Zone
         zone={zone}

@@ -65,7 +65,7 @@ interface CardActionBuilderParams {
     moveCard: (cardId: CardId, toZoneId: ZoneId) => void;
     tapCard: (cardId: CardId) => void;
     addCounter: (cardId: CardId) => void;
-    deleteCard: (cardId: CardId) => void;
+    removeCard?: (card: Card) => void;
 }
 
 export const buildCardActions = ({
@@ -75,7 +75,7 @@ export const buildCardActions = ({
     moveCard,
     tapCard,
     addCounter,
-    deleteCard,
+    removeCard,
 }: CardActionBuilderParams): ContextMenuItem[] => {
     const items: ContextMenuItem[] = [];
     const currentZone = zones[card.zoneId];
@@ -86,7 +86,9 @@ export const buildCardActions = ({
     }
 
     items.push({ label: 'Add +1/+1 Counter', action: () => addCounter(card.id) });
-    items.push({ label: 'Delete Card', action: () => deleteCard(card.id), danger: true });
+    if (card.isToken && removeCard) {
+        items.push({ label: 'Remove Card', action: () => removeCard(card), danger: true });
+    }
 
     const playerZones = getPlayerZones(zones, myPlayerId);
 
@@ -124,6 +126,8 @@ interface ZoneActionBuilderParams {
     onViewZone?: (zoneId: ZoneId, count?: number) => void;
     drawCard: (playerId: PlayerId) => void;
     shuffleLibrary: (playerId: PlayerId) => void;
+    resetDeck: (playerId: PlayerId) => void;
+    unloadDeck: (playerId: PlayerId) => void;
 }
 
 export const buildZoneViewActions = ({
@@ -132,6 +136,8 @@ export const buildZoneViewActions = ({
     onViewZone,
     drawCard,
     shuffleLibrary,
+    resetDeck,
+    unloadDeck,
 }: ZoneActionBuilderParams): ContextMenuItem[] => {
     const items: ContextMenuItem[] = [];
 
@@ -145,6 +151,8 @@ export const buildZoneViewActions = ({
             if (zone.ownerId === myPlayerId) {
             items.push({ label: 'Draw Card', action: () => drawCard(myPlayerId) });
             items.push({ label: 'Shuffle Library', action: () => shuffleLibrary(myPlayerId) });
+            items.push({ label: 'Reset Deck', action: () => resetDeck(myPlayerId) });
+            items.push({ label: 'Unload Deck', action: () => unloadDeck(myPlayerId), danger: true });
             if (onViewZone) items.push({ label: 'View All', action: () => onViewZone(zone.id) });
             items.push({
                 label: 'View Top X...',

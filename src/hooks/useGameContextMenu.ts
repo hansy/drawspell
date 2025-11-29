@@ -2,6 +2,7 @@ import React from 'react';
 import { useGameStore } from '../store/gameStore';
 import { Card, ZoneId } from '../types';
 import { buildCardActions, buildZoneViewActions, ContextMenuItem } from '../components/Game/context/menu';
+import { getPlayerZones } from '../lib/gameSelectors';
 
 // Centralizes context menu state/handlers for cards and zones so UI components can stay lean.
 export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: ZoneId, count?: number) => void) => {
@@ -31,7 +32,9 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
                 const counters = existing ? [...existing.counters, { type: 'p1p1', count: 1 }] : [{ type: 'p1p1', count: 1 }];
                 updateCard(cardId, { counters });
             },
-            deleteCard: (cardId) => useGameStore.getState().updateCard(cardId, { zoneId: 'exile' }),
+            removeCard: (targetCard) => {
+                useGameStore.getState().removeCard(targetCard.id, myPlayerId);
+            },
         });
 
         handleContextMenu(e, cardActions, card.name);
@@ -46,8 +49,10 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
             zone,
             myPlayerId,
             onViewZone,
-            drawCard: (playerId) => useGameStore.getState().drawCard(playerId),
-            shuffleLibrary: (playerId) => useGameStore.getState().shuffleLibrary(playerId),
+            drawCard: (playerId) => useGameStore.getState().drawCard(playerId, myPlayerId),
+            shuffleLibrary: (playerId) => useGameStore.getState().shuffleLibrary(playerId, myPlayerId),
+            resetDeck: (playerId) => useGameStore.getState().resetDeck(playerId, myPlayerId),
+            unloadDeck: (playerId) => useGameStore.getState().unloadDeck(playerId, myPlayerId),
         });
         if (items.length > 0) {
             handleContextMenu(e, items);
@@ -58,7 +63,7 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
         handleContextMenu(e, [
             {
                 label: 'Create Token',
-                onClick: onCreateToken,
+                action: onCreateToken,
             }
         ]);
     };

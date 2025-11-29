@@ -83,10 +83,13 @@ export interface GameState {
   moveCard: (cardId: CardId, toZoneId: ZoneId, position?: { x: number; y: number }, actorId?: PlayerId, isRemote?: boolean) => void;
   moveCardToBottom: (cardId: CardId, toZoneId: ZoneId, actorId?: PlayerId, isRemote?: boolean) => void;
   reorderZoneCards: (zoneId: ZoneId, orderedCardIds: CardId[], actorId?: PlayerId, isRemote?: boolean) => void;
+  removeCard: (cardId: CardId, actorId?: PlayerId, isRemote?: boolean) => void;
   tapCard: (cardId: CardId, actorId?: PlayerId, isRemote?: boolean) => void;
   untapAll: (playerId: PlayerId, isRemote?: boolean) => void;
   drawCard: (playerId: PlayerId, actorId?: PlayerId, isRemote?: boolean) => void;
   shuffleLibrary: (playerId: PlayerId, actorId?: PlayerId, isRemote?: boolean) => void;
+  resetDeck: (playerId: PlayerId, actorId?: PlayerId, isRemote?: boolean) => void;
+  unloadDeck: (playerId: PlayerId, actorId?: PlayerId, isRemote?: boolean) => void;
   setDeckLoaded: (playerId: PlayerId, loaded: boolean, isRemote?: boolean) => void;
 
   // Hydration

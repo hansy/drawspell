@@ -15,7 +15,7 @@ import { CommanderZone } from "./CommanderZone";
 import { BottomBar } from "./BottomBar";
 import { getCardsInZone, getPlayerZones } from "../../../lib/gameSelectors";
 import { SideZone } from "./SideZone";
-import { ZONE_LABEL } from "../../../constants/zones";
+import { ZONE, ZONE_LABEL } from "../../../constants/zones";
 
 interface SeatProps {
   player: Player;
@@ -31,6 +31,8 @@ interface SeatProps {
   onBattlefieldContextMenu?: (e: React.MouseEvent) => void;
   onLoadDeck?: () => void;
   opponentColors: Record<string, string>;
+  onViewZone?: (zoneId: ZoneId, count?: number) => void;
+  onDrawCard?: (playerId: string) => void;
 }
 
 export const Seat: React.FC<SeatProps> = ({
@@ -47,6 +49,8 @@ export const Seat: React.FC<SeatProps> = ({
   onBattlefieldContextMenu,
   onLoadDeck,
   opponentColors,
+  onViewZone,
+  onDrawCard,
 }) => {
   const isTop = position.startsWith("top");
   const isRight = position.endsWith("right");
@@ -148,6 +152,14 @@ export const Seat: React.FC<SeatProps> = ({
                 count={libraryZone.cardIds.length}
                 onContextMenu={onZoneContextMenu}
                 faceDown
+                onDoubleClick={
+                  isMe && onDrawCard
+                    ? (e) => {
+                        e.preventDefault();
+                        onDrawCard(player.id);
+                      }
+                    : undefined
+                }
                 emptyContent={
                   isMe && onLoadDeck && !player.deckLoaded ? (
                     <Button
@@ -171,6 +183,11 @@ export const Seat: React.FC<SeatProps> = ({
                 label={ZONE_LABEL.graveyard}
                 count={graveyardZone.cardIds.length}
                 onContextMenu={onZoneContextMenu}
+                onClick={
+                  onViewZone && graveyardZone.type === ZONE.GRAVEYARD
+                    ? (_e) => onViewZone(graveyardZone.id)
+                    : undefined
+                }
               />
             )}
 
@@ -181,6 +198,11 @@ export const Seat: React.FC<SeatProps> = ({
                 label={ZONE_LABEL.exile}
                 count={exileZone.cardIds.length}
                 onContextMenu={onZoneContextMenu}
+                onClick={
+                  onViewZone && exileZone.type === ZONE.EXILE
+                    ? (_e) => onViewZone(exileZone.id)
+                    : undefined
+                }
                 cardClassName="opacity-60 grayscale"
               />
             )}
