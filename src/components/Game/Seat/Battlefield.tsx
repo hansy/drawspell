@@ -4,6 +4,7 @@ import { Zone as ZoneType, Card as CardType, Player } from '../../../types';
 import { Card } from '../Card/Card';
 import { Zone } from '../Zone/Zone';
 import { CARD_WIDTH_PX, CARD_HEIGHT_PX } from '../../../lib/constants';
+import { useDragStore } from '../../../store/dragStore';
 
 interface BattlefieldProps {
     zone: ZoneType;
@@ -24,6 +25,11 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     onCardContextMenu,
     onContextMenu
 }) => {
+    const activeCardId = useDragStore((state) => state.activeCardId);
+    const showGrid = Boolean(activeCardId);
+    const GRID_SIZE = 30;
+    const gridColor = 'rgba(148, 163, 184, 0.12)'; // zinc-400/20
+
     return (
         <div
             className={cn(
@@ -39,6 +45,18 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                 scale={scale}
                 onContextMenu={onContextMenu}
             >
+                {showGrid && (
+                    <div
+                        className="pointer-events-none absolute inset-0 z-0"
+                        style={{
+                            backgroundImage: `
+                                linear-gradient(to right, ${gridColor} 1px, transparent 1px),
+                                linear-gradient(to bottom, ${gridColor} 1px, transparent 1px)
+                            `,
+                            backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`,
+                        }}
+                    />
+                )}
                 {cards.map(card => {
                     const left = card.position.x - CARD_WIDTH_PX / 2;
                     const top = card.position.y - CARD_HEIGHT_PX / 2;

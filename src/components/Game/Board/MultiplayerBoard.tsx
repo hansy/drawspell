@@ -12,7 +12,6 @@ import { useGameDnD } from '../../../hooks/useGameDnD';
 import { useGameContextMenu } from '../../../hooks/useGameContextMenu';
 
 import { usePlayerLayout } from '../../../hooks/usePlayerLayout';
-import { BattlefieldGridOverlay } from './BattlefieldGridOverlay';
 import { ZoneViewerModal } from '../UI/ZoneViewerModal';
 import { ZONE } from '../../../constants/zones';
 import { CardPreviewProvider } from '../Card/CardPreviewProvider';
@@ -236,7 +235,6 @@ export const MultiplayerBoard: React.FC = () => {
                         </div>
                     ) : null}
                 </DragOverlay>
-                <BattlefieldGridOverlay />
             </DndContext>
         </CardPreviewProvider>
     );

@@ -11,7 +11,7 @@ interface BottomBarProps {
 export const BottomBar: React.FC<BottomBarProps> = ({ isTop, isRight, children, className }) => {
     return (
         <div className={cn(
-            "flex w-full shrink-0 relative z-20",
+            "flex w-full shrink-0 relative z-20 h-32",
             isTop ? "border-first border-b border-white/5" : "border-last border-t border-white/5",
             // If sidebar is on the right (isRight), we want the CommanderZone (which is first in DOM if we don't change order) 
             // to be on the right? No, the sidebar is on the right.
