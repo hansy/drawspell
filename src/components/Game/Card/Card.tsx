@@ -124,7 +124,7 @@ export const Card: React.FC<CardProps> = ({
 
     const rect = e.currentTarget.getBoundingClientRect();
 
-    if (card.zoneId.includes(ZONE.HAND)) {
+    if (card.zoneId.includes(ZONE.HAND) || card.zoneId.includes(ZONE.COMMANDER)) {
       showPreview(card, rect);
     } else if (card.zoneId.includes(ZONE.BATTLEFIELD)) {
       hoverTimeoutRef.current = setTimeout(() => {
