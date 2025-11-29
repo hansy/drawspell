@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canMoveCard, canViewZone } from './permissions';
+import { canMoveCard, canViewZone, canCreateToken } from './permissions';
 import { ZONE } from '../constants/zones';
 import { Card, Zone } from '../types';
 
@@ -93,5 +93,28 @@ describe('canMoveCard', () => {
     expect(
       canMoveCard({ actorId: 'opponent', card, fromZone, toZone }).allowed
     ).toBe(true);
+  });
+});
+
+describe('canCreateToken', () => {
+  it('allows the battlefield owner to create a token', () => {
+    const battlefield = makeZone('bf-owner', ZONE.BATTLEFIELD, 'owner');
+    expect(canCreateToken({ actorId: 'owner' }, battlefield).allowed).toBe(true);
+  });
+
+  it("denies non-owners from creating a token on someone else's battlefield", () => {
+    const battlefield = makeZone('bf-owner', ZONE.BATTLEFIELD, 'owner');
+    expect(canCreateToken({ actorId: 'opponent' }, battlefield)).toMatchObject({
+      allowed: false,
+      reason: expect.stringContaining('Only zone owner'),
+    });
+  });
+
+  it('denies token creation in non-battlefield zones even for owner', () => {
+    const hand = makeZone('hand-owner', ZONE.HAND, 'owner');
+    expect(canCreateToken({ actorId: 'owner' }, hand)).toMatchObject({
+      allowed: false,
+      reason: expect.stringContaining('battlefield'),
+    });
   });
 });

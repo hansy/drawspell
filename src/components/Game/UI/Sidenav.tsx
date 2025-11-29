@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { RefreshCw, Plus, Trash2 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { useGameStore } from '../../../store/gameStore';
-import { v4 as uuidv4 } from 'uuid';
-import { ZONE } from '../../../constants/zones';
 
 interface NavIconProps {
     icon: React.ReactNode;
@@ -28,30 +26,15 @@ const NavIcon: React.FC<NavIconProps> = ({ icon, label, onClick, className }) =>
     </button>
 );
 
-export const Sidenav: React.FC = () => {
+interface SidenavProps {
+    onCreateToken?: () => void;
+}
+
+export const Sidenav: React.FC<SidenavProps> = ({ onCreateToken }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const myPlayerId = useGameStore((state) => state.myPlayerId);
-    const addCard = useGameStore((state) => state.addCard);
     const untapAll = useGameStore((state) => state.untapAll);
-
-    const handleCreateToken = () => {
-        const battlefieldId = `${myPlayerId}-${ZONE.BATTLEFIELD}`;
-        addCard({
-            id: uuidv4(),
-            name: 'Token',
-            typeLine: 'Token',
-            controllerId: myPlayerId,
-            ownerId: myPlayerId,
-            zoneId: battlefieldId,
-            position: { x: 100, y: 100 },
-            tapped: false,
-            counters: [],
-            faceDown: false,
-            rotation: 0
-        });
-        setIsMenuOpen(false);
-    };
 
     const handleReset = () => {
         if (confirm('Are you sure you want to reset your game? This will clear your board and remove ghost players.')) {
@@ -72,6 +55,13 @@ export const Sidenav: React.FC = () => {
                     className="hover:text-blue-400"
                 />
 
+                <NavIcon
+                    icon={<Plus size={20} />}
+                    label="Create Token"
+                    onClick={onCreateToken}
+                    className="hover:text-emerald-400"
+                />
+
                 <div className="flex-1" />
 
                 {/* Bottom: S Logo (Menu) */}
@@ -89,16 +79,6 @@ export const Sidenav: React.FC = () => {
                             <div className="px-2 py-1 text-xs font-semibold text-zinc-500 uppercase tracking-wider border-b border-zinc-800 mb-1">
                                 Snapstack Menu
                             </div>
-
-                            <button
-                                onClick={handleCreateToken}
-                                className="flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-white transition-colors"
-                            >
-                                <Plus size={16} className="text-emerald-400" />
-                                Create Token
-                            </button>
-
-                            <div className="h-px bg-zinc-800 my-1" />
 
                             <button
                                 onClick={handleReset}
@@ -122,3 +102,4 @@ export const Sidenav: React.FC = () => {
         </>
     );
 };
+

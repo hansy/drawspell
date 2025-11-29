@@ -78,8 +78,9 @@ export const buildCardActions = ({
     deleteCard,
 }: CardActionBuilderParams): ContextMenuItem[] => {
     const items: ContextMenuItem[] = [];
+    const currentZone = zones[card.zoneId];
 
-    const canTap = canTapCard({ actorId: myPlayerId }, card);
+    const canTap = canTapCard({ actorId: myPlayerId }, card, currentZone);
     if (canTap.allowed) {
         items.push({ label: 'Tap/Untap', action: () => tapCard(card.id) });
     }
@@ -88,7 +89,6 @@ export const buildCardActions = ({
     items.push({ label: 'Delete Card', action: () => deleteCard(card.id), danger: true });
 
     const playerZones = getPlayerZones(zones, myPlayerId);
-    const currentZone = zones[card.zoneId];
 
     if (currentZone?.type === ZONE.HAND) {
         if (playerZones.battlefield) {

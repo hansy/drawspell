@@ -116,6 +116,7 @@ export const useGameStore = create<GameStore>()(
                     // Calculate new position with snapping and collision handling
                     let newPosition = position || { x: 0, y: 0 };
                     const cardsCopy = { ...state.cards };
+                    const nextTapped = toZone.type === ZONE.BATTLEFIELD ? card.tapped : false;
 
                     // Only apply snapping/collision if moving to a battlefield (which is free-form)
                     if (toZone.type === ZONE.BATTLEFIELD && position) {
@@ -174,6 +175,7 @@ export const useGameStore = create<GameStore>()(
                         cardsCopy[cardId] = {
                             ...card,
                             position: newPosition,
+                            tapped: nextTapped,
                         };
                         return {
                             cards: cardsCopy,
@@ -197,6 +199,7 @@ export const useGameStore = create<GameStore>()(
                         ...card,
                         zoneId: toZoneId,
                         position: newPosition,
+                        tapped: nextTapped,
                     };
 
                     return {
@@ -250,9 +253,12 @@ export const useGameStore = create<GameStore>()(
                         newToZoneCardIds = [cardId, ...state.zones[toZoneId].cardIds];
                     }
 
+                    const nextTapped = toZone.type === ZONE.BATTLEFIELD ? card.tapped : false;
+
                     cardsCopy[cardId] = {
                         ...card,
                         zoneId: toZoneId,
+                        tapped: nextTapped,
                     };
 
                     return {
@@ -267,19 +273,57 @@ export const useGameStore = create<GameStore>()(
                 if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'moveCardToBottom', args: [cardId, toZoneId], actorId: actor } });
             },
 
+            reorderZoneCards: (zoneId, orderedCardIds, actorId, isRemote) => {
+                const actor = actorId ?? get().myPlayerId;
+                const zone = get().zones[zoneId];
+                if (!zone) return;
+
+                if (zone.ownerId !== actor) {
+                    logPermission({
+                        action: 'reorderZoneCards',
+                        actorId: actor,
+                        allowed: false,
+                        reason: 'Only zone owner may reorder cards',
+                        details: { zoneId }
+                    });
+                    return;
+                }
+
+                const currentIds = zone.cardIds;
+                if (currentIds.length !== orderedCardIds.length) return;
+
+                const currentSet = new Set(currentIds);
+                const containsSameCards = orderedCardIds.every(id => currentSet.has(id)) && currentIds.every(id => orderedCardIds.includes(id));
+                if (!containsSameCards) return;
+
+                set((state) => ({
+                    zones: {
+                        ...state.zones,
+                        [zoneId]: {
+                            ...state.zones[zoneId],
+                            cardIds: orderedCardIds
+                        }
+                    }
+                }));
+
+                logPermission({ action: 'reorderZoneCards', actorId: actor, allowed: true, details: { zoneId } });
+                if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'reorderZoneCards', args: [zoneId, orderedCardIds], actorId: actor } });
+            },
+
             tapCard: (cardId, actorId, isRemote) => {
                 const actor = actorId ?? get().myPlayerId;
                 const card = get().cards[cardId];
                 if (!card) return;
 
-                const permission = canTapCard({ actorId: actor }, card);
+                const zone = get().zones[card.zoneId];
+                const permission = canTapCard({ actorId: actor }, card, zone);
                 if (!permission.allowed) {
                     logPermission({
                         action: 'tapCard',
                         actorId: actor,
                         allowed: false,
                         reason: permission.reason,
-                        details: { cardId }
+                        details: { cardId, zoneType: zone?.type }
                     });
                     return;
                 }

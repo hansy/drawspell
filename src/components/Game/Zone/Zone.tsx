@@ -4,7 +4,7 @@ import { Zone as ZoneType } from '../../../types';
 import { cn } from '../../../lib/utils';
 import { CARD_WIDTH_PX, CARD_HEIGHT_PX } from '../../../lib/constants';
 import { useDragStore } from '../../../store/dragStore';
-import { ZONE } from '../../../constants/zones';
+
 import { useGameStore } from '../../../store/gameStore';
 import { canMoveCard } from '../../../rules/permissions';
 
@@ -14,9 +14,10 @@ interface ZoneProps {
     children?: React.ReactNode;
     layout?: 'stack' | 'fan' | 'grid' | 'free-form';
     scale?: number;
+    onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1 }) => {
+export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, onContextMenu }) => {
     const cards = useGameStore((state) => state.cards);
     const zones = useGameStore((state) => state.zones);
     const myPlayerId = useGameStore((state) => state.myPlayerId);
@@ -74,6 +75,7 @@ export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 
                 isValidDrop && "bg-indigo-500/10 ring-2 ring-indigo-500/50",
                 className
             )}
+            onContextMenu={onContextMenu}
         >
             {children}
             {ghostPosition && (

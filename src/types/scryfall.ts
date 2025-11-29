@@ -55,6 +55,15 @@ export type ScryfallFormat =
 
 export type ScryfallGame = 'paper' | 'arena' | 'mtgo' | string;
 
+export interface ScryfallListResult<T> {
+  object: 'list';
+  data: T[];
+  has_more: boolean;
+  next_page?: string;
+  total_cards?: number;
+  warnings?: string[];
+}
+
 export interface ScryfallImageUris {
   small?: string;
   normal?: string;

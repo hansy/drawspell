@@ -14,7 +14,7 @@ const isHiddenZone = (zoneType: ZoneType) => HIDDEN_ZONES.has(zoneType);
 export function canViewZone(
   ctx: ActorContext,
   zone: { ownerId: string; type: ZoneType },
-  opts: { viewAll?: boolean } = {}
+  _opts: { viewAll?: boolean } = {}
 ): ViewResult {
   const isOwner = ctx.actorId === zone.ownerId;
 
@@ -76,9 +76,32 @@ export function canMoveCard(ctx: MoveContext): PermissionResult {
 }
 
 /**
- * Tapping/untapping is restricted to the controller (or owner if you prefer tighter control).
+ * Tapping/untapping is restricted to the controller and only on the battlefield.
  */
-export function canTapCard(ctx: ActorContext, card: { controllerId: string }): PermissionResult {
+export function canTapCard(
+  ctx: ActorContext,
+  card: { controllerId: string },
+  zone?: { type: ZoneType }
+): PermissionResult {
+  if (!zone || zone.type !== ZONE.BATTLEFIELD) {
+    return { allowed: false, reason: 'Cards can only be tapped on the battlefield' };
+  }
+
   const isController = ctx.actorId === card.controllerId;
   return isController ? { allowed: true } : { allowed: false, reason: 'Only controller may tap/untap' };
+}
+
+/**
+ * Tokens are created by the owner of the destination battlefield.
+ */
+export function canCreateToken(
+  ctx: ActorContext,
+  zone: { ownerId: string; type: ZoneType }
+): PermissionResult {
+  if (zone.type !== ZONE.BATTLEFIELD) {
+    return { allowed: false, reason: 'Tokens can only enter the battlefield' };
+  }
+
+  const isOwner = ctx.actorId === zone.ownerId;
+  return isOwner ? { allowed: true } : { allowed: false, reason: 'Only zone owner may create tokens here' };
 }

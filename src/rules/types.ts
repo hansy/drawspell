@@ -8,9 +8,9 @@ export type PermissionResult =
 // Visibility guidance for UI rendering.
 export type Visibility = 'none' | 'backs' | 'faces';
 
-export interface ViewResult extends PermissionResult {
+export type ViewResult = PermissionResult & {
   visibility?: Visibility;
-}
+};
 
 // Minimal actor context so we can thread current player ID through checks.
 export interface ActorContext {

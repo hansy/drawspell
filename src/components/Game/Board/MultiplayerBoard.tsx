@@ -7,6 +7,7 @@ import { CardView } from '../Card/Card';
 import { Sidenav } from '../UI/Sidenav';
 import { ContextMenu } from '../UI/ContextMenu';
 import { LoadDeckModal } from '../UI/LoadDeckModal';
+import { TokenCreationModal } from '../UI/TokenCreationModal';
 import { useGameDnD } from '../../../hooks/useGameDnD';
 import { useGameContextMenu } from '../../../hooks/useGameContextMenu';
 
@@ -50,10 +51,11 @@ export const MultiplayerBoard: React.FC = () => {
     };
 
     // Debugging moved to DragMonitor component
-    const { contextMenu, handleCardContextMenu, handleZoneContextMenu, closeContextMenu } = useGameContextMenu(myPlayerId, handleViewZone);
+    const { contextMenu, handleCardContextMenu, handleZoneContextMenu, handleBattlefieldContextMenu, closeContextMenu } = useGameContextMenu(myPlayerId, handleViewZone);
     const hasHydrated = useGameStore((state) => state.hasHydrated);
 
     const [isLoadDeckModalOpen, setIsLoadDeckModalOpen] = useState(false);
+    const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
 
     // Auto-initialize if player is missing (e.g. after reset)
     React.useEffect(() => {
@@ -163,7 +165,7 @@ export const MultiplayerBoard: React.FC = () => {
                 }}
             >
                 <div className="h-screen w-screen bg-zinc-950 text-zinc-100 overflow-hidden flex font-sans selection:bg-indigo-500/30" onContextMenu={(e) => e.preventDefault()}>
-                    <Sidenav />
+                    <Sidenav onCreateToken={() => setIsTokenModalOpen(true)} />
 
                     <div className={`w-full h-full grid ${getGridClass()} pl-12`}>
                         {slots.map((slot, index) => (
@@ -181,6 +183,7 @@ export const MultiplayerBoard: React.FC = () => {
                                         isMe={slot.player.id === myPlayerId}
                                         onCardContextMenu={handleCardContextMenu}
                                         onZoneContextMenu={handleZoneContextMenu}
+                                        onBattlefieldContextMenu={(e) => handleBattlefieldContextMenu(e, () => setIsTokenModalOpen(true))}
                                         onLoadDeck={() => setIsLoadDeckModalOpen(true)}
                                         opponentColors={playerColors}
                                         scale={scale}
@@ -207,6 +210,11 @@ export const MultiplayerBoard: React.FC = () => {
                 <LoadDeckModal
                     isOpen={isLoadDeckModalOpen}
                     onClose={() => setIsLoadDeckModalOpen(false)}
+                    playerId={myPlayerId}
+                />
+                <TokenCreationModal
+                    isOpen={isTokenModalOpen}
+                    onClose={() => setIsTokenModalOpen(false)}
                     playerId={myPlayerId}
                 />
                 <ZoneViewerModal

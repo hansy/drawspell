@@ -54,10 +54,20 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
         }
     };
 
+    const handleBattlefieldContextMenu = (e: React.MouseEvent, onCreateToken: () => void) => {
+        handleContextMenu(e, [
+            {
+                label: 'Create Token',
+                onClick: onCreateToken,
+            }
+        ]);
+    };
+
     return {
         contextMenu,
         handleCardContextMenu,
         handleZoneContextMenu,
+        handleBattlefieldContextMenu,
         closeContextMenu
     };
 };

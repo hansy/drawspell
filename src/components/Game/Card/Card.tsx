@@ -163,6 +163,8 @@ export const Card: React.FC<CardProps> = ({
         isDragging={isDragging}
         onDoubleClick={() => {
           const state = useGameStore.getState();
+          const zone = state.zones[card.zoneId];
+          if (zone?.type !== ZONE.BATTLEFIELD) return;
           state.tapCard(card.id, state.myPlayerId);
         }}
         onMouseEnter={handleMouseEnter}

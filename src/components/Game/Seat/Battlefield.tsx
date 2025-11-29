@@ -12,6 +12,7 @@ interface BattlefieldProps {
     isTop: boolean;
     scale?: number;
     onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
+    onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 export const Battlefield: React.FC<BattlefieldProps> = ({
@@ -20,18 +21,23 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     player,
     isTop,
     scale = 1,
-    onCardContextMenu
+    onCardContextMenu,
+    onContextMenu
 }) => {
     return (
-        <div className={cn(
-            "flex-1 relative",
-            isTop ? "order-last" : "order-first"
-        )}>
+        <div
+            className={cn(
+                "flex-1 relative",
+                isTop ? "order-last" : "order-first"
+            )}
+            onContextMenu={onContextMenu}
+        >
             <Zone
                 zone={zone}
                 className="w-full h-full relative"
                 layout="free-form"
                 scale={scale}
+                onContextMenu={onContextMenu}
             >
                 {cards.map(card => {
                     const left = card.position.x - CARD_WIDTH_PX / 2;
@@ -46,7 +52,10 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                                 top,
                                 transform: isTop ? 'rotate(180deg)' : undefined
                             }}
-                            onContextMenu={(e) => onCardContextMenu?.(e, card)}
+                            onContextMenu={(e) => {
+                                e.stopPropagation();
+                                onCardContextMenu?.(e, card);
+                            }}
                             scale={scale}
                         />
                     );

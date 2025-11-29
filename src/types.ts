@@ -22,6 +22,7 @@ export interface CardIdentity {
   typeLine?: string;
   scryfallId?: string;
   scryfall?: ScryfallCard;
+  isToken?: boolean;
 }
 
 export interface Card extends CardIdentity {
@@ -38,6 +39,10 @@ export interface Card extends CardIdentity {
   rotation: number; // Degrees
   counters: Counter[];
 }
+
+export type TokenCard = Card & { isToken: true };
+
+export const isTokenCard = (card: Card): card is TokenCard => card.isToken === true;
 
 export type ZoneType = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'commander';
 
@@ -77,6 +82,7 @@ export interface GameState {
   updateCard: (id: CardId, updates: Partial<Card>, isRemote?: boolean) => void;
   moveCard: (cardId: CardId, toZoneId: ZoneId, position?: { x: number; y: number }, actorId?: PlayerId, isRemote?: boolean) => void;
   moveCardToBottom: (cardId: CardId, toZoneId: ZoneId, actorId?: PlayerId, isRemote?: boolean) => void;
+  reorderZoneCards: (zoneId: ZoneId, orderedCardIds: CardId[], actorId?: PlayerId, isRemote?: boolean) => void;
   tapCard: (cardId: CardId, actorId?: PlayerId, isRemote?: boolean) => void;
   untapAll: (playerId: PlayerId, isRemote?: boolean) => void;
   drawCard: (playerId: PlayerId, actorId?: PlayerId, isRemote?: boolean) => void;
@@ -88,4 +94,4 @@ export interface GameState {
   setHasHydrated: (state: boolean) => void;
 }
 
-export type { ScryfallCard, ScryfallIdentifier } from './types/scryfall';
+export type { ScryfallCard, ScryfallIdentifier, ScryfallListResult } from './types/scryfall';

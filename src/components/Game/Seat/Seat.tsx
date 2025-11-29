@@ -28,6 +28,7 @@ interface SeatProps {
   className?: string;
   onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
   onZoneContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
+  onBattlefieldContextMenu?: (e: React.MouseEvent) => void;
   onLoadDeck?: () => void;
   opponentColors: Record<string, string>;
 }
@@ -43,6 +44,7 @@ export const Seat: React.FC<SeatProps> = ({
   className,
   onCardContextMenu,
   onZoneContextMenu,
+  onBattlefieldContextMenu,
   onLoadDeck,
   opponentColors,
 }) => {
@@ -200,6 +202,7 @@ export const Seat: React.FC<SeatProps> = ({
               isTop={isTop}
               scale={scale}
               onCardContextMenu={onCardContextMenu}
+              onContextMenu={isMe ? onBattlefieldContextMenu : undefined}
             />
           )}
 

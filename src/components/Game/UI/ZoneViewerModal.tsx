@@ -33,6 +33,7 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
     const cards = useGameStore((state) => state.cards);
     const moveCard = useGameStore((state) => state.moveCard);
     const moveCardToBottom = useGameStore((state) => state.moveCardToBottom);
+    const reorderZoneCards = useGameStore((state) => state.reorderZoneCards);
     const myPlayerId = useGameStore((state) => state.myPlayerId);
 
     const [contextMenu, setContextMenu] = useState<{
@@ -43,6 +44,8 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
     } | null>(null);
 
     const containerRef = React.useRef<HTMLDivElement>(null);
+    const [orderedCardIds, setOrderedCardIds] = useState<string[]>([]);
+    const [draggingId, setDraggingId] = useState<string | null>(null);
 
     const zone = zoneId ? zones[zoneId] : null;
     const canView = zone ? canViewZone({ actorId: myPlayerId }, zone, { viewAll: !count }) : null;
@@ -89,6 +92,11 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
         return currentCards;
     }, [zone, cards, count, filterText]);
 
+    React.useEffect(() => {
+        setOrderedCardIds(displayCards.map((card) => card.id));
+        setDraggingId(null);
+    }, [zoneId, displayCards]);
+
     // Group by CMC, but separate Lands (Only used for 'grouped' mode)
     const groupedCards = useMemo(() => {
         if (viewMode !== "grouped") return {};
@@ -121,6 +129,28 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
             return costA - costB;
         });
     }, [groupedCards, viewMode]);
+
+    const canReorder = viewMode === "linear" && zone?.ownerId === myPlayerId && !filterText.trim();
+    const visibleCardIds = orderedCardIds.length ? orderedCardIds : displayCards.map((card) => card.id);
+    const orderedCards = useMemo(() => visibleCardIds.map((id) => cards[id]).filter(Boolean), [cards, visibleCardIds]);
+
+    const reorderList = (ids: string[], fromId: string, toId: string) => {
+        if (fromId === toId) return ids;
+        const next = [...ids];
+        const fromIndex = next.indexOf(fromId);
+        const toIndex = next.indexOf(toId);
+        if (fromIndex === -1 || toIndex === -1) return ids;
+        next.splice(toIndex, 0, next.splice(fromIndex, 1)[0]);
+        return next;
+    };
+
+    const commitReorder = (newOrder: string[]) => {
+        if (!zone || !newOrder.length) return;
+        const remainderStart = zone.cardIds.length - displayCards.length;
+        const prefix = remainderStart > 0 ? zone.cardIds.slice(0, remainderStart) : [];
+        const mergedOrder = prefix.length ? [...prefix, ...newOrder] : newOrder;
+        reorderZoneCards(zone.id, mergedOrder, myPlayerId);
+    };
 
     const handleContextMenu = (e: React.MouseEvent, card: Card) => {
         e.preventDefault();
@@ -224,21 +254,46 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
                         ) : (
                             // Linear View
                             <div className="flex h-full items-center overflow-x-auto px-4 pb-4 pr-[220px]">
-                                {displayCards.map((card, index) => (
-                                    <div
-                                        key={card.id}
-                                        className="shrink-0 w-[50px] transition-all duration-200 hover:scale-110 hover:z-[100] hover:w-[200px]"
-                                        style={{ zIndex: index }}
-                                    >
-                                        <CardView
-                                            card={card}
-                                            faceDown={false}
-                                            className="w-[200px] shadow-lg h-auto aspect-[2.5/3.5]"
-                                            imageClassName="object-top"
-                                            onContextMenu={(e) => handleContextMenu(e, card)}
-                                        />
-                                    </div>
-                                ))}
+                                {orderedCards.map((card, index) => {
+                                    const isDragging = draggingId === card.id;
+                                    return (
+                                        <div
+                                            key={card.id}
+                                            draggable={canReorder}
+                                            onDragStart={() => canReorder && setDraggingId(card.id)}
+                                            onDragEnter={(e) => {
+                                                if (!canReorder || !draggingId) return;
+                                                e.preventDefault();
+                                                setOrderedCardIds((ids) => reorderList(ids, draggingId, card.id));
+                                            }}
+                                            onDragOver={canReorder ? (e) => e.preventDefault() : undefined}
+                                            onDragEnd={() => {
+                                                if (!canReorder || !draggingId) return;
+                                                commitReorder(orderedCardIds.length ? orderedCardIds : displayCards.map((c) => c.id));
+                                                setDraggingId(null);
+                                            }}
+                                            onDrop={(e) => {
+                                                if (!canReorder) return;
+                                                e.preventDefault();
+                                            }}
+                                            className="shrink-0 w-[50px] transition-all duration-200 hover:scale-110 hover:z-[100] hover:w-[200px] relative group"
+                                            style={{ zIndex: index, opacity: isDragging ? 0.5 : 1 }}
+                                        >
+                                            {index === orderedCards.length - 1 && (
+                                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shadow-md z-[101]">
+                                                    Top card
+                                                </div>
+                                            )}
+                                            <CardView
+                                                card={card}
+                                                faceDown={false}
+                                                className="w-[200px] shadow-lg h-auto aspect-[2.5/3.5]"
+                                                imageClassName="object-top"
+                                                onContextMenu={(e) => handleContextMenu(e, card)}
+                                            />
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

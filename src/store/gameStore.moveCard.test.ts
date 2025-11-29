@@ -1,0 +1,116 @@
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { useGameStore } from './gameStore';
+import { ZONE } from '../constants/zones';
+
+const makeZone = (id: string, type: keyof typeof ZONE, ownerId: string, cardIds: string[] = []) => ({
+  id,
+  type: ZONE[type],
+  ownerId,
+  cardIds,
+});
+
+const makeCard = (id: string, zoneId: string, ownerId: string, tapped = false) => ({
+  id,
+  name: 'Test Card',
+  ownerId,
+  controllerId: ownerId,
+  zoneId,
+  tapped,
+  faceDown: false,
+  position: { x: 0, y: 0 },
+  rotation: 0,
+  counters: [],
+});
+
+describe('gameStore move/tap interactions', () => {
+  const createMemoryStorage = () => {
+    const store = new Map<string, string>();
+    return {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => { store.set(key, value); },
+      removeItem: (key: string) => { store.delete(key); },
+      clear: () => store.clear(),
+      key: (index: number) => Array.from(store.keys())[index] ?? null,
+      get length() {
+        return store.size;
+      },
+    } as Storage;
+  };
+
+  beforeAll(() => {
+    if (typeof globalThis.localStorage === 'undefined') {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: createMemoryStorage(),
+        configurable: true,
+      });
+    }
+  });
+
+  beforeEach(() => {
+    localStorage.clear();
+    useGameStore.setState({
+      cards: {},
+      zones: {},
+      players: {},
+      myPlayerId: 'me',
+    });
+  });
+
+  it('untaps when moving out of the battlefield', () => {
+    const battlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', ['c1']);
+    const exile = makeZone('exile-me', 'EXILE', 'me', []);
+
+    const card = makeCard('c1', battlefield.id, 'me', true);
+
+    useGameStore.setState((state) => ({
+      zones: { ...state.zones, [battlefield.id]: battlefield, [exile.id]: exile },
+      cards: { ...state.cards, [card.id]: card },
+    }));
+
+    useGameStore.getState().moveCard(card.id, exile.id, undefined, 'me');
+
+    const moved = useGameStore.getState().cards[card.id];
+    expect(moved.zoneId).toBe(exile.id);
+    expect(moved.tapped).toBe(false);
+  });
+
+  it('denies tapping a card that is not on the battlefield', () => {
+    const hand = makeZone('hand-me', 'HAND', 'me', ['c2']);
+    const card = makeCard('c2', hand.id, 'me', false);
+
+    useGameStore.setState((state) => ({
+      zones: { ...state.zones, [hand.id]: hand },
+      cards: { ...state.cards, [card.id]: card },
+    }));
+
+    useGameStore.getState().tapCard(card.id, 'me');
+
+    const updated = useGameStore.getState().cards[card.id];
+    expect(updated.tapped).toBe(false);
+  });
+
+  it('reorders cards within a zone for the owner', () => {
+    const graveyard = makeZone('gy-me', 'GRAVEYARD', 'me', ['c3', 'c4', 'c5']);
+    const cardsInZone = [
+      makeCard('c3', graveyard.id, 'me', false),
+      makeCard('c4', graveyard.id, 'me', false),
+      makeCard('c5', graveyard.id, 'me', false),
+    ];
+
+    useGameStore.setState((state) => ({
+      zones: { ...state.zones, [graveyard.id]: graveyard },
+      cards: {
+        ...state.cards,
+        ...cardsInZone.reduce((acc, card) => ({ ...acc, [card.id]: card }), {}),
+      },
+    }));
+
+    useGameStore.getState().reorderZoneCards(graveyard.id, ['c5', 'c3', 'c4'], 'me');
+
+    expect(useGameStore.getState().zones[graveyard.id].cardIds).toEqual(['c5', 'c3', 'c4']);
+
+    // Non-owner cannot reorder
+    useGameStore.getState().reorderZoneCards(graveyard.id, ['c4', 'c5', 'c3'], 'opponent');
+    expect(useGameStore.getState().zones[graveyard.id].cardIds).toEqual(['c5', 'c3', 'c4']);
+  });
+});
