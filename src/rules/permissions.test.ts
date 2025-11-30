@@ -146,7 +146,7 @@ describe('canCreateToken', () => {
 });
 
 describe('canUpdatePlayer', () => {
-  const player: Player = { id: 'p1', life: 40, commanderDamage: {}, counters: [], name: 'P1' };
+  const player: Player = { id: 'p1', life: 40, commanderDamage: {}, counters: [], name: 'P1', commanderTax: 0 };
 
   it('allows a player to change their own life total', () => {
     expect(canUpdatePlayer({ actorId: 'p1' }, player, { life: 39 }).allowed).toBe(true);

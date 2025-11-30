@@ -38,7 +38,7 @@ describe('gameStore updatePlayer permissions', () => {
   it('allows a player to change their own life total', () => {
     useGameStore.setState((state) => ({
       ...state,
-      players: { me: { id: 'me', name: 'Me', life: 40, counters: [], commanderDamage: {} } },
+      players: { me: { id: 'me', name: 'Me', life: 40, counters: [], commanderDamage: {}, commanderTax: 0 } },
     }));
 
     useGameStore.getState().updatePlayer('me', { life: 39 }, 'me');
@@ -50,8 +50,8 @@ describe('gameStore updatePlayer permissions', () => {
     useGameStore.setState((state) => ({
       ...state,
       players: {
-        me: { id: 'me', name: 'Me', life: 40, counters: [], commanderDamage: {} },
-        opponent: { id: 'opponent', name: 'Opponent', life: 40, counters: [], commanderDamage: {} },
+        me: { id: 'me', name: 'Me', life: 40, counters: [], commanderDamage: {}, commanderTax: 0 },
+        opponent: { id: 'opponent', name: 'Opponent', life: 40, counters: [], commanderDamage: {}, commanderTax: 0 },
       },
     }));
 

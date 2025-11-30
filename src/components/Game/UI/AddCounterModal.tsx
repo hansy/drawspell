@@ -5,31 +5,13 @@ import { Input } from '../../ui/input';
 import { useGameStore } from '../../../store/gameStore';
 import { Counter } from '../../../types';
 import { cn } from '../../../lib/utils';
+import { PRESET_COUNTERS, resolveCounterColor } from '../../../lib/counters';
 
 interface AddCounterModalProps {
     isOpen: boolean;
     onClose: () => void;
     cardId: string;
 }
-
-// Darker colors as requested
-const PRESET_COUNTERS = [
-    { type: '+1/+1', color: '#16a34a' }, // green-600
-    { type: '-1/-1', color: '#dc2626' }, // red-600
-    { type: 'loyalty', color: '#ca8a04' }, // yellow-600
-    { type: 'charge', color: '#2563eb' }, // blue-600
-];
-
-const COLORS = [
-    '#ea580c', // orange-600
-    '#9333ea', // purple-600
-    '#db2777', // pink-600
-    '#0891b2', // cyan-600
-    '#0d9488', // teal-600
-    '#65a30d', // lime-600
-    '#4f46e5', // indigo-600
-    '#c026d3', // fuchsia-600
-];
 
 export const AddCounterModal: React.FC<AddCounterModalProps> = ({ isOpen, onClose, cardId }) => {
     const [selectedType, setSelectedType] = useState<string>('+1/+1');
@@ -60,24 +42,7 @@ export const AddCounterModal: React.FC<AddCounterModalProps> = ({ isOpen, onClos
         const type = selectedType === 'custom' ? customType.trim() : selectedType;
         if (!type) return;
 
-        // Determine color
-        // 1. Check if it's a preset
-        let color = PRESET_COUNTERS.find(c => c.type === type)?.color;
-
-        // 2. Check if it's already in global counters
-        if (!color && globalCounters[type]) {
-            color = globalCounters[type];
-        }
-
-        // 3. Generate new color if needed
-        if (!color) {
-            let hash = 0;
-            for (let i = 0; i < type.length; i++) {
-                hash = type.charCodeAt(i) + ((hash << 5) - hash);
-            }
-            const index = Math.abs(hash) % COLORS.length;
-            color = COLORS[index];
-        }
+        const color = resolveCounterColor(type, globalCounters);
 
         const counter: Counter = {
             type,
@@ -148,9 +113,7 @@ export const AddCounterModal: React.FC<AddCounterModalProps> = ({ isOpen, onClos
                         </label>
                         <div className="flex flex-wrap gap-2 max-h-[200px] overflow-y-auto p-1">
                             {allCounterTypes.map(type => {
-                                // Find color for preview
-                                const preset = PRESET_COUNTERS.find(p => p.type === type);
-                                const color = preset?.color || globalCounters[type] || '#6366f1'; // Fallback
+                                const color = resolveCounterColor(type, globalCounters);
 
                                 return (
                                     <Button

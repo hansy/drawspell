@@ -37,7 +37,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, referenceElement
         };
     }, [x, y]);
 
-    const { refs, floatingStyles } = useFloating({
+    const { refs, floatingStyles } = useFloating<HTMLElement | VirtualElement>({
         placement: isSubmenu ? 'right-start' : 'bottom-start',
         strategy: 'fixed',
         middleware: [
@@ -46,7 +46,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, referenceElement
             shift({ padding: 8 }),
         ],
         elements: {
-            reference: referenceElement ?? anchorVirtualElement ?? undefined,
+            // Virtual references are supported by Floating UI, but the DOM typings expect an Element.
+            reference: (referenceElement ?? anchorVirtualElement ?? null) as unknown as Element | null,
         },
         whileElementsMounted: autoUpdate,
     });
@@ -55,7 +56,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, referenceElement
         if (referenceElement) {
             refs.setReference(referenceElement);
         } else if (anchorVirtualElement) {
-            refs.setReference(anchorVirtualElement);
+            refs.setReference(anchorVirtualElement as unknown as Element);
         }
     }, [referenceElement, anchorVirtualElement, refs]);
 

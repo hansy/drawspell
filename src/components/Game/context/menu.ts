@@ -229,6 +229,7 @@ interface ZoneActionBuilderParams {
     shuffleLibrary: (playerId: PlayerId) => void;
     resetDeck: (playerId: PlayerId) => void;
     unloadDeck: (playerId: PlayerId) => void;
+    requestCount?: (opts: { title: string; message: string }) => number | null;
 }
 
 export const buildZoneViewActions = ({
@@ -239,6 +240,7 @@ export const buildZoneViewActions = ({
     shuffleLibrary,
     resetDeck,
     unloadDeck,
+    requestCount,
 }: ZoneActionBuilderParams): ContextMenuItem[] => {
     const items: ContextMenuItem[] = [];
 
@@ -251,34 +253,32 @@ export const buildZoneViewActions = ({
         if (zone.type === ZONE.LIBRARY) {
             if (zone.ownerId === myPlayerId) {
             items.push({ label: 'Draw Card', action: () => drawCard(myPlayerId) });
-            items.push({
-                label: 'Draw X Cards...',
-                action: () => {
-                    const countStr = window.prompt('How many cards to draw?');
-                    if (!countStr) return;
-                    const count = parseInt(countStr, 10);
-                    if (!isNaN(count) && count > 0) {
+            if (requestCount) {
+                items.push({
+                    label: 'Draw X Cards...',
+                    action: () => {
+                        const count = requestCount({ title: 'Draw', message: 'How many cards to draw?' });
+                        if (!count || count < 1) return;
                         for (let i = 0; i < count; i++) {
                             drawCard(myPlayerId);
                         }
                     }
-                }
-            });
+                });
+            }
             items.push({ label: 'Shuffle Library', action: () => shuffleLibrary(myPlayerId) });
             items.push({ label: 'Reset Deck', action: () => resetDeck(myPlayerId) });
             items.push({ label: 'Unload Deck', action: () => unloadDeck(myPlayerId), danger: true });
             if (onViewZone) items.push({ label: 'View All', action: () => onViewZone(zone.id) });
-            items.push({
-                label: 'View Top X...',
-                action: () => {
-                    const countStr = window.prompt('How many cards from top?');
-                    if (!countStr) return;
-                    const count = parseInt(countStr, 10);
-                    if (!isNaN(count) && count > 0) {
-                        onViewZone?.(zone.id, count);
+            if (requestCount && onViewZone) {
+                items.push({
+                    label: 'View Top X...',
+                    action: () => {
+                        const count = requestCount({ title: 'View Top', message: 'How many cards from top?' });
+                        if (!count || count < 1) return;
+                        onViewZone(zone.id, count);
                     }
-                }
-            });
+                });
+            }
         }
     } else if (zone.type === ZONE.GRAVEYARD || zone.type === ZONE.EXILE) {
         const viewPermission = canViewZone({ actorId: myPlayerId }, zone);

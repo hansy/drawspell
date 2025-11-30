@@ -52,7 +52,7 @@ describe('gameStore deck management', () => {
     useGameStore.setState((state) => ({
       ...state,
       zones: { [library.id]: library, [graveyard.id]: graveyard, [exile.id]: exile, [battlefield.id]: battlefield },
-      players: { me: { id: 'me', name: 'Me', life: 40, counters: [], commanderDamage: {}, deckLoaded: true } },
+      players: { me: { id: 'me', name: 'Me', life: 40, counters: [], commanderDamage: {}, commanderTax: 0, deckLoaded: true } },
       cards: {
         c1: { id: 'c1', name: 'Card1', ownerId: 'me', controllerId: 'me', zoneId: library.id, tapped: false, faceDown: false, position: { x: 0, y: 0 }, rotation: 0, counters: [] },
         c2: { id: 'c2', name: 'Card2', ownerId: 'me', controllerId: 'me', zoneId: graveyard.id, tapped: false, faceDown: false, position: { x: 0, y: 0 }, rotation: 0, counters: [] },
@@ -80,7 +80,7 @@ describe('gameStore deck management', () => {
     useGameStore.setState((state) => ({
       ...state,
       zones: { [library.id]: library, [graveyard.id]: graveyard },
-      players: { me: { id: 'me', name: 'Me', life: 40, counters: [], commanderDamage: {}, deckLoaded: true } },
+      players: { me: { id: 'me', name: 'Me', life: 40, counters: [], commanderDamage: {}, commanderTax: 0, deckLoaded: true } },
       cards: {
         c1: { id: 'c1', name: 'Card1', ownerId: 'me', controllerId: 'me', zoneId: library.id, tapped: false, faceDown: false, position: { x: 0, y: 0 }, rotation: 0, counters: [] },
         c2: { id: 'c2', name: 'Card2', ownerId: 'me', controllerId: 'me', zoneId: library.id, tapped: false, faceDown: false, position: { x: 0, y: 0 }, rotation: 0, counters: [] },

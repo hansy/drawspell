@@ -2,6 +2,7 @@ import React from "react";
 import { Card as CardType } from "../../../types";
 import { cn } from "../../../lib/utils";
 import { useGameStore } from "../../../store/gameStore";
+import { resolveCounterColor } from "../../../lib/counters";
 import {
   getCurrentFace,
   getDisplayImageUrl,
@@ -37,6 +38,7 @@ export const CardFace: React.FC<CardFaceProps> = ({
   const addCounterToCard = useGameStore((state) => state.addCounterToCard);
   const removeCounterFromCard = useGameStore((state) => state.removeCounterFromCard);
   const updateCard = useGameStore((state) => state.updateCard);
+  const globalCounters = useGameStore((state) => state.globalCounters);
   const displayImageUrl = getDisplayImageUrl(card, { preferArtCrop });
   const displayName = getDisplayName(card);
   const showPT = shouldShowPowerToughness(card) && card.zoneId.includes('battlefield') && !hidePT;
@@ -134,7 +136,7 @@ export const CardFace: React.FC<CardFaceProps> = ({
             <div
               key={i}
               className="group relative flex items-center justify-center w-6 h-6 rounded-full shadow-md border border-white/20 text-white text-[10px] font-bold cursor-help transition-all hover:z-50"
-              style={{ backgroundColor: counter.color || '#6366f1' }}
+              style={{ backgroundColor: counter.color || resolveCounterColor(counter.type, globalCounters) }}
             >
               {counter.count}
 

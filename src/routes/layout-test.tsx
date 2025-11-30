@@ -30,6 +30,7 @@ function LayoutTest() {
           life: 40,
           counters: [],
           commanderDamage: {},
+          commanderTax: 0,
         }, true); // isRemote=true so we don't broadcast mock data
 
         // Add zones for mock player

@@ -106,6 +106,14 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
         const zone = zones[zoneId];
         if (!zone) return;
 
+        const requestCount = (opts: { title: string; message: string }) => {
+            const countStr = window.prompt(opts.message);
+            if (!countStr) return null;
+            const count = parseInt(countStr, 10);
+            if (!Number.isFinite(count) || count <= 0) return null;
+            return count;
+        };
+
         const items = buildZoneViewActions({
             zone,
             myPlayerId,
@@ -114,6 +122,7 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
             shuffleLibrary: (playerId) => useGameStore.getState().shuffleLibrary(playerId, myPlayerId),
             resetDeck: (playerId) => useGameStore.getState().resetDeck(playerId, myPlayerId),
             unloadDeck: (playerId) => useGameStore.getState().unloadDeck(playerId, myPlayerId),
+            requestCount,
         });
         if (items.length > 0) {
             handleContextMenu(e, items);

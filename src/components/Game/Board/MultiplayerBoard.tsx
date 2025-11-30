@@ -74,7 +74,8 @@ export const MultiplayerBoard: React.FC = () => {
                 name: 'Me',
                 life: 40,
                 counters: [],
-                commanderDamage: {}
+                commanderDamage: {},
+                commanderTax: 0,
             });
 
             // Add Zones

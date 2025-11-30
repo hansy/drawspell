@@ -10,9 +10,7 @@ import { ZONE } from '../constants/zones';
 import { canCreateToken, canMoveCard, canTapCard, canUpdatePlayer, canViewZone } from '../rules/permissions';
 import { logPermission } from '../rules/logger';
 import { getCardFaces, getCurrentFaceIndex, isTransformableCard, syncCardStatsToFace } from '../lib/cardDisplay';
-
-const isBattlefieldZone = (zone?: Zone) => zone?.type === ZONE.BATTLEFIELD;
-const countersForZone = (card: Card, zone?: Zone) => (isBattlefieldZone(zone) ? card.counters : []);
+import { decrementCounter, enforceZoneCounterRules, isBattlefieldZone, mergeCounters, resolveCounterColor } from '../lib/counters';
 
 interface GameStore extends GameState {
     // Additional actions or computed properties can go here
@@ -115,7 +113,7 @@ export const useGameStore = create<GameStore>()(
                     const targetZone = state.zones[cardWithFaceStats.zoneId];
                     const cardWithCounters = {
                         ...cardWithFaceStats,
-                        counters: countersForZone(cardWithFaceStats, targetZone)
+                        counters: enforceZoneCounterRules(cardWithFaceStats.counters, targetZone)
                     };
 
                     return {
@@ -193,7 +191,7 @@ export const useGameStore = create<GameStore>()(
                     return {
                         cards: {
                             ...state.cards,
-                            [id]: { ...cardWithFace, counters: countersForZone(cardWithFace, zone) },
+                            [id]: { ...cardWithFace, counters: enforceZoneCounterRules(cardWithFace.counters, zone) },
                         },
                     };
                 });
@@ -291,7 +289,7 @@ export const useGameStore = create<GameStore>()(
                     let newPosition = position || { x: 0, y: 0 };
                     const cardsCopy = { ...state.cards };
                     const nextTapped = toZone.type === ZONE.BATTLEFIELD ? card.tapped : false;
-                    const nextCounters = countersForZone(card, toZone);
+                    const nextCounters = enforceZoneCounterRules(card.counters, toZone);
 
                     // Only apply snapping/collision if moving to a battlefield (which is free-form)
                     if (toZone.type === ZONE.BATTLEFIELD && position) {
@@ -463,7 +461,8 @@ export const useGameStore = create<GameStore>()(
                     }
 
                     const nextTapped = toZone.type === ZONE.BATTLEFIELD ? card.tapped : false;
-                    const nextCounters = countersForZone(card, toZone);
+                    const nextCounters = enforceZoneCounterRules(card.counters, toZone);
+                    const resetToFront = syncCardStatsToFace({ ...card, currentFaceIndex: 0 }, 0);
 
                     const nextCard = leavingBattlefield ? resetToFront : card;
                     cardsCopy[cardId] = {
@@ -715,7 +714,7 @@ export const useGameStore = create<GameStore>()(
                             tapped: false,
                             faceDown: false,
                             position: { x: 0, y: 0 },
-                            counters: countersForZone({ ...resetCard, zoneId: libraryZone.id }, libraryZone),
+                            counters: enforceZoneCounterRules(resetCard.counters, libraryZone),
                         };
                         toLibrary.push(card.id);
                     });
@@ -778,7 +777,8 @@ export const useGameStore = create<GameStore>()(
             addGlobalCounter: (name: string, color?: string, isRemote?: boolean) => {
                 set((state) => {
                     if (state.globalCounters[name]) return state;
-                    return { globalCounters: { ...state.globalCounters, [name]: color || '#6366f1' } };
+                    const resolvedColor = resolveCounterColor(name, state.globalCounters);
+                    return { globalCounters: { ...state.globalCounters, [name]: color || resolvedColor } };
                 });
                 if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'addGlobalCounter', args: [name, color] } });
             },
@@ -792,31 +792,15 @@ export const useGameStore = create<GameStore>()(
                     const zone = state.zones[card.zoneId];
                     if (!isBattlefieldZone(zone)) return state;
 
-                    const existingCounterIndex = card.counters.findIndex(c => c.type === counter.type);
-                    let newCounters = [...card.counters];
+                    const newCounters = mergeCounters(card.counters, counter);
 
-                    if (existingCounterIndex >= 0) {
-                        newCounters[existingCounterIndex] = {
-                            ...newCounters[existingCounterIndex],
-                            count: newCounters[existingCounterIndex].count + counter.count
-                        };
-                    } else {
-                        newCounters.push(counter);
-                    }
-
-                    // Update P/T if applicable - REMOVED per user request
                     // Counters no longer affect P/T automatically.
-                    const newPower = card.power;
-                    const newToughness = card.toughness;
-
                     return {
                         cards: {
                             ...state.cards,
                             [cardId]: {
                                 ...card,
                                 counters: newCounters,
-                                power: newPower,
-                                toughness: newToughness
                             }
                         }
                     };
@@ -832,24 +816,8 @@ export const useGameStore = create<GameStore>()(
                     const zone = state.zones[card.zoneId];
                     if (!isBattlefieldZone(zone)) return state;
 
-                    const existingCounterIndex = card.counters.findIndex(c => c.type === counterType);
-                    if (existingCounterIndex === -1) return state;
-
-                    let newCounters = [...card.counters];
-                    const currentCount = newCounters[existingCounterIndex].count;
-
-                    if (currentCount > 1) {
-                        newCounters[existingCounterIndex] = {
-                            ...newCounters[existingCounterIndex],
-                            count: currentCount - 1
-                        };
-                    } else {
-                        newCounters.splice(existingCounterIndex, 1);
-                    }
-
-                    // Update P/T logic (reverse of add) - REMOVED per user request
-                    const newPower = card.power;
-                    const newToughness = card.toughness;
+                    const newCounters = decrementCounter(card.counters, counterType);
+                    if (newCounters === card.counters) return state;
 
                     return {
                         cards: {
@@ -857,8 +825,6 @@ export const useGameStore = create<GameStore>()(
                             [cardId]: {
                                 ...card,
                                 counters: newCounters,
-                                power: newPower,
-                                toughness: newToughness
                             }
                         }
                     };
@@ -907,8 +873,8 @@ export const useGameStore = create<GameStore>()(
                     const migratedCounters: typeof state.cards = {};
                     Object.values(state.cards).forEach(card => {
                         const zone = state.zones[card.zoneId];
-                        const counters = countersForZone(card, zone);
-                        migratedCounters[card.id] = counters === card.counters ? card : { ...card, counters };
+                    const counters = enforceZoneCounterRules(card.counters, zone);
+                    migratedCounters[card.id] = counters === card.counters ? card : { ...card, counters };
                     });
                     state.cards = migratedCounters;
                 }
