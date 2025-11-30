@@ -243,15 +243,21 @@ export const MultiplayerBoard: React.FC = () => {
                 />
                 <DragMonitor />
                 <DragOverlay dropAnimation={null}>
-                    {activeCardId && cards[activeCardId] ? (
+                    {activeCardId && cards[activeCardId] ? (() => {
+                        const overlayCard = cards[activeCardId];
+                        const overlayZone = zones[overlayCard.zoneId];
+                        const overlayTypeLine = overlayCard.typeLine || overlayCard.scryfall?.type_line || '';
+                        const overlayPreferArtCrop = overlayZone?.type === ZONE.BATTLEFIELD && !/land/i.test(overlayTypeLine);
+                        return (
                         <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
                             <CardView
-                                card={cards[activeCardId]}
+                                card={overlayCard}
                                 isDragging
-                                preferArtCrop={false}
+                                preferArtCrop={overlayPreferArtCrop}
                             />
                         </div>
-                    ) : null}
+                        );
+                    })() : null}
                 </DragOverlay>
             </DndContext>
         </CardPreviewProvider>
