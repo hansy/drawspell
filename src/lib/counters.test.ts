@@ -43,4 +43,12 @@ describe('counters helpers', () => {
     // Hashing should return some stable hex; ensure it returns a string.
     expect(typeof resolveCounterColor('another', {})).toBe('string');
   });
+
+  it('strips counters when leaving battlefield via helper', () => {
+    const counters = [{ type: 'charge', count: 2 }];
+    const kept = enforceZoneCounterRules(counters, battlefield);
+    const removed = enforceZoneCounterRules(counters, graveyard);
+    expect(kept).toEqual(counters);
+    expect(removed).toEqual([]);
+  });
 });

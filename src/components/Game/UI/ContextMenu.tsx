@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
-import { FloatingPortal, autoUpdate, flip, offset, shift, useFloating, type VirtualElement, type ReferenceElement } from '@floating-ui/react';
+import { FloatingPortal, autoUpdate, flip, offset, shift, useFloating, type VirtualElement } from '@floating-ui/react';
 import { cn } from '../../../lib/utils';
 import { ContextMenuItem } from '../context/menu';
 
 interface ContextMenuProps {
     x?: number;
     y?: number;
-    referenceElement?: ReferenceElement | null;
+    referenceElement?: HTMLElement | VirtualElement | null;
     items: ContextMenuItem[];
     onClose: () => void;
     className?: string;
@@ -37,7 +37,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, referenceElement
         };
     }, [x, y]);
 
-    const { refs, floatingStyles } = useFloating<ReferenceElement>({
+    const { refs, floatingStyles } = useFloating({
         placement: isSubmenu ? 'right-start' : 'bottom-start',
         strategy: 'fixed',
         middleware: [
@@ -45,15 +45,16 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, referenceElement
             flip({ fallbackAxisSideDirection: 'start' }),
             shift({ padding: 8 }),
         ],
-        elements: {
-            // The library supports virtual references; cast to appease the DOM Element constraint in TS.
-            reference: (referenceElement ?? anchorVirtualElement ?? null) as Element | null,
-        },
         whileElementsMounted: autoUpdate,
     });
 
     useEffect(() => {
-        refs.setReference((referenceElement ?? anchorVirtualElement ?? null) as Element | null);
+        if (referenceElement) {
+            refs.setReference(referenceElement);
+        } else if (anchorVirtualElement) {
+            // Virtual references must be set via setPositionReference.
+            refs.setPositionReference(anchorVirtualElement);
+        }
     }, [referenceElement, anchorVirtualElement, refs]);
 
     useEffect(() => {
