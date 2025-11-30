@@ -4,10 +4,14 @@ import { CARD_ASPECT_RATIO } from "../../../lib/constants";
 import { cn } from "../../../lib/utils";
 import { CardFace } from "./CardFace";
 
+import { useGameStore } from "../../../store/gameStore";
+
 interface CardPreviewProps {
   card: CardType;
   anchorRect: DOMRect;
   width?: number;
+  locked?: boolean;
+  onClose?: () => void;
 }
 
 const PREVIEW_WIDTH = 180; // Reduced size
@@ -17,6 +21,8 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   card,
   anchorRect,
   width = PREVIEW_WIDTH,
+  locked,
+  onClose,
 }) => {
   const [style, setStyle] = useState<{
     top: number;
@@ -24,6 +30,13 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     opacity: number;
   }>({ top: 0, left: 0, opacity: 0 });
   const [isPositioned, setIsPositioned] = useState(false);
+  const updateCard = useGameStore((state) => state.updateCard);
+
+  // Subscribe to the live card data to ensure we have the latest P/T and counters
+  const liveCard = useGameStore((state) => state.cards[card.id]);
+
+  // Use liveCard if available, otherwise fallback to the prop (snapshot)
+  const currentCard = liveCard || card;
 
   useEffect(() => {
     const calculatePosition = () => {
@@ -71,13 +84,20 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     // return () => { ... }
   }, [anchorRect, width]);
 
+  const handleUpdatePT = (type: 'power' | 'toughness', delta: number) => {
+    const currentVal = parseInt(currentCard[type] || '0');
+    if (isNaN(currentVal)) return;
+    updateCard(currentCard.id, { [type]: (currentVal + delta).toString() });
+  };
+
   // Don't render until positioned to avoid jump
   if (!isPositioned) return null;
 
   return (
     <div
       className={cn(
-        "fixed z-[9999] pointer-events-none rounded-xl shadow-2xl border-2 border-indigo-500/50 bg-zinc-900 overflow-hidden transition-opacity duration-200 ease-out",
+        "fixed z-[9999] rounded-xl shadow-2xl border-2 border-indigo-500/50 bg-zinc-900 transition-opacity duration-200 ease-out",
+        locked ? "pointer-events-auto" : "pointer-events-none",
         CARD_ASPECT_RATIO
       )}
       style={{
@@ -86,12 +106,82 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
         width: width,
         opacity: style.opacity,
       }}
+      onContextMenu={(e) => e.preventDefault()}
     >
+      {locked && onClose && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="absolute -top-10 -right-10 z-50 p-2 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors border border-zinc-700 shadow-lg"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      )}
+
       <CardFace
-        card={card}
-        countersClassName="top-2 right-2"
+        card={currentCard}
+        countersClassName="top-2 -right-2"
         imageClassName="object-cover"
+        interactive={locked}
+        hidePT={true} // Always hide internal P/T, we render external always
+        showCounterLabels={true}
       />
+
+      {/* External Power/Toughness (Always rendered, but buttons only accessible when locked) */}
+      {(currentCard.power !== undefined && currentCard.toughness !== undefined) && (
+        <div className="absolute bottom-0 left-full ml-4 bg-zinc-900 px-3 py-2 rounded-lg border border-zinc-700 shadow-xl z-50 flex items-center gap-3 min-w-max">
+          {/* Power */}
+          <div className="relative group/pt flex items-center gap-1 transition-all duration-200">
+            <button
+              className="w-0 overflow-hidden group-hover/pt:w-8 transition-all duration-200 text-lg font-bold text-white hover:text-red-400 flex items-center justify-center bg-zinc-800 rounded hover:bg-zinc-700"
+              onClick={(e) => { e.stopPropagation(); handleUpdatePT('power', -1); }}
+            >-</button>
+            <span className={cn(
+              "text-2xl font-bold min-w-[1.5rem] text-center",
+              (parseInt(currentCard.power) > parseInt(currentCard.basePower || '0')) ? "text-green-500" :
+                (parseInt(currentCard.power) < parseInt(currentCard.basePower || '0')) ? "text-red-500" : "text-white"
+            )}>{currentCard.power}</span>
+            <button
+              className="w-0 overflow-hidden group-hover/pt:w-8 transition-all duration-200 text-lg font-bold text-white hover:text-green-400 flex items-center justify-center bg-zinc-800 rounded hover:bg-zinc-700"
+              onClick={(e) => { e.stopPropagation(); handleUpdatePT('power', 1); }}
+            >+</button>
+          </div>
+
+          <span className="text-zinc-600 font-bold text-xl">/</span>
+
+          {/* Toughness */}
+          <div className="relative group/pt flex items-center gap-1 transition-all duration-200">
+            <button
+              className="w-0 overflow-hidden group-hover/pt:w-8 transition-all duration-200 text-lg font-bold text-white hover:text-red-400 flex items-center justify-center bg-zinc-800 rounded hover:bg-zinc-700"
+              onClick={(e) => { e.stopPropagation(); handleUpdatePT('toughness', -1); }}
+            >-</button>
+            <span className={cn(
+              "text-2xl font-bold min-w-[1.5rem] text-center",
+              (parseInt(currentCard.toughness) > parseInt(currentCard.baseToughness || '0')) ? "text-green-500" :
+                (parseInt(currentCard.toughness) < parseInt(currentCard.baseToughness || '0')) ? "text-red-500" : "text-white"
+            )}>{currentCard.toughness}</span>
+            <button
+              className="w-0 overflow-hidden group-hover/pt:w-8 transition-all duration-200 text-lg font-bold text-white hover:text-green-400 flex items-center justify-center bg-zinc-800 rounded hover:bg-zinc-700"
+              onClick={(e) => { e.stopPropagation(); handleUpdatePT('toughness', 1); }}
+            >+</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

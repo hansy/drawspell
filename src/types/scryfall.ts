@@ -64,6 +64,15 @@ export interface ScryfallListResult<T> {
   warnings?: string[];
 }
 
+export interface ScryfallRelatedCard {
+  object: 'related_card';
+  id: string;
+  component: 'token' | 'combo_piece' | 'meld_part' | 'meld_result' | string;
+  name: string;
+  type_line?: string;
+  uri: string;
+}
+
 export interface ScryfallImageUris {
   small?: string;
   normal?: string;
@@ -163,4 +172,5 @@ export interface ScryfallCard {
   prices: ScryfallPrices;
   related_uris: Record<string, string>;
   purchase_uris?: Record<string, string>;
+  all_parts?: ScryfallRelatedCard[];
 }

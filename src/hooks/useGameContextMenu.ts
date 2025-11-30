@@ -1,7 +1,13 @@
 import React from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { toast } from 'sonner';
 import { useGameStore } from '../store/gameStore';
-import { Card, ZoneId } from '../types';
+import { Card, ScryfallRelatedCard, ZoneId } from '../types';
 import { buildCardActions, buildZoneViewActions, ContextMenuItem } from '../components/Game/context/menu';
+import { canCreateToken } from '../rules/permissions';
+import { ZONE } from '../constants/zones';
+import { fetchScryfallCardByUri } from '../services/scryfallCard';
+import { findAvailablePosition, SNAP_GRID_SIZE } from '../lib/snapping';
 
 // Centralizes context menu state/handlers for cards and zones so UI components can stay lean.
 export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: ZoneId, count?: number) => void) => {
@@ -18,6 +24,51 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
 
     const closeContextMenu = () => setContextMenu(null);
 
+    const createRelatedCard = async (card: Card, related: ScryfallRelatedCard) => {
+        const state = useGameStore.getState();
+        const zone = state.zones[card.zoneId];
+        if (!zone || zone.type !== ZONE.BATTLEFIELD) return;
+
+        const permission = canCreateToken({ actorId: myPlayerId }, zone);
+        if (!permission.allowed) {
+            toast.error(permission.reason ?? 'Not allowed to create related card here');
+            return;
+        }
+
+        try {
+            const scryfallCard = await fetchScryfallCardByUri(related.uri);
+            const imageUrl = scryfallCard.image_uris?.normal || scryfallCard.card_faces?.[0]?.image_uris?.normal;
+            const isToken = related.component === 'token' || scryfallCard.layout === 'token' || /token/i.test(scryfallCard.type_line ?? '');
+            const basePosition = {
+                x: card.position.x + SNAP_GRID_SIZE,
+                y: card.position.y + SNAP_GRID_SIZE,
+            };
+            const position = findAvailablePosition(basePosition, zone.cardIds, state.cards);
+            state.addCard({
+                id: uuidv4(),
+                ownerId: zone.ownerId,
+                controllerId: zone.ownerId,
+                zoneId: zone.id,
+                name: scryfallCard.name || related.name,
+                imageUrl,
+                typeLine: scryfallCard.type_line,
+                oracleText: scryfallCard.oracle_text,
+                scryfallId: scryfallCard.id,
+                scryfall: scryfallCard,
+                tapped: false,
+                faceDown: false,
+                rotation: 0,
+                counters: [],
+                position,
+                isToken,
+            });
+            toast.success(`Created ${related.name}${isToken ? ' token' : ''}`);
+        } catch (error) {
+            console.error('Failed to fetch related card from Scryfall', error);
+            toast.error('Failed to create related card');
+        }
+    };
+
     // Builds and opens card-specific actions (tap, counters, move shortcuts).
     const handleCardContextMenu = (e: React.MouseEvent, card: Card) => {
         const cardActions = buildCardActions({
@@ -27,6 +78,7 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
             moveCard: (cardId, toZoneId) => moveCard(cardId, toZoneId, undefined, myPlayerId),
             tapCard: (cardId) => useGameStore.getState().tapCard(cardId, myPlayerId),
             duplicateCard: (cardId) => duplicateCard(cardId, myPlayerId),
+            createRelatedCard,
             addCounter: (cardId, counter) => {
                 useGameStore.getState().addCounterToCard(cardId, counter);
             },

@@ -1,4 +1,4 @@
-import { Card, CardId, PlayerId, Zone, ZoneId } from '../../../types';
+import { Card, CardId, PlayerId, ScryfallRelatedCard, Zone, ZoneId } from '../../../types';
 import { getPlayerZones } from '../../../lib/gameSelectors';
 import { ZONE, ZONE_LABEL } from '../../../constants/zones';
 import { canCreateToken, canMoveCard, canTapCard, canViewZone } from '../../../rules/permissions';
@@ -67,6 +67,7 @@ interface CardActionBuilderParams {
     moveCard: (cardId: CardId, toZoneId: ZoneId) => void;
     tapCard: (cardId: CardId) => void;
     duplicateCard: (cardId: CardId) => void;
+    createRelatedCard: (card: Card, related: ScryfallRelatedCard) => void;
     addCounter: (cardId: CardId, counter: { type: string; count: number; color?: string }) => void;
     removeCounter: (cardId: CardId, counterType: string) => void;
     removeCard?: (card: Card) => void;
@@ -81,6 +82,7 @@ export const buildCardActions = ({
     moveCard,
     tapCard,
     duplicateCard,
+    createRelatedCard,
     addCounter,
     removeCounter,
     removeCard,
@@ -101,6 +103,21 @@ export const buildCardActions = ({
         if (tokenPermission.allowed) {
             items.push({ label: 'Duplicate', action: () => duplicateCard(card.id) });
         }
+
+        const relatedParts = (card.scryfall?.all_parts || []).filter(part => part.component !== 'combo_piece');
+        if (relatedParts.length > 0) {
+            const relatedItems: ContextMenuItem[] = relatedParts.map((part) => {
+                const isToken = part.component === 'token';
+                const label = `Create ${part.name}${isToken ? ' token' : ''}`;
+                return { label, action: () => createRelatedCard(card, part) };
+            });
+
+            if (relatedItems.length === 1) {
+                items.push(relatedItems[0]);
+            } else {
+                items.push({ label: 'Create related', action: () => { }, submenu: relatedItems });
+            }
+        }
     }
 
     if (countersAllowed) {
@@ -108,19 +125,34 @@ export const buildCardActions = ({
         const globalCounterTypes = Object.keys(globalCounters).sort();
 
         if (globalCounterTypes.length === 0) {
-            items.push({ label: 'Add counter', action: () => openAddCounterModal(card.id) });
+            items.push({
+                label: 'Add counter',
+                action: () => {
+                    console.log('[Menu] Open add counter modal', { cardId: card.id });
+                    openAddCounterModal(card.id);
+                }
+            });
         } else {
             const addCounterItems: ContextMenuItem[] = globalCounterTypes.map(counterType => ({
                 label: counterType,
-                action: () => addCounter(card.id, {
-                    type: counterType,
-                    count: 1,
-                    color: globalCounters[counterType]
-                })
+                action: () => {
+                    console.log('[Menu] Quick add counter', { cardId: card.id, counterType });
+                    addCounter(card.id, {
+                        type: counterType,
+                        count: 1,
+                        color: globalCounters[counterType]
+                    });
+                }
             }));
 
             addCounterItems.push({ label: '', action: () => { }, separator: true });
-            addCounterItems.push({ label: 'Create new...', action: () => openAddCounterModal(card.id) });
+            addCounterItems.push({
+                label: 'Create new...',
+                action: () => {
+                    console.log('[Menu] Open add counter modal (submenu)', { cardId: card.id });
+                    openAddCounterModal(card.id);
+                }
+            });
 
             items.push({
                 label: 'Add counter',

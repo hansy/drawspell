@@ -8,6 +8,7 @@ import { ScryfallCard } from '../../../types/scryfall';
 import { useGameStore } from '../../../store/gameStore';
 import { v4 as uuidv4 } from 'uuid';
 import { ZONE } from '../../../constants/zones';
+import { findAvailablePosition, getSnappedPosition, SNAP_GRID_SIZE } from '../../../lib/snapping';
 import { toast } from 'sonner';
 
 interface TokenCreationModalProps {
@@ -20,6 +21,7 @@ export const TokenCreationModal: React.FC<TokenCreationModalProps> = ({ isOpen, 
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<ScryfallCard[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [hasSearched, setHasSearched] = useState(false);
     const [selectedToken, setSelectedToken] = useState<ScryfallCard | null>(null);
     const [quantity, setQuantity] = useState(1);
 
@@ -31,10 +33,13 @@ export const TokenCreationModal: React.FC<TokenCreationModalProps> = ({ isOpen, 
     useEffect(() => {
         if (!query.trim()) {
             setResults([]);
+            setIsLoading(false);
+            setHasSearched(false);
             return;
         }
 
         setIsLoading(true);
+        setHasSearched(false);
         debouncedSearch.search(query)
             .then((data) => {
                 if (data && data.data) {
@@ -42,9 +47,12 @@ export const TokenCreationModal: React.FC<TokenCreationModalProps> = ({ isOpen, 
                 } else {
                     setResults([]);
                 }
+                setHasSearched(true);
             })
             .catch((err) => {
+                if ((err as any)?.name === 'AbortError') return;
                 console.error("Token search error:", err);
+                setHasSearched(true);
             })
             .finally(() => {
                 setIsLoading(false);
@@ -59,8 +67,13 @@ export const TokenCreationModal: React.FC<TokenCreationModalProps> = ({ isOpen, 
         if (!selectedToken) return;
 
         const battlefieldId = `${playerId}-${ZONE.BATTLEFIELD}`;
+        const state = useGameStore.getState();
+        const battlefield = state.zones[battlefieldId];
 
         for (let i = 0; i < quantity; i++) {
+            const base = getSnappedPosition(100 + (i * SNAP_GRID_SIZE), 100 + (i * SNAP_GRID_SIZE));
+            const position = battlefield ? findAvailablePosition(base, battlefield.cardIds, state.cards) : base;
+
             addCard({
                 id: uuidv4(),
                 name: selectedToken.name,
@@ -68,7 +81,7 @@ export const TokenCreationModal: React.FC<TokenCreationModalProps> = ({ isOpen, 
                 controllerId: playerId,
                 ownerId: playerId,
                 zoneId: battlefieldId,
-                position: { x: 100 + (i * 20), y: 100 + (i * 20) }, // Staggered position
+                position,
                 tapped: false,
                 counters: [],
                 faceDown: false,
@@ -107,7 +120,16 @@ export const TokenCreationModal: React.FC<TokenCreationModalProps> = ({ isOpen, 
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 h-4 w-4" />
                             <Input
                                 value={query}
-                                onChange={(e) => setQuery(e.target.value)}
+                                onChange={(e) => {
+                                    const next = e.target.value;
+                                    setQuery(next);
+                                    if (next.trim().length >= 3) {
+                                        setIsLoading(true);
+                                    } else {
+                                        setIsLoading(false);
+                                        setHasSearched(false);
+                                    }
+                                }}
                                 placeholder="Search for tokens (e.g. 'Goblin', 'Treasure')..."
                                 className="pl-9 bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-indigo-500"
                                 autoFocus
@@ -156,7 +178,7 @@ export const TokenCreationModal: React.FC<TokenCreationModalProps> = ({ isOpen, 
                                     );
                                 })}
                             </div>
-                        ) : query.length >= 3 ? (
+                        ) : hasSearched && query.length >= 3 ? (
                             <div className="flex items-center justify-center h-full text-zinc-500">
                                 No tokens found.
                             </div>

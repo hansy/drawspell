@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { Card, GameState, Zone } from '../types';
 import { peerService } from '../services/peerService';
-import { getSnappedPosition, SNAP_GRID_SIZE } from '../lib/snapping';
+import { findAvailablePosition, getSnappedPosition, SNAP_GRID_SIZE } from '../lib/snapping';
 import { CARD_HEIGHT_PX, CARD_WIDTH_PX } from '../lib/constants';
 import { getZoneByType } from '../lib/gameSelectors';
 import { ZONE } from '../constants/zones';
@@ -126,14 +126,16 @@ export const useGameStore = create<GameStore>()(
                 }
 
                 const newCardId = uuidv4();
+                const basePosition = {
+                    x: sourceCard.position.x + SNAP_GRID_SIZE,
+                    y: sourceCard.position.y + SNAP_GRID_SIZE,
+                };
+                const position = findAvailablePosition(basePosition, currentZone.cardIds, state.cards);
                 const clonedCard: Card = {
                     ...sourceCard,
                     id: newCardId,
                     isToken: true,
-                    position: {
-                        x: sourceCard.position.x + SNAP_GRID_SIZE,
-                        y: sourceCard.position.y + SNAP_GRID_SIZE,
-                    },
+                    position,
                     counters: sourceCard.counters.map(counter => ({ ...counter })),
                 };
 
@@ -705,6 +707,7 @@ export const useGameStore = create<GameStore>()(
             },
 
             addCounterToCard: (cardId, counter, isRemote) => {
+                console.log('[Store] addCounterToCard called', { cardId, counter });
                 set((state) => {
                     const card = state.cards[cardId];
                     if (!card) return state;

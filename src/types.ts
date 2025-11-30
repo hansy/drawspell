@@ -114,4 +114,4 @@ export interface GameState {
   setHasHydrated: (state: boolean) => void;
 }
 
-export type { ScryfallCard, ScryfallIdentifier, ScryfallListResult } from './types/scryfall';
+export type { ScryfallCard, ScryfallIdentifier, ScryfallListResult, ScryfallRelatedCard } from './types/scryfall';

@@ -27,6 +27,7 @@ export interface CardViewProps {
   faceDown?: boolean;
   isDragging?: boolean;
   onDoubleClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
   onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
@@ -42,6 +43,7 @@ export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(
       faceDown,
       isDragging,
       onDoubleClick,
+      onClick,
       onMouseEnter,
       onMouseLeave,
       ...props
@@ -57,13 +59,14 @@ export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(
           CARD_ASPECT_RATIO,
           "bg-zinc-800 rounded-lg border border-zinc-700 shadow-md flex flex-col items-center justify-center select-none relative",
           !isDragging &&
-            "hover:scale-105 hover:shadow-xl hover:z-10 hover:border-indigo-500/50 cursor-grab active:cursor-grabbing",
+          "hover:scale-105 hover:shadow-xl hover:z-10 hover:border-indigo-500/50 cursor-grab active:cursor-grabbing",
           card.tapped && "border-zinc-600 bg-zinc-900",
           isDragging &&
-            "shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-indigo-500 cursor-grabbing",
+          "shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-indigo-500 cursor-grabbing",
           className
         )}
         onDoubleClick={onDoubleClick}
+        onClick={onClick}
         onContextMenu={onContextMenu}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
@@ -86,7 +89,7 @@ export const Card: React.FC<CardProps> = ({
   onContextMenu,
   faceDown,
 }) => {
-  const { showPreview, hidePreview } = useCardPreview();
+  const { showPreview, hidePreview, toggleLock } = useCardPreview();
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: card.id,
     data: {
@@ -142,6 +145,13 @@ export const Card: React.FC<CardProps> = ({
     hidePreview();
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    if (card.zoneId.includes(ZONE.BATTLEFIELD) && !isDragging) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      toggleLock(card, rect);
+    }
+  };
+
   // Cleanup on unmount
   React.useEffect(() => {
     return () => {
@@ -167,6 +177,7 @@ export const Card: React.FC<CardProps> = ({
           if (zone?.type !== ZONE.BATTLEFIELD) return;
           state.tapCard(card.id, state.myPlayerId);
         }}
+        onClick={handleClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...listeners}

@@ -175,7 +175,11 @@ export const AddCounterModal: React.FC<AddCounterModalProps> = ({ isOpen, onClos
                     <Button variant="outline" onClick={onClose} className="bg-transparent border-zinc-700 hover:bg-zinc-800 text-zinc-300">
                         Cancel
                     </Button>
-                    <Button onClick={handleAdd} disabled={!customType.trim()} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                    <Button
+                        onClick={handleAdd}
+                        disabled={selectedType === 'custom' && !customType.trim()}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
                         Add Counter
                     </Button>
                 </DialogFooter>

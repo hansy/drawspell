@@ -61,11 +61,17 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, referenceElement
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                // Only close if it's the root menu
-                if (!isSubmenu) {
-                    onClose();
-                }
+            const target = event.target as Node | null;
+            if (!target) return;
+
+            // If clicking inside any context menu (root or submenu), ignore
+            const anyMenuContains = Array.from(document.querySelectorAll('[data-context-menu-root]')).some((el) =>
+                el.contains(target)
+            );
+            if (anyMenuContains) return;
+
+            if (!isSubmenu) {
+                onClose();
             }
         };
 
@@ -104,8 +110,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, referenceElement
                     menuRef.current = node;
                     refs.setFloating(node);
                 }}
+                data-context-menu-root
                 className={cn(
-                    "z-50 min-w-[160px] max-w-[280px] max-h-[70vh] overflow-auto bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl py-1",
+                    "z-[10000] pointer-events-auto min-w-[160px] max-w-[280px] max-h-[70vh] overflow-auto bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl py-1",
                     className
                 )}
                 style={floatingStyles}
@@ -128,6 +135,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, referenceElement
                                     activeSubmenuIndex === index && "bg-zinc-700"
                                 )}
                                 onClick={() => {
+                                    // Debug: ensure clicks are firing
+                                    console.log('[ContextMenu] click', item.label);
                                     if (!item.submenu) {
                                         item.action();
                                         onClose(); // Close all menus

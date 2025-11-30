@@ -244,6 +244,31 @@ describe('gameStore move/tap interactions', () => {
     expect(clone.controllerId).toBe(card.controllerId);
   });
 
+  it('stacks duplicates to the next free grid slot if the first is occupied', () => {
+    const battlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', ['c11', 'c12']);
+    const basePosition = { x: 0, y: 0 };
+    const card = { ...makeCard('c11', battlefield.id, 'me'), position: basePosition };
+    const occupied = { ...makeCard('c12', battlefield.id, 'me'), position: { x: SNAP_GRID_SIZE, y: SNAP_GRID_SIZE } };
+
+    useGameStore.setState((state) => ({
+      myPlayerId: 'me',
+      zones: { ...state.zones, [battlefield.id]: battlefield },
+      cards: { ...state.cards, [card.id]: card, [occupied.id]: occupied },
+    }));
+
+    useGameStore.getState().duplicateCard(card.id, 'me');
+
+    const state = useGameStore.getState();
+    const newIds = state.zones[battlefield.id].cardIds.filter((id) => id !== card.id && id !== occupied.id);
+    expect(newIds).toHaveLength(1);
+
+    const clone = state.cards[newIds[0]];
+    expect(clone.position).toEqual({
+      x: basePosition.x + SNAP_GRID_SIZE * 2,
+      y: basePosition.y + SNAP_GRID_SIZE * 2,
+    });
+  });
+
   it('blocks duplication when the actor cannot create a token on the battlefield', () => {
     const battlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', ['c10']);
     const card = makeCard('c10', battlefield.id, 'me', false);
