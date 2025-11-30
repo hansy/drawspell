@@ -285,4 +285,24 @@ describe('gameStore move/tap interactions', () => {
     expect(state.zones[battlefield.id].cardIds).toEqual([card.id]);
     expect(Object.keys(state.cards)).toEqual([card.id]);
   });
+
+  it('keeps counters when moving within battlefields but strips when exiting', () => {
+    const battlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', ['c20']);
+    const otherBattlefield = makeZone('bf-opp', 'BATTLEFIELD', 'opp', []);
+    const exile = makeZone('ex-me', 'EXILE', 'me', []);
+    const card = { ...makeCard('c20', battlefield.id, 'me'), counters: [{ type: 'charge', count: 1 }] };
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { ...state.zones, [battlefield.id]: battlefield, [otherBattlefield.id]: otherBattlefield, [exile.id]: exile },
+      cards: { ...state.cards, [card.id]: card },
+      myPlayerId: 'me',
+    }));
+
+    useGameStore.getState().moveCard(card.id, otherBattlefield.id, undefined, 'me');
+    expect(useGameStore.getState().cards[card.id].counters).toEqual(card.counters);
+
+    useGameStore.getState().moveCard(card.id, exile.id, undefined, 'me');
+    expect(useGameStore.getState().cards[card.id].counters).toEqual([]);
+  });
 });

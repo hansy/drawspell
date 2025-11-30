@@ -104,4 +104,58 @@ describe('buildCardActions', () => {
     });
     expect(actions.some((a) => a.type === 'action' && a.label === 'Tap/Untap')).toBe(true);
   });
+
+  it('creates related submenu items when multiple parts exist', () => {
+    const battlefield = makeZone('bf', ZONE.BATTLEFIELD, 'p1');
+    const zones = { [battlefield.id]: battlefield };
+    const actions = buildCardActions({
+      card: {
+        ...baseCard,
+        zoneId: battlefield.id,
+        scryfall: {
+          all_parts: [
+            { id: 'p1', name: 'A', uri: 'u1', component: 'token', object: 'related_card' },
+            { id: 'p2', name: 'B', uri: 'u2', component: 'token', object: 'related_card' },
+          ],
+        } as any,
+      },
+      zones,
+      myPlayerId: 'p1',
+      moveCard: vi.fn(),
+      tapCard: vi.fn(),
+      transformCard: vi.fn(),
+      duplicateCard: vi.fn(),
+      createRelatedCard: vi.fn(),
+      addCounter: vi.fn(),
+      removeCounter: vi.fn(),
+      openAddCounterModal: vi.fn(),
+      globalCounters: {},
+    });
+
+    const relatedParent = actions.find((a): a is Extract<typeof a, { type: 'action' }> => a.type === 'action' && a.label === 'Create related');
+    expect(relatedParent).toBeDefined();
+    expect(relatedParent?.submenu?.length).toBe(2);
+  });
+
+  it('includes counter submenus with separator when globals exist', () => {
+    const battlefield = makeZone('bf', ZONE.BATTLEFIELD, 'p1');
+    const zones = { [battlefield.id]: battlefield };
+    const actions = buildCardActions({
+      card: { ...baseCard, zoneId: battlefield.id },
+      zones,
+      myPlayerId: 'p1',
+      moveCard: vi.fn(),
+      tapCard: vi.fn(),
+      transformCard: vi.fn(),
+      duplicateCard: vi.fn(),
+      createRelatedCard: vi.fn(),
+      addCounter: vi.fn(),
+      removeCounter: vi.fn(),
+      openAddCounterModal: vi.fn(),
+      globalCounters: { charge: '#000' },
+    });
+
+    const addParent = actions.find((a): a is Extract<typeof a, { type: 'action' }> => a.type === 'action' && a.label === 'Add counter');
+    expect(addParent?.submenu?.some((i: any) => i.type === 'separator')).toBe(true);
+  });
 });

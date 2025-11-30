@@ -11,7 +11,7 @@ import { useGameStore } from "../../../store/gameStore";
 import { CardView } from "../Card/Card";
 import { Card } from "../../../types";
 import { ContextMenu, ContextMenuItem } from "./ContextMenu";
-import { buildZoneMoveActions } from "../context/menu";
+import { actionRegistry } from "../context/actionsRegistry";
 import { ZONE } from "../../../constants/zones";
 import { canViewZone } from "../../../rules/permissions";
 import { cn } from "../../../lib/utils";
@@ -160,7 +160,7 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
         if (!zone) return;
 
         const items: ContextMenuItem[] = zone
-            ? buildZoneMoveActions(
+            ? actionRegistry.buildZoneMoveActions(
                 card,
                 zone,
                 zones,

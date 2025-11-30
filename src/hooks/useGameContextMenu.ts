@@ -3,7 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
 import { useGameStore } from '../store/gameStore';
 import { Card, ScryfallRelatedCard, ZoneId } from '../types';
-import { buildCardActions, buildZoneViewActions, ContextMenuItem } from '../components/Game/context/menu';
+import { ContextMenuItem } from '../components/Game/context/menu';
+import { actionRegistry } from '../components/Game/context/actionsRegistry';
 import { canCreateToken } from '../rules/permissions';
 import { ZONE } from '../constants/zones';
 import { fetchScryfallCardByUri } from '../services/scryfallCard';
@@ -75,7 +76,7 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
 
     // Builds and opens card-specific actions (tap, counters, move shortcuts).
     const handleCardContextMenu = (e: React.MouseEvent, card: Card) => {
-        const cardActions = buildCardActions({
+        const cardActions = actionRegistry.buildCardActions({
             card,
             zones,
             myPlayerId,
@@ -107,7 +108,7 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
         const zone = zones[zoneId];
         if (!zone) return;
 
-        const items = buildZoneViewActions({
+        const items = actionRegistry.buildZoneViewActions({
             zone,
             myPlayerId,
             onViewZone,
