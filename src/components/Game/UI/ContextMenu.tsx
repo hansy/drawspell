@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
-import { FloatingPortal, autoUpdate, flip, offset, shift, useFloating, type VirtualElement } from '@floating-ui/react';
+import { FloatingPortal, autoUpdate, flip, offset, shift, useFloating, type VirtualElement, type ReferenceElement } from '@floating-ui/react';
 import { cn } from '../../../lib/utils';
 import { ContextMenuItem } from '../context/menu';
 
 interface ContextMenuProps {
     x?: number;
     y?: number;
-    referenceElement?: HTMLElement | VirtualElement;
+    referenceElement?: ReferenceElement | null;
     items: ContextMenuItem[];
     onClose: () => void;
     className?: string;
@@ -37,7 +37,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, referenceElement
         };
     }, [x, y]);
 
-    const { refs, floatingStyles } = useFloating<HTMLElement | VirtualElement>({
+    const { refs, floatingStyles } = useFloating<ReferenceElement>({
         placement: isSubmenu ? 'right-start' : 'bottom-start',
         strategy: 'fixed',
         middleware: [
@@ -46,18 +46,14 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, referenceElement
             shift({ padding: 8 }),
         ],
         elements: {
-            // Virtual references are supported by Floating UI, but the DOM typings expect an Element.
-            reference: (referenceElement ?? anchorVirtualElement ?? null) as unknown as Element | null,
+            // The library supports virtual references; cast to appease the DOM Element constraint in TS.
+            reference: (referenceElement ?? anchorVirtualElement ?? null) as Element | null,
         },
         whileElementsMounted: autoUpdate,
     });
 
     useEffect(() => {
-        if (referenceElement) {
-            refs.setReference(referenceElement);
-        } else if (anchorVirtualElement) {
-            refs.setReference(anchorVirtualElement as unknown as Element);
-        }
+        refs.setReference((referenceElement ?? anchorVirtualElement ?? null) as Element | null);
     }, [referenceElement, anchorVirtualElement, refs]);
 
     useEffect(() => {
@@ -95,7 +91,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, referenceElement
     }, [onClose, isSubmenu]);
 
     const handleMouseEnter = (index: number, e: React.MouseEvent<HTMLButtonElement>) => {
-        if (items[index].submenu) {
+        const item = items[index];
+        if (item.type === 'action' && item.submenu) {
             setActiveSubmenuIndex(index);
             setSubmenuReference(e.currentTarget);
         } else {
@@ -124,43 +121,49 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, referenceElement
                         <div className="text-xs text-zinc-500 mt-0.5">Actions:</div>
                     </div>
                 )}
-                {items.map((item, index) => (
-                    <React.Fragment key={index}>
-                        {item.separator ? (
-                            <div className="h-px bg-zinc-700 my-1 mx-2" />
-                        ) : (
+                {items.map((item, index) => {
+                    if (item.type === 'separator') {
+                        return <div key={item.id ?? index} className="h-px bg-zinc-700 my-1 mx-2" />;
+                    }
+
+                    const isDisabled = Boolean(item.disabledReason);
+                    return (
+                        <React.Fragment key={index}>
                             <button
                                 className={cn(
-                                    "w-full text-left px-4 py-2 text-sm hover:bg-zinc-700 transition-colors flex items-center justify-between group",
+                                    "w-full text-left px-4 py-2 text-sm transition-colors flex items-center justify-between group",
                                     item.danger ? "text-red-400 hover:bg-red-900/20" : "text-zinc-200",
-                                    activeSubmenuIndex === index && "bg-zinc-700"
+                                    activeSubmenuIndex === index && "bg-zinc-700",
+                                    !isDisabled && "hover:bg-zinc-700",
+                                    isDisabled && "opacity-60 cursor-not-allowed"
                                 )}
                                 onClick={() => {
-                                    // Debug: ensure clicks are firing
-                                    console.log('[ContextMenu] click', item.label);
+                                    if (isDisabled) return;
                                     if (!item.submenu) {
-                                        item.action();
+                                        item.onSelect();
                                         onClose(); // Close all menus
                                     }
                                 }}
                                 onMouseEnter={(e) => handleMouseEnter(index, e)}
+                                title={item.disabledReason}
+                                disabled={isDisabled}
                             >
                                 <span>{item.label}</span>
                                 {item.submenu && <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-300" />}
                             </button>
-                        )}
 
-                        {/* Render Submenu */}
-                        {item.submenu && activeSubmenuIndex === index && submenuReference && (
-                            <ContextMenu
-                                referenceElement={submenuReference}
-                                items={item.submenu}
-                                onClose={onClose}
-                                isSubmenu={true}
-                            />
-                        )}
-                    </React.Fragment>
-                ))}
+                            {/* Render Submenu */}
+                            {item.submenu && activeSubmenuIndex === index && submenuReference && (
+                                <ContextMenu
+                                    referenceElement={submenuReference}
+                                    items={item.submenu}
+                                    onClose={onClose}
+                                    isSubmenu={true}
+                                />
+                            )}
+                        </React.Fragment>
+                    );
+                })}
             </div>
         </FloatingPortal>
     );

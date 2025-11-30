@@ -4,12 +4,20 @@ import { ZONE, ZONE_LABEL } from '../../../constants/zones';
 import { canCreateToken, canMoveCard, canTapCard, canViewZone } from '../../../rules/permissions';
 import { getNextTransformFace, getTransformVerb, isTransformableCard } from '../../../lib/cardDisplay';
 
-export interface ContextMenuItem {
+export type ContextMenuItem = ContextMenuAction | ContextMenuSeparator;
+
+export interface ContextMenuAction {
+    type: 'action';
     label: string;
-    action: () => void;
+    onSelect: () => void;
     danger?: boolean;
     submenu?: ContextMenuItem[];
-    separator?: boolean;
+    disabledReason?: string;
+}
+
+export interface ContextMenuSeparator {
+    type: 'separator';
+    id?: string;
 }
 
 export const buildZoneMoveActions = (
@@ -38,7 +46,7 @@ export const buildZoneMoveActions = (
             toZone: targetZone
         });
         if (permission.allowed) {
-            items.push({ label, action: mover });
+            items.push({ type: 'action', label, onSelect: mover });
         }
     };
 
@@ -98,21 +106,21 @@ export const buildCardActions = ({
 
     const canTap = canTapCard({ actorId: myPlayerId }, card, currentZone);
     if (canTap.allowed) {
-        items.push({ label: 'Tap/Untap', action: () => tapCard(card.id) });
+        items.push({ type: 'action', label: 'Tap/Untap', onSelect: () => tapCard(card.id) });
     }
 
     if (currentZone?.type === ZONE.BATTLEFIELD && isTransformableCard(card)) {
         const nextFace = getNextTransformFace(card);
         if (nextFace) {
             const verb = getTransformVerb(card);
-            items.push({ label: `${verb}: ${nextFace.face.name}`, action: () => transformCard(card.id, nextFace.nextIndex) });
+            items.push({ type: 'action', label: `${verb}: ${nextFace.face.name}`, onSelect: () => transformCard(card.id, nextFace.nextIndex) });
         }
     }
 
     if (currentZone?.type === ZONE.BATTLEFIELD) {
         const tokenPermission = canCreateToken({ actorId: myPlayerId }, currentZone);
         if (tokenPermission.allowed) {
-            items.push({ label: 'Duplicate', action: () => duplicateCard(card.id) });
+            items.push({ type: 'action', label: 'Duplicate', onSelect: () => duplicateCard(card.id) });
         }
 
         const relatedParts = (card.scryfall?.all_parts || []).filter(part => part.component !== 'combo_piece');
@@ -120,13 +128,13 @@ export const buildCardActions = ({
             const relatedItems: ContextMenuItem[] = relatedParts.map((part) => {
                 const isToken = part.component === 'token';
                 const label = `Create ${part.name}${isToken ? ' token' : ''}`;
-                return { label, action: () => createRelatedCard(card, part) };
+                return { type: 'action', label, onSelect: () => createRelatedCard(card, part) };
             });
 
             if (relatedItems.length === 1) {
                 items.push(relatedItems[0]);
             } else {
-                items.push({ label: 'Create related', action: () => { }, submenu: relatedItems });
+                items.push({ type: 'action', label: 'Create related', onSelect: () => { }, submenu: relatedItems });
             }
         }
     }
@@ -137,16 +145,18 @@ export const buildCardActions = ({
 
         if (globalCounterTypes.length === 0) {
             items.push({
+                type: 'action',
                 label: 'Add counter',
-                action: () => {
+                onSelect: () => {
                     console.log('[Menu] Open add counter modal', { cardId: card.id });
                     openAddCounterModal(card.id);
                 }
             });
         } else {
             const addCounterItems: ContextMenuItem[] = globalCounterTypes.map(counterType => ({
+                type: 'action',
                 label: counterType,
-                action: () => {
+                onSelect: () => {
                     console.log('[Menu] Quick add counter', { cardId: card.id, counterType });
                     addCounter(card.id, {
                         type: counterType,
@@ -156,18 +166,20 @@ export const buildCardActions = ({
                 }
             }));
 
-            addCounterItems.push({ label: '', action: () => { }, separator: true });
+            addCounterItems.push({ type: 'separator', id: 'add-counter-divider' });
             addCounterItems.push({
+                type: 'action',
                 label: 'Create new...',
-                action: () => {
+                onSelect: () => {
                     console.log('[Menu] Open add counter modal (submenu)', { cardId: card.id });
                     openAddCounterModal(card.id);
                 }
             });
 
             items.push({
+                type: 'action',
                 label: 'Add counter',
-                action: () => { }, // Submenu parent
+                onSelect: () => { }, // Submenu parent
                 submenu: addCounterItems
             });
         }
@@ -175,20 +187,22 @@ export const buildCardActions = ({
         // Remove Counter Logic
         if (card.counters.length > 0) {
             const removeCounterItems: ContextMenuItem[] = card.counters.map(counter => ({
+                type: 'action',
                 label: `${counter.type} (${counter.count})`,
-                action: () => removeCounter(card.id, counter.type)
+                onSelect: () => removeCounter(card.id, counter.type)
             }));
 
             items.push({
+                type: 'action',
                 label: 'Remove counter',
-                action: () => { }, // Submenu parent
+                onSelect: () => { }, // Submenu parent
                 submenu: removeCounterItems
             });
         }
     }
 
     if (card.isToken && removeCard) {
-        items.push({ label: 'Remove Card', action: () => removeCard(card), danger: true });
+        items.push({ type: 'action', label: 'Remove Card', onSelect: () => removeCard(card), danger: true });
     }
 
     const playerZones = getPlayerZones(zones, myPlayerId);
@@ -202,7 +216,7 @@ export const buildCardActions = ({
                 toZone: playerZones.battlefield
             });
             if (permission.allowed) {
-                items.push({ label: 'Play to Battlefield', action: () => moveCard(card.id, playerZones.battlefield!.id) });
+                items.push({ type: 'action', label: 'Play to Battlefield', onSelect: () => moveCard(card.id, playerZones.battlefield!.id) });
             }
         }
         if (playerZones.graveyard) {
@@ -213,7 +227,7 @@ export const buildCardActions = ({
                 toZone: playerZones.graveyard
             });
             if (permission.allowed) {
-                items.push({ label: 'Discard', action: () => moveCard(card.id, playerZones.graveyard!.id), danger: true });
+                items.push({ type: 'action', label: 'Discard', onSelect: () => moveCard(card.id, playerZones.graveyard!.id), danger: true });
             }
         }
     }
@@ -229,7 +243,7 @@ interface ZoneActionBuilderParams {
     shuffleLibrary: (playerId: PlayerId) => void;
     resetDeck: (playerId: PlayerId) => void;
     unloadDeck: (playerId: PlayerId) => void;
-    requestCount?: (opts: { title: string; message: string }) => number | null;
+    openCountPrompt?: (opts: { title: string; message: string; onSubmit: (count: number) => void }) => void;
 }
 
 export const buildZoneViewActions = ({
@@ -240,7 +254,7 @@ export const buildZoneViewActions = ({
     shuffleLibrary,
     resetDeck,
     unloadDeck,
-    requestCount,
+    openCountPrompt,
 }: ZoneActionBuilderParams): ContextMenuItem[] => {
     const items: ContextMenuItem[] = [];
 
@@ -252,37 +266,45 @@ export const buildZoneViewActions = ({
 
         if (zone.type === ZONE.LIBRARY) {
             if (zone.ownerId === myPlayerId) {
-            items.push({ label: 'Draw Card', action: () => drawCard(myPlayerId) });
-            if (requestCount) {
-                items.push({
-                    label: 'Draw X Cards...',
-                    action: () => {
-                        const count = requestCount({ title: 'Draw', message: 'How many cards to draw?' });
-                        if (!count || count < 1) return;
-                        for (let i = 0; i < count; i++) {
-                            drawCard(myPlayerId);
+            items.push({ type: 'action', label: 'Draw Card', onSelect: () => drawCard(myPlayerId) });
+            items.push({
+                type: 'action',
+                label: 'Draw X Cards...',
+                onSelect: () => {
+                    if (!openCountPrompt) return;
+                    openCountPrompt({
+                        title: 'Draw',
+                        message: 'How many cards to draw?',
+                        onSubmit: (count) => {
+                            for (let i = 0; i < count; i++) {
+                                drawCard(myPlayerId);
+                            }
                         }
-                    }
-                });
-            }
-            items.push({ label: 'Shuffle Library', action: () => shuffleLibrary(myPlayerId) });
-            items.push({ label: 'Reset Deck', action: () => resetDeck(myPlayerId) });
-            items.push({ label: 'Unload Deck', action: () => unloadDeck(myPlayerId), danger: true });
-            if (onViewZone) items.push({ label: 'View All', action: () => onViewZone(zone.id) });
-            if (requestCount && onViewZone) {
-                items.push({
-                    label: 'View Top X...',
-                    action: () => {
-                        const count = requestCount({ title: 'View Top', message: 'How many cards from top?' });
-                        if (!count || count < 1) return;
-                        onViewZone(zone.id, count);
-                    }
-                });
-            }
+                    });
+                },
+                disabledReason: openCountPrompt ? undefined : 'Prompt unavailable',
+            });
+            items.push({ type: 'action', label: 'Shuffle Library', onSelect: () => shuffleLibrary(myPlayerId) });
+            items.push({ type: 'action', label: 'Reset Deck', onSelect: () => resetDeck(myPlayerId) });
+            items.push({ type: 'action', label: 'Unload Deck', onSelect: () => unloadDeck(myPlayerId), danger: true });
+            if (onViewZone) items.push({ type: 'action', label: 'View All', onSelect: () => onViewZone(zone.id) });
+            items.push({
+                type: 'action',
+                label: 'View Top X...',
+                onSelect: () => {
+                    if (!openCountPrompt || !onViewZone) return;
+                    openCountPrompt({
+                        title: 'View Top',
+                        message: 'How many cards from top?',
+                        onSubmit: (count) => onViewZone?.(zone.id, count),
+                    });
+                },
+                disabledReason: openCountPrompt && onViewZone ? undefined : 'Prompt unavailable',
+            });
         }
     } else if (zone.type === ZONE.GRAVEYARD || zone.type === ZONE.EXILE) {
         const viewPermission = canViewZone({ actorId: myPlayerId }, zone);
-        if (viewPermission.allowed && onViewZone) items.push({ label: 'View All', action: () => onViewZone(zone.id) });
+        if (viewPermission.allowed && onViewZone) items.push({ type: 'action', label: 'View All', onSelect: () => onViewZone(zone.id) });
     }
 
     return items;

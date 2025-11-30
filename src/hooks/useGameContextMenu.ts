@@ -13,6 +13,7 @@ import { getDisplayName } from '../lib/cardDisplay';
 // Centralizes context menu state/handlers for cards and zones so UI components can stay lean.
 export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: ZoneId, count?: number) => void) => {
     const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; items: ContextMenuItem[]; title?: string } | null>(null);
+    const [countPrompt, setCountPrompt] = React.useState<{ title: string; message: string; onSubmit: (count: number) => void } | null>(null);
     const zones = useGameStore((state) => state.zones);
     const moveCard = useGameStore((state) => state.moveCard);
     const duplicateCard = useGameStore((state) => state.duplicateCard);
@@ -106,14 +107,6 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
         const zone = zones[zoneId];
         if (!zone) return;
 
-        const requestCount = (opts: { title: string; message: string }) => {
-            const countStr = window.prompt(opts.message);
-            if (!countStr) return null;
-            const count = parseInt(countStr, 10);
-            if (!Number.isFinite(count) || count <= 0) return null;
-            return count;
-        };
-
         const items = buildZoneViewActions({
             zone,
             myPlayerId,
@@ -122,7 +115,7 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
             shuffleLibrary: (playerId) => useGameStore.getState().shuffleLibrary(playerId, myPlayerId),
             resetDeck: (playerId) => useGameStore.getState().resetDeck(playerId, myPlayerId),
             unloadDeck: (playerId) => useGameStore.getState().unloadDeck(playerId, myPlayerId),
-            requestCount,
+            openCountPrompt: ({ title, message, onSubmit }) => setCountPrompt({ title, message, onSubmit }),
         });
         if (items.length > 0) {
             handleContextMenu(e, items);
@@ -132,8 +125,9 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
     const handleBattlefieldContextMenu = (e: React.MouseEvent, onCreateToken: () => void) => {
         handleContextMenu(e, [
             {
+                type: 'action',
                 label: 'Create Token',
-                action: onCreateToken,
+                onSelect: onCreateToken,
             }
         ]);
     };
@@ -143,6 +137,8 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
         handleCardContextMenu,
         handleZoneContextMenu,
         handleBattlefieldContextMenu,
-        closeContextMenu
+        closeContextMenu,
+        countPrompt,
+        closeCountPrompt: () => setCountPrompt(null),
     };
 };

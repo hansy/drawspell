@@ -10,12 +10,12 @@ import { LoadDeckModal } from '../UI/LoadDeckModal';
 import { TokenCreationModal } from '../UI/TokenCreationModal';
 import { AddCounterModal } from '../UI/AddCounterModal';
 import { useGameDnD } from '../../../hooks/useGameDnD';
-import { useGameContextMenu } from '../../../hooks/useGameContextMenu';
-
 import { usePlayerLayout } from '../../../hooks/usePlayerLayout';
 import { ZoneViewerModal } from '../UI/ZoneViewerModal';
 import { ZONE } from '../../../constants/zones';
 import { CardPreviewProvider } from '../Card/CardPreviewProvider';
+import { useGameContextMenu } from '../../../hooks/useGameContextMenu';
+import { NumberPromptDialog } from '../UI/NumberPromptDialog';
 
 
 
@@ -53,7 +53,7 @@ export const MultiplayerBoard: React.FC = () => {
     };
 
     // Debugging moved to DragMonitor component
-    const { contextMenu, handleCardContextMenu, handleZoneContextMenu, handleBattlefieldContextMenu, closeContextMenu } = useGameContextMenu(myPlayerId, handleViewZone);
+    const { contextMenu, handleCardContextMenu, handleZoneContextMenu, handleBattlefieldContextMenu, closeContextMenu, countPrompt, closeCountPrompt } = useGameContextMenu(myPlayerId, handleViewZone);
     const hasHydrated = useGameStore((state) => state.hasHydrated);
 
     const [isLoadDeckModalOpen, setIsLoadDeckModalOpen] = useState(false);
@@ -211,6 +211,14 @@ export const MultiplayerBoard: React.FC = () => {
                         title={contextMenu.title}
                     />
                 )}
+                <NumberPromptDialog
+                    open={Boolean(countPrompt)}
+                    title={countPrompt?.title || ''}
+                    message={countPrompt?.message}
+                    onSubmit={(value) => countPrompt?.onSubmit(value)}
+                    onClose={closeCountPrompt}
+                    initialValue={1}
+                />
 
                 <LoadDeckModal
                     isOpen={isLoadDeckModalOpen}
