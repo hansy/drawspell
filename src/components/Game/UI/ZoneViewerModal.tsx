@@ -14,6 +14,7 @@ import { ContextMenu, ContextMenuItem } from "./ContextMenu";
 import { buildZoneMoveActions } from "../context/menu";
 import { ZONE } from "../../../constants/zones";
 import { canViewZone } from "../../../rules/permissions";
+import { cn } from "../../../lib/utils";
 
 interface ZoneViewerModalProps {
     isOpen: boolean;
@@ -41,6 +42,7 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
         y: number;
         items: ContextMenuItem[];
         title?: string;
+        cardId: string;
     } | null>(null);
 
     const containerRef = React.useRef<HTMLDivElement>(null);
@@ -173,10 +175,14 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
                 x: e.clientX - rect.left,
                 y: e.clientY - rect.top,
                 items,
-                title: card.name
+                title: card.name,
+                cardId: card.id,
             });
         }
     };
+
+    const interactionsDisabled = Boolean(contextMenu);
+    const pinnedCardId = contextMenu?.cardId;
 
     if (!zone || (canView && !canView.allowed)) return null;
 
@@ -226,15 +232,24 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
                                             <h3 className="text-sm font-medium text-zinc-400 border-b border-zinc-800/50 pb-2 mb-4 text-center sticky top-0 bg-zinc-950/50 backdrop-blur-sm z-10">
                                                 {key} ({cardsInGroup.length})
                                             </h3>
-                                            <div className="relative flex-1 overflow-y-auto overflow-x-hidden flex flex-col pb-[250px]">
-                                                {cardsInGroup.map((card, index) => (
+                                            <div
+                                                className="relative flex-1 overflow-y-auto overflow-x-hidden flex flex-col pb-[250px]"
+                                                style={{ pointerEvents: interactionsDisabled ? 'none' : 'auto' }}
+                                            >
+                                                {cardsInGroup.map((card, index) => {
+                                                    const isPinned = pinnedCardId === card.id;
+                                                    return (
                                                     <div
                                                         key={card.id}
-                                                        className="w-[180px] mx-auto transition-all duration-200 hover:z-[100] hover:scale-110 hover:!mb-4"
+                                                        className={cn(
+                                                            "w-[180px] mx-auto transition-all duration-200",
+                                                            !interactionsDisabled && "hover:z-[100] hover:scale-110 hover:!mb-4",
+                                                            isPinned && "scale-110 shadow-xl"
+                                                        )}
                                                         style={{
                                                             height: `${CARD_HEIGHT}px`,
-                                                            marginBottom: `-${OVERLAP}px`,
-                                                            zIndex: index,
+                                                            marginBottom: isPinned ? '16px' : `-${OVERLAP}px`,
+                                                            zIndex: isPinned ? 200 : index,
                                                         }}
                                                     >
                                                         <CardView
@@ -245,7 +260,8 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
                                                             onContextMenu={(e) => handleContextMenu(e, card)}
                                                         />
                                                     </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     );
@@ -253,8 +269,12 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
                             </div>
                         ) : (
                             // Linear View
-                            <div className="flex h-full items-center overflow-x-auto px-4 pb-4 pr-[220px]">
+                            <div
+                                className="flex h-full items-center overflow-x-auto px-4 pb-4 pr-[220px]"
+                                style={{ pointerEvents: interactionsDisabled ? 'none' : 'auto' }}
+                            >
                                 {orderedCards.map((card, index) => {
+                                    const isPinned = pinnedCardId === card.id;
                                     const isDragging = draggingId === card.id;
                                     return (
                                         <div
@@ -276,8 +296,12 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
                                                 if (!canReorder) return;
                                                 e.preventDefault();
                                             }}
-                                            className="shrink-0 w-[50px] transition-all duration-200 hover:scale-110 hover:z-[100] hover:w-[200px] relative group"
-                                            style={{ zIndex: index, opacity: isDragging ? 0.5 : 1 }}
+                                            className={cn(
+                                                "shrink-0 w-[50px] transition-all duration-200 relative group",
+                                                !interactionsDisabled && "hover:scale-110 hover:z-[100] hover:w-[200px]",
+                                                isPinned && "scale-110 w-[200px]"
+                                            )}
+                                            style={{ zIndex: isPinned ? 200 : index, opacity: isDragging ? 0.5 : 1 }}
                                         >
                                             {index === orderedCards.length - 1 && (
                                                 <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shadow-md z-[101]">
