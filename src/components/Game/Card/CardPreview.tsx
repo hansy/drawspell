@@ -5,7 +5,13 @@ import { cn } from "../../../lib/utils";
 import { CardFace } from "./CardFace";
 
 import { useGameStore } from "../../../store/gameStore";
-import { getCurrentFace, getDisplayPower, getDisplayToughness, getFlipRotation, shouldShowPowerToughness } from "../../../lib/cardDisplay";
+import {
+  getCurrentFace,
+  getDisplayPower,
+  getDisplayToughness,
+  getFlipRotation,
+  shouldShowPowerToughness,
+} from "../../../lib/cardDisplay";
 
 interface CardPreviewProps {
   card: CardType;
@@ -89,9 +95,9 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     // return () => { ... }
   }, [anchorRect, width]);
 
-  const handleUpdatePT = (type: 'power' | 'toughness', delta: number) => {
+  const handleUpdatePT = (type: "power" | "toughness", delta: number) => {
     const faceStat = getCurrentFace(currentCard)?.[type];
-    const currentVal = parseInt((currentCard as any)[type] ?? faceStat ?? '0');
+    const currentVal = parseInt((currentCard as any)[type] ?? faceStat ?? "0");
     if (isNaN(currentVal)) return;
     updateCard(currentCard.id, { [type]: (currentVal + delta).toString() });
   };
@@ -148,7 +154,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
 
       <CardFace
         card={currentCard}
-        countersClassName="top-2 -right-2"
+        countersClassName="top-4 -right-2"
         imageClassName="object-cover"
         imageTransform={flipRotation ? `rotate(${flipRotation}deg)` : undefined}
         preferArtCrop={false}
@@ -163,22 +169,41 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
           {/* Power */}
           {/* Power */}
           <div className="relative group/pt flex items-center justify-center w-12 h-10">
-            <span className={cn(
-              "text-2xl font-bold text-center z-0",
-              (parseInt(displayPower || '0') > parseInt(currentCard.basePower || '0')) ? "text-green-500" :
-                (parseInt(displayPower || '0') < parseInt(currentCard.basePower || '0')) ? "text-red-500" : "text-white"
-            )}>{displayPower}</span>
+            <span
+              className={cn(
+                "text-2xl font-bold text-center z-0",
+                parseInt(displayPower || "0") >
+                  parseInt(currentCard.basePower || "0")
+                  ? "text-green-500"
+                  : parseInt(displayPower || "0") <
+                      parseInt(currentCard.basePower || "0")
+                    ? "text-red-500"
+                    : "text-white"
+              )}
+            >
+              {displayPower}
+            </span>
 
             {/* Overlay Controls */}
             <div className="absolute inset-0 flex items-center justify-between opacity-0 group-hover/pt:opacity-100 transition-opacity z-10">
               <button
                 className="h-full w-1/2 flex items-center justify-center bg-zinc-900/80 hover:bg-zinc-800/90 text-white font-bold rounded-l text-sm"
-                onClick={(e) => { e.stopPropagation(); handleUpdatePT('power', -1); }}
-              >-</button>
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleUpdatePT("power", -1);
+                }}
+              >
+                -
+              </button>
               <button
                 className="h-full w-1/2 flex items-center justify-center bg-zinc-900/80 hover:bg-zinc-800/90 text-white font-bold rounded-r text-sm"
-                onClick={(e) => { e.stopPropagation(); handleUpdatePT('power', 1); }}
-              >+</button>
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleUpdatePT("power", 1);
+                }}
+              >
+                +
+              </button>
             </div>
           </div>
 
@@ -186,22 +211,41 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
 
           {/* Toughness */}
           <div className="relative group/pt flex items-center justify-center w-12 h-10">
-            <span className={cn(
-              "text-2xl font-bold text-center z-0",
-              (parseInt(displayToughness || '0') > parseInt(currentCard.baseToughness || '0')) ? "text-green-500" :
-                (parseInt(displayToughness || '0') < parseInt(currentCard.baseToughness || '0')) ? "text-red-500" : "text-white"
-            )}>{displayToughness}</span>
+            <span
+              className={cn(
+                "text-2xl font-bold text-center z-0",
+                parseInt(displayToughness || "0") >
+                  parseInt(currentCard.baseToughness || "0")
+                  ? "text-green-500"
+                  : parseInt(displayToughness || "0") <
+                      parseInt(currentCard.baseToughness || "0")
+                    ? "text-red-500"
+                    : "text-white"
+              )}
+            >
+              {displayToughness}
+            </span>
 
             {/* Overlay Controls */}
             <div className="absolute inset-0 flex items-center justify-between opacity-0 group-hover/pt:opacity-100 transition-opacity z-10">
               <button
                 className="h-full w-1/2 flex items-center justify-center bg-zinc-900/80 hover:bg-zinc-800/90 text-white font-bold rounded-l text-sm"
-                onClick={(e) => { e.stopPropagation(); handleUpdatePT('toughness', -1); }}
-              >-</button>
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleUpdatePT("toughness", -1);
+                }}
+              >
+                -
+              </button>
               <button
                 className="h-full w-1/2 flex items-center justify-center bg-zinc-900/80 hover:bg-zinc-800/90 text-white font-bold rounded-r text-sm"
-                onClick={(e) => { e.stopPropagation(); handleUpdatePT('toughness', 1); }}
-              >+</button>
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleUpdatePT("toughness", 1);
+                }}
+              >
+                +
+              </button>
             </div>
           </div>
         </div>
