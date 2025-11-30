@@ -1,0 +1,54 @@
+import { Card, CardId, Player, PlayerId, Zone, ZoneId } from '../types';
+
+export type LogEventId =
+  | 'player.life'
+  | 'player.commanderTax'
+  | 'card.draw'
+  | 'library.shuffle'
+  | 'deck.reset'
+  | 'deck.unload'
+  | 'card.move'
+  | 'card.tap'
+  | 'card.untapAll'
+  | 'card.transform'
+  | 'card.duplicate'
+  | 'card.remove'
+  | 'counter.add'
+  | 'counter.remove'
+  | 'counter.global.add';
+
+export type LogMessagePartKind = 'text' | 'player' | 'card' | 'zone' | 'value';
+
+export interface LogMessagePart {
+  kind: LogMessagePartKind;
+  text: string;
+}
+
+export interface LogContext {
+  players: Record<PlayerId, Player>;
+  cards: Record<CardId, Card>;
+  zones: Record<ZoneId, Zone>;
+}
+
+export interface LogMessage {
+  id: string;
+  ts: number;
+  eventId: LogEventId;
+  actorId?: PlayerId;
+  visibility: 'public';
+  parts: LogMessagePart[];
+  payload?: any;
+  aggregateKey?: string;
+}
+
+export interface LogEventAggregateConfig<P = any> {
+  key: (payload: P) => string | undefined;
+  mergePayload: (existing: P, incoming: P) => P;
+  windowMs?: number;
+}
+
+export interface LogEventDefinition<P = any> {
+  format: (payload: P, ctx: LogContext) => LogMessagePart[];
+  redact?: (payload: P, ctx: LogContext) => P;
+  aggregate?: LogEventAggregateConfig<P>;
+}

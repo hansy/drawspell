@@ -11,6 +11,7 @@ import { canCreateToken, canMoveCard, canTapCard, canUpdatePlayer, canViewZone }
 import { logPermission } from '../rules/logger';
 import { getCardFaces, getCurrentFaceIndex, isTransformableCard, syncCardStatsToFace } from '../lib/cardDisplay';
 import { decrementCounter, enforceZoneCounterRules, isBattlefieldZone, mergeCounters, resolveCounterColor } from '../lib/counters';
+import { emitLog } from '../logging/logStore';
 
 interface GameStore extends GameState {
     // Additional actions or computed properties can go here
@@ -18,7 +19,17 @@ interface GameStore extends GameState {
 
 export const useGameStore = create<GameStore>()(
     persist(
-        (set, get) => ({
+        (set, get) => {
+            const buildLogContext = () => {
+                const snapshot = get();
+                return {
+                    players: snapshot.players,
+                    cards: snapshot.cards,
+                    zones: snapshot.zones,
+                };
+            };
+
+            return ({
             players: {},
             cards: {},
             zones: {},
@@ -52,6 +63,10 @@ export const useGameStore = create<GameStore>()(
                 }
                 logPermission({ action: 'updatePlayer', actorId: actor, allowed: true, details: { playerId: id, updates } });
 
+                if (typeof updates.life === 'number' && updates.life !== player.life) {
+                    emitLog('player.life', { actorId: actor, playerId: id, from: player.life, to: updates.life, delta: updates.life - player.life }, buildLogContext());
+                }
+
                 set((state) => ({
                     players: {
                         ...state.players,
@@ -62,17 +77,23 @@ export const useGameStore = create<GameStore>()(
             },
 
             updateCommanderTax: (playerId, delta, isRemote) => {
+                const player = get().players[playerId];
+                if (!player) return;
+                const from = player.commanderTax || 0;
+                const to = Math.max(0, from + delta);
+
                 set((state) => {
-                    const player = state.players[playerId];
-                    if (!player) return state;
-                    const newTax = Math.max(0, (player.commanderTax || 0) + delta);
+                    const current = state.players[playerId];
+                    if (!current) return state;
                     return {
                         players: {
                             ...state.players,
-                            [playerId]: { ...player, commanderTax: newTax }
+                            [playerId]: { ...current, commanderTax: to }
                         }
                     };
                 });
+
+                emitLog('player.commanderTax', { actorId: playerId, playerId, from, to, delta: to - from }, buildLogContext());
                 if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'updateCommanderTax', args: [playerId, delta] } });
             },
 
@@ -160,6 +181,7 @@ export const useGameStore = create<GameStore>()(
                 };
 
                 logPermission({ action: 'duplicateCard', actorId: actor, allowed: true, details: { cardId, newCardId, zoneId: currentZone.id } });
+                emitLog('card.duplicate', { actorId: actor, sourceCardId: cardId, newCardId, zoneId: currentZone.id }, buildLogContext());
                 get().addCard(clonedCard, isRemote);
             },
 
@@ -214,6 +236,10 @@ export const useGameStore = create<GameStore>()(
                         : (getCurrentFaceIndex(card) + 1) % faces.length
                     : 0;
 
+                const targetFaceName = faces[targetIndex]?.face?.name;
+
+                emitLog('card.transform', { actorId: card.controllerId, cardId, zoneId: card.zoneId, toFaceName: targetFaceName }, buildLogContext());
+
                 set((state) => {
                     const currentCard = state.cards[cardId];
                     if (!currentCard) return state;
@@ -252,6 +278,8 @@ export const useGameStore = create<GameStore>()(
                     return;
                 }
                 logPermission({ action: 'moveCard', actorId: actor, allowed: true, details: { cardId, fromZoneId, toZoneId } });
+
+                emitLog('card.move', { actorId: actor, cardId, fromZoneId, toZoneId }, buildLogContext());
 
                 const leavingBattlefield = fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD;
                 const resetToFront = leavingBattlefield ? syncCardStatsToFace({ ...card, currentFaceIndex: 0 }, 0) : card;
@@ -415,6 +443,8 @@ export const useGameStore = create<GameStore>()(
                 }
                 logPermission({ action: 'moveCardToBottom', actorId: actor, allowed: true, details: { cardId, fromZoneId, toZoneId } });
 
+                emitLog('card.move', { actorId: actor, cardId, fromZoneId, toZoneId }, buildLogContext());
+
                 const leavingBattlefield = fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD;
 
                 const tokenLeavingBattlefield = card.isToken && toZone.type !== ZONE.BATTLEFIELD;
@@ -505,6 +535,8 @@ export const useGameStore = create<GameStore>()(
                     return;
                 }
 
+                emitLog('card.remove', { actorId: actor, cardId, zoneId: zone.id }, buildLogContext());
+
                 set((state) => {
                     const nextCards = { ...state.cards };
                     delete nextCards[cardId];
@@ -577,6 +609,9 @@ export const useGameStore = create<GameStore>()(
                 }
                 logPermission({ action: 'tapCard', actorId: actor, allowed: true, details: { cardId } });
 
+                const newTapped = !card.tapped;
+                emitLog('card.tap', { actorId: actor, cardId, zoneId: card.zoneId, tapped: newTapped }, buildLogContext());
+
                 set((state) => {
                     const next = state.cards[cardId];
                     if (!next) return state;
@@ -600,6 +635,7 @@ export const useGameStore = create<GameStore>()(
                     });
                     return { cards: newCards };
                 });
+                emitLog('card.untapAll', { actorId: playerId, playerId }, buildLogContext());
                 if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'untapAll', args: [playerId] } });
             },
 
@@ -629,6 +665,8 @@ export const useGameStore = create<GameStore>()(
 
                 logPermission({ action: 'drawCard', actorId: actor, allowed: true, details: { playerId, cardId } });
                 state.moveCard(cardId, handZone.id, undefined, actor);
+
+                emitLog('card.draw', { actorId: actor, playerId, count: 1 }, buildLogContext());
             },
 
             shuffleLibrary: (playerId, actorId, isRemote) => {
@@ -660,6 +698,8 @@ export const useGameStore = create<GameStore>()(
                     };
                 });
                 logPermission({ action: 'shuffleLibrary', actorId: actor, allowed: true, details: { playerId } });
+
+                emitLog('library.shuffle', { actorId: actor, playerId }, buildLogContext());
                 if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'shuffleLibrary', args: [playerId], actorId: actor } });
             },
 
@@ -726,6 +766,7 @@ export const useGameStore = create<GameStore>()(
                 });
 
                 logPermission({ action: 'resetDeck', actorId: actor, allowed: true, details: { playerId } });
+                emitLog('deck.reset', { actorId: actor, playerId }, buildLogContext());
                 if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'resetDeck', args: [playerId], actorId: actor } });
             },
 
@@ -771,71 +812,93 @@ export const useGameStore = create<GameStore>()(
                 });
 
                 logPermission({ action: 'unloadDeck', actorId: actor, allowed: true, details: { playerId } });
+                emitLog('deck.unload', { actorId: actor, playerId }, buildLogContext());
                 if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'unloadDeck', args: [playerId], actorId: actor } });
             },
 
             addGlobalCounter: (name: string, color?: string, isRemote?: boolean) => {
-                set((state) => {
-                    if (state.globalCounters[name]) return state;
-                    const resolvedColor = resolveCounterColor(name, state.globalCounters);
-                    return { globalCounters: { ...state.globalCounters, [name]: color || resolvedColor } };
-                });
+                const existing = get().globalCounters[name];
+                if (existing) return;
+
+                const resolvedColor = resolveCounterColor(name, get().globalCounters);
+
+                set((state) => ({
+                    globalCounters: { ...state.globalCounters, [name]: color || resolvedColor }
+                }));
+
+                emitLog('counter.global.add', { counterType: name, color: color || resolvedColor }, buildLogContext());
                 if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'addGlobalCounter', args: [name, color] } });
             },
 
             addCounterToCard: (cardId, counter, isRemote) => {
-                console.log('[Store] addCounterToCard called', { cardId, counter });
-                set((state) => {
-                    const card = state.cards[cardId];
-                    if (!card) return state;
+                const state = get();
+                const card = state.cards[cardId];
+                if (!card) return;
 
-                    const zone = state.zones[card.zoneId];
-                    if (!isBattlefieldZone(zone)) return state;
+                const zone = state.zones[card.zoneId];
+                if (!isBattlefieldZone(zone)) return;
 
-                    const newCounters = mergeCounters(card.counters, counter);
+                const prevCount = card.counters.find(c => c.type === counter.type)?.count ?? 0;
+                const newCounters = mergeCounters(card.counters, counter);
+                const nextCount = newCounters.find(c => c.type === counter.type)?.count ?? prevCount;
+                const delta = nextCount - prevCount;
+                if (delta <= 0) return;
 
-                    // Counters no longer affect P/T automatically.
+                set((current) => {
+                    const currentCard = current.cards[cardId];
+                    if (!currentCard) return current;
                     return {
                         cards: {
-                            ...state.cards,
+                            ...current.cards,
                             [cardId]: {
-                                ...card,
+                                ...currentCard,
                                 counters: newCounters,
                             }
                         }
                     };
                 });
+
+                emitLog('counter.add', { actorId: card.controllerId, cardId, zoneId: card.zoneId, counterType: counter.type, delta, newTotal: nextCount }, buildLogContext());
                 if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'addCounterToCard', args: [cardId, counter] } });
             },
 
             removeCounterFromCard: (cardId, counterType, isRemote) => {
-                set((state) => {
-                    const card = state.cards[cardId];
-                    if (!card) return state;
+                const state = get();
+                const card = state.cards[cardId];
+                if (!card) return;
 
-                    const zone = state.zones[card.zoneId];
-                    if (!isBattlefieldZone(zone)) return state;
+                const zone = state.zones[card.zoneId];
+                if (!isBattlefieldZone(zone)) return;
 
-                    const newCounters = decrementCounter(card.counters, counterType);
-                    if (newCounters === card.counters) return state;
+                const prevCount = card.counters.find(c => c.type === counterType)?.count ?? 0;
+                const newCounters = decrementCounter(card.counters, counterType);
+                const nextCount = newCounters.find(c => c.type === counterType)?.count ?? 0;
+                const delta = nextCount - prevCount;
+                if (delta === 0) return;
 
+                set((current) => {
+                    const currentCard = current.cards[cardId];
+                    if (!currentCard) return current;
                     return {
                         cards: {
-                            ...state.cards,
+                            ...current.cards,
                             [cardId]: {
-                                ...card,
+                                ...currentCard,
                                 counters: newCounters,
                             }
                         }
                     };
                 });
+
+                emitLog('counter.remove', { actorId: card.controllerId, cardId, zoneId: card.zoneId, counterType, delta, newTotal: nextCount }, buildLogContext());
                 if (!isRemote) peerService.broadcast({ type: 'ACTION', payload: { action: 'removeCounterFromCard', args: [cardId, counterType] } });
             },
 
             setActiveModal: (modal) => {
                 set({ activeModal: modal });
             },
-        }),
+            });
+        },
         {
             name: 'snapstack-storage',
             storage: createJSONStorage(() => localStorage),
