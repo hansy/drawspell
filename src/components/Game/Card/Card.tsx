@@ -17,6 +17,7 @@ interface CardProps {
   onContextMenu?: (e: React.MouseEvent) => void;
   faceDown?: boolean;
   scale?: number;
+  preferArtCrop?: boolean;
 }
 
 export interface CardViewProps {
@@ -25,6 +26,7 @@ export interface CardViewProps {
   className?: string;
   imageClassName?: string;
   imageTransform?: string;
+  preferArtCrop?: boolean;
   onContextMenu?: (e: React.MouseEvent) => void;
   faceDown?: boolean;
   isDragging?: boolean;
@@ -49,6 +51,7 @@ export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(
       onMouseEnter,
       onMouseLeave,
       imageTransform,
+      preferArtCrop = true,
       ...props
     },
     ref
@@ -80,6 +83,7 @@ export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(
           faceDown={faceDown}
           imageClassName={imageClassName}
           imageTransform={imageTransform}
+          preferArtCrop={preferArtCrop}
         />
       </div>
     );
@@ -92,6 +96,7 @@ export const Card: React.FC<CardProps> = ({
   className,
   onContextMenu,
   faceDown,
+  preferArtCrop,
 }) => {
   const { showPreview, hidePreview, toggleLock } = useCardPreview();
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -103,6 +108,11 @@ export const Card: React.FC<CardProps> = ({
       tapped: card.tapped,
     },
   });
+  const zone = useGameStore((state) => state.zones[card.zoneId]);
+  const cardTypeLine = card.typeLine || card.scryfall?.type_line || "";
+  const isLand = /land/i.test(cardTypeLine);
+  const isBattlefield = zone?.type === ZONE.BATTLEFIELD;
+  const useArtCrop = preferArtCrop ?? (!isLand && isBattlefield);
 
   const { transform: propTransform, ...restPropStyle } = propStyle || {};
 
@@ -191,6 +201,7 @@ export const Card: React.FC<CardProps> = ({
             return flipRotation ? `rotate(${flipRotation}deg)` : undefined;
           })()
         }
+        preferArtCrop={useArtCrop}
         {...listeners}
         {...attributes}
       />

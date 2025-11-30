@@ -38,8 +38,13 @@ export const getDisplayName = (card: Card): string => {
   return faceName || card.name;
 };
 
-export const getDisplayImageUrl = (card: Card): string | undefined => {
-  const faceImage = getCurrentFace(card)?.image_uris?.normal;
+export const getDisplayImageUrl = (
+  card: Card,
+  opts?: { preferArtCrop?: boolean }
+): string | undefined => {
+  const faceUris = getCurrentFace(card)?.image_uris || card.scryfall?.image_uris;
+  const preferArt = opts?.preferArtCrop ?? false;
+  const faceImage = preferArt ? faceUris?.art_crop ?? faceUris?.normal : faceUris?.normal ?? faceUris?.art_crop;
   return faceImage || card.imageUrl;
 };
 

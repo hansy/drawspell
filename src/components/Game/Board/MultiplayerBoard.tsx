@@ -239,6 +239,7 @@ export const MultiplayerBoard: React.FC = () => {
                             <CardView
                                 card={cards[activeCardId]}
                                 isDragging
+                                preferArtCrop={false}
                             />
                         </div>
                     ) : null}

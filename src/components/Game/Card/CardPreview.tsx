@@ -151,6 +151,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
         countersClassName="top-2 -right-2"
         imageClassName="object-cover"
         imageTransform={flipRotation ? `rotate(${flipRotation}deg)` : undefined}
+        preferArtCrop={false}
         interactive={locked}
         hidePT={true} // Always hide internal P/T, we render external always
         showCounterLabels={true}

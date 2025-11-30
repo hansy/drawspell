@@ -258,6 +258,7 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
                                                             faceDown={false}
                                                             className="w-full shadow-lg h-full"
                                                             imageClassName="object-top"
+                                                            preferArtCrop={false}
                                                             onContextMenu={(e) => handleContextMenu(e, card)}
                                                         />
                                                     </div>
@@ -314,6 +315,7 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
                                                 faceDown={false}
                                                 className="w-[200px] shadow-lg h-auto aspect-[2.5/3.5]"
                                                 imageClassName="object-top"
+                                                preferArtCrop={false}
                                                 onContextMenu={(e) => handleContextMenu(e, card)}
                                             />
                                         </div>

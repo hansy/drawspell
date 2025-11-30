@@ -20,6 +20,7 @@ interface CardFaceProps {
   interactive?: boolean;
   hidePT?: boolean;
   showCounterLabels?: boolean;
+  preferArtCrop?: boolean;
 }
 
 export const CardFace: React.FC<CardFaceProps> = ({
@@ -31,11 +32,12 @@ export const CardFace: React.FC<CardFaceProps> = ({
   interactive,
   hidePT,
   showCounterLabels,
+  preferArtCrop = false,
 }) => {
   const addCounterToCard = useGameStore((state) => state.addCounterToCard);
   const removeCounterFromCard = useGameStore((state) => state.removeCounterFromCard);
   const updateCard = useGameStore((state) => state.updateCard);
-  const displayImageUrl = getDisplayImageUrl(card);
+  const displayImageUrl = getDisplayImageUrl(card, { preferArtCrop });
   const displayName = getDisplayName(card);
   const showPT = shouldShowPowerToughness(card) && card.zoneId.includes('battlefield') && !hidePT;
   const displayPower = getDisplayPower(card);
