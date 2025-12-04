@@ -1,5 +1,6 @@
 import { clampToZoneBounds } from './dndMath';
-import { getSnappedPosition, SNAP_GRID_SIZE } from './snapping';
+import { snapToGrid, SNAP_GRID_SIZE } from './snapping';
+import { CARD_HEIGHT_PX, CARD_WIDTH_PX } from './constants';
 
 export const LEGACY_BATTLEFIELD_WIDTH = 1000;
 export const LEGACY_BATTLEFIELD_HEIGHT = 600;
@@ -56,8 +57,22 @@ export const snapNormalizedWithZone = (
     if (!zoneWidth || !zoneHeight) return clampNormalizedPosition(position);
 
     const asPixels = fromNormalizedPosition(position, zoneWidth, zoneHeight);
-    const snappedPixels = getSnappedPosition(asPixels.x, asPixels.y);
-    const clampedPixels = clampToZoneBounds(snappedPixels, zoneWidth, zoneHeight, cardWidth, cardHeight);
+    const gridScaleX = cardWidth / CARD_WIDTH_PX;
+    const gridScaleY = cardHeight / CARD_HEIGHT_PX;
+    const gridX = SNAP_GRID_SIZE * (gridScaleX || 1);
+    const gridY = SNAP_GRID_SIZE * (gridScaleY || 1);
+
+    // Snap using scaled grid steps, matching visual card size.
+    const left = asPixels.x - cardWidth / 2;
+    const top = asPixels.y - cardHeight / 2;
+    const snappedLeft = snapToGrid(left, gridX);
+    const snappedTop = snapToGrid(top, gridY);
+    const snappedCenter = {
+        x: snappedLeft + cardWidth / 2,
+        y: snappedTop + cardHeight / 2
+    };
+
+    const clampedPixels = clampToZoneBounds(snappedCenter, zoneWidth, zoneHeight, cardWidth, cardHeight);
     return toNormalizedPosition(clampedPixels, zoneWidth, zoneHeight);
 };
 

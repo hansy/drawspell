@@ -217,7 +217,7 @@ export function reorderZoneCards(maps: SharedMaps, zoneId: string, orderedCardId
 export function duplicateCard(maps: SharedMaps, cardId: string, newId: string) {
   const existing = maps.cards.get(cardId) as Card | undefined;
   if (!existing) return;
-  const zone = maps.zones.get(card.zoneId) as Zone | undefined;
+  const zone = maps.zones.get(existing.zoneId) as Zone | undefined;
   if (!zone) return;
   const positionSource = (existing.position.x > 1 || existing.position.y > 1)
     ? migratePositionToNormalized(existing.position)

@@ -12,7 +12,7 @@ import { decrementCounter, enforceZoneCounterRules, isBattlefieldZone, mergeCoun
 import { emitLog, clearLogs } from '../logging/logStore';
 import { getYDocHandles } from '../yjs/yManager';
 import { addCounterToCard as yAddCounterToCard, duplicateCard as yDuplicateCard, moveCard as yMoveCard, removeCard as yRemoveCard, removeCounterFromCard as yRemoveCounterFromCard, reorderZoneCards as yReorderZoneCards, transformCard as yTransformCard, upsertCard as yUpsertCard, upsertPlayer as yUpsertPlayer, upsertZone as yUpsertZone, SharedMaps } from '../yjs/yMutations';
-import { bumpPosition, clampNormalizedPosition, findAvailablePositionNormalized, GRID_STEP_X, GRID_STEP_Y, migratePositionToNormalized, positionsRoughlyEqual } from '../lib/positions';
+import { bumpPosition, clampNormalizedPosition, findAvailablePositionNormalized, GRID_STEP_Y, migratePositionToNormalized, positionsRoughlyEqual } from '../lib/positions';
 
 interface GameStore extends GameState {
     // Additional actions or computed properties can go here
@@ -63,6 +63,7 @@ export const useGameStore = create<GameStore>()(
                 players: {},
                 cards: {},
                 zones: {},
+                battlefieldViewScale: {},
                 sessionId: uuidv4(), // Generate a new session ID by default
                 myPlayerId: uuidv4(), // Generate a temporary ID for the local player
                 hasHydrated: false,
@@ -80,6 +81,7 @@ export const useGameStore = create<GameStore>()(
                         players: {},
                         cards: {},
                         zones: {},
+                        battlefieldViewScale: {},
                         sessionId: freshSessionId,
                         myPlayerId: freshPlayerId,
                         globalCounters: {},
@@ -1117,6 +1119,16 @@ export const useGameStore = create<GameStore>()(
                 setActiveModal: (modal) => {
                     set({ activeModal: modal });
                 },
+
+                setBattlefieldViewScale: (playerId, scale) => {
+                    const clamped = Math.min(Math.max(scale, 0.5), 1.2);
+                    set((state) => ({
+                        battlefieldViewScale: {
+                            ...state.battlefieldViewScale,
+                            [playerId]: clamped
+                        }
+                    }));
+                },
             });
         },
         {
@@ -1172,7 +1184,12 @@ export const useGameStore = create<GameStore>()(
                     });
                     state.cards = migratedCounters;
                 }
-                state?.setHasHydrated(true);
+                if (!state) return;
+
+                if (!state.battlefieldViewScale) {
+                    state.battlefieldViewScale = {};
+                }
+                state.setHasHydrated(true);
             },
         }
     )

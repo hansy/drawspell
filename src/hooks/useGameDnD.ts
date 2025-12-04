@@ -127,6 +127,7 @@ export const useGameDnD = () => {
                 // @ts-ignore - over.rect is available at runtime
                 const overRect = over.rect as any;
                 const scale = over.data.current?.scale || 1;
+                const viewScale = over.data.current?.cardScale || 1;
 
                 if (!dragPointerStart.current) return;
 
@@ -141,8 +142,8 @@ export const useGameDnD = () => {
                 const zoneWidth = (overRect?.width || 0) / scale;
                 const zoneHeight = (overRect?.height || 0) / scale;
 
-                const cardWidth = isTapped ? CARD_HEIGHT_PX : CARD_WIDTH_PX;
-                const cardHeight = isTapped ? CARD_WIDTH_PX : CARD_HEIGHT_PX;
+                const cardWidth = (isTapped ? CARD_HEIGHT_PX : CARD_WIDTH_PX) * viewScale;
+                const cardHeight = (isTapped ? CARD_WIDTH_PX : CARD_HEIGHT_PX) * viewScale;
 
                 const fitsWithinZone = cardFitsWithinZone(
                     unsnappedPos,
@@ -223,6 +224,7 @@ export const useGameDnD = () => {
                 // @ts-ignore - over.rect is available at runtime
                 const overRect = over.rect as any;
                 const scale = over.data.current?.scale || 1;
+                const viewScale = over.data.current?.cardScale || 1;
 
                 if (!dragPointerStart.current) return;
 
@@ -238,8 +240,8 @@ export const useGameDnD = () => {
                 const zoneHeight = (overRect?.height || 0) / scale;
 
                 const isTapped = active.data.current?.tapped || activeCard?.tapped;
-                const cardWidth = isTapped ? CARD_HEIGHT_PX : CARD_WIDTH_PX;
-                const cardHeight = isTapped ? CARD_WIDTH_PX : CARD_HEIGHT_PX;
+                const cardWidth = (isTapped ? CARD_HEIGHT_PX : CARD_WIDTH_PX) * viewScale;
+                const cardHeight = (isTapped ? CARD_WIDTH_PX : CARD_HEIGHT_PX) * viewScale;
 
                 const fitsWithinZone = cardFitsWithinZone(
                     unsnappedPos,

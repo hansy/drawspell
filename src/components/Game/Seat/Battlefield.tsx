@@ -14,6 +14,7 @@ interface BattlefieldProps {
     isTop: boolean;
     isMe?: boolean;
     scale?: number;
+    viewScale?: number;
     onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
     onContextMenu?: (e: React.MouseEvent) => void;
 }
@@ -25,12 +26,13 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     isTop,
     isMe,
     scale = 1,
+    viewScale = 1,
     onCardContextMenu,
     onContextMenu
 }) => {
     const activeCardId = useDragStore((state) => state.activeCardId);
     const showGrid = Boolean(activeCardId);
-    const GRID_SIZE = 30;
+    const GRID_SIZE = 30 * viewScale;
     const gridColor = 'rgba(148, 163, 184, 0.3)'; // zinc-400/30
     const zoneRef = React.useRef<HTMLDivElement | null>(null);
     const [zoneSize, setZoneSize] = React.useState<{ width: number; height: number }>({ width: 0, height: 0 });
@@ -61,6 +63,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                 className="w-full h-full relative"
                 layout="free-form"
                 scale={scale}
+                cardScale={viewScale}
                 onContextMenu={onContextMenu}
                 innerRef={(node) => {
                     zoneRef.current = node;
@@ -94,7 +97,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                                 e.stopPropagation();
                                 onCardContextMenu?.(e, card);
                             }}
-                            scale={scale}
+                            scale={viewScale}
                             rotateLabel={isTop}
                         />
                     );

@@ -14,11 +14,12 @@ interface ZoneProps {
     children?: React.ReactNode;
     layout?: 'stack' | 'fan' | 'grid' | 'free-form';
     scale?: number;
+    cardScale?: number;
     onContextMenu?: (e: React.MouseEvent) => void;
     innerRef?: (node: HTMLDivElement | null) => void;
 }
 
-export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, onContextMenu, innerRef }) => {
+export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, cardScale = 1, onContextMenu, innerRef }) => {
     const cards = useGameStore((state) => state.cards);
     const zones = useGameStore((state) => state.zones);
     const myPlayerId = useGameStore((state) => state.myPlayerId);
@@ -40,6 +41,7 @@ export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 
             type: zone.type,
             layout,
             scale,
+            cardScale,
         },
     });
     const setRefs = React.useCallback((node: HTMLDivElement | null) => {
@@ -87,9 +89,9 @@ export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 
                 <div
                     className="absolute bg-indigo-500/40 rounded-lg pointer-events-none z-0"
                     style={{
-                        width: CARD_WIDTH_PX,
-                        height: CARD_HEIGHT_PX,
-                        transform: `translate3d(${ghostPosition.x - CARD_WIDTH_PX / 2}px, ${ghostPosition.y - CARD_HEIGHT_PX / 2}px, 0)${ghostTapped ? ' rotate(90deg)' : ''}`,
+                        width: CARD_WIDTH_PX * cardScale,
+                        height: CARD_HEIGHT_PX * cardScale,
+                        transform: `translate3d(${ghostPosition.x - (CARD_WIDTH_PX * cardScale) / 2}px, ${ghostPosition.y - (CARD_HEIGHT_PX * cardScale) / 2}px, 0)${ghostTapped ? ' rotate(90deg)' : ''}`,
                         transformOrigin: 'center center'
                     }}
                 />

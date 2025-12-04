@@ -100,6 +100,7 @@ export const Card: React.FC<CardProps> = ({
   className,
   onContextMenu,
   faceDown,
+  scale = 1,
   preferArtCrop,
   rotateLabel,
 }) => {
@@ -124,6 +125,7 @@ export const Card: React.FC<CardProps> = ({
   // Compose transforms
   const transformParts: string[] = [];
   if (typeof propTransform === "string") transformParts.push(propTransform);
+  if (scale && scale !== 1) transformParts.push(`scale(${scale})`);
   if (card.tapped) transformParts.push("rotate(90deg)");
 
   const style: React.CSSProperties = {

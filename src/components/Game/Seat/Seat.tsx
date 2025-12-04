@@ -33,6 +33,7 @@ interface SeatProps {
   opponentColors: Record<string, string>;
   onViewZone?: (zoneId: ZoneId, count?: number) => void;
   onDrawCard?: (playerId: string) => void;
+  battlefieldScale?: number;
 }
 
 export const Seat: React.FC<SeatProps> = ({
@@ -51,6 +52,7 @@ export const Seat: React.FC<SeatProps> = ({
   opponentColors,
   onViewZone,
   onDrawCard,
+  battlefieldScale = 1,
 }) => {
   const isTop = position.startsWith("top");
   const isRight = position.endsWith("right");
@@ -224,6 +226,7 @@ export const Seat: React.FC<SeatProps> = ({
               isTop={isTop}
               isMe={isMe}
               scale={scale}
+              viewScale={battlefieldScale}
               onCardContextMenu={onCardContextMenu}
               onContextMenu={isMe ? onBattlefieldContextMenu : undefined}
             />

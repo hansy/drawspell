@@ -43,6 +43,7 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
     const navigate = useNavigate();
     const zones = useGameStore((state) => state.zones);
     const cards = useGameStore((state) => state.cards);
+    const battlefieldViewScale = useGameStore((state) => state.battlefieldViewScale);
     const activeModal = useGameStore((state) => state.activeModal);
     const setActiveModal = useGameStore((state) => state.setActiveModal);
     const activeCardId = useDragStore((state) => state.activeCardId);
@@ -228,6 +229,7 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
                                         onLoadDeck={() => setIsLoadDeckModalOpen(true)}
                                         opponentColors={playerColors}
                                         scale={scale}
+                                        battlefieldScale={battlefieldViewScale[slot.player.id] ?? 1}
                                         onViewZone={handleViewZone}
                                         onDrawCard={(playerId) => useGameStore.getState().drawCard(playerId, myPlayerId)}
                                     />
@@ -291,8 +293,11 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
                         const overlayZone = zones[overlayCard.zoneId];
                         const overlayTypeLine = overlayCard.typeLine || overlayCard.scryfall?.type_line || '';
                         const overlayPreferArtCrop = overlayZone?.type === ZONE.BATTLEFIELD && !/land/i.test(overlayTypeLine);
+                        const viewScale = overlayZone?.type === ZONE.BATTLEFIELD
+                            ? (battlefieldViewScale[overlayZone.ownerId] ?? 1)
+                            : 1;
                         return (
-                            <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+                            <div style={{ transform: `scale(${scale * viewScale})`, transformOrigin: 'top left' }}>
                                 <CardView
                                     card={overlayCard}
                                     isDragging

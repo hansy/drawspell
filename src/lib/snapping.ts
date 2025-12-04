@@ -4,8 +4,8 @@ import { Card, CardId } from '../types';
 export const SNAP_GRID_SIZE = 30;
 export const SNAP_THRESHOLD = 0.5;
 
-export const snapToGrid = (value: number): number => {
-    const snapped = Math.floor(value / SNAP_GRID_SIZE + SNAP_THRESHOLD) * SNAP_GRID_SIZE;
+export const snapToGrid = (value: number, gridSize: number = SNAP_GRID_SIZE): number => {
+    const snapped = Math.floor(value / gridSize + SNAP_THRESHOLD) * gridSize;
     return snapped;
 };
 

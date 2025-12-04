@@ -77,6 +77,7 @@ export interface GameState {
   players: Record<PlayerId, Player>;
   cards: Record<CardId, Card>;
   zones: Record<ZoneId, Zone>;
+  battlefieldViewScale: Record<PlayerId, number>;
 
   // Session
   sessionId: string;
@@ -116,6 +117,7 @@ export interface GameState {
 
   // Session management
   resetSession: (sessionId?: string) => void;
+  setBattlefieldViewScale: (playerId: PlayerId, scale: number) => void;
 
   // Hydration
   hasHydrated: boolean;
