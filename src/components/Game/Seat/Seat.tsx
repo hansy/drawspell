@@ -222,6 +222,7 @@ export const Seat: React.FC<SeatProps> = ({
               cards={battlefieldCards}
               player={player}
               isTop={isTop}
+              isMe={isMe}
               scale={scale}
               onCardContextMenu={onCardContextMenu}
               onContextMenu={isMe ? onBattlefieldContextMenu : undefined}

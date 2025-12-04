@@ -11,6 +11,7 @@ interface BattlefieldProps {
     cards: CardType[];
     player: Player;
     isTop: boolean;
+    isMe?: boolean;
     scale?: number;
     onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
     onContextMenu?: (e: React.MouseEvent) => void;
@@ -21,6 +22,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     cards,
     player,
     isTop,
+    isMe,
     scale = 1,
     onCardContextMenu,
     onContextMenu
@@ -80,7 +82,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
 
             {/* Placeholder Text */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
-                <span className="text-4xl font-bold uppercase tracking-widest">{player.name}</span>
+                <span className="text-4xl font-bold uppercase tracking-widest">{isMe ? 'Me' : player.name}</span>
             </div>
         </div>
     );

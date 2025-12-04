@@ -94,8 +94,8 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
         const state = useGameStore.getState();
         const players = state.players;
 
-        // Only seed when there are zero players. If any players exist (e.g., from remote sync), do nothing.
-        if (Object.keys(players).length > 0) {
+        // Seed when our player is missing. If already present (local or remote), do nothing.
+        if (players[myPlayerId]) {
             seededRef.current = true;
             return;
         }

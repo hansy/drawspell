@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
-import { Awareness } from 'y-protocols/awareness';
+import { Awareness, removeAwarenessStates } from 'y-protocols/awareness';
 import { useGameStore } from '../store/gameStore';
 import { createGameYDoc } from '../yjs/yDoc';
 import { setYDocHandles } from '../yjs/yManager';
@@ -85,6 +85,12 @@ export function useYjsSync(sessionId: string) {
       applyingRemote.current = false;
     };
 
+    const pushLocalAwareness = () => {
+      const localId = useGameStore.getState().myPlayerId;
+      joinedPlayerIdRef.current = localId;
+      awareness.setLocalStateField('client', { id: localId });
+    };
+
     const handleMapChange = (evt?: any) => {
       const ts = Date.now();
       console.info('[signal] map change', {
@@ -99,9 +105,7 @@ export function useYjsSync(sessionId: string) {
     };
 
     // Advertise local presence (player id for now)
-    const localId = useGameStore.getState().myPlayerId;
-    joinedPlayerIdRef.current = localId;
-    awareness.setLocalStateField('client', { id: localId });
+    pushLocalAwareness();
 
     players.observe(handleMapChange);
     zones.observe(handleMapChange);
@@ -112,6 +116,9 @@ export function useYjsSync(sessionId: string) {
       console.info('[signal] status', s, 'ts', Date.now());
       if (s === 'connected') {
         setStatus('connected');
+        // Re-broadcast our awareness after connection to ensure peers see us immediately.
+        pushLocalAwareness();
+        setTimeout(() => pushLocalAwareness(), 10);
         pushRemoteToStore();
       }
       if (s === 'disconnected') setStatus('connecting');
@@ -135,6 +142,12 @@ export function useYjsSync(sessionId: string) {
       // don't see a stale seat.
       const myId = joinedPlayerIdRef.current || useGameStore.getState().myPlayerId;
       awareness.setLocalState(null);
+      try {
+        // Best-effort broadcast of awareness removal before disconnecting so peers drop us immediately.
+        const clientId = awareness.clientID;
+        removeAwarenessStates(awareness, [clientId], 'disconnect');
+      } catch (_err) {}
+
       doc.transact(() => {
         removePlayer({ players, zones, cards, globalCounters }, myId);
       });
@@ -145,8 +158,12 @@ export function useYjsSync(sessionId: string) {
       cards.unobserve(handleMapChange);
       globalCounters.unobserve(handleMapChange);
       setYDocHandles(null);
-      provider.destroy();
-      doc.destroy();
+      // Let awareness removal flush before tearing down the transport.
+      setTimeout(() => {
+        provider.disconnect();
+        provider.destroy();
+        doc.destroy();
+      }, 25);
     };
   }, [handles, sessionId]);
 

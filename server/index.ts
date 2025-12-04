@@ -43,9 +43,11 @@ export class SignalRoom extends DurableObject {
   connClients: Map<WebSocket, Set<number>>;
   doc: Y.Doc;
   awareness: awarenessProtocol.Awareness;
+  env: Env;
 
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
+    this.env = env;
     this.conns = new Set();
     this.connClients = new Map();
     this.doc = new Y.Doc();
