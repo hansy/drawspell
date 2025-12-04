@@ -63,7 +63,7 @@ export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(
         className={cn(
           CARD_HEIGHT,
           CARD_ASPECT_RATIO,
-          "bg-zinc-800 rounded-lg border border-zinc-700 shadow-md flex flex-col items-center justify-center select-none relative",
+          "bg-zinc-800 rounded-lg border border-zinc-700 shadow-md flex flex-col items-center justify-center select-none relative z-0",
           !isDragging &&
           "hover:scale-105 hover:shadow-xl hover:z-10 hover:border-indigo-500/50 cursor-grab active:cursor-grabbing",
           card.tapped && "border-zinc-600 bg-zinc-900",

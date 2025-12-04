@@ -161,6 +161,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
         interactive={locked}
         hidePT={true} // Always hide internal P/T, we render external always
         showCounterLabels={true}
+        showNameLabel={false}
       />
 
       {/* External Power/Toughness (Always rendered, but buttons only accessible when locked) */}
@@ -176,7 +177,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
                   parseInt(currentCard.basePower || "0")
                   ? "text-green-500"
                   : parseInt(displayPower || "0") <
-                      parseInt(currentCard.basePower || "0")
+                    parseInt(currentCard.basePower || "0")
                     ? "text-red-500"
                     : "text-white"
               )}
@@ -218,7 +219,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
                   parseInt(currentCard.baseToughness || "0")
                   ? "text-green-500"
                   : parseInt(displayToughness || "0") <
-                      parseInt(currentCard.baseToughness || "0")
+                    parseInt(currentCard.baseToughness || "0")
                     ? "text-red-500"
                     : "text-white"
               )}

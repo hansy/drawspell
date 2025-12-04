@@ -22,6 +22,7 @@ interface CardFaceProps {
   hidePT?: boolean;
   showCounterLabels?: boolean;
   preferArtCrop?: boolean;
+  showNameLabel?: boolean;
 }
 
 export const CardFace: React.FC<CardFaceProps> = ({
@@ -34,6 +35,7 @@ export const CardFace: React.FC<CardFaceProps> = ({
   hidePT,
   showCounterLabels,
   preferArtCrop = false,
+  showNameLabel = true,
 }) => {
   const addCounterToCard = useGameStore((state) => state.addCounterToCard);
   const removeCounterFromCard = useGameStore(
@@ -98,7 +100,7 @@ export const CardFace: React.FC<CardFaceProps> = ({
                     parseInt(card.basePower || "0")
                     ? "text-green-500"
                     : parseInt(displayPower || "0") <
-                        parseInt(card.basePower || "0")
+                      parseInt(card.basePower || "0")
                       ? "text-red-500"
                       : "text-white"
                 )}
@@ -139,7 +141,7 @@ export const CardFace: React.FC<CardFaceProps> = ({
                     parseInt(card.baseToughness || "0")
                     ? "text-green-500"
                     : parseInt(displayToughness || "0") <
-                        parseInt(card.baseToughness || "0")
+                      parseInt(card.baseToughness || "0")
                       ? "text-red-500"
                       : "text-white"
                 )}
@@ -170,6 +172,17 @@ export const CardFace: React.FC<CardFaceProps> = ({
               )}
             </div>
           </span>
+        </div>
+      )}
+
+      {/* Name Label - Only show on battlefield and face up */}
+      {showNameLabel && card.zoneId.includes("battlefield") && !faceDown && (
+        <div
+          className={cn(
+            "absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900/90 text-zinc-100 text-sm px-1.5 py-0.5 rounded-sm border border-zinc-700 shadow-sm z-10 leading-tight whitespace-normal break-words pointer-events-none text-center min-w-max max-w-[120%]"
+          )}
+        >
+          {displayName}
         </div>
       )}
 
