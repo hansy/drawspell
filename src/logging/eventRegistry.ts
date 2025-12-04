@@ -1,4 +1,4 @@
-import { getCardDisplayName, getPlayerName, getZoneLabel } from './helpers';
+import { buildCardPart, buildPlayerPart, getZoneLabel } from './helpers';
 import { LogEventDefinition, LogEventId } from './types';
 
 const DEFAULT_AGGREGATE_WINDOW_MS = 2000;
@@ -8,7 +8,16 @@ type CommanderTaxPayload = { playerId: string; actorId?: string; from: number; t
 type DrawPayload = { playerId: string; actorId?: string; count?: number };
 type ShufflePayload = { playerId: string; actorId?: string };
 type DeckPayload = { playerId: string; actorId?: string };
-type MovePayload = { cardId: string; fromZoneId: string; toZoneId: string; actorId?: string };
+type MovePayload = {
+  cardId: string;
+  fromZoneId: string;
+  toZoneId: string;
+  actorId?: string;
+  gainsControlBy?: string;
+  cardName?: string;
+  fromZoneType?: string;
+  toZoneType?: string;
+};
 type TapPayload = { cardId: string; zoneId: string; actorId?: string; tapped: boolean };
 type UntapAllPayload = { playerId: string; actorId?: string };
 type TransformPayload = { cardId: string; zoneId: string; actorId?: string; toFaceName?: string };
@@ -19,196 +28,205 @@ type CounterPayload = { cardId: string; zoneId: string; actorId?: string; counte
 type GlobalCounterPayload = { counterType: string; color?: string; actorId?: string };
 
 const formatLife: LogEventDefinition<LifePayload>['format'] = (payload, ctx) => {
-  const playerName = getPlayerName(ctx, payload.playerId);
+  const player = buildPlayerPart(ctx, payload.playerId);
   const delta = typeof payload.delta === 'number' ? payload.delta : payload.to - payload.from;
   const signed = delta >= 0 ? `+${delta}` : `${delta}`;
   return [
-    { kind: 'player', text: playerName },
+    player,
     { kind: 'text', text: ` life ${signed} (${payload.from} -> ${payload.to})` },
   ];
 };
 
 const formatCommanderTax: LogEventDefinition<CommanderTaxPayload>['format'] = (payload, ctx) => {
-  const playerName = getPlayerName(ctx, payload.playerId);
+  const player = buildPlayerPart(ctx, payload.playerId);
   const delta = typeof payload.delta === 'number' ? payload.delta : payload.to - payload.from;
   const signed = delta >= 0 ? `+${delta}` : `${delta}`;
   return [
-    { kind: 'player', text: playerName },
+    player,
     { kind: 'text', text: ` commander tax ${signed} (${payload.from} -> ${payload.to})` },
   ];
 };
 
 const formatDraw: LogEventDefinition<DrawPayload>['format'] = (payload, ctx) => {
-  const playerName = getPlayerName(ctx, payload.playerId);
+  const player = buildPlayerPart(ctx, payload.playerId);
   const count = payload.count || 1;
   const cardText = count === 1 ? 'drew a card' : `drew ${count} cards`;
   return [
-    { kind: 'player', text: playerName },
+    player,
     { kind: 'text', text: ` ${cardText}` },
   ];
 };
 
 const formatShuffle: LogEventDefinition<ShufflePayload>['format'] = (payload, ctx) => {
-  const playerName = getPlayerName(ctx, payload.playerId);
+  const player = buildPlayerPart(ctx, payload.playerId);
   return [
-    { kind: 'player', text: playerName },
+    player,
     { kind: 'text', text: ' shuffled library' },
   ];
 };
 
 const formatMove: LogEventDefinition<MovePayload>['format'] = (payload, ctx) => {
-  const actorName = getPlayerName(ctx, payload.actorId);
+  const actor = buildPlayerPart(ctx, payload.actorId);
   const fromZone = ctx.zones[payload.fromZoneId];
   const toZone = ctx.zones[payload.toZoneId];
-  const cardLabel = getCardDisplayName(ctx, payload.cardId, fromZone, toZone);
+  const cardPart = buildCardPart(ctx, payload.cardId, fromZone, toZone, payload.cardName);
 
   const fromLabel = getZoneLabel(ctx, payload.fromZoneId);
   const toLabel = getZoneLabel(ctx, payload.toZoneId);
 
+  if (payload.gainsControlBy && toZone?.type === 'battlefield') {
+    const controller = buildPlayerPart(ctx, payload.gainsControlBy);
+    return [
+      controller,
+      { kind: 'text', text: ' gains control of ' },
+      cardPart,
+    ];
+  }
+
   // Within the same zone: treat as a reorder/move inside the zone
   if (payload.fromZoneId === payload.toZoneId) {
     return [
-      { kind: 'player', text: actorName },
+      actor,
       { kind: 'text', text: ' moved ' },
-      { kind: 'card', text: cardLabel },
+      cardPart,
       { kind: 'text', text: ` within ${toLabel}` },
     ];
   }
 
   if (toZone?.type === 'battlefield') {
     return [
-      { kind: 'player', text: actorName },
+      actor,
       { kind: 'text', text: ' played ' },
-      { kind: 'card', text: cardLabel },
+      cardPart,
       { kind: 'text', text: ` from ${fromLabel}` },
     ];
   }
 
   if (toZone?.type === 'exile') {
     return [
-      { kind: 'player', text: actorName },
+      actor,
       { kind: 'text', text: ' exiled ' },
-      { kind: 'card', text: cardLabel },
+      cardPart,
       { kind: 'text', text: ` from ${fromLabel}` },
     ];
   }
 
   if (toZone?.type === 'graveyard') {
     return [
-      { kind: 'player', text: actorName },
+      actor,
       { kind: 'text', text: ' sent ' },
-      { kind: 'card', text: cardLabel },
+      cardPart,
       { kind: 'text', text: ` from ${fromLabel}` },
     ];
   }
 
   if (toZone?.type === 'commander') {
     return [
-      { kind: 'player', text: actorName },
+      actor,
       { kind: 'text', text: ' returned commander ' },
-      { kind: 'card', text: cardLabel },
+      cardPart,
       { kind: 'text', text: ` from ${fromLabel}` },
     ];
   }
 
   return [
-    { kind: 'player', text: actorName },
+    actor,
     { kind: 'text', text: ' moved ' },
-    { kind: 'card', text: cardLabel },
+    cardPart,
     { kind: 'text', text: ` from ${fromLabel} to ${toLabel}` },
   ];
 };
 
 const formatTap: LogEventDefinition<TapPayload>['format'] = (payload, ctx) => {
-  const actorName = getPlayerName(ctx, payload.actorId);
+  const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = ctx.zones[payload.zoneId];
-  const cardLabel = getCardDisplayName(ctx, payload.cardId, zone, zone);
+  const card = buildCardPart(ctx, payload.cardId, zone, zone);
   const verb = payload.tapped ? 'tapped' : 'untapped';
   return [
-    { kind: 'player', text: actorName },
+    actor,
     { kind: 'text', text: ` ${verb} ` },
-    { kind: 'card', text: cardLabel },
+    card,
   ];
 };
 
 const formatUntapAll: LogEventDefinition<UntapAllPayload>['format'] = (payload, ctx) => {
-  const playerName = getPlayerName(ctx, payload.playerId);
+  const player = buildPlayerPart(ctx, payload.playerId);
   return [
-    { kind: 'player', text: playerName },
+    player,
     { kind: 'text', text: ' untapped all permanents' },
   ];
 };
 
 const formatTransform: LogEventDefinition<TransformPayload>['format'] = (payload, ctx) => {
-  const actorName = getPlayerName(ctx, payload.actorId);
+  const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = ctx.zones[payload.zoneId];
-  const cardLabel = getCardDisplayName(ctx, payload.cardId, zone, zone);
-  const includeFace = cardLabel !== 'a card' && payload.toFaceName;
+  const cardPart = buildCardPart(ctx, payload.cardId, zone, zone);
+  const includeFace = cardPart.text !== 'a card' && payload.toFaceName;
   return [
-    { kind: 'player' as const, text: actorName },
+    actor,
     { kind: 'text' as const, text: ' transformed ' },
-    { kind: 'card' as const, text: cardLabel },
+    cardPart,
     ...(includeFace ? [{ kind: 'text' as const, text: ` to ${payload.toFaceName}` }] : []),
   ];
 };
 
 const formatDuplicate: LogEventDefinition<DuplicatePayload>['format'] = (payload, ctx) => {
-  const actorName = getPlayerName(ctx, payload.actorId);
+  const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = ctx.zones[payload.zoneId];
-  const cardLabel = getCardDisplayName(ctx, payload.sourceCardId, zone, zone);
+  const cardPart = buildCardPart(ctx, payload.sourceCardId, zone, zone);
   return [
-    { kind: 'player', text: actorName },
+    actor,
     { kind: 'text', text: ' created a token copy of ' },
-    { kind: 'card', text: cardLabel },
+    cardPart,
   ];
 };
 
 const formatRemove: LogEventDefinition<RemoveCardPayload>['format'] = (payload, ctx) => {
-  const actorName = getPlayerName(ctx, payload.actorId);
+  const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = ctx.zones[payload.zoneId];
-  const cardLabel = getCardDisplayName(ctx, payload.cardId, zone, zone);
+  const cardPart = buildCardPart(ctx, payload.cardId, zone, zone);
   return [
-    { kind: 'player', text: actorName },
+    actor,
     { kind: 'text', text: ' removed ' },
-    { kind: 'card', text: cardLabel },
+    cardPart,
   ];
 };
 
 const formatPT: LogEventDefinition<PTPayload>['format'] = (payload, ctx) => {
-  const actorName = getPlayerName(ctx, payload.actorId);
+  const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = ctx.zones[payload.zoneId];
-  const cardLabel = getCardDisplayName(ctx, payload.cardId, zone, zone);
+  const cardPart = buildCardPart(ctx, payload.cardId, zone, zone);
   const from = `${payload.fromPower ?? '?'} / ${payload.fromToughness ?? '?'}`;
   const to = `${payload.toPower ?? '?'} / ${payload.toToughness ?? '?'}`;
   return [
-    { kind: 'player', text: actorName },
+    actor,
     { kind: 'text', text: ' set ' },
-    { kind: 'card', text: cardLabel },
+    cardPart,
     { kind: 'text', text: ` P/T to ${to} (was ${from})` },
   ];
 };
 
 const formatCounterAdd: LogEventDefinition<CounterPayload>['format'] = (payload, ctx) => {
-  const actorName = getPlayerName(ctx, payload.actorId);
+  const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = ctx.zones[payload.zoneId];
-  const cardLabel = getCardDisplayName(ctx, payload.cardId, zone, zone);
+  const cardPart = buildCardPart(ctx, payload.cardId, zone, zone);
   return [
-    { kind: 'player', text: actorName },
+    actor,
     { kind: 'text', text: ` added ${payload.delta} ${payload.counterType} counter${payload.delta === 1 ? '' : 's'} to ` },
-    { kind: 'card', text: cardLabel },
+    cardPart,
     { kind: 'text', text: ` (now ${payload.newTotal})` },
   ];
 };
 
 const formatCounterRemove: LogEventDefinition<CounterPayload>['format'] = (payload, ctx) => {
-  const actorName = getPlayerName(ctx, payload.actorId);
+  const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = ctx.zones[payload.zoneId];
-  const cardLabel = getCardDisplayName(ctx, payload.cardId, zone, zone);
+  const cardPart = buildCardPart(ctx, payload.cardId, zone, zone);
   const absDelta = Math.abs(payload.delta);
   return [
-    { kind: 'player', text: actorName },
+    actor,
     { kind: 'text', text: ` removed ${absDelta} ${payload.counterType} counter${absDelta === 1 ? '' : 's'} from ` },
-    { kind: 'card', text: cardLabel },
+    cardPart,
     { kind: 'text', text: ` (now ${payload.newTotal})` },
   ];
 };
@@ -221,17 +239,17 @@ const formatGlobalCounterAdd: LogEventDefinition<GlobalCounterPayload>['format']
 };
 
 const formatDeckReset: LogEventDefinition<DeckPayload>['format'] = (payload, ctx) => {
-  const playerName = getPlayerName(ctx, payload.playerId);
+  const player = buildPlayerPart(ctx, payload.playerId);
   return [
-    { kind: 'player', text: playerName },
+    player,
     { kind: 'text', text: ' reset their deck' },
   ];
 };
 
 const formatDeckUnload: LogEventDefinition<DeckPayload>['format'] = (payload, ctx) => {
-  const playerName = getPlayerName(ctx, payload.playerId);
+  const player = buildPlayerPart(ctx, payload.playerId);
   return [
-    { kind: 'player', text: playerName },
+    player,
     { kind: 'text', text: ' unloaded their deck' },
   ];
 };

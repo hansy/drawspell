@@ -9,6 +9,7 @@ export type YDocHandles = {
   zones: Y.Map<any>;
   cards: Y.Map<any>;
   globalCounters: Y.Map<any>;
+  logs: Y.Array<any>;
   meta: Y.Map<any>;
 };
 
@@ -20,7 +21,7 @@ export function createGameYDoc(): YDocHandles {
     zones: doc.getMap('zones'),
     cards: doc.getMap('cards'),
     globalCounters: doc.getMap('globalCounters'),
+    logs: doc.getArray('logs'),
     meta: doc.getMap('meta'),
   };
 }
-

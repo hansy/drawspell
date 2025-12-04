@@ -3,6 +3,7 @@ import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { Awareness, removeAwarenessStates } from 'y-protocols/awareness';
 import { useGameStore } from '../store/gameStore';
+import { bindSharedLogStore } from '../logging/logStore';
 import { createGameYDoc } from '../yjs/yDoc';
 import { setYDocHandles } from '../yjs/yManager';
 import { removePlayer } from '../yjs/yMutations';
@@ -27,6 +28,8 @@ export function useYjsSync(sessionId: string) {
   // Build doc/maps once per hook instance
   const handles = useMemo(() => createGameYDoc(), []);
 
+  const ENABLE_LOG_SYNC = true; // re-enabled now that drawer is stable
+
   useEffect(() => {
     if (!sessionId) return;
     if (typeof window === 'undefined') return;
@@ -46,8 +49,9 @@ export function useYjsSync(sessionId: string) {
     // Keep store in sync with the current session ID (local-only field).
     useGameStore.setState((state) => ({ ...state, sessionId }));
 
-    const { doc, players, zones, cards, globalCounters } = handles;
+    const { doc, players, zones, cards, globalCounters, logs } = handles;
     setYDocHandles(handles);
+    if (ENABLE_LOG_SYNC) bindSharedLogStore(logs);
     const awareness = new Awareness(doc);
     const room = `mtg-${sessionId}`;
 
@@ -133,6 +137,7 @@ export function useYjsSync(sessionId: string) {
       zones.unobserve(handleMapChange);
       cards.unobserve(handleMapChange);
       globalCounters.unobserve(handleMapChange);
+      if (ENABLE_LOG_SYNC) bindSharedLogStore(null);
       setYDocHandles(null);
       // Let awareness removal flush before tearing down the transport.
       setTimeout(() => {

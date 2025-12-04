@@ -3,6 +3,9 @@ import { X } from 'lucide-react';
 import { useLogStore } from '../../../logging/logStore';
 import { LogMessage, LogMessagePart } from '../../../logging/types';
 import { cn } from '../../../lib/utils';
+import { useGameStore } from '../../../store/gameStore';
+import { getCardDisplayName } from '../../../logging/helpers';
+import { Card, Player, Zone } from '../../../types';
 
 interface LogDrawerProps {
     isOpen: boolean;
@@ -12,7 +15,17 @@ interface LogDrawerProps {
 
 export const LogDrawer: React.FC<LogDrawerProps> = ({ isOpen, onClose, playerColors }) => {
     const entries = useLogStore((state) => state.entries);
+    const selfPlayerId = useGameStore((state) => state.myPlayerId);
+    const players = useGameStore((state) => state.players);
+    const cards = useGameStore((state) => state.cards);
+    const zones = useGameStore((state) => state.zones);
+    const logContext = React.useMemo(() => ({ players, cards, zones }), [players, cards, zones]);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Debug: keep minimal to avoid noisy logs
+    // if (process.env.NODE_ENV !== 'production') {
+    //     console.debug('[LogDrawer] render', { isOpen, entries: entries.length });
+    // }
 
     // Auto-scroll to bottom when new entries are added
     useEffect(() => {
@@ -76,6 +89,8 @@ export const LogDrawer: React.FC<LogDrawerProps> = ({ isOpen, onClose, playerCol
                                 key={entry.id}
                                 entry={entry}
                                 playerColors={playerColors}
+                                selfPlayerId={selfPlayerId}
+                                logContext={logContext}
                             />
                         ))
                     )}
@@ -85,7 +100,16 @@ export const LogDrawer: React.FC<LogDrawerProps> = ({ isOpen, onClose, playerCol
     );
 };
 
-const LogEntryItem: React.FC<{ entry: LogMessage; playerColors: Record<string, string> }> = ({ entry, playerColors }) => {
+const LogEntryItem: React.FC<{
+    entry: LogMessage;
+    playerColors: Record<string, string>;
+    selfPlayerId?: string;
+    logContext: {
+        players: Record<string, Player>;
+        cards: Record<string, Card>;
+        zones: Record<string, Zone>;
+    };
+}> = ({ entry, playerColors, selfPlayerId, logContext }) => {
     // Determine border color based on actor
     const actorColor = entry.actorId ? playerColors[entry.actorId] : undefined;
 
@@ -108,7 +132,7 @@ const LogEntryItem: React.FC<{ entry: LogMessage; playerColors: Record<string, s
         )}>
             <div className="flex flex-wrap gap-1 items-baseline leading-relaxed text-zinc-300">
                 {entry.parts.map((part, idx) => (
-                    <LogPartRenderer key={idx} part={part} />
+                    <LogPartRenderer key={idx} part={part} entry={entry} selfPlayerId={selfPlayerId} logContext={logContext} />
                 ))}
             </div>
             <div className="mt-1 text-[10px] text-zinc-600 text-right">
@@ -128,11 +152,34 @@ const formatTimeAgo = (timestamp: number): string => {
     return 'long ago';
 };
 
-const LogPartRenderer: React.FC<{ part: LogMessagePart }> = ({ part }) => {
+const LogPartRenderer: React.FC<{
+    part: LogMessagePart;
+    entry: LogMessage;
+    selfPlayerId?: string;
+    logContext: {
+        players: Record<string, Player>;
+        cards: Record<string, Card>;
+        zones: Record<string, Zone>;
+    };
+}> = ({ part, selfPlayerId, entry, logContext }) => {
     switch (part.kind) {
         case 'player':
-            return <span className="font-semibold text-zinc-100">{part.text}</span>;
+            return <span className="font-semibold text-zinc-100">{part.playerId && part.playerId === selfPlayerId ? 'Me' : part.text}</span>;
         case 'card':
+            if (part.cardId) {
+                const fromZone = entry.payload?.fromZoneId ? logContext.zones[entry.payload.fromZoneId] : entry.payload?.zoneId ? logContext.zones[entry.payload.zoneId] : undefined;
+                const toZone = entry.payload?.toZoneId ? logContext.zones[entry.payload.toZoneId] : entry.payload?.zoneId ? logContext.zones[entry.payload.zoneId] : undefined;
+                const computed = getCardDisplayName(logContext, part.cardId, fromZone, toZone, entry.payload?.cardName);
+                const hiddenZoneTypes = new Set(['hand', 'library']);
+                const fromPublic = fromZone ? !hiddenZoneTypes.has(fromZone.type) : (entry.payload?.fromZoneType ? !hiddenZoneTypes.has(entry.payload.fromZoneType) : false);
+                const toPublic = toZone ? !hiddenZoneTypes.has(toZone.type) : (entry.payload?.toZoneType ? !hiddenZoneTypes.has(entry.payload.toZoneType) : false);
+                const fallbackName = entry.payload?.cardName;
+                const visibleName = computed !== 'a card' ? computed : (fallbackName && (fromPublic || toPublic) ? fallbackName : computed);
+                return <span className="text-indigo-300">{visibleName || part.text}</span>;
+            }
+            if (entry.payload?.cardName) {
+                return <span className="text-indigo-300">{entry.payload.cardName}</span>;
+            }
             return <span className="text-indigo-300">{part.text}</span>;
         case 'zone':
             return <span className="italic text-zinc-400">{part.text}</span>;

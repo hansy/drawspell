@@ -399,8 +399,22 @@ export const useGameStore = create<GameStore>()(
                     }
                     logPermission({ action: 'moveCard', actorId: actor, allowed: true, details: { cardId, fromZoneId, toZoneId } });
 
-                if (!opts?.suppressLog) {
-                    emitLog('card.move', { actorId: actor, cardId, fromZoneId, toZoneId }, buildLogContext());
+                const bothBattlefields = fromZone.type === ZONE.BATTLEFIELD && toZone.type === ZONE.BATTLEFIELD;
+                const sameBattlefield = bothBattlefields && fromZoneId === toZoneId;
+                const controlShift = bothBattlefields && fromZone.ownerId !== toZone.ownerId;
+
+                if (!opts?.suppressLog && !sameBattlefield) {
+                    const movePayload: any = {
+                        actorId: actor,
+                        cardId,
+                        fromZoneId,
+                        toZoneId,
+                        cardName: card.name,
+                        fromZoneType: fromZone.type,
+                        toZoneType: toZone.type,
+                    };
+                    if (controlShift) movePayload.gainsControlBy = toZone.ownerId;
+                    emitLog('card.move', movePayload, buildLogContext());
                 }
 
                     if (applyShared((maps) => {
@@ -580,7 +594,23 @@ export const useGameStore = create<GameStore>()(
                     }
                     logPermission({ action: 'moveCardToBottom', actorId: actor, allowed: true, details: { cardId, fromZoneId, toZoneId } });
 
-                    emitLog('card.move', { actorId: actor, cardId, fromZoneId, toZoneId }, buildLogContext());
+                    const bothBattlefields = fromZone.type === ZONE.BATTLEFIELD && toZone.type === ZONE.BATTLEFIELD;
+                    const sameBattlefield = bothBattlefields && fromZoneId === toZoneId;
+                    const controlShift = bothBattlefields && fromZone.ownerId !== toZone.ownerId;
+
+                    if (!sameBattlefield) {
+                        const movePayload: any = {
+                            actorId: actor,
+                            cardId,
+                            fromZoneId,
+                            toZoneId,
+                            cardName: card.name,
+                            fromZoneType: fromZone.type,
+                            toZoneType: toZone.type,
+                        };
+                        if (controlShift) movePayload.gainsControlBy = toZone.ownerId;
+                        emitLog('card.move', movePayload, buildLogContext());
+                    }
 
                     if (applyShared((maps) => {
                         const sharedCard = maps.cards.get(cardId) as Card | undefined;

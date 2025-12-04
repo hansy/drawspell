@@ -23,6 +23,9 @@ export type LogMessagePartKind = 'text' | 'player' | 'card' | 'zone' | 'value';
 export interface LogMessagePart {
   kind: LogMessagePartKind;
   text: string;
+  playerId?: PlayerId;
+  cardId?: CardId;
+  zoneId?: ZoneId;
 }
 
 export interface LogContext {
