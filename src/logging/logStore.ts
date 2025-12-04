@@ -216,3 +216,5 @@ export const bindSharedLogStore = (logs: Y.Array<any> | null) => {
 
 export const emitLog = (eventId: LogEventId, payload: any, ctx: LogContext) =>
   useLogStore.getState().emitLog(eventId, payload, ctx);
+
+export const clearLogs = () => useLogStore.getState().clear();

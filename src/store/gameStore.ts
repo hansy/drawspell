@@ -10,7 +10,7 @@ import { canCreateToken, canMoveCard, canTapCard, canUpdatePlayer, canViewZone }
 import { logPermission } from '../rules/logger';
 import { getCardFaces, getCurrentFaceIndex, isTransformableCard, syncCardStatsToFace } from '../lib/cardDisplay';
 import { decrementCounter, enforceZoneCounterRules, isBattlefieldZone, mergeCounters, resolveCounterColor } from '../lib/counters';
-import { emitLog } from '../logging/logStore';
+import { emitLog, clearLogs } from '../logging/logStore';
 import { getYDocHandles } from '../yjs/yManager';
 import { addCounterToCard as yAddCounterToCard, duplicateCard as yDuplicateCard, moveCard as yMoveCard, removeCard as yRemoveCard, removeCounterFromCard as yRemoveCounterFromCard, reorderZoneCards as yReorderZoneCards, transformCard as yTransformCard, upsertCard as yUpsertCard, upsertPlayer as yUpsertPlayer, upsertZone as yUpsertZone, SharedMaps } from '../yjs/yMutations';
 
@@ -73,6 +73,8 @@ export const useGameStore = create<GameStore>()(
                 resetSession: (newSessionId) => {
                     const freshSessionId = newSessionId ?? uuidv4();
                     const freshPlayerId = uuidv4();
+
+                    clearLogs();
 
                     set({
                         players: {},
