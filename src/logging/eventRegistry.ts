@@ -20,11 +20,11 @@ type MovePayload = {
 };
 type TapPayload = { cardId: string; zoneId: string; actorId?: string; tapped: boolean };
 type UntapAllPayload = { playerId: string; actorId?: string };
-type TransformPayload = { cardId: string; zoneId: string; actorId?: string; toFaceName?: string };
-type DuplicatePayload = { sourceCardId: string; newCardId: string; zoneId: string; actorId?: string };
-type RemoveCardPayload = { cardId: string; zoneId: string; actorId?: string };
-type PTPayload = { cardId: string; zoneId: string; actorId?: string; fromPower?: string; fromToughness?: string; toPower?: string; toToughness?: string };
-type CounterPayload = { cardId: string; zoneId: string; actorId?: string; counterType: string; delta: number; newTotal: number };
+type TransformPayload = { cardId: string; zoneId: string; actorId?: string; toFaceName?: string; cardName?: string };
+type DuplicatePayload = { sourceCardId: string; newCardId: string; zoneId: string; actorId?: string; cardName?: string };
+type RemoveCardPayload = { cardId: string; zoneId: string; actorId?: string; cardName?: string };
+type PTPayload = { cardId: string; zoneId: string; actorId?: string; fromPower?: string; fromToughness?: string; toPower?: string; toToughness?: string; cardName?: string };
+type CounterPayload = { cardId: string; zoneId: string; actorId?: string; counterType: string; delta: number; newTotal: number; cardName?: string };
 type GlobalCounterPayload = { counterType: string; color?: string; actorId?: string };
 
 const formatLife: LogEventDefinition<LifePayload>['format'] = (payload, ctx) => {
@@ -140,7 +140,7 @@ const formatMove: LogEventDefinition<MovePayload>['format'] = (payload, ctx) => 
 const formatTap: LogEventDefinition<TapPayload>['format'] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = ctx.zones[payload.zoneId];
-  const card = buildCardPart(ctx, payload.cardId, zone, zone);
+  const card = buildCardPart(ctx, payload.cardId, zone, zone, (payload as any).cardName);
   const verb = payload.tapped ? 'tapped' : 'untapped';
   return [
     actor,
@@ -160,7 +160,7 @@ const formatUntapAll: LogEventDefinition<UntapAllPayload>['format'] = (payload, 
 const formatTransform: LogEventDefinition<TransformPayload>['format'] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = ctx.zones[payload.zoneId];
-  const cardPart = buildCardPart(ctx, payload.cardId, zone, zone);
+  const cardPart = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
   const includeFace = cardPart.text !== 'a card' && payload.toFaceName;
   return [
     actor,
@@ -173,7 +173,7 @@ const formatTransform: LogEventDefinition<TransformPayload>['format'] = (payload
 const formatDuplicate: LogEventDefinition<DuplicatePayload>['format'] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = ctx.zones[payload.zoneId];
-  const cardPart = buildCardPart(ctx, payload.sourceCardId, zone, zone);
+  const cardPart = buildCardPart(ctx, payload.sourceCardId, zone, zone, payload.cardName);
   return [
     actor,
     { kind: 'text', text: ' created a token copy of ' },
@@ -184,7 +184,7 @@ const formatDuplicate: LogEventDefinition<DuplicatePayload>['format'] = (payload
 const formatRemove: LogEventDefinition<RemoveCardPayload>['format'] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = ctx.zones[payload.zoneId];
-  const cardPart = buildCardPart(ctx, payload.cardId, zone, zone);
+  const cardPart = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
   return [
     actor,
     { kind: 'text', text: ' removed ' },
@@ -195,7 +195,7 @@ const formatRemove: LogEventDefinition<RemoveCardPayload>['format'] = (payload, 
 const formatPT: LogEventDefinition<PTPayload>['format'] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = ctx.zones[payload.zoneId];
-  const cardPart = buildCardPart(ctx, payload.cardId, zone, zone);
+  const cardPart = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
   const from = `${payload.fromPower ?? '?'} / ${payload.fromToughness ?? '?'}`;
   const to = `${payload.toPower ?? '?'} / ${payload.toToughness ?? '?'}`;
   return [
@@ -209,7 +209,7 @@ const formatPT: LogEventDefinition<PTPayload>['format'] = (payload, ctx) => {
 const formatCounterAdd: LogEventDefinition<CounterPayload>['format'] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = ctx.zones[payload.zoneId];
-  const cardPart = buildCardPart(ctx, payload.cardId, zone, zone);
+  const cardPart = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
   return [
     actor,
     { kind: 'text', text: ` added ${payload.delta} ${payload.counterType} counter${payload.delta === 1 ? '' : 's'} to ` },
@@ -221,7 +221,7 @@ const formatCounterAdd: LogEventDefinition<CounterPayload>['format'] = (payload,
 const formatCounterRemove: LogEventDefinition<CounterPayload>['format'] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = ctx.zones[payload.zoneId];
-  const cardPart = buildCardPart(ctx, payload.cardId, zone, zone);
+  const cardPart = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
   const absDelta = Math.abs(payload.delta);
   return [
     actor,

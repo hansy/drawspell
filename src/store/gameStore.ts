@@ -251,7 +251,7 @@ export const useGameStore = create<GameStore>()(
                     };
 
                     logPermission({ action: 'duplicateCard', actorId: actor, allowed: true, details: { cardId, newCardId, zoneId: currentZone.id } });
-                    emitLog('card.duplicate', { actorId: actor, sourceCardId: cardId, newCardId, zoneId: currentZone.id }, buildLogContext());
+                    emitLog('card.duplicate', { actorId: actor, sourceCardId: cardId, newCardId, zoneId: currentZone.id, cardName: sourceCard.name }, buildLogContext());
                     if (applyShared((maps) => yDuplicateCard(maps, cardId, newCardId))) return;
                     get().addCard(clonedCard, _isRemote);
                 },
@@ -277,6 +277,7 @@ export const useGameStore = create<GameStore>()(
                                 fromToughness: cardBefore.toughness,
                                 toPower: newPower ?? cardBefore.power,
                                 toToughness: newToughness ?? cardBefore.toughness,
+                                cardName: cardBefore.name,
                             },
                             buildLogContext()
                         );
@@ -360,7 +361,7 @@ export const useGameStore = create<GameStore>()(
 
                     const targetFaceName = faces[targetIndex]?.name;
 
-                    emitLog('card.transform', { actorId: card.controllerId, cardId, zoneId: card.zoneId, toFaceName: targetFaceName }, buildLogContext());
+                    emitLog('card.transform', { actorId: card.controllerId, cardId, zoneId: card.zoneId, toFaceName: targetFaceName, cardName: card.name }, buildLogContext());
 
                     if (applyShared((maps) => yTransformCard(maps, cardId, targetIndex))) return;
 
@@ -729,7 +730,7 @@ export const useGameStore = create<GameStore>()(
                         return;
                     }
 
-                    emitLog('card.remove', { actorId: actor, cardId, zoneId: zone.id }, buildLogContext());
+                    emitLog('card.remove', { actorId: actor, cardId, zoneId: zone.id, cardName: card.name }, buildLogContext());
 
                     if (applyShared((maps) => yRemoveCard(maps, cardId))) return;
 
@@ -806,7 +807,7 @@ export const useGameStore = create<GameStore>()(
                     logPermission({ action: 'tapCard', actorId: actor, allowed: true, details: { cardId } });
 
                     const newTapped = !card.tapped;
-                    emitLog('card.tap', { actorId: actor, cardId, zoneId: card.zoneId, tapped: newTapped }, buildLogContext());
+                    emitLog('card.tap', { actorId: actor, cardId, zoneId: card.zoneId, tapped: newTapped, cardName: card.name }, buildLogContext());
 
                     if (applyShared((maps) => {
                         const current = maps.cards.get(cardId) as Card | undefined;
@@ -1081,7 +1082,7 @@ export const useGameStore = create<GameStore>()(
                         };
                     });
 
-                    emitLog('counter.add', { actorId: card.controllerId, cardId, zoneId: card.zoneId, counterType: counter.type, delta, newTotal: nextCount }, buildLogContext());
+                    emitLog('counter.add', { actorId: card.controllerId, cardId, zoneId: card.zoneId, counterType: counter.type, delta, newTotal: nextCount, cardName: card.name }, buildLogContext());
                 },
 
                 removeCounterFromCard: (cardId, counterType, _isRemote) => {
@@ -1114,7 +1115,7 @@ export const useGameStore = create<GameStore>()(
                         };
                     });
 
-                    emitLog('counter.remove', { actorId: card.controllerId, cardId, zoneId: card.zoneId, counterType, delta, newTotal: nextCount }, buildLogContext());
+                    emitLog('counter.remove', { actorId: card.controllerId, cardId, zoneId: card.zoneId, counterType, delta, newTotal: nextCount, cardName: card.name }, buildLogContext());
                 },
 
                 setActiveModal: (modal) => {
