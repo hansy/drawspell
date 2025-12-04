@@ -16,8 +16,14 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
     const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; items: ContextMenuItem[]; title?: string } | null>(null);
     const [countPrompt, setCountPrompt] = React.useState<{ title: string; message: string; onSubmit: (count: number) => void } | null>(null);
     const zones = useGameStore((state) => state.zones);
+    const players = useGameStore((state) => state.players);
     const moveCard = useGameStore((state) => state.moveCard);
     const duplicateCard = useGameStore((state) => state.duplicateCard);
+
+    const seatHasDeckLoaded = (playerId?: string) => {
+        if (!playerId) return false;
+        return Boolean(players[playerId]?.deckLoaded);
+    };
 
     // Opens a context menu at the event point with provided actions.
     const handleContextMenu = (e: React.MouseEvent, items: ContextMenuItem[], title?: string) => {
@@ -76,6 +82,9 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
 
     // Builds and opens card-specific actions (tap, counters, move shortcuts).
     const handleCardContextMenu = (e: React.MouseEvent, card: Card) => {
+        const zone = zones[card.zoneId];
+        if (!seatHasDeckLoaded(zone?.ownerId ?? card.ownerId)) return;
+
         const cardActions = actionRegistry.buildCardActions({
             card,
             zones,
@@ -106,7 +115,7 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
     // Builds and opens zone-specific actions (draw/shuffle/view).
     const handleZoneContextMenu = (e: React.MouseEvent, zoneId: ZoneId) => {
         const zone = zones[zoneId];
-        if (!zone) return;
+        if (!zone || !seatHasDeckLoaded(zone.ownerId)) return;
 
         const items = actionRegistry.buildZoneViewActions({
             zone,
@@ -124,6 +133,8 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
     };
 
     const handleBattlefieldContextMenu = (e: React.MouseEvent, onCreateToken: () => void) => {
+        if (!seatHasDeckLoaded(myPlayerId)) return;
+
         handleContextMenu(e, [
             {
                 type: 'action',
