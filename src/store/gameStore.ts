@@ -896,23 +896,26 @@ export const useGameStore = create<GameStore>()(
                         return;
                     }
 
-                    if (applyShared((maps) => {
+                    const sharedApplied = applyShared((maps) => {
                         const zone = maps.zones.get(libraryZone.id) as Zone | undefined;
                         if (!zone) return;
                         const shuffledIds = [...(zone.cardIds || [])].sort(() => Math.random() - 0.5);
                         maps.zones.set(libraryZone.id, { ...zone, cardIds: shuffledIds });
-                    })) return;
-
-                    set((state) => {
-                        const shuffledIds = [...(state.zones[libraryZone.id]?.cardIds || [])].sort(() => Math.random() - 0.5);
-
-                        return {
-                            zones: {
-                                ...state.zones,
-                                [libraryZone.id]: { ...state.zones[libraryZone.id], cardIds: shuffledIds },
-                            },
-                        };
                     });
+
+                    if (!sharedApplied) {
+                        set((state) => {
+                            const shuffledIds = [...(state.zones[libraryZone.id]?.cardIds || [])].sort(() => Math.random() - 0.5);
+
+                            return {
+                                zones: {
+                                    ...state.zones,
+                                    [libraryZone.id]: { ...state.zones[libraryZone.id], cardIds: shuffledIds },
+                                },
+                            };
+                        });
+                    }
+
                     logPermission({ action: 'shuffleLibrary', actorId: actor, allowed: true, details: { playerId } });
 
                     emitLog('library.shuffle', { actorId: actor, playerId }, buildLogContext());

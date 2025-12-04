@@ -21,6 +21,7 @@ export const LoadDeckModal: React.FC<LoadDeckModalProps> = ({ isOpen, onClose, p
 
     const addCard = useGameStore((state) => state.addCard);
     const setDeckLoaded = useGameStore((state) => state.setDeckLoaded);
+    const shuffleLibrary = useGameStore((state) => state.shuffleLibrary);
     const zones = useGameStore((state) => state.zones);
 
     const handleImport = async () => {
@@ -57,6 +58,7 @@ export const LoadDeckModal: React.FC<LoadDeckModalProps> = ({ isOpen, onClose, p
             });
 
             setDeckLoaded(playerId, true);
+            shuffleLibrary(playerId, playerId);
             toast.success("Deck successfully loaded");
             setImportText('');
             onClose();

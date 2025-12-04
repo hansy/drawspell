@@ -61,7 +61,7 @@ const formatShuffle: LogEventDefinition<ShufflePayload>['format'] = (payload, ct
   const player = buildPlayerPart(ctx, payload.playerId);
   return [
     player,
-    { kind: 'text', text: ' shuffled library' },
+    { kind: 'text', text: ' shuffled Library' },
   ];
 };
 
@@ -242,7 +242,7 @@ const formatDeckReset: LogEventDefinition<DeckPayload>['format'] = (payload, ctx
   const player = buildPlayerPart(ctx, payload.playerId);
   return [
     player,
-    { kind: 'text', text: ' reset their deck' },
+    { kind: 'text', text: ' reset and shuffled Library' },
   ];
 };
 
