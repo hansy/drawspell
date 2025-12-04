@@ -18,6 +18,7 @@ interface CardProps {
   faceDown?: boolean;
   scale?: number;
   preferArtCrop?: boolean;
+  rotateLabel?: boolean;
 }
 
 export interface CardViewProps {
@@ -30,6 +31,7 @@ export interface CardViewProps {
   onContextMenu?: (e: React.MouseEvent) => void;
   faceDown?: boolean;
   isDragging?: boolean;
+  rotateLabel?: boolean;
   onDoubleClick?: () => void;
   onClick?: (e: React.MouseEvent) => void;
   onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void;
@@ -52,6 +54,7 @@ export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(
       onMouseLeave,
       imageTransform,
       preferArtCrop = true,
+      rotateLabel,
       ...props
     },
     ref
@@ -84,6 +87,7 @@ export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(
           imageClassName={imageClassName}
           imageTransform={imageTransform}
           preferArtCrop={preferArtCrop}
+          rotateLabel={rotateLabel}
         />
       </div>
     );
@@ -97,6 +101,7 @@ export const Card: React.FC<CardProps> = ({
   onContextMenu,
   faceDown,
   preferArtCrop,
+  rotateLabel,
 }) => {
   const { showPreview, hidePreview, toggleLock } = useCardPreview();
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -202,6 +207,7 @@ export const Card: React.FC<CardProps> = ({
           })()
         }
         preferArtCrop={useArtCrop}
+        rotateLabel={rotateLabel}
         {...listeners}
         {...attributes}
       />

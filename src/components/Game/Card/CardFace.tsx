@@ -23,6 +23,7 @@ interface CardFaceProps {
   showCounterLabels?: boolean;
   preferArtCrop?: boolean;
   showNameLabel?: boolean;
+  rotateLabel?: boolean;
 }
 
 export const CardFace: React.FC<CardFaceProps> = ({
@@ -36,6 +37,7 @@ export const CardFace: React.FC<CardFaceProps> = ({
   showCounterLabels,
   preferArtCrop = false,
   showNameLabel = true,
+  rotateLabel = false,
 }) => {
   const addCounterToCard = useGameStore((state) => state.addCounterToCard);
   const removeCounterFromCard = useGameStore(
@@ -179,7 +181,8 @@ export const CardFace: React.FC<CardFaceProps> = ({
       {showNameLabel && card.zoneId.includes("battlefield") && !faceDown && (
         <div
           className={cn(
-            "absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900/90 text-zinc-100 text-sm px-1.5 py-0.5 rounded-sm border border-zinc-700 shadow-sm z-10 leading-tight whitespace-normal break-words pointer-events-none text-center min-w-max max-w-[120%]"
+            "absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900/90 text-zinc-100 text-[10px] px-1.5 py-0.5 rounded-sm border border-zinc-700 shadow-sm z-10 leading-tight whitespace-normal break-words pointer-events-none text-center min-w-max max-w-[120%]",
+            rotateLabel && "rotate-180"
           )}
         >
           {displayName}

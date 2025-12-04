@@ -75,6 +75,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                                 onCardContextMenu?.(e, card);
                             }}
                             scale={scale}
+                            rotateLabel={isTop}
                         />
                     );
                 })}
