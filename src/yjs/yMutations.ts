@@ -128,19 +128,29 @@ export function moveCard(maps: SharedMaps, cardId: string, toZoneId: string, pos
 
   // Remove from old zone
   const newFromZoneCardIds = fromZone.cardIds.filter((id) => id !== cardId);
-  // Add to new zone
-  const newToZoneCardIds = [...toZone.cardIds, cardId];
-
   const nextCounters = enforceZoneCounterRules(card.counters, toZone);
   const nextCard = leavingBattlefield ? resetToFront : card;
-
-  maps.cards.set(cardId, {
+  const movingWithinSameZone = fromZoneId === toZoneId;
+  const nextCardState = {
     ...nextCard,
     zoneId: toZoneId,
     position: newPosition,
     tapped: toZone.type === ZONE.BATTLEFIELD ? card.tapped : false,
     counters: nextCounters,
-  });
+  };
+
+  // If we're staying in the same zone, just move and ensure the id isn't duplicated
+  if (movingWithinSameZone) {
+    const reordered = [...newFromZoneCardIds, cardId];
+    maps.cards.set(cardId, nextCardState);
+    maps.zones.set(fromZoneId, { ...fromZone, cardIds: reordered });
+    return;
+  }
+
+  // Add to new zone
+  const newToZoneCardIds = [...toZone.cardIds, cardId];
+
+  maps.cards.set(cardId, nextCardState);
 
   maps.zones.set(fromZoneId, { ...fromZone, cardIds: newFromZoneCardIds });
   maps.zones.set(toZoneId, { ...toZone, cardIds: newToZoneCardIds });
