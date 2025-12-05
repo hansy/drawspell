@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-import { DndContext, DragOverlay, getClientRect, useDndMonitor } from '@dnd-kit/core';
+import { DndContext, DragOverlay, getClientRect, useDndMonitor, pointerWithin } from '@dnd-kit/core';
 import { useGameStore } from '../../../store/gameStore';
 import { useDragStore } from '../../../store/dragStore';
 import { Seat } from '../Seat/Seat';
@@ -256,6 +256,7 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
                     draggable: { measure: getClientRect },
                     dragOverlay: { measure: getClientRect },
                 }}
+                collisionDetection={pointerWithin}
             >
                 <div className="relative h-screen w-screen bg-zinc-950 text-zinc-100 overflow-hidden flex font-sans selection:bg-indigo-500/30" onContextMenu={(e) => e.preventDefault()}>
                     <Sidenav
