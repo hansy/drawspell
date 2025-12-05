@@ -1,5 +1,5 @@
 {
-  "name": "snapstack-signal-worker",
+  "name": "@mtg/server",
   "private": true,
   "type": "module",
   "scripts": {
