@@ -68,10 +68,10 @@ export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(
           CARD_ASPECT_RATIO,
           "bg-zinc-800 rounded-lg border border-zinc-700 shadow-md flex flex-col items-center justify-center select-none relative z-0",
           !isDragging &&
-          "hover:scale-105 hover:shadow-xl hover:z-10 hover:border-indigo-500/50 cursor-grab active:cursor-grabbing",
+            "hover:scale-105 hover:shadow-xl hover:z-10 hover:border-indigo-500/50 cursor-grab active:cursor-grabbing",
           card.tapped && "border-zinc-600 bg-zinc-900",
           isDragging &&
-          "shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-indigo-500 cursor-grabbing",
+            "shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-indigo-500 cursor-grabbing",
           className
         )}
         onDoubleClick={onDoubleClick}
@@ -91,7 +91,7 @@ export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(
           customTextPosition="bottom-left"
           customTextNode={
             card.customText ? (
-              <div className="bg-zinc-900/90 text-zinc-100 text-[10px] px-1.5 py-0.5 rounded-sm border border-zinc-700 shadow-sm leading-tight whitespace-normal break-words">
+              <div className="bg-zinc-900/90 text-zinc-100 text-sm px-1.5 py-0.5 rounded-sm border border-zinc-700 shadow-sm leading-tight whitespace-normal break-words">
                 {card.customText}
               </div>
             ) : null
@@ -220,12 +220,10 @@ export const Card: React.FC<CardProps> = ({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         imageClassName={undefined}
-        imageTransform={
-          (() => {
-            const flipRotation = getFlipRotation(card);
-            return flipRotation ? `rotate(${flipRotation}deg)` : undefined;
-          })()
-        }
+        imageTransform={(() => {
+          const flipRotation = getFlipRotation(card);
+          return flipRotation ? `rotate(${flipRotation}deg)` : undefined;
+        })()}
         preferArtCrop={useArtCrop}
         rotateLabel={rotateLabel}
         {...listeners}
