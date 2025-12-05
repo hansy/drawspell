@@ -37,10 +37,24 @@ type RoomName = string;
 const messageSync = 0;
 const messageAwareness = 1;
 
+const MAX_MESSAGE_BYTES = 64 * 1024;
+const RATE_LIMIT_WINDOW_MS = 5_000;
+const RATE_LIMIT_MAX_MESSAGES = 120;
+const RATE_LIMIT_MAX_BYTES = 512 * 1024;
+const DEFAULT_PING_INTERVAL_MS = 30_000;
+
 // Durable Object implementing y-websocket style doc + awareness sync
 export class SignalRoom extends DurableObject {
   conns: Set<WebSocket>;
   connClients: Map<WebSocket, Set<number>>;
+  connStats: Map<WebSocket, {
+    tokens: number;
+    lastRefill: number;
+    windowStart: number;
+    bytes: number;
+    lastMessage: number;
+    heartbeat?: number;
+  }>;
   doc: Y.Doc;
   awareness: awarenessProtocol.Awareness;
   env: Env;
@@ -50,6 +64,7 @@ export class SignalRoom extends DurableObject {
     this.env = env;
     this.conns = new Set();
     this.connClients = new Map();
+    this.connStats = new Map();
     this.doc = new Y.Doc();
     this.awareness = new awarenessProtocol.Awareness(this.doc);
     this.setupDocListeners();
@@ -111,6 +126,30 @@ export class SignalRoom extends DurableObject {
 
     this.conns.add(ws);
     this.connClients.set(ws, new Set());
+    const now = Date.now();
+    const pingIntervalMs = Number.parseInt(this.env.PING_INTERVAL ?? "", 10);
+    const heartbeatInterval = Number.isFinite(pingIntervalMs) && pingIntervalMs > 0 ? pingIntervalMs : DEFAULT_PING_INTERVAL_MS;
+    const idleTimeoutMs = heartbeatInterval * 2;
+    const stats = {
+      tokens: RATE_LIMIT_MAX_MESSAGES,
+      lastRefill: now,
+      windowStart: now,
+      bytes: 0,
+      lastMessage: now,
+      heartbeat: undefined as number | undefined,
+    };
+    const heartbeat = setInterval(() => {
+      const current = this.connStats.get(ws);
+      if (!current) return;
+      const idleFor = Date.now() - current.lastMessage;
+      if (idleFor > idleTimeoutMs) {
+        try { ws.close(1000, "idle timeout"); } catch (_err) {}
+        clearInterval(heartbeat);
+        this.connStats.delete(ws);
+      }
+    }, heartbeatInterval);
+    stats.heartbeat = heartbeat as unknown as number;
+    this.connStats.set(ws, stats);
       // console.log('[signal] joined room', currentRoom, 'size', this.conns.size);
 
     ws.addEventListener("close", () => {
@@ -121,6 +160,9 @@ export class SignalRoom extends DurableObject {
         awarenessProtocol.removeAwarenessStates(this.awareness, Array.from(clientIds), "disconnect");
       }
       this.connClients.delete(ws);
+      const stat = this.connStats.get(ws);
+      if (stat?.heartbeat !== undefined) clearInterval(stat.heartbeat);
+      this.connStats.delete(ws);
       // console.log('[signal] left room', currentRoom, 'size', this.conns.size);
       this.resetStateIfEmpty();
     });
@@ -130,15 +172,37 @@ export class SignalRoom extends DurableObject {
       const raw = evt.data;
       const data = raw instanceof ArrayBuffer ? new Uint8Array(raw) : typeof raw === "string" ? new TextEncoder().encode(raw) : new Uint8Array([]);
       // console.log('[signal] msg', currentRoom, 'size', this.conns.size, 'type', typeof raw, 'len', raw instanceof ArrayBuffer ? raw.byteLength : (typeof raw === 'string' ? raw.length : 'n/a'));
+      const size = data.byteLength;
+      if (size > MAX_MESSAGE_BYTES) {
+        try { ws.close(1009, "message too large"); } catch (_err) {}
+        return;
+      }
+
+      if (!this.consumeRateLimit(ws, size)) {
+        return;
+      }
 
       const decoder = decoding.createDecoder(data);
       const encoder = encoding.createEncoder();
-      const messageType = decoding.readVarUint(decoder);
+      let messageType: number;
+      try {
+        messageType = decoding.readVarUint(decoder);
+      } catch (err) {
+        console.warn("[signal] failed to decode message type", err);
+        try { ws.close(1003, "decode error"); } catch (_err) {}
+        return;
+      }
 
       switch (messageType) {
         case messageSync: {
-          encoding.writeVarUint(encoder, messageSync);
-          syncProtocol.readSyncMessage(decoder, encoder, this.doc, ws);
+          try {
+            encoding.writeVarUint(encoder, messageSync);
+            syncProtocol.readSyncMessage(decoder, encoder, this.doc, ws);
+          } catch (err) {
+            console.warn("[signal] sync decode failed", err);
+            try { ws.close(1003, "sync decode error"); } catch (_err) {}
+            return;
+          }
           if (encoding.length(encoder) > 1) {
             const resp = encoding.toUint8Array(encoder);
             try { ws.send(resp); } catch (_err) { ws.close(); }
@@ -192,5 +256,34 @@ export class SignalRoom extends DurableObject {
       awarenessProtocol.encodeAwarenessUpdate(this.awareness, Array.from(this.awareness.getStates().keys()))
     );
     ws.send(encoding.toUint8Array(awarenessStates));
+  }
+
+  private consumeRateLimit(ws: WebSocket, size: number) {
+    const now = Date.now();
+    const stats = this.connStats.get(ws);
+    if (!stats) return true;
+
+    const refillRate = RATE_LIMIT_MAX_MESSAGES / RATE_LIMIT_WINDOW_MS;
+    const elapsed = now - stats.lastRefill;
+    stats.tokens = Math.min(RATE_LIMIT_MAX_MESSAGES, stats.tokens + elapsed * refillRate);
+    stats.lastRefill = now;
+
+    if (stats.tokens < 1) {
+      try { ws.close(1013, "rate limited"); } catch (_err) {}
+      return false;
+    }
+    stats.tokens -= 1;
+
+    if (now - stats.windowStart > RATE_LIMIT_WINDOW_MS) {
+      stats.windowStart = now;
+      stats.bytes = 0;
+    }
+    if (stats.bytes + size > RATE_LIMIT_MAX_BYTES) {
+      try { ws.close(1009, "rate limited"); } catch (_err) {}
+      return false;
+    }
+    stats.bytes += size;
+    stats.lastMessage = now;
+    return true;
   }
 }
