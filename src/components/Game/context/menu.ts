@@ -87,6 +87,7 @@ interface CardActionBuilderParams {
     openAddCounterModal: (cardId: CardId) => void;
     globalCounters: Record<string, string>;
     updateCard?: (cardId: CardId, updates: Partial<Card>) => void;
+    openTextPrompt?: (opts: { title: string; message?: string; initialValue?: string; onSubmit: (value: string) => void }) => void;
 }
 
 export const buildCardActions = ({
@@ -104,6 +105,7 @@ export const buildCardActions = ({
     openAddCounterModal,
     globalCounters,
     updateCard,
+    openTextPrompt,
 }: CardActionBuilderParams): ContextMenuItem[] => {
     const items: ContextMenuItem[] = [];
     const currentZone = zones[card.zoneId];
@@ -112,6 +114,20 @@ export const buildCardActions = ({
     const canTap = canTapCard({ actorId: myPlayerId }, card, currentZone);
     if (canTap.allowed) {
         items.push({ type: 'action', label: 'Tap/Untap', onSelect: () => tapCard(card.id) });
+    }
+
+    if (currentZone?.type === ZONE.BATTLEFIELD && card.ownerId === myPlayerId && updateCard && openTextPrompt) {
+        items.push({
+            type: 'action',
+            label: card.customText ? 'Edit Text' : 'Add Text',
+            onSelect: () => {
+                openTextPrompt({
+                    title: card.customText ? 'Edit Text' : 'Add Text',
+                    initialValue: card.customText,
+                    onSubmit: (value) => updateCard(card.id, { customText: value }),
+                });
+            }
+        });
     }
 
     if (currentZone?.type === ZONE.BATTLEFIELD && isTransformableCard(card)) {

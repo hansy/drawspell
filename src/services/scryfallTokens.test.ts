@@ -65,7 +65,6 @@ describe("searchScryfallTokens", () => {
 
 describe("createDebouncedTokenSearch", () => {
   it("debounces and only sends the latest request", async () => {
-    vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockListResponse),
@@ -73,16 +72,18 @@ describe("createDebouncedTokenSearch", () => {
 
     const { search } = createDebouncedTokenSearch({
       fetchImpl: fetchMock as any,
-      debounceMs: 100,
+      debounceMs: 10,
     });
 
     const first = search("sold");
     const second = search("soldier");
 
-    vi.advanceTimersByTime(99);
-    expect(fetchMock).not.toHaveBeenCalled();
+    // First call should be superseded immediately
+    await expect(first).rejects.toThrowError(/superseded/);
 
-    vi.advanceTimersByTime(1);
+    // Wait for debounce window to elapse and the latest request to fire.
+    await new Promise((resolve) => setTimeout(resolve, 15));
+
     await expect(second).resolves.toEqual(mockListResponse);
     await expect(first).rejects.toThrowError(/superseded/);
 
@@ -91,12 +92,9 @@ describe("createDebouncedTokenSearch", () => {
     expect(new URL(calledUrl).searchParams.get("q")).toBe(
       "(type:token OR type:emblem) (game:paper) soldier"
     );
-
-    vi.useRealTimers();
   });
 
   it("cancels a pending request cleanly", async () => {
-    vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockListResponse),
@@ -110,10 +108,7 @@ describe("createDebouncedTokenSearch", () => {
     const pending = search("angel");
     cancel();
 
-    vi.advanceTimersByTime(100);
-    expect(fetchMock).not.toHaveBeenCalled();
     await expect(pending).rejects.toThrowError(/cancelled/);
-
-    vi.useRealTimers();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

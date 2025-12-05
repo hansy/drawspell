@@ -46,6 +46,7 @@ export interface Card extends CardIdentity {
   toughness?: string;
   basePower?: string;
   baseToughness?: string;
+  customText?: string;
 }
 
 export type TokenCard = Card & { isToken: true };
@@ -91,7 +92,7 @@ export interface GameState {
   // Actions
   addPlayer: (player: Player, isRemote?: boolean) => void;
   updatePlayer: (id: PlayerId, updates: Partial<Player>, actorId?: PlayerId, isRemote?: boolean) => void;
-  updateCommanderTax: (playerId: PlayerId, delta: number, isRemote?: boolean) => void;
+  updateCommanderTax: (playerId: PlayerId, delta: number, actorId?: PlayerId, isRemote?: boolean) => void;
   addZone: (zone: Zone, isRemote?: boolean) => void;
   addCard: (card: Card, isRemote?: boolean) => void;
   updateCard: (id: CardId, updates: Partial<Card>, actorId?: PlayerId, isRemote?: boolean) => void;
@@ -111,8 +112,8 @@ export interface GameState {
 
   // Counter Actions
   addGlobalCounter: (name: string, color?: string, isRemote?: boolean) => void;
-  addCounterToCard: (cardId: CardId, counter: Counter, isRemote?: boolean) => void;
-  removeCounterFromCard: (cardId: CardId, counterType: string, isRemote?: boolean) => void;
+  addCounterToCard: (cardId: CardId, counter: Counter, actorId?: PlayerId, isRemote?: boolean) => void;
+  removeCounterFromCard: (cardId: CardId, counterType: string, actorId?: PlayerId, isRemote?: boolean) => void;
   setActiveModal: (modal: { type: 'ADD_COUNTER'; cardId: string } | null) => void;
 
   // Session management

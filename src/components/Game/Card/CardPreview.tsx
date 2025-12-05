@@ -38,6 +38,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   }>({ top: 0, left: 0, opacity: 0 });
   const [isPositioned, setIsPositioned] = useState(false);
   const updateCard = useGameStore((state) => state.updateCard);
+  const myPlayerId = useGameStore((state) => state.myPlayerId);
 
   // Subscribe to the live card data to ensure we have the latest P/T and counters
   const liveCard = useGameStore((state) => state.cards[card.id]);
@@ -162,6 +163,23 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
         hidePT={true} // Always hide internal P/T, we render external always
         showCounterLabels={true}
         showNameLabel={false}
+        customTextPosition="sidebar"
+        customTextNode={
+          currentCard.customText ? (
+            <div
+              className={cn(
+                "bg-zinc-900/90 backdrop-blur-sm p-2 rounded-lg border border-zinc-700 shadow-xl min-w-[120px] max-w-[200px] mt-2",
+                locked && currentCard.ownerId === myPlayerId && "cursor-text hover:border-indigo-500/50 transition-colors"
+              )}
+              onClick={(e) => {
+                if (!locked || currentCard.ownerId !== myPlayerId) return;
+                e.stopPropagation();
+              }}
+            >
+              <CustomTextEditor card={currentCard} locked={locked} />
+            </div>
+          ) : null
+        }
       />
 
       {/* External Power/Toughness (Always rendered, but buttons only accessible when locked) */}
@@ -251,6 +269,62 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+const CustomTextEditor: React.FC<{ card: CardType; locked?: boolean }> = ({ card, locked }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [text, setText] = useState(card.customText || "");
+  const updateCard = useGameStore((state) => state.updateCard);
+  const myPlayerId = useGameStore((state) => state.myPlayerId);
+  const isOwner = card.ownerId === myPlayerId;
+
+  useEffect(() => {
+    setText(card.customText || "");
+  }, [card.customText]);
+
+  const handleSave = () => {
+    if (text !== card.customText) {
+      updateCard(card.id, { customText: text });
+    }
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <textarea
+        autoFocus
+        className="w-full bg-transparent text-zinc-100 text-sm resize-none outline-none min-h-[60px]"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSave();
+          }
+          if (e.key === "Escape") {
+            setText(card.customText || "");
+            setIsEditing(false);
+          }
+        }}
+        onClick={(e) => e.stopPropagation()}
+      />
+    );
+  }
+
+  return (
+    <div
+      className="text-sm text-zinc-200 whitespace-pre-wrap break-words"
+      onClick={(e) => {
+        if (locked && isOwner) {
+          e.stopPropagation();
+          setIsEditing(true);
+        }
+      }}
+    >
+      {card.customText || <span className="text-zinc-500 italic">Add text...</span>}
     </div>
   );
 };

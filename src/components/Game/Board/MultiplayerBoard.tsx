@@ -17,9 +17,12 @@ import { ZONE } from '../../../constants/zones';
 import { CardPreviewProvider } from '../Card/CardPreviewProvider';
 import { useGameContextMenu } from '../../../hooks/useGameContextMenu';
 import { NumberPromptDialog } from '../UI/NumberPromptDialog';
+import { TextPromptDialog } from '../UI/TextPromptDialog';
 import { LogDrawer } from '../UI/LogDrawer';
 import { useYjsSync } from '../../../hooks/useYjsSync';
 import { useNavigate } from '@tanstack/react-router';
+import { getYDocHandles } from '../../../yjs/yManager';
+import { removePlayer } from '../../../yjs/yMutations';
 
 
 
@@ -66,6 +69,21 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
     };
 
     const handleLeave = () => {
+        const handles = getYDocHandles();
+        if (handles) {
+            handles.doc.transact(() => {
+                removePlayer(
+                    {
+                        players: handles.players,
+                        zones: handles.zones,
+                        cards: handles.cards,
+                        globalCounters: handles.globalCounters,
+                    },
+                    myPlayerId,
+                );
+            });
+        }
+
         useGameStore.getState().resetSession();
         navigate({ to: '/' });
     };
@@ -81,7 +99,7 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
     };
 
     // Debugging moved to DragMonitor component
-    const { contextMenu, handleCardContextMenu, handleZoneContextMenu, handleBattlefieldContextMenu, closeContextMenu, countPrompt, closeCountPrompt } = useGameContextMenu(myPlayerId, handleViewZone);
+    const { contextMenu, handleCardContextMenu, handleZoneContextMenu, handleBattlefieldContextMenu, closeContextMenu, countPrompt, closeCountPrompt, textPrompt, closeTextPrompt } = useGameContextMenu(myPlayerId, handleViewZone);
     const hasHydrated = useGameStore((state) => state.hasHydrated);
 
     const [isLoadDeckModalOpen, setIsLoadDeckModalOpen] = useState(false);
@@ -259,6 +277,14 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
                     onSubmit={(value) => countPrompt?.onSubmit(value)}
                     onClose={closeCountPrompt}
                     initialValue={1}
+                />
+                <TextPromptDialog
+                    open={Boolean(textPrompt)}
+                    title={textPrompt?.title || ''}
+                    message={textPrompt?.message}
+                    initialValue={textPrompt?.initialValue}
+                    onSubmit={(value) => textPrompt?.onSubmit(value)}
+                    onClose={closeTextPrompt}
                 />
 
                 <LoadDeckModal

@@ -18,6 +18,24 @@ interface GameStore extends GameState {
     // Additional actions or computed properties can go here
 }
 
+const createSafeStorage = (): Storage => {
+    if (typeof window === 'undefined' || !window?.localStorage) {
+        const store = new Map<string, string>();
+        return {
+            getItem: (key: string) => store.get(key) ?? null,
+            setItem: (key: string, value: string) => { store.set(key, value); },
+            removeItem: (key: string) => { store.delete(key); },
+            clear: () => store.clear(),
+            key: (index: number) => Array.from(store.keys())[index] ?? null,
+            get length() {
+                return store.size;
+            },
+        } as Storage;
+    }
+
+    return window.localStorage;
+};
+
 export const useGameStore = create<GameStore>()(
     persist(
         (set, get) => {
@@ -131,9 +149,15 @@ export const useGameStore = create<GameStore>()(
                     }));
                 },
 
-                updateCommanderTax: (playerId, delta, _isRemote) => {
+                updateCommanderTax: (playerId, delta, actorId, _isRemote) => {
+                    const actor = actorId ?? get().myPlayerId;
                     const player = get().players[playerId];
                     if (!player) return;
+                    if (actor !== playerId) {
+                        logPermission({ action: 'updateCommanderTax', actorId: actor, allowed: false, reason: 'Only the player may change their commander tax', details: { playerId, delta } });
+                        return;
+                    }
+
                     const from = player.commanderTax || 0;
                     const to = Math.max(0, from + delta);
 
@@ -154,7 +178,8 @@ export const useGameStore = create<GameStore>()(
                         };
                     });
 
-                    emitLog('player.commanderTax', { actorId: playerId, playerId, from, to, delta: to - from }, buildLogContext());
+                    logPermission({ action: 'updateCommanderTax', actorId: actor, allowed: true, details: { playerId, delta } });
+                    emitLog('player.commanderTax', { actorId: actor, playerId, from, to, delta: to - from }, buildLogContext());
                 },
 
                 setDeckLoaded: (playerId, loaded, _isRemote) => {
@@ -1058,13 +1083,19 @@ export const useGameStore = create<GameStore>()(
                     emitLog('counter.global.add', { counterType: name, color: color || resolvedColor }, buildLogContext());
                 },
 
-                addCounterToCard: (cardId, counter, _isRemote) => {
+                addCounterToCard: (cardId, counter, actorId, _isRemote) => {
                     const state = get();
                     const card = state.cards[cardId];
                     if (!card) return;
 
+                    const actor = actorId ?? state.myPlayerId;
                     const zone = state.zones[card.zoneId];
                     if (!isBattlefieldZone(zone)) return;
+
+                    if (actor !== card.ownerId) {
+                        logPermission({ action: 'addCounterToCard', actorId: actor, allowed: false, reason: 'Only the card owner may add counters', details: { cardId, zoneId: card.zoneId, counterType: counter.type } });
+                        return;
+                    }
 
                     const prevCount = card.counters.find(c => c.type === counter.type)?.count ?? 0;
                     const newCounters = mergeCounters(card.counters, counter);
@@ -1088,16 +1119,23 @@ export const useGameStore = create<GameStore>()(
                         };
                     });
 
-                    emitLog('counter.add', { actorId: card.controllerId, cardId, zoneId: card.zoneId, counterType: counter.type, delta, newTotal: nextCount, cardName: card.name }, buildLogContext());
+                    logPermission({ action: 'addCounterToCard', actorId: actor, allowed: true, details: { cardId, zoneId: card.zoneId, counterType: counter.type, delta } });
+                    emitLog('counter.add', { actorId: actor, cardId, zoneId: card.zoneId, counterType: counter.type, delta, newTotal: nextCount, cardName: card.name }, buildLogContext());
                 },
 
-                removeCounterFromCard: (cardId, counterType, _isRemote) => {
+                removeCounterFromCard: (cardId, counterType, actorId, _isRemote) => {
                     const state = get();
                     const card = state.cards[cardId];
                     if (!card) return;
 
+                    const actor = actorId ?? state.myPlayerId;
                     const zone = state.zones[card.zoneId];
                     if (!isBattlefieldZone(zone)) return;
+
+                    if (actor !== card.ownerId) {
+                        logPermission({ action: 'removeCounterFromCard', actorId: actor, allowed: false, reason: 'Only the card owner may remove counters', details: { cardId, zoneId: card.zoneId, counterType } });
+                        return;
+                    }
 
                     const prevCount = card.counters.find(c => c.type === counterType)?.count ?? 0;
                     const newCounters = decrementCounter(card.counters, counterType);
@@ -1121,7 +1159,8 @@ export const useGameStore = create<GameStore>()(
                         };
                     });
 
-                    emitLog('counter.remove', { actorId: card.controllerId, cardId, zoneId: card.zoneId, counterType, delta, newTotal: nextCount, cardName: card.name }, buildLogContext());
+                    logPermission({ action: 'removeCounterFromCard', actorId: actor, allowed: true, details: { cardId, zoneId: card.zoneId, counterType, delta } });
+                    emitLog('counter.remove', { actorId: actor, cardId, zoneId: card.zoneId, counterType, delta, newTotal: nextCount, cardName: card.name }, buildLogContext());
                 },
 
                 setActiveModal: (modal) => {
@@ -1141,7 +1180,7 @@ export const useGameStore = create<GameStore>()(
         },
         {
             name: 'snapstack-storage',
-            storage: createJSONStorage(() => localStorage),
+            storage: createJSONStorage(createSafeStorage),
             onRehydrateStorage: () => (state) => {
                 if (state && state.cards) {
                     const migratedCards: typeof state.cards = {};

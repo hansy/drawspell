@@ -88,6 +88,14 @@ export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(
           imageTransform={imageTransform}
           preferArtCrop={preferArtCrop}
           rotateLabel={rotateLabel}
+          customTextPosition="bottom-left"
+          customTextNode={
+            card.customText ? (
+              <div className="bg-zinc-900/90 text-zinc-100 text-[10px] px-1.5 py-0.5 rounded-sm border border-zinc-700 shadow-sm leading-tight whitespace-normal break-words">
+                {card.customText}
+              </div>
+            ) : null
+          }
         />
       </div>
     );

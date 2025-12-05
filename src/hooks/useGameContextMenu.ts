@@ -15,6 +15,7 @@ import { getDisplayName } from '../lib/cardDisplay';
 export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: ZoneId, count?: number) => void) => {
     const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; items: ContextMenuItem[]; title?: string } | null>(null);
     const [countPrompt, setCountPrompt] = React.useState<{ title: string; message: string; onSubmit: (count: number) => void } | null>(null);
+    const [textPrompt, setTextPrompt] = React.useState<{ title: string; message?: string; initialValue?: string; onSubmit: (value: string) => void } | null>(null);
     const zones = useGameStore((state) => state.zones);
     const players = useGameStore((state) => state.players);
     const moveCard = useGameStore((state) => state.moveCard);
@@ -113,6 +114,7 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
             removeCard: (targetCard) => {
                 useGameStore.getState().removeCard(targetCard.id, myPlayerId);
             },
+            openTextPrompt: (opts) => setTextPrompt(opts),
         });
 
         handleContextMenu(e, cardActions, getDisplayName(card));
@@ -167,5 +169,7 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
         closeContextMenu,
         countPrompt,
         closeCountPrompt: () => setCountPrompt(null),
+        textPrompt,
+        closeTextPrompt: () => setTextPrompt(null),
     };
 };

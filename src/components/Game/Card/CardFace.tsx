@@ -24,6 +24,8 @@ interface CardFaceProps {
   preferArtCrop?: boolean;
   showNameLabel?: boolean;
   rotateLabel?: boolean;
+  customTextNode?: React.ReactNode;
+  customTextPosition?: "sidebar" | "bottom-left";
 }
 
 export const CardFace: React.FC<CardFaceProps> = ({
@@ -38,6 +40,8 @@ export const CardFace: React.FC<CardFaceProps> = ({
   preferArtCrop = false,
   showNameLabel = true,
   rotateLabel = false,
+  customTextNode,
+  customTextPosition,
 }) => {
   const addCounterToCard = useGameStore((state) => state.addCounterToCard);
   const removeCounterFromCard = useGameStore(
@@ -189,8 +193,8 @@ export const CardFace: React.FC<CardFaceProps> = ({
         </div>
       )}
 
-      {/* Counters */}
-      {card.counters.length > 0 && (
+      {/* Counters and Sidebar Custom Text */}
+      {(card.counters.length > 0 || (customTextNode && customTextPosition === "sidebar")) && (
         <div
           className={cn(
             "absolute top-0 right-0 flex flex-col gap-1 items-end pr-1 pt-1",
@@ -249,6 +253,22 @@ export const CardFace: React.FC<CardFaceProps> = ({
               )}
             </div>
           ))}
+
+          {/* Sidebar Custom Text */}
+          {customTextPosition === "sidebar" && customTextNode && (
+            <div className="relative w-6 h-0 flex items-center justify-center">
+              <div className="absolute left-full pl-2 top-0">
+                {customTextNode}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Bottom-Left Custom Text */}
+      {customTextPosition === "bottom-left" && customTextNode && (
+        <div className="absolute bottom-1 left-1 z-10 max-w-[80%]">
+          {customTextNode}
         </div>
       )}
     </>

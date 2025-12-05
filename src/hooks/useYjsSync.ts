@@ -6,7 +6,6 @@ import { useGameStore } from '../store/gameStore';
 import { bindSharedLogStore } from '../logging/logStore';
 import { createGameYDoc } from '../yjs/yDoc';
 import { setYDocHandles } from '../yjs/yManager';
-import { removePlayer } from '../yjs/yMutations';
 import { clampNormalizedPosition, migratePositionToNormalized } from '../lib/positions';
 
 type SyncStatus = 'connecting' | 'connected';
@@ -22,7 +21,6 @@ const toPlain = <T,>(map: Y.Map<T>) => {
 export function useYjsSync(sessionId: string) {
   const applyingRemote = useRef(false);
   const prevSession = useRef<string | null>(null);
-  const joinedPlayerIdRef = useRef<string | null>(null);
   const [status, setStatus] = useState<SyncStatus>('connecting');
   const [peers, setPeers] = useState(1);
 
@@ -104,7 +102,6 @@ export function useYjsSync(sessionId: string) {
 
     const pushLocalAwareness = () => {
       const localId = useGameStore.getState().myPlayerId;
-      joinedPlayerIdRef.current = localId;
       awareness.setLocalStateField('client', { id: localId });
     };
 
@@ -139,19 +136,13 @@ export function useYjsSync(sessionId: string) {
     handleAwareness();
 
     return () => {
-      // On leave, clear local awareness and remove this player's data so other peers
-      // don't see a stale seat.
-      const myId = joinedPlayerIdRef.current || useGameStore.getState().myPlayerId;
+      // On disconnect/unmount, drop presence and transport only. Seat data stays until an explicit leave action.
       awareness.setLocalState(null);
       try {
         // Best-effort broadcast of awareness removal before disconnecting so peers drop us immediately.
         const clientId = awareness.clientID;
         removeAwarenessStates(awareness, [clientId], 'disconnect');
       } catch (_err) {}
-
-      doc.transact(() => {
-        removePlayer({ players, zones, cards, globalCounters }, myId);
-      });
 
       awareness.off('change', handleAwareness);
       players.unobserve(handleMapChange);

@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useGameStore } from './gameStore';
 import { ZONE } from '../constants/zones';
-import { SNAP_GRID_SIZE } from '../lib/snapping';
+import { GRID_STEP_X, GRID_STEP_Y } from '../lib/positions';
 
 const makeZone = (id: string, type: keyof typeof ZONE, ownerId: string, cardIds: string[] = []) => ({
   id,
@@ -210,7 +210,7 @@ describe('gameStore move/tap interactions', () => {
       toughness: '6',
       basePower: '4',
       baseToughness: '5',
-      position: { x: 10, y: 20 },
+      position: { x: 0.1, y: 0.2 },
     };
 
     useGameStore.setState((state) => ({
@@ -237,8 +237,8 @@ describe('gameStore move/tap interactions', () => {
     expect(clone.baseToughness).toBe(card.baseToughness);
     expect(clone.tapped).toBe(true);
     expect(clone.position).toEqual({
-      x: card.position.x + SNAP_GRID_SIZE,
-      y: card.position.y + SNAP_GRID_SIZE,
+      x: card.position.x + GRID_STEP_X,
+      y: card.position.y + GRID_STEP_Y,
     });
     expect(clone.ownerId).toBe(card.ownerId);
     expect(clone.controllerId).toBe(card.controllerId);
@@ -248,7 +248,7 @@ describe('gameStore move/tap interactions', () => {
     const battlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', ['c11', 'c12']);
     const basePosition = { x: 0, y: 0 };
     const card = { ...makeCard('c11', battlefield.id, 'me'), position: basePosition };
-    const occupied = { ...makeCard('c12', battlefield.id, 'me'), position: { x: SNAP_GRID_SIZE, y: SNAP_GRID_SIZE } };
+    const occupied = { ...makeCard('c12', battlefield.id, 'me'), position: { x: GRID_STEP_X, y: GRID_STEP_Y } };
 
     useGameStore.setState((state) => ({
       myPlayerId: 'me',
@@ -264,8 +264,8 @@ describe('gameStore move/tap interactions', () => {
 
     const clone = state.cards[newIds[0]];
     expect(clone.position).toEqual({
-      x: basePosition.x + SNAP_GRID_SIZE * 2,
-      y: basePosition.y + SNAP_GRID_SIZE * 2,
+      x: basePosition.x + GRID_STEP_X * 2,
+      y: basePosition.y + GRID_STEP_Y * 2,
     });
   });
 
