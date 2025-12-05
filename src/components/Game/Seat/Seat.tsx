@@ -154,6 +154,7 @@ export const Seat: React.FC<SeatProps> = ({
                 count={libraryZone.cardIds.length}
                 onContextMenu={onZoneContextMenu}
                 faceDown
+                showContextMenuCursor={player.deckLoaded}
                 onDoubleClick={
                   isMe && onDrawCard
                     ? (e) => {
@@ -191,6 +192,7 @@ export const Seat: React.FC<SeatProps> = ({
                     : undefined
                 }
                 faceDown={graveyardCards[graveyardCards.length - 1]?.faceDown}
+                showContextMenuCursor={false}
               />
             )}
 
@@ -208,6 +210,7 @@ export const Seat: React.FC<SeatProps> = ({
                 }
                 cardClassName="opacity-60 grayscale"
                 faceDown={exileCards[exileCards.length - 1]?.faceDown}
+                showContextMenuCursor={false}
               />
             )}
           </div>
@@ -231,6 +234,7 @@ export const Seat: React.FC<SeatProps> = ({
               viewScale={battlefieldScale}
               onCardContextMenu={onCardContextMenu}
               onContextMenu={isMe ? onBattlefieldContextMenu : undefined}
+              showContextMenuCursor={player.deckLoaded && isMe}
             />
           )}
 

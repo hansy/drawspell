@@ -56,8 +56,8 @@ export const buildZoneMoveActions = (
         addIfAllowed(exile, `Move to ${ZONE_LABEL.exile}`, () => moveCard(card.id, exile!.id));
         addIfAllowed(hand, `Move to ${ZONE_LABEL.hand}`, () => moveCard(card.id, hand!.id));
         if (battlefield) {
-            addIfAllowed(battlefield, `Move to ${ZONE_LABEL.battlefield}`, () => moveCard(card.id, battlefield!.id));
-            addIfAllowed(battlefield, `Play Facedown`, () => moveCard(card.id, battlefield!.id, { faceDown: true }));
+            addIfAllowed(battlefield, `Move to ${ZONE_LABEL.battlefield} (face-up)`, () => moveCard(card.id, battlefield!.id));
+            addIfAllowed(battlefield, `Move to ${ZONE_LABEL.battlefield} (face-down)`, () => moveCard(card.id, battlefield!.id, { faceDown: true }));
         }
     } else if (currentZone.type === ZONE.EXILE) {
         addIfAllowed(graveyard, `Move to ${ZONE_LABEL.graveyard}`, () => moveCard(card.id, graveyard!.id));
@@ -300,10 +300,12 @@ export const buildZoneViewActions = ({
 
     if (zone.type === ZONE.LIBRARY) {
         if (zone.ownerId === myPlayerId) {
-            items.push({ type: 'action', label: 'Draw Card', onSelect: () => drawCard(myPlayerId) });
-            items.push({
+            // Draw Submenu
+            const drawItems: ContextMenuItem[] = [];
+            drawItems.push({ type: 'action', label: 'Draw 1', onSelect: () => drawCard(myPlayerId) });
+            drawItems.push({
                 type: 'action',
-                label: 'Draw X Cards...',
+                label: 'Draw X...',
                 onSelect: () => {
                     if (!openCountPrompt) return;
                     openCountPrompt({
@@ -318,23 +320,32 @@ export const buildZoneViewActions = ({
                 },
                 disabledReason: openCountPrompt ? undefined : 'Prompt unavailable',
             });
-            items.push({ type: 'action', label: 'Shuffle Library', onSelect: () => shuffleLibrary(myPlayerId) });
-            items.push({ type: 'action', label: 'Reset Deck', onSelect: () => resetDeck(myPlayerId) });
-            items.push({ type: 'action', label: 'Unload Deck', onSelect: () => unloadDeck(myPlayerId), danger: true });
-            if (onViewZone) items.push({ type: 'action', label: 'View All', onSelect: () => onViewZone(zone.id) });
-            items.push({
-                type: 'action',
-                label: 'View Top X...',
-                onSelect: () => {
-                    if (!openCountPrompt || !onViewZone) return;
-                    openCountPrompt({
-                        title: 'View Top',
-                        message: 'How many cards from top?',
-                        onSubmit: (count) => onViewZone?.(zone.id, count),
-                    });
-                },
-                disabledReason: openCountPrompt && onViewZone ? undefined : 'Prompt unavailable',
-            });
+            items.push({ type: 'action', label: 'Draw ...', onSelect: () => { }, submenu: drawItems });
+
+            // View Submenu
+            if (onViewZone) {
+                const viewItems: ContextMenuItem[] = [];
+                viewItems.push({ type: 'action', label: 'View all', onSelect: () => onViewZone(zone.id) });
+                viewItems.push({
+                    type: 'action',
+                    label: 'View top X...',
+                    onSelect: () => {
+                        if (!openCountPrompt) return;
+                        openCountPrompt({
+                            title: 'View Top',
+                            message: 'How many cards from top?',
+                            onSubmit: (count) => onViewZone?.(zone.id, count),
+                        });
+                    },
+                    disabledReason: openCountPrompt ? undefined : 'Prompt unavailable',
+                });
+                items.push({ type: 'action', label: 'View ...', onSelect: () => { }, submenu: viewItems });
+            }
+
+            items.push({ type: 'action', label: 'Shuffle', onSelect: () => shuffleLibrary(myPlayerId) });
+            items.push({ type: 'separator' });
+            items.push({ type: 'action', label: 'Reset', onSelect: () => resetDeck(myPlayerId) });
+            items.push({ type: 'action', label: 'Unload', onSelect: () => unloadDeck(myPlayerId), danger: true });
         }
     } else if (zone.type === ZONE.GRAVEYARD || zone.type === ZONE.EXILE) {
         const viewPermission = canViewZone({ actorId: myPlayerId }, zone);

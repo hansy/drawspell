@@ -16,6 +16,7 @@ interface SideZoneProps {
   emptyContent?: React.ReactNode;
   cardClassName?: string;
   faceDown?: boolean;
+  showContextMenuCursor?: boolean;
 }
 
 // Shared rendering for vertical sidebar zones (library/graveyard/exile).
@@ -30,6 +31,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
   emptyContent,
   cardClassName,
   faceDown,
+  showContextMenuCursor,
 }) => {
   return (
     <div
@@ -43,7 +45,8 @@ export const SideZone: React.FC<SideZoneProps> = ({
         className={cn(
           ZONE_SIDEWAYS_CLASSES,
           "bg-zinc-800/30 rounded-lg border-2 border-dashed border-zinc-700 flex items-center justify-center relative",
-          onContextMenu && "cursor-context-menu"
+          "bg-zinc-800/30 rounded-lg border-2 border-dashed border-zinc-700 flex items-center justify-center relative",
+          showContextMenuCursor ? "cursor-context-menu" : (onClick && "cursor-pointer")
         )}
       >
         {card ? (

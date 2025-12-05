@@ -17,6 +17,7 @@ interface BattlefieldProps {
     viewScale?: number;
     onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
     onContextMenu?: (e: React.MouseEvent) => void;
+    showContextMenuCursor?: boolean;
 }
 
 export const Battlefield: React.FC<BattlefieldProps> = ({
@@ -28,7 +29,8 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     scale = 1,
     viewScale = 1,
     onCardContextMenu,
-    onContextMenu
+    onContextMenu,
+    showContextMenuCursor
 }) => {
     const activeCardId = useDragStore((state) => state.activeCardId);
     const showGrid = Boolean(activeCardId);
@@ -54,7 +56,8 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
         <div
             className={cn(
                 "flex-1 relative",
-                isTop ? "order-last" : "order-first"
+                isTop ? "order-last" : "order-first",
+                showContextMenuCursor && "cursor-context-menu"
             )}
             onContextMenu={onContextMenu}
         >
