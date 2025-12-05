@@ -50,26 +50,30 @@ export function useYjsSync(sessionId: string) {
     // Keep store in sync with the current session ID (local-only field).
     useGameStore.setState((state) => ({ ...state, sessionId }));
 
+    const signalingUrl = (() => {
+      console.log("hello WORLD");
+      console.log(import.meta);
+      const envUrl = (import.meta as any).env?.VITE_WEBSOCKET_SERVER as
+        | string
+        | undefined;
+      if (!envUrl) {
+        console.error(
+          "[signal] VITE_WEBSOCKET_SERVER is required for websocket signaling"
+        );
+        return null;
+      }
+      const normalized = envUrl.replace(/^http/, "ws").replace(/\/$/, "");
+      return normalized.endsWith("/signal")
+        ? normalized
+        : `${normalized}/signal`;
+    })();
+    if (!signalingUrl) return;
+
     const { doc, players, zones, cards, globalCounters, logs } = handles;
     setYDocHandles(handles);
     if (ENABLE_LOG_SYNC) bindSharedLogStore(logs);
     const awareness = new Awareness(doc);
     const room = sessionId;
-
-    const signalingUrl = (() => {
-      const envUrl = (import.meta as any).env?.VITE_SIGNAL_URL as
-        | string
-        | undefined;
-      if (envUrl) {
-        const normalized = envUrl.replace(/^http/, "ws").replace(/\/$/, "");
-        return normalized.endsWith("/signal")
-          ? normalized
-          : `${normalized}/signal`;
-      }
-      if (typeof window === "undefined") return "ws://localhost:8787/signal";
-      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-      return `${proto}//${window.location.hostname}:8787/signal`;
-    })();
 
     const provider = new WebsocketProvider(signalingUrl, room, doc, {
       awareness,

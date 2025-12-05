@@ -7,4 +7,16 @@
   "observability": {
     "enabled": true,
   },
+  "env": {
+    "development": {
+      "vars": {
+        "VITE_WEBSOCKET_SERVERs": "http://localhost:8787",
+      },
+    },
+    "production": {
+      "vars": {
+        "VITE_WEBSOCKET_SERVER": "https://mtg-signal.service-fff.workers.dev",
+      },
+    },
+  },
 }

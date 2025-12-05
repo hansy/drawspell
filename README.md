@@ -22,4 +22,4 @@ Other helpful scripts:
 - `bun run deploy:server` – deploy the Durable Object worker
 - `bun run ws:dev` – start the Durable Object worker from the web workspace
 
-Vite env vars now live in `apps/web/.env` (e.g. `VITE_SIGNAL_URL`).
+Vite env vars now live in `apps/web/.env`; `VITE_WEBSOCKET_SERVER` is required (no in-code fallback).
