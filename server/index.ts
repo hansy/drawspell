@@ -59,9 +59,12 @@ export class SignalRoom extends DurableObject {
     lastMessage: number;
     heartbeat?: number;
   }>;
+  awarenessOwners: Map<number, WebSocket>;
   doc: Y.Doc;
   awareness: awarenessProtocol.Awareness;
   env: Env;
+  pingIntervalMs: number;
+  idleTimeoutMs: number;
 
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
@@ -69,6 +72,10 @@ export class SignalRoom extends DurableObject {
     this.conns = new Set();
     this.connClients = new Map();
     this.connStats = new Map();
+    this.awarenessOwners = new Map();
+    const parsedPing = Number.parseInt(this.env.PING_INTERVAL ?? "", 10);
+    this.pingIntervalMs = Number.isFinite(parsedPing) && parsedPing > 0 ? parsedPing : DEFAULT_PING_INTERVAL_MS;
+    this.idleTimeoutMs = this.pingIntervalMs * 2;
     this.doc = new Y.Doc();
     this.awareness = new awarenessProtocol.Awareness(this.doc);
     this.setupDocListeners();
@@ -101,6 +108,7 @@ export class SignalRoom extends DurableObject {
     this.doc = new Y.Doc();
     this.awareness = new awarenessProtocol.Awareness(this.doc);
     this.connClients.clear();
+    this.awarenessOwners.clear();
     this.setupDocListeners();
   }
 
@@ -134,9 +142,6 @@ export class SignalRoom extends DurableObject {
     this.conns.add(ws);
     this.connClients.set(ws, new Set());
     const now = Date.now();
-    const pingIntervalMs = Number.parseInt(this.env.PING_INTERVAL ?? "", 10);
-    const heartbeatInterval = Number.isFinite(pingIntervalMs) && pingIntervalMs > 0 ? pingIntervalMs : DEFAULT_PING_INTERVAL_MS;
-    const idleTimeoutMs = heartbeatInterval * 2;
     const stats = {
       tokens: RATE_LIMIT_MAX_MESSAGES,
       lastRefill: now,
@@ -149,12 +154,12 @@ export class SignalRoom extends DurableObject {
       const current = this.connStats.get(ws);
       if (!current) return;
       const idleFor = Date.now() - current.lastMessage;
-      if (idleFor > idleTimeoutMs) {
+      if (idleFor > this.idleTimeoutMs) {
         try { ws.close(1000, "idle timeout"); } catch (_err) {}
         clearInterval(heartbeat);
         this.connStats.delete(ws);
       }
-    }, heartbeatInterval);
+    }, this.pingIntervalMs);
     stats.heartbeat = heartbeat as unknown as number;
     this.connStats.set(ws, stats);
       // console.log('[signal] joined room', currentRoom, 'size', this.conns.size);
@@ -165,6 +170,10 @@ export class SignalRoom extends DurableObject {
       const clientIds = this.connClients.get(ws);
       if (clientIds && clientIds.size > 0) {
         awarenessProtocol.removeAwarenessStates(this.awareness, Array.from(clientIds), "disconnect");
+        clientIds.forEach((id) => {
+          const owner = this.awarenessOwners.get(id);
+          if (owner === ws) this.awarenessOwners.delete(id);
+        });
       }
       this.connClients.delete(ws);
       const stat = this.connStats.get(ws);
@@ -221,6 +230,25 @@ export class SignalRoom extends DurableObject {
           if (!update || update.length === 0) {
             break;
           }
+          const clientIds = this.extractAwarenessClientIds(update);
+          if (clientIds.length === 0) break;
+          const set = this.connClients.get(ws);
+          for (const clientId of clientIds) {
+            const owner = this.awarenessOwners.get(clientId);
+            // Reclaim if owner socket is gone; otherwise block hijack.
+            if (owner && owner !== ws) {
+              const ownerStats = this.connStats.get(owner);
+              const idleFor = ownerStats ? (Date.now() - ownerStats.lastMessage) : Number.POSITIVE_INFINITY;
+              if (!this.conns.has(owner) || idleFor > this.idleTimeoutMs) {
+                this.awarenessOwners.set(clientId, ws);
+              } else {
+                return;
+              }
+            } else {
+              this.awarenessOwners.set(clientId, ws);
+            }
+            if (set) set.add(clientId);
+          }
           try {
             awarenessProtocol.applyAwarenessUpdate(this.awareness, update, ws);
           } catch (err) {
@@ -276,5 +304,22 @@ export class SignalRoom extends DurableObject {
     stats.bytes += size;
     stats.lastMessage = now;
     return true;
+  }
+
+  private extractAwarenessClientIds(update: Uint8Array): number[] {
+    const ids: number[] = [];
+    try {
+      const decoderUpdate = decoding.createDecoder(update);
+      const len = decoding.readVarUint(decoderUpdate);
+      for (let i = 0; i < len; i++) {
+        const clientID = decoding.readVarUint(decoderUpdate);
+        ids.push(clientID);
+        try { decoding.readVarUint(decoderUpdate); } catch (_err) {} // clock
+        try { decoding.readVarString(decoderUpdate); } catch (_err) {} // payload
+      }
+    } catch (err) {
+      console.warn("[signal] awareness id decode failed", err);
+    }
+    return ids;
   }
 }

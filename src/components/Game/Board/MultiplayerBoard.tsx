@@ -208,6 +208,43 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
         return () => window.removeEventListener('resize', handleResize);
     }, [layoutMode]);
 
+    // Drag-to-Zoom Logic
+    const zoomEdge = useDragStore((state) => state.zoomEdge);
+    const setBattlefieldViewScale = useGameStore((state) => state.setBattlefieldViewScale);
+
+    React.useEffect(() => {
+        if (!zoomEdge) return;
+
+        let interval: NodeJS.Timeout;
+
+        // Wait 2 seconds before starting the zoom
+        const timer = setTimeout(() => {
+            interval = setInterval(() => {
+                const currentScale = useGameStore.getState().battlefieldViewScale[myPlayerId] ?? 1;
+                let newScale = currentScale;
+                const ZOOM_STEP = 0.02;
+
+                if (zoomEdge === 'top' || zoomEdge === 'left') {
+                    newScale += ZOOM_STEP;
+                } else {
+                    newScale -= ZOOM_STEP;
+                }
+
+                // Clamp between 0.5 and 1.2
+                newScale = Math.max(0.5, Math.min(1.2, newScale));
+
+                if (newScale !== currentScale) {
+                    setBattlefieldViewScale(myPlayerId, newScale);
+                }
+            }, 50);
+        }, 1000);
+
+        return () => {
+            clearTimeout(timer);
+            if (interval) clearInterval(interval);
+        };
+    }, [zoomEdge, myPlayerId, setBattlefieldViewScale]);
+
     return (
         <CardPreviewProvider>
             <DndContext

@@ -30,6 +30,7 @@ export const useGameDnD = () => {
     const setGhostCard = useDragStore((state) => state.setGhostCard);
     const setActiveCardId = useDragStore((state) => state.setActiveCardId);
     const setOverCardScale = useDragStore((state) => state.setOverCardScale);
+    const setZoomEdge = useDragStore((state) => state.setZoomEdge);
     const myPlayerId = useGameStore((state) => state.myPlayerId);
 
     const sensors = useSensors(
@@ -191,6 +192,38 @@ export const useGameDnD = () => {
             setGhostCard(null);
             setOverCardScale(1);
         }
+
+        // Edge Detection for Zoom
+        if (over && over.data.current?.type === ZONE.BATTLEFIELD) {
+            const zoneId = over.id as string;
+            const targetZone = zones[zoneId];
+            // Only allow zoom on OWN battlefield
+            if (targetZone && targetZone.ownerId === myPlayerId) {
+                // @ts-ignore - rect is available on active
+                const activeRect = active.rect.current?.translated;
+                // @ts-ignore - rect is available on over
+                const overRect = over.rect;
+
+                if (activeRect && overRect) {
+                    const EDGE_THRESHOLD = 30; // px
+
+                    let edge: 'top' | 'bottom' | 'left' | 'right' | null = null;
+
+                    if (activeRect.top < overRect.top + EDGE_THRESHOLD) edge = 'top';
+                    else if (activeRect.bottom > overRect.bottom - EDGE_THRESHOLD) edge = 'bottom';
+                    else if (activeRect.left < overRect.left + EDGE_THRESHOLD) edge = 'left';
+                    else if (activeRect.right > overRect.right - EDGE_THRESHOLD) edge = 'right';
+
+                    setZoomEdge(edge);
+                } else {
+                    setZoomEdge(null);
+                }
+            } else {
+                setZoomEdge(null);
+            }
+        } else {
+            setZoomEdge(null);
+        }
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
@@ -198,6 +231,7 @@ export const useGameDnD = () => {
         setGhostCard(null);
         setActiveCardId(null);
         setOverCardScale(1);
+        setZoomEdge(null);
 
         if (over && active.id !== over.id) {
             const cardId = active.data.current?.cardId as CardId;

@@ -20,8 +20,6 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
     const players = useGameStore((state) => state.players);
     const moveCard = useGameStore((state) => state.moveCard);
     const duplicateCard = useGameStore((state) => state.duplicateCard);
-    const battlefieldViewScale = useGameStore((state) => state.battlefieldViewScale);
-    const setBattlefieldViewScale = useGameStore((state) => state.setBattlefieldViewScale);
 
     const seatHasDeckLoaded = (playerId?: string) => {
         if (!playerId) return false;
@@ -143,21 +141,12 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
     const handleBattlefieldContextMenu = (e: React.MouseEvent, onCreateToken: () => void) => {
         if (!seatHasDeckLoaded(myPlayerId)) return;
 
-        const zoomOptions = [1, 0.9, 0.8, 0.5];
-        const currentScale = battlefieldViewScale[myPlayerId] ?? 1;
-
         handleContextMenu(e, [
             {
                 type: 'action',
                 label: 'Create Token',
                 onSelect: onCreateToken,
-            },
-            { type: 'separator' },
-            ...zoomOptions.map((value) => ({
-                type: 'action' as const,
-                label: `${Math.round(value * 100)}%${value === currentScale ? ' (current)' : ''}`,
-                onSelect: () => setBattlefieldViewScale(myPlayerId, value),
-            }))
+            }
         ]);
     };
 

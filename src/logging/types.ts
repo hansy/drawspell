@@ -43,6 +43,7 @@ export interface LogMessage {
   parts: LogMessagePart[];
   payload?: any;
   aggregateKey?: string;
+  sourceClientId?: number;
 }
 
 export interface LogEventAggregateConfig<P = any> {

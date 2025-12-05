@@ -5,6 +5,7 @@ import { Card } from '../Card/Card';
 import { Zone } from '../Zone/Zone';
 import { CARD_WIDTH_PX, CARD_HEIGHT_PX } from '../../../lib/constants';
 import { useDragStore } from '../../../store/dragStore';
+import { useGameStore } from '../../../store/gameStore';
 import { fromNormalizedPosition } from '../../../lib/positions';
 
 interface BattlefieldProps {
@@ -112,6 +113,52 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
                 <span className="text-4xl font-bold uppercase tracking-widest">{isMe ? 'Me' : player.name}</span>
             </div>
+
+            {/* Zoom Edge Indicators */}
+            {isMe && (
+                <ZoomEdgeOverlay />
+            )}
         </div>
+    );
+};
+
+const ZoomEdgeOverlay = () => {
+    const zoomEdge = useDragStore((state) => state.zoomEdge);
+    const myPlayerId = useGameStore((state) => state.myPlayerId);
+    const battlefieldViewScale = useGameStore((state) => state.battlefieldViewScale);
+
+    if (!zoomEdge) return null;
+
+    const currentScale = battlefieldViewScale[myPlayerId] ?? 1;
+    const isZoomingIn = zoomEdge === 'top' || zoomEdge === 'left';
+    const isZoomingOut = zoomEdge === 'bottom' || zoomEdge === 'right';
+
+    const zoomPercentage = Math.round(currentScale * 100);
+
+    // Check limits based on the displayed percentage to match user perception
+    const isMaxedIn = zoomPercentage >= 120;
+    const isMaxedOut = zoomPercentage <= 50;
+
+    const showZoomingText = (isZoomingIn && !isMaxedIn) || (isZoomingOut && !isMaxedOut);
+
+    return (
+        <>
+            <div className={cn(
+                "absolute pointer-events-none z-50 transition-all duration-300",
+                zoomEdge === 'top' && "top-0 left-0 right-0 h-32 bg-gradient-to-b from-indigo-500/50 to-transparent",
+                zoomEdge === 'bottom' && "bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-indigo-500/50 to-transparent",
+                zoomEdge === 'left' && "left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-indigo-500/50 to-transparent",
+                zoomEdge === 'right' && "right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-indigo-500/50 to-transparent",
+            )} />
+
+            <div className="absolute top-4 left-4 z-50 pointer-events-none bg-black/80 text-white px-4 py-2 rounded-md border border-white/10 shadow-xl backdrop-blur-sm flex flex-col gap-0.5">
+                <span className="text-2xl font-bold font-mono text-indigo-400">{zoomPercentage}%</span>
+                {showZoomingText && (
+                    <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
+                        Zooming {isZoomingIn ? 'in' : 'out'}...
+                    </span>
+                )}
+            </div>
+        </>
     );
 };

@@ -22,6 +22,7 @@ const buildEntry = (
   aggregateKey?: string,
   existingId?: string,
   timestamp = Date.now(),
+  sourceClientId?: number,
 ): LogMessage => {
   const def = logEventRegistry[eventId];
   const parts = def.format(payload, ctx);
@@ -35,6 +36,7 @@ const buildEntry = (
     parts,
     payload,
     aggregateKey,
+    sourceClientId,
   };
 };
 
@@ -61,6 +63,7 @@ const writeSharedLog = (
   const handles = getYDocHandles();
   const logs = handles?.logs;
   if (!handles || !logs) return false;
+  const sourceClientId = handles.doc.clientID;
 
   const now = Date.now();
   handles.doc.transact(() => {
@@ -76,14 +79,14 @@ const writeSharedLog = (
       now - lastEntry.ts <= windowMs
     ) {
       const mergedPayload = def.aggregate.mergePayload(lastEntry.payload, payload);
-      const mergedEntry = buildEntry(eventId, mergedPayload, ctx, aggregateKey, lastEntry.id, now);
+      const mergedEntry = buildEntry(eventId, mergedPayload, ctx, aggregateKey, lastEntry.id, now, sourceClientId);
       logs.delete(logs.length - 1, 1);
       logs.push([mergedEntry]);
       trimSharedLogs(logs);
       return;
     }
 
-    const entry = buildEntry(eventId, payload, ctx, aggregateKey, undefined, now);
+    const entry = buildEntry(eventId, payload, ctx, aggregateKey, undefined, now, sourceClientId);
     logs.push([entry]);
     trimSharedLogs(logs);
   });
@@ -175,11 +178,34 @@ const computeEntriesKey = (entries: LogMessage[]) => {
 };
 
 const syncSharedLogsToStore = () => {
-  const entries = sharedLogs ? (sharedLogs.toJSON() as LogMessage[]) : [];
-  const key = computeEntriesKey(entries);
+  if (!sharedLogs) {
+    lastEntriesKey = null;
+    useLogStore.getState().setEntries([]);
+    return;
+  }
+  const current = useLogStore.getState().entries;
+  const shared = sharedLogs.toArray().map(normalizeSharedEntry).filter(Boolean) as LogMessage[];
+  if (shared.length < current.length) return; // ignore shrinks/clears from peers
+
+  let next = current;
+  if (current.length === 0) {
+    next = shared.slice(-MAX_LOG_ENTRIES);
+  } else {
+    const lastId = current[current.length - 1]?.id;
+    const anchorIndex = shared.findIndex((e) => e?.id === lastId);
+    if (anchorIndex >= 0) {
+      const appended = shared.slice(anchorIndex + 1);
+      if (appended.length > 0) {
+        next = [...current, ...appended].slice(-MAX_LOG_ENTRIES);
+      }
+    }
+    // if no anchor found, ignore to avoid accepting rewrites
+  }
+
+  const key = computeEntriesKey(next);
   if (key === lastEntriesKey) return;
   lastEntriesKey = key;
-  useLogStore.getState().setEntries(entries);
+  useLogStore.getState().setEntries(next);
 };
 
 const sharedLogsObserver = () => {
