@@ -466,10 +466,22 @@ export const useGameStore = create<GameStore>()(
                         }
 
                         yMoveCard(maps, cardId, toZoneId, position);
-                        // Apply faceDown state if requested
-                        if (opts?.faceDown !== undefined) {
+
+                        // Determine new faceDown state
+                        let newFaceDown = opts?.faceDown;
+                        if (newFaceDown === undefined) {
+                            // If not specified, default to false unless moving between battlefields
+                            const isBattlefieldToBattlefield = sharedFrom.type === ZONE.BATTLEFIELD && sharedTo.type === ZONE.BATTLEFIELD;
+                            if (!isBattlefieldToBattlefield) {
+                                newFaceDown = false;
+                            }
+                        }
+
+                        if (newFaceDown !== undefined) {
                             const movedCard = maps.cards.get(cardId) as Card;
-                            maps.cards.set(cardId, { ...movedCard, faceDown: opts.faceDown });
+                            if (movedCard && movedCard.faceDown !== newFaceDown) {
+                                maps.cards.set(cardId, { ...movedCard, faceDown: newFaceDown });
+                            }
                         }
                     })) return;
 
@@ -581,13 +593,25 @@ export const useGameStore = create<GameStore>()(
                         const newToZoneCardIds = [...state.zones[toZoneId].cardIds, cardId];
 
                         const nextCard = leavingBattlefield ? resetToFront : card;
+
+                        // Determine new faceDown state
+                        let newFaceDown = opts?.faceDown;
+                        if (newFaceDown === undefined) {
+                            // If not specified, default to false unless moving between battlefields
+                            if (!bothBattlefields) {
+                                newFaceDown = false;
+                            } else {
+                                newFaceDown = nextCard.faceDown;
+                            }
+                        }
+
                         cardsCopy[cardId] = {
                             ...nextCard,
                             zoneId: toZoneId,
                             position: newPosition,
                             tapped: nextTapped,
                             counters: nextCounters,
-                            faceDown: opts?.faceDown ?? nextCard.faceDown,
+                            faceDown: newFaceDown,
                         };
 
                         return {
