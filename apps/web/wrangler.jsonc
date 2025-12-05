@@ -10,7 +10,7 @@
   "env": {
     "development": {
       "vars": {
-        "VITE_WEBSOCKET_SERVERs": "http://localhost:8787",
+        "VITE_WEBSOCKET_SERVER": "http://localhost:8787",
       },
     },
     "production": {
