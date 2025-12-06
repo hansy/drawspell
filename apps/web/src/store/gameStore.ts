@@ -11,6 +11,7 @@ import { getCardFaces, getCurrentFaceIndex, isTransformableCard, syncCardStatsTo
 import { decrementCounter, enforceZoneCounterRules, isBattlefieldZone, mergeCounters, resolveCounterColor } from '../lib/counters';
 import { emitLog, clearLogs } from '../logging/logStore';
 import { getYDocHandles, runWithSharedDoc } from '../yjs/yManager';
+import { isApplyingRemoteUpdate } from '../hooks/useYjsSync';
 import { addCounterToCard as yAddCounterToCard, duplicateCard as yDuplicateCard, moveCard as yMoveCard, removeCard as yRemoveCard, removeCounterFromCard as yRemoveCounterFromCard, reorderZoneCards as yReorderZoneCards, transformCard as yTransformCard, upsertCard as yUpsertCard, upsertPlayer as yUpsertPlayer, upsertZone as yUpsertZone, SharedMaps } from '../yjs/yMutations';
 import { bumpPosition, clampNormalizedPosition, findAvailablePositionNormalized, GRID_STEP_Y, migratePositionToNormalized, positionsRoughlyEqual } from '../lib/positions';
 
@@ -39,7 +40,15 @@ const createSafeStorage = (): Storage => {
 export const useGameStore = create<GameStore>()(
     persist(
         (set, get) => {
-            const applyShared = (fn: (maps: SharedMaps) => void) => runWithSharedDoc(fn);
+            // Apply mutation to Yjs, but skip if we're processing a remote update
+            // (prevents feedback loop: Yjs -> Zustand -> Yjs)
+            const applyShared = (fn: (maps: SharedMaps) => void) => {
+                if (isApplyingRemoteUpdate()) {
+                    // Skip Yjs mutation - this change came FROM Yjs
+                    return false;
+                }
+                return runWithSharedDoc(fn);
+            };
 
             const syncSnapshotToShared = (state: GameState) => {
                 const handles = getYDocHandles();
