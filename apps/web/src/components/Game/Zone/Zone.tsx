@@ -94,7 +94,9 @@ export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 
                         style={{
                             width: ghostWidth,
                             height: ghostHeight,
-                            transform: `translate3d(${ghostPosition.x - ghostWidth / 2}px, ${ghostPosition.y - ghostHeight / 2}px, 0)${ghostTapped ? ' rotate(90deg)' : ''}`,
+                            left: ghostPosition.x - ghostWidth / 2,
+                            top: ghostPosition.y - ghostHeight / 2,
+                            transform: ghostTapped ? 'rotate(90deg)' : undefined,
                             transformOrigin: 'center center'
                         }}
                     />

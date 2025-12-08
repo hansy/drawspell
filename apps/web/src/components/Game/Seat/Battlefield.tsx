@@ -85,10 +85,12 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                 )}
                 {cards.map(card => {
                     const { x, y } = fromNormalizedPosition(card.position, zoneSize.width || 1, zoneSize.height || 1);
-                    const cardWidth = BASE_CARD_HEIGHT * CARD_ASPECT_RATIO * viewScale;
-                    const cardHeight = BASE_CARD_HEIGHT * viewScale;
-                    const left = x - cardWidth / 2;
-                    const top = y - cardHeight / 2;
+                    // Use BASE dimensions for positioning because Card applies scale with transformOrigin: center
+                    // The scale transform will shrink the card around its center, keeping it at (x, y)
+                    const baseWidth = BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;
+                    const baseHeight = BASE_CARD_HEIGHT;
+                    const left = x - baseWidth / 2;
+                    const top = y - baseHeight / 2;
                     return (
                         <Card
                             key={card.id}
