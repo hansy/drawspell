@@ -15,11 +15,12 @@ interface ZoneProps {
     layout?: 'stack' | 'fan' | 'grid' | 'free-form';
     scale?: number;
     cardScale?: number;
+    mirrorY?: boolean;
     onContextMenu?: (e: React.MouseEvent) => void;
     innerRef?: (node: HTMLDivElement | null) => void;
 }
 
-export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, cardScale = 1, onContextMenu, innerRef }) => {
+export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, cardScale = 1, mirrorY = false, onContextMenu, innerRef }) => {
     const cards = useGameStore((state) => state.cards);
     const zones = useGameStore((state) => state.zones);
     const myPlayerId = useGameStore((state) => state.myPlayerId);
@@ -42,6 +43,7 @@ export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 
             layout,
             scale,
             cardScale,
+            mirrorY,
         },
     });
     const setRefs = React.useCallback((node: HTMLDivElement | null) => {

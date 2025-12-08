@@ -6,7 +6,7 @@ import { Zone } from '../Zone/Zone';
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from '../../../lib/constants';
 import { useDragStore } from '../../../store/dragStore';
 import { useGameStore } from '../../../store/gameStore';
-import { fromNormalizedPosition } from '../../../lib/positions';
+import { fromNormalizedPosition, mirrorNormalizedY } from '../../../lib/positions';
 
 interface BattlefieldProps {
     zone: ZoneType;
@@ -14,6 +14,7 @@ interface BattlefieldProps {
     player: Player;
     isTop: boolean;
     isMe?: boolean;
+    mirrorForViewer?: boolean;
     scale?: number;
     viewScale?: number;
     onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
@@ -27,6 +28,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     player,
     isTop,
     isMe,
+    mirrorForViewer,
     scale = 1,
     viewScale = 1,
     onCardContextMenu,
@@ -68,6 +70,7 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                 layout="free-form"
                 scale={scale}
                 cardScale={viewScale}
+                mirrorY={mirrorForViewer}
                 onContextMenu={onContextMenu}
                 innerRef={(node) => {
                     zoneRef.current = node;
@@ -84,7 +87,8 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                     />
                 )}
                 {cards.map(card => {
-                    const { x, y } = fromNormalizedPosition(card.position, zoneSize.width || 1, zoneSize.height || 1);
+                    const viewPosition = mirrorForViewer ? mirrorNormalizedY(card.position) : card.position;
+                    const { x, y } = fromNormalizedPosition(viewPosition, zoneSize.width || 1, zoneSize.height || 1);
                     // Use BASE dimensions for positioning because Card applies scale with transformOrigin: center
                     // The scale transform will shrink the card around its center, keeping it at (x, y)
                     const baseWidth = BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;

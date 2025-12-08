@@ -3,16 +3,8 @@ import { ZoneType, isTokenCard, Player } from '../types';
 import { ActorContext, MoveContext, PermissionResult, ViewResult } from './types';
 
 const HIDDEN_ZONES = new Set<ZoneType>([ZONE.LIBRARY, ZONE.HAND]);
-const SEAT_ZONES = new Set<ZoneType>([
-  ZONE.LIBRARY,
-  ZONE.HAND,
-  ZONE.GRAVEYARD,
-  ZONE.EXILE,
-  ZONE.COMMANDER,
-]);
 
 const isHiddenZone = (zoneType: ZoneType) => HIDDEN_ZONES.has(zoneType);
-const isSeatZone = (zoneType: ZoneType) => SEAT_ZONES.has(zoneType);
 
 /**
  * Who can see what in a zone.

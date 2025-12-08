@@ -230,6 +230,7 @@ export const Seat: React.FC<SeatProps> = ({
               player={player}
               isTop={isTop}
               isMe={isMe}
+              mirrorForViewer={!isMe}
               scale={scale}
               viewScale={battlefieldScale}
               onCardContextMenu={onCardContextMenu}

@@ -34,6 +34,16 @@ export const clampNormalizedPosition = (position: { x: number; y: number }) => (
     y: clamp01(position.y),
 });
 
+/**
+ * Mirror a normalized position vertically (flip Y in [0,1]).
+ * Useful for rendering an opponent's battlefield from your perspective
+ * while keeping stored coordinates canonical.
+ */
+export const mirrorNormalizedY = (position: { x: number; y: number }) => clampNormalizedPosition({
+    x: position.x,
+    y: 1 - position.y,
+});
+
 export const positionsRoughlyEqual = (a: { x: number; y: number }, b: { x: number; y: number }, epsilon = 1e-4) =>
     Math.abs(a.x - b.x) <= epsilon && Math.abs(a.y - b.y) <= epsilon;
 

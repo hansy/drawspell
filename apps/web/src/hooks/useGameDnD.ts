@@ -20,7 +20,7 @@ import {
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from '../lib/constants';
 import { ZONE } from '../constants/zones';
 import { canMoveCard } from '../rules/permissions';
-import { fromNormalizedPosition, snapNormalizedWithZone, toNormalizedPosition } from '../lib/positions';
+import { fromNormalizedPosition, mirrorNormalizedY, snapNormalizedWithZone, toNormalizedPosition } from '../lib/positions';
 
 export const useGameDnD = () => {
     const cards = useGameStore((state) => state.cards);
@@ -130,6 +130,7 @@ export const useGameDnD = () => {
                 const overRect = over.rect as any;
                 const scale = over.data.current?.scale || 1;
                 const viewScale = over.data.current?.cardScale || 1;
+                const mirrorY = Boolean(over.data.current?.mirrorY);
                 setOverCardScale(viewScale);
 
                 // Use the translated rect center for accurate position
@@ -163,14 +164,16 @@ export const useGameDnD = () => {
                 };
 
                 const unsnappedNormalized = toNormalizedPosition(clampedPos, zoneWidth, zoneHeight);
-                const snappedNormalized = snapNormalizedWithZone(
-                    unsnappedNormalized,
+                const unsnappedCanonical = mirrorY ? mirrorNormalizedY(unsnappedNormalized) : unsnappedNormalized;
+                const snappedCanonical = snapNormalizedWithZone(
+                    unsnappedCanonical,
                     zoneWidth,
                     zoneHeight,
                     cardWidth,
                     cardHeight
                 );
-                const ghostPosition = fromNormalizedPosition(snappedNormalized, zoneWidth, zoneHeight);
+                const ghostNormalized = mirrorY ? mirrorNormalizedY(snappedCanonical) : snappedCanonical;
+                const ghostPosition = fromNormalizedPosition(ghostNormalized, zoneWidth, zoneHeight);
 
                 setGhostCard({
                     zoneId,
@@ -278,6 +281,7 @@ export const useGameDnD = () => {
                 const overRect = over.rect as any;
                 const scale = over.data.current?.scale || 1;
                 const viewScale = over.data.current?.cardScale || 1;
+                const mirrorY = Boolean(over.data.current?.mirrorY);
 
                 // Use the translated rect center for accurate position
                 // This correctly handles scroll offsets in the source container
@@ -311,15 +315,16 @@ export const useGameDnD = () => {
                 };
 
                 const unsnappedNormalized = toNormalizedPosition(clampedPos, zoneWidth, zoneHeight);
-                const snappedNormalized = snapNormalizedWithZone(
-                    unsnappedNormalized,
+                const unsnappedCanonical = mirrorY ? mirrorNormalizedY(unsnappedNormalized) : unsnappedNormalized;
+                const snappedCanonical = snapNormalizedWithZone(
+                    unsnappedCanonical,
                     zoneWidth,
                     zoneHeight,
                     cardWidth,
                     cardHeight
                 );
 
-                moveCard(cardId, toZoneId, snappedNormalized, myPlayerId);
+                moveCard(cardId, toZoneId, snappedCanonical, myPlayerId);
             }
         }
 

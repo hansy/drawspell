@@ -387,7 +387,7 @@ export function useYjsSync(sessionId: string) {
         players.forEach((_value, key) => {
           if (!state.players[key as string]) players.delete(key);
         });
-        Object.entries(state.players).forEach(([key, value]) => upsertPlayer(sharedMaps, value));
+        Object.entries(state.players).forEach(([_key, value]) => upsertPlayer(sharedMaps, value));
 
         // Zones + ordering
         zones.forEach((_value, key) => {
@@ -396,7 +396,7 @@ export function useYjsSync(sessionId: string) {
             zoneCardOrders.delete(key as string);
           }
         });
-        Object.entries(state.zones).forEach(([key, value]) => upsertZone(sharedMaps, value));
+        Object.entries(state.zones).forEach(([_key, value]) => upsertZone(sharedMaps, value));
         Object.entries(state.zones).forEach(([key, value]) => {
           reorderZoneCards(sharedMaps, key, value.cardIds);
         });
@@ -405,7 +405,7 @@ export function useYjsSync(sessionId: string) {
         cards.forEach((_value, key) => {
           if (!state.cards[key as string]) removeCard(sharedMaps, key as string);
         });
-        Object.entries(state.cards).forEach(([key, value]) => upsertCard(sharedMaps, value));
+        Object.entries(state.cards).forEach(([_key, value]) => upsertCard(sharedMaps, value));
 
         // Global counters
         globalCounters.forEach((_value, key) => {

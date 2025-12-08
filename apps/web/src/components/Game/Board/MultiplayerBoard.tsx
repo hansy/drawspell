@@ -79,6 +79,7 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
                             players: handles.players,
                             zones: handles.zones,
                             cards: handles.cards,
+                            zoneCardOrders: handles.zoneCardOrders,
                             globalCounters: handles.globalCounters,
                         },
                         myPlayerId,
@@ -377,7 +378,6 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
                     {activeCardId && cards[activeCardId] ? (() => {
                         const overlayCard = cards[activeCardId];
                         const overlayZone = zones[overlayCard.zoneId];
-                        const overlayTypeLine = overlayCard.typeLine || '';
                         const overlayPreferArtCrop = false;
                         const viewScale = overlayZone?.type === ZONE.BATTLEFIELD
                             ? (battlefieldViewScale[overlayZone.ownerId] ?? 1)

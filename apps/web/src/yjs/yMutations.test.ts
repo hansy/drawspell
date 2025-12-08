@@ -61,14 +61,14 @@ describe('sharedSnapshot legacy compatibility', () => {
       commanderTax: 1,
       commanderDamage: { p2: 3 },
       counters: [{ type: 'poison', count: 1 }],
-    });
+    } as any);
 
     maps.zones.set('z1', {
       id: 'z1',
       type: ZONE.HAND,
       ownerId: 'p1',
       cardIds: ['c1'],
-    });
+    } as any);
 
     maps.cards.set('c1', {
       id: 'c1',
@@ -77,7 +77,7 @@ describe('sharedSnapshot legacy compatibility', () => {
       zoneId: 'z1',
       position: { x: 0.25, y: 0.25 },
       counters: [{ type: '+1/+1', count: 2 }],
-    });
+    } as any);
 
     const snapshot = sharedSnapshot(maps);
 
