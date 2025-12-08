@@ -89,8 +89,8 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
 
             const provider = getYProvider();
             if (provider) {
-                try { provider.disconnect(); } catch (_err) {}
-                try { provider.destroy(); } catch (_err) {}
+                try { provider.disconnect(); } catch (_err) { }
+                try { provider.destroy(); } catch (_err) { }
                 setYProvider(null);
             }
 
