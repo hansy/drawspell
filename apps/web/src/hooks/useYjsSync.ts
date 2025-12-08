@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { WebsocketProvider } from "y-websocket";
 import { Awareness, removeAwarenessStates } from "y-protocols/awareness";
-import * as Y from "yjs";
 import { useGameStore } from "../store/gameStore";
 import { bindSharedLogStore } from "../logging/logStore";
 import {
@@ -12,6 +11,7 @@ import {
   setActiveSession,
   flushPendingMutations,
 } from "../yjs/docManager";
+import { sharedSnapshot, upsertPlayer, upsertZone, upsertCard, removeCard, reorderZoneCards } from "../yjs/yMutations";
 import {
   clampNormalizedPosition,
   migratePositionToNormalized,
@@ -241,6 +241,7 @@ export function useYjsSync(sessionId: string) {
   const [status, setStatus] = useState<SyncStatus>("connecting");
   const [peers, setPeers] = useState(1);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const fullSyncTimer = useRef<number | null>(null);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -250,7 +251,7 @@ export function useYjsSync(sessionId: string) {
     const handles = acquireSession(sessionId);
     setActiveSession(sessionId);
 
-    const { doc, players, zones, cards, globalCounters, logs } = handles;
+    const { doc, players, zones, cards, zoneCardOrders, globalCounters, logs } = handles;
 
     // Setup store
     const store = useGameStore.getState();
@@ -301,152 +302,19 @@ export function useYjsSync(sessionId: string) {
     setSessionProvider(sessionId, provider);
     setSessionAwareness(sessionId, awareness);
 
-    // --- Incremental update handlers ---
-
-    // Apply player changes incrementally
-    const handlePlayersChange = (event: Y.YMapEvent<any>) => {
-      if (applyingRemoteUpdate) return;
-
-      applyingRemoteUpdate = true;
-      try {
-        const currentPlayers = { ...useGameStore.getState().players };
-        let changed = false;
-
-        event.changes.keys.forEach((change, key) => {
-          if (change.action === "delete") {
-            if (currentPlayers[key]) {
-              delete currentPlayers[key];
-              changed = true;
-            }
-          } else {
-            const raw = players.get(key);
-            const sanitized = sanitizePlayer(raw);
-            if (sanitized) {
-              currentPlayers[key] = sanitized;
-              changed = true;
-            }
-          }
-        });
-
-        if (changed && Object.keys(currentPlayers).length <= MAX_PLAYERS) {
-          useGameStore.setState({ players: currentPlayers });
-        }
-      } finally {
-        applyingRemoteUpdate = false;
-      }
-    };
-
-    // Apply zone changes incrementally
-    const handleZonesChange = (event: Y.YMapEvent<any>) => {
-      if (applyingRemoteUpdate) return;
-
-      applyingRemoteUpdate = true;
-      try {
-        const currentZones = { ...useGameStore.getState().zones };
-        let changed = false;
-
-        event.changes.keys.forEach((change, key) => {
-          if (change.action === "delete") {
-            if (currentZones[key]) {
-              delete currentZones[key];
-              changed = true;
-            }
-          } else {
-            const raw = zones.get(key);
-            const sanitized = sanitizeZone(raw);
-            if (sanitized) {
-              // Filter cardIds to only include existing cards
-              const storeCards = useGameStore.getState().cards;
-              sanitized.cardIds = sanitized.cardIds.filter(
-                (id) => storeCards[id] || cards.has(id)
-              );
-              currentZones[key] = sanitized;
-              changed = true;
-            }
-          }
-        });
-
-        if (changed && Object.keys(currentZones).length <= MAX_ZONES) {
-          useGameStore.setState({ zones: currentZones });
-        }
-      } finally {
-        applyingRemoteUpdate = false;
-      }
-    };
-
-    // Apply card changes incrementally
-    const handleCardsChange = (event: Y.YMapEvent<any>) => {
-      if (applyingRemoteUpdate) return;
-
-      applyingRemoteUpdate = true;
-      try {
-        const currentCards = { ...useGameStore.getState().cards };
-        const currentZones = useGameStore.getState().zones;
-        let changed = false;
-
-        event.changes.keys.forEach((change, key) => {
-          if (change.action === "delete") {
-            if (currentCards[key]) {
-              delete currentCards[key];
-              changed = true;
-            }
-          } else {
-            const raw = cards.get(key);
-            const sanitized = sanitizeCard(raw, currentZones);
-            if (sanitized) {
-              currentCards[key] = sanitized;
-              changed = true;
-            }
-          }
-        });
-
-        if (changed && Object.keys(currentCards).length <= MAX_CARDS) {
-          useGameStore.setState({ cards: currentCards });
-        }
-      } finally {
-        applyingRemoteUpdate = false;
-      }
-    };
-
-    // Apply global counter changes incrementally
-    const handleGlobalCountersChange = (event: Y.YMapEvent<any>) => {
-      if (applyingRemoteUpdate) return;
-
-      applyingRemoteUpdate = true;
-      try {
-        const currentCounters = { ...useGameStore.getState().globalCounters };
-        let changed = false;
-
-        event.changes.keys.forEach((change, key) => {
-          if (change.action === "delete") {
-            if (currentCounters[key]) {
-              delete currentCounters[key];
-              changed = true;
-            }
-          } else {
-            const value = globalCounters.get(key);
-            if (typeof value === "string") {
-              currentCounters[key.slice(0, 64)] = value.slice(0, 16);
-              changed = true;
-            }
-          }
-        });
-
-        if (changed) {
-          useGameStore.setState({ globalCounters: currentCounters });
-        }
-      } finally {
-        applyingRemoteUpdate = false;
-      }
-    };
-
-    // Full state reconstruction (for initial sync)
+    // Full state reconstruction (for initial and deep sync)
     const fullSyncToStore = () => {
+      if (fullSyncTimer.current !== null) {
+        clearTimeout(fullSyncTimer.current);
+        fullSyncTimer.current = null;
+      }
       applyingRemoteUpdate = true;
       try {
+        const snapshot = sharedSnapshot({ players, zones, cards, zoneCardOrders, globalCounters } as any);
+
         const safePlayers: Record<string, Player> = {};
         let playerCount = 0;
-        players.forEach((value, key) => {
+        Object.entries(snapshot.players).forEach(([key, value]) => {
           if (playerCount >= MAX_PLAYERS) return;
           const p = sanitizePlayer(value);
           if (p) {
@@ -457,7 +325,7 @@ export function useYjsSync(sessionId: string) {
 
         const safeZones: Record<string, Zone> = {};
         let zoneCount = 0;
-        zones.forEach((value, key) => {
+        Object.entries(snapshot.zones).forEach(([key, value]) => {
           if (zoneCount >= MAX_ZONES) return;
           const z = sanitizeZone(value);
           if (z) {
@@ -468,7 +336,7 @@ export function useYjsSync(sessionId: string) {
 
         const safeCards: Record<string, Card> = {};
         let cardCount = 0;
-        cards.forEach((value, key) => {
+        Object.entries(snapshot.cards).forEach(([key, value]) => {
           if (cardCount >= MAX_CARDS) return;
           const c = sanitizeCard(value, safeZones);
           if (c) {
@@ -483,7 +351,7 @@ export function useYjsSync(sessionId: string) {
         });
 
         const safeGlobalCounters: Record<string, string> = {};
-        globalCounters.forEach((value, key) => {
+        Object.entries(snapshot.globalCounters).forEach(([key, value]) => {
           if (typeof key === "string" && typeof value === "string") {
             safeGlobalCounters[key.slice(0, 64)] = value.slice(0, 16);
           }
@@ -500,46 +368,59 @@ export function useYjsSync(sessionId: string) {
       }
     };
 
+    const scheduleFullSync = () => {
+      if (fullSyncTimer.current !== null) {
+        clearTimeout(fullSyncTimer.current);
+      }
+      fullSyncTimer.current = setTimeout(() => {
+        fullSyncTimer.current = null;
+        fullSyncToStore();
+      }, 16) as unknown as number;
+    };
+
     // Sync local store to Yjs (for recovery)
     const syncStoreToShared = () => {
       const state = useGameStore.getState();
+      const sharedMaps = { players, zones, cards, zoneCardOrders, globalCounters } as any;
       doc.transact(() => {
-        // Sync players
-        players.forEach((_, key) => {
-          if (!state.players[key]) players.delete(key);
+        // Players
+        players.forEach((_value, key) => {
+          if (!state.players[key as string]) players.delete(key);
         });
-        Object.entries(state.players).forEach(([key, value]) =>
-          players.set(key, value)
-        );
-        // Sync zones
-        zones.forEach((_, key) => {
-          if (!state.zones[key]) zones.delete(key);
+        Object.entries(state.players).forEach(([key, value]) => upsertPlayer(sharedMaps, value));
+
+        // Zones + ordering
+        zones.forEach((_value, key) => {
+          if (!state.zones[key as string]) {
+            zones.delete(key);
+            zoneCardOrders.delete(key as string);
+          }
         });
-        Object.entries(state.zones).forEach(([key, value]) =>
-          zones.set(key, value)
-        );
-        // Sync cards
-        cards.forEach((_, key) => {
-          if (!state.cards[key]) cards.delete(key);
+        Object.entries(state.zones).forEach(([key, value]) => upsertZone(sharedMaps, value));
+        Object.entries(state.zones).forEach(([key, value]) => {
+          reorderZoneCards(sharedMaps, key, value.cardIds);
         });
-        Object.entries(state.cards).forEach(([key, value]) =>
-          cards.set(key, value)
-        );
-        // Sync global counters
-        globalCounters.forEach((_, key) => {
-          if (!state.globalCounters[key]) globalCounters.delete(key);
+
+        // Cards
+        cards.forEach((_value, key) => {
+          if (!state.cards[key as string]) removeCard(sharedMaps, key as string);
         });
-        Object.entries(state.globalCounters).forEach(([key, value]) =>
-          globalCounters.set(key, value)
-        );
+        Object.entries(state.cards).forEach(([key, value]) => upsertCard(sharedMaps, value));
+
+        // Global counters
+        globalCounters.forEach((_value, key) => {
+          if (!state.globalCounters[key as string]) globalCounters.delete(key);
+        });
+        Object.entries(state.globalCounters).forEach(([key, value]) => globalCounters.set(key, value));
       });
     };
 
-    // Register observers
-    players.observe(handlePlayersChange);
-    zones.observe(handleZonesChange);
-    cards.observe(handleCardsChange);
-    globalCounters.observe(handleGlobalCountersChange);
+    const handleDocUpdate = () => {
+      if (applyingRemoteUpdate) return;
+      scheduleFullSync();
+    };
+
+    doc.on("update", handleDocUpdate);
 
     // Awareness
     const pushLocalAwareness = () => {
@@ -598,10 +479,11 @@ export function useYjsSync(sessionId: string) {
       } catch (_err) {}
 
       awareness.off("change", handleAwareness);
-      players.unobserve(handlePlayersChange);
-      zones.unobserve(handleZonesChange);
-      cards.unobserve(handleCardsChange);
-      globalCounters.unobserve(handleGlobalCountersChange);
+      doc.off("update", handleDocUpdate);
+      if (fullSyncTimer.current !== null) {
+        clearTimeout(fullSyncTimer.current);
+        fullSyncTimer.current = null;
+      }
 
       bindSharedLogStore(null);
       setActiveSession(null);

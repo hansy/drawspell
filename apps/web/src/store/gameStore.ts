@@ -12,7 +12,7 @@ import { decrementCounter, enforceZoneCounterRules, isBattlefieldZone, mergeCoun
 import { emitLog, clearLogs } from '../logging/logStore';
 import { getYDocHandles, runWithSharedDoc } from '../yjs/yManager';
 import { isApplyingRemoteUpdate } from '../hooks/useYjsSync';
-import { addCounterToCard as yAddCounterToCard, duplicateCard as yDuplicateCard, moveCard as yMoveCard, removeCard as yRemoveCard, removeCounterFromCard as yRemoveCounterFromCard, reorderZoneCards as yReorderZoneCards, transformCard as yTransformCard, upsertCard as yUpsertCard, upsertPlayer as yUpsertPlayer, upsertZone as yUpsertZone, SharedMaps } from '../yjs/yMutations';
+import { addCounterToCard as yAddCounterToCard, duplicateCard as yDuplicateCard, moveCard as yMoveCard, patchPlayer as yPatchPlayer, removeCard as yRemoveCard, removeCounterFromCard as yRemoveCounterFromCard, reorderZoneCards as yReorderZoneCards, sharedSnapshot, transformCard as yTransformCard, upsertCard as yUpsertCard, upsertPlayer as yUpsertPlayer, upsertZone as yUpsertZone, SharedMaps } from '../yjs/yMutations';
 import { bumpPosition, clampNormalizedPosition, findAvailablePositionNormalized, GRID_STEP_Y, migratePositionToNormalized, positionsRoughlyEqual } from '../lib/positions';
 
 interface GameStore extends GameState {
@@ -53,17 +53,43 @@ export const useGameStore = create<GameStore>()(
             const syncSnapshotToShared = (state: GameState) => {
                 const handles = getYDocHandles();
                 if (!handles) return;
-                const sync = (data: Record<string, any>, map: any) => {
-                    map.forEach((_value: any, key: string) => {
-                        if (!Object.prototype.hasOwnProperty.call(data, key)) map.delete(key);
-                    });
-                    Object.entries(data).forEach(([key, value]) => map.set(key, value as any));
-                };
+                const maps = {
+                    players: handles.players,
+                    zones: handles.zones,
+                    cards: handles.cards,
+                    zoneCardOrders: handles.zoneCardOrders,
+                    globalCounters: handles.globalCounters,
+                } as SharedMaps;
                 handles.doc.transact(() => {
-                    sync(state.players, handles.players);
-                    sync(state.zones, handles.zones);
-                    sync(state.cards, handles.cards);
-                    sync(state.globalCounters, handles.globalCounters);
+                    // Players
+                    handles.players.forEach((_value: any, key: string) => {
+                        if (!Object.prototype.hasOwnProperty.call(state.players, key)) handles.players.delete(key);
+                    });
+                    Object.values(state.players).forEach((player) => yUpsertPlayer(maps, player));
+
+                    // Zones + ordering
+                    handles.zones.forEach((_value: any, key: string) => {
+                        if (!Object.prototype.hasOwnProperty.call(state.zones, key)) {
+                            handles.zones.delete(key);
+                            handles.zoneCardOrders.delete(key);
+                        }
+                    });
+                    Object.values(state.zones).forEach((zone) => yUpsertZone(maps, zone));
+                    Object.entries(state.zones).forEach(([id, zone]) => yReorderZoneCards(maps, id, zone.cardIds));
+
+                    // Cards
+                    handles.cards.forEach((_value: any, key: string) => {
+                        if (!Object.prototype.hasOwnProperty.call(state.cards, key)) {
+                            yRemoveCard(maps, key);
+                        }
+                    });
+                    Object.values(state.cards).forEach((card) => yUpsertCard(maps, card));
+
+                    // Global counters
+                    handles.globalCounters.forEach((_value: any, key: string) => {
+                        if (!Object.prototype.hasOwnProperty.call(state.globalCounters, key)) handles.globalCounters.delete(key);
+                    });
+                    Object.entries(state.globalCounters).forEach(([key, value]) => handles.globalCounters.set(key, value));
                 });
             };
 
@@ -169,9 +195,7 @@ export const useGameStore = create<GameStore>()(
                     }
 
                     if (applyShared((maps) => {
-                        const current = maps.players.get(id) as any;
-                        if (!current) return;
-                        maps.players.set(id, { ...current, ...updates });
+                        yPatchPlayer(maps, id, updates as any);
                     })) return;
 
                     set((state) => ({
@@ -195,9 +219,7 @@ export const useGameStore = create<GameStore>()(
                     const to = Math.max(0, from + delta);
 
                     if (applyShared((maps) => {
-                        const current = maps.players.get(playerId) as any;
-                        if (!current) return;
-                        maps.players.set(playerId, { ...current, commanderTax: to });
+                        yPatchPlayer(maps, playerId, { commanderTax: to } as any);
                     })) return;
 
                     set((state) => {
@@ -217,9 +239,7 @@ export const useGameStore = create<GameStore>()(
 
                 setDeckLoaded: (playerId, loaded, _isRemote) => {
                     if (applyShared((maps) => {
-                        const current = maps.players.get(playerId) as any;
-                        if (!current) return;
-                        maps.players.set(playerId, { ...current, deckLoaded: loaded });
+                        yPatchPlayer(maps, playerId, { deckLoaded: loaded } as any);
                     })) return;
 
                     set((state) => ({
@@ -264,10 +284,6 @@ export const useGameStore = create<GameStore>()(
 
                     if (applyShared((maps) => {
                         yUpsertCard(maps, normalizedCard);
-                        const zone = maps.zones.get(normalizedCard.zoneId) as Zone | undefined;
-                        if (zone) {
-                            maps.zones.set(normalizedCard.zoneId, { ...zone, cardIds: [...zone.cardIds, normalizedCard.id] });
-                        }
                     })) return;
 
                     set((state) => {
@@ -351,17 +367,15 @@ export const useGameStore = create<GameStore>()(
                     }
 
                     if (applyShared((maps) => {
-                        const current = maps.cards.get(id) as Card | undefined;
-                        if (!current) return;
-                        const nextZoneId = updates.zoneId ?? current.zoneId;
-                        const zone = maps.zones.get(nextZoneId) as Zone | undefined;
-                        const mergedCard = { ...current, ...updates, zoneId: nextZoneId };
+                        if (!cardBefore) return;
+                        const nextZoneId = updates.zoneId ?? cardBefore.zoneId;
+                        const mergedCard = { ...cardBefore, ...updates, zoneId: nextZoneId };
                         const faces = getCardFaces(mergedCard);
                         const normalizedFaceIndex = faces.length
                             ? Math.min(Math.max(mergedCard.currentFaceIndex ?? 0, 0), faces.length - 1)
                             : mergedCard.currentFaceIndex;
 
-                        const faceChanged = (normalizedFaceIndex ?? mergedCard.currentFaceIndex) !== current.currentFaceIndex;
+                        const faceChanged = (normalizedFaceIndex ?? mergedCard.currentFaceIndex) !== cardBefore.currentFaceIndex;
                         const cardWithFace = faceChanged
                             ? syncCardStatsToFace(
                                 { ...mergedCard, currentFaceIndex: faces.length ? normalizedFaceIndex : mergedCard.currentFaceIndex },
@@ -373,7 +387,7 @@ export const useGameStore = create<GameStore>()(
                                 { preserveExisting: true }
                             );
 
-                        maps.cards.set(id, { ...cardWithFace, counters: enforceZoneCounterRules(cardWithFace.counters, zone) });
+                        yUpsertCard(maps, cardWithFace);
                     })) return;
 
                     set((state) => {
@@ -488,16 +502,15 @@ export const useGameStore = create<GameStore>()(
                     }
 
                     if (applyShared((maps) => {
-                        const sharedCard = maps.cards.get(cardId) as Card | undefined;
-                        const sharedFrom = maps.zones.get(fromZoneId) as Zone | undefined;
-                        const sharedTo = maps.zones.get(toZoneId) as Zone | undefined;
+                        const snapshot = sharedSnapshot(maps);
+                        const sharedCard = snapshot.cards[cardId];
+                        const sharedFrom = snapshot.zones[fromZoneId];
+                        const sharedTo = snapshot.zones[toZoneId];
                         if (!sharedCard || !sharedFrom || !sharedTo) return;
 
                         const tokenLeavingBattlefield = sharedCard.isToken && sharedTo.type !== ZONE.BATTLEFIELD;
                         if (tokenLeavingBattlefield) {
-                            maps.cards.delete(cardId);
-                            maps.zones.set(fromZoneId, { ...sharedFrom, cardIds: sharedFrom.cardIds.filter((id) => id !== cardId) });
-                            maps.zones.set(toZoneId, { ...sharedTo, cardIds: sharedTo.cardIds.filter((id) => id !== cardId) });
+                            yRemoveCard(maps, cardId);
                             return;
                         }
 
@@ -514,9 +527,9 @@ export const useGameStore = create<GameStore>()(
                         }
 
                         if (newFaceDown !== undefined) {
-                            const movedCard = maps.cards.get(cardId) as Card;
+                            const movedCard = sharedSnapshot(maps).cards[cardId];
                             if (movedCard && movedCard.faceDown !== newFaceDown) {
-                                maps.cards.set(cardId, { ...movedCard, faceDown: newFaceDown });
+                                yUpsertCard(maps, { ...movedCard, faceDown: newFaceDown });
                             }
                         }
                     })) return;
@@ -704,30 +717,24 @@ export const useGameStore = create<GameStore>()(
                     }
 
                     if (applyShared((maps) => {
-                        const sharedCard = maps.cards.get(cardId) as Card | undefined;
-                        const sharedFrom = maps.zones.get(fromZoneId) as Zone | undefined;
-                        const sharedTo = maps.zones.get(toZoneId) as Zone | undefined;
+                        const snapshot = sharedSnapshot(maps);
+                        const sharedCard = snapshot.cards[cardId];
+                        const sharedFrom = snapshot.zones[fromZoneId];
+                        const sharedTo = snapshot.zones[toZoneId];
                         if (!sharedCard || !sharedFrom || !sharedTo) return;
 
                         const tokenLeavingBattlefield = sharedCard.isToken && sharedTo.type !== ZONE.BATTLEFIELD;
                         if (tokenLeavingBattlefield) {
-                            maps.cards.delete(cardId);
-                            maps.zones.set(fromZoneId, { ...sharedFrom, cardIds: sharedFrom.cardIds.filter((id) => id !== cardId) });
-                            maps.zones.set(toZoneId, { ...sharedTo, cardIds: sharedTo.cardIds.filter((id) => id !== cardId) });
+                            yRemoveCard(maps, cardId);
                             return;
                         }
 
+                        yMoveCard(maps, cardId, toZoneId);
+
                         // place at bottom (front) of toZone
-                        const newFromIds = sharedFrom.cardIds.filter((id) => id !== cardId);
-                        const newToIds = fromZoneId === toZoneId ? [cardId, ...newFromIds] : [cardId, ...sharedTo.cardIds];
-                        maps.cards.set(cardId, {
-                            ...sharedCard,
-                            zoneId: toZoneId,
-                            tapped: sharedTo.type === ZONE.BATTLEFIELD ? sharedCard.tapped : false,
-                            counters: enforceZoneCounterRules(sharedCard.counters, sharedTo),
-                        });
-                        maps.zones.set(fromZoneId, { ...sharedFrom, cardIds: newFromIds });
-                        maps.zones.set(toZoneId, { ...sharedTo, cardIds: newToIds });
+                        const toOrder = sharedSnapshot(maps).zones[toZoneId]?.cardIds ?? [];
+                        const reordered = [cardId, ...toOrder.filter((id) => id !== cardId)];
+                        yReorderZoneCards(maps, toZoneId, reordered);
                     })) return;
 
                     const leavingBattlefield = fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD;
@@ -898,9 +905,10 @@ export const useGameStore = create<GameStore>()(
                     emitLog('card.tap', { actorId: actor, cardId, zoneId: card.zoneId, tapped: newTapped, cardName: card.name }, buildLogContext());
 
                     if (applyShared((maps) => {
-                        const current = maps.cards.get(cardId) as Card | undefined;
+                        const snapshot = sharedSnapshot(maps);
+                        const current = snapshot.cards[cardId];
                         if (!current) return;
-                        maps.cards.set(cardId, { ...current, tapped: !current.tapped });
+                        yUpsertCard(maps, { ...current, tapped: !current.tapped });
                     })) return;
 
                     set((state) => {
@@ -917,9 +925,10 @@ export const useGameStore = create<GameStore>()(
 
                 untapAll: (playerId, _isRemote) => {
                     if (applyShared((maps) => {
-                        maps.cards.forEach((card: Card, key: string) => {
+                        const snapshot = sharedSnapshot(maps);
+                        Object.values(snapshot.cards).forEach((card) => {
                             if (card.controllerId === playerId && card.tapped) {
-                                maps.cards.set(key, { ...card, tapped: false });
+                                yUpsertCard(maps, { ...card, tapped: false });
                             }
                         });
                     })) return;
@@ -985,10 +994,11 @@ export const useGameStore = create<GameStore>()(
                     }
 
                     const sharedApplied = applyShared((maps) => {
-                        const zone = maps.zones.get(libraryZone.id) as Zone | undefined;
+                        const snapshot = sharedSnapshot(maps);
+                        const zone = snapshot.zones[libraryZone.id];
                         if (!zone) return;
-                        const shuffledIds = [...(zone.cardIds || [])].sort(() => Math.random() - 0.5);
-                        maps.zones.set(libraryZone.id, { ...zone, cardIds: shuffledIds });
+                        const shuffledIds = [...zone.cardIds].sort(() => Math.random() - 0.5);
+                        yReorderZoneCards(maps, libraryZone.id, shuffledIds);
                     });
 
                     if (!sharedApplied) {

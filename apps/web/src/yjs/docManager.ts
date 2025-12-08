@@ -21,7 +21,8 @@ interface SessionState {
 
 // Module-level state - survives React lifecycle
 const sessions = new Map<string, SessionState>();
-const pendingMutations: Array<(maps: SharedMaps) => void> = [];
+const pendingMutations = new Map<string, Array<(maps: SharedMaps) => void>>();
+const DEFAULT_SESSION_KEY = '__default__';
 
 // Currently active session
 let activeSessionId: string | null = null;
@@ -44,6 +45,7 @@ export function acquireSession(sessionId: string): YDocHandles {
       players: doc.getMap('players'),
       zones: doc.getMap('zones'),
       cards: doc.getMap('cards'),
+      zoneCardOrders: doc.getMap('zoneCardOrders'),
       globalCounters: doc.getMap('globalCounters'),
       logs: doc.getArray('logs'),
       meta: doc.getMap('meta'),
@@ -167,6 +169,7 @@ export function destroySession(sessionId: string): void {
   } catch (_err) {}
   
   sessions.delete(sessionId);
+  pendingMutations.delete(sessionId);
   
   if (activeSessionId === sessionId) {
     activeSessionId = null;
@@ -193,8 +196,11 @@ export function cleanupStaleSessions(maxAgeMs: number = 5 * 60 * 1000): void {
 export function runMutation(fn: (maps: SharedMaps) => void): boolean {
   const handles = getActiveHandles();
   
-  if (!handles) {
-    pendingMutations.push(fn);
+  if (!handles || !activeSessionId) {
+    const key = activeSessionId ?? DEFAULT_SESSION_KEY;
+    const queue = pendingMutations.get(key) ?? [];
+    queue.push(fn);
+    pendingMutations.set(key, queue);
     return false;
   }
   
@@ -208,6 +214,7 @@ export function runMutation(fn: (maps: SharedMaps) => void): boolean {
     players: handles.players,
     zones: handles.zones,
     cards: handles.cards,
+    zoneCardOrders: handles.zoneCardOrders,
     globalCounters: handles.globalCounters,
   }));
   
@@ -242,6 +249,7 @@ export function batchMutations(fn: () => void): void {
         players: handles.players,
         zones: handles.zones,
         cards: handles.cards,
+        zoneCardOrders: handles.zoneCardOrders,
         globalCounters: handles.globalCounters,
       };
       mutations.forEach(m => m(maps));
@@ -254,15 +262,21 @@ export function batchMutations(fn: () => void): void {
  */
 export function flushPendingMutations(): void {
   const handles = getActiveHandles();
-  if (!handles || pendingMutations.length === 0) return;
+  if (!handles || !activeSessionId) return;
+  const sessionQueue = pendingMutations.get(activeSessionId) ?? [];
+  const defaultQueue = pendingMutations.get(DEFAULT_SESSION_KEY) ?? [];
+  const mutations = [...defaultQueue, ...sessionQueue];
+  if (mutations.length === 0) return;
   
-  const mutations = pendingMutations.splice(0);
+  pendingMutations.set(DEFAULT_SESSION_KEY, []);
+  pendingMutations.set(activeSessionId, []);
   
   handles.doc.transact(() => {
     const maps: SharedMaps = {
       players: handles.players,
       zones: handles.zones,
       cards: handles.cards,
+      zoneCardOrders: handles.zoneCardOrders,
       globalCounters: handles.globalCounters,
     };
     mutations.forEach(fn => fn(maps));
@@ -281,4 +295,3 @@ export const setYProvider = (provider: WebsocketProvider | null) => {
 export const runWithSharedDoc = runMutation;
 export const batchSharedMutations = batchMutations;
 export const flushPendingSharedMutations = flushPendingMutations;
-
