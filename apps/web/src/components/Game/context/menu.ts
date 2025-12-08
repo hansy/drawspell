@@ -2,7 +2,7 @@ import { Card, CardId, PlayerId, ScryfallRelatedCard, Zone, ZoneId } from '../..
 import { ScryfallCard } from '../../../types/scryfall';
 import { getPlayerZones } from '../../../lib/gameSelectors';
 import { ZONE, ZONE_LABEL } from '../../../constants/zones';
-import { canCreateToken, canMoveCard, canTapCard, canViewZone } from '../../../rules/permissions';
+import { canModifyCardState, canMoveCard, canTapCard, canViewZone } from '../../../rules/permissions';
 import { getNextTransformFace, getTransformVerb, isTransformableCard } from '../../../lib/cardDisplay';
 
 /**
@@ -127,13 +127,14 @@ export const buildCardActions = ({
     const items: ContextMenuItem[] = [];
     const currentZone = zones[card.zoneId];
     const countersAllowed = currentZone?.type === ZONE.BATTLEFIELD;
+    const canModify = canModifyCardState({ actorId: myPlayerId }, card, currentZone);
 
     const canTap = canTapCard({ actorId: myPlayerId }, card, currentZone);
     if (canTap.allowed) {
         items.push({ type: 'action', label: 'Tap/Untap', onSelect: () => tapCard(card.id) });
     }
 
-    if (currentZone?.type === ZONE.BATTLEFIELD && card.ownerId === myPlayerId && updateCard && openTextPrompt) {
+    if (currentZone?.type === ZONE.BATTLEFIELD && canModify.allowed && updateCard && openTextPrompt) {
         items.push({
             type: 'action',
             label: card.customText ? 'Edit Text' : 'Add Text',
@@ -147,7 +148,7 @@ export const buildCardActions = ({
         });
     }
 
-    if (currentZone?.type === ZONE.BATTLEFIELD && isTransformableCard(card)) {
+    if (currentZone?.type === ZONE.BATTLEFIELD && isTransformableCard(card) && canModify.allowed) {
         const nextFace = getNextTransformFace(card);
         if (nextFace) {
             const verb = getTransformVerb(card);
@@ -156,8 +157,7 @@ export const buildCardActions = ({
     }
 
     if (currentZone?.type === ZONE.BATTLEFIELD) {
-        const tokenPermission = canCreateToken({ actorId: myPlayerId }, currentZone);
-        if (tokenPermission.allowed) {
+        if (canModify.allowed) {
             items.push({ type: 'action', label: 'Duplicate', onSelect: () => duplicateCard(card.id) });
         }
 
@@ -178,7 +178,7 @@ export const buildCardActions = ({
         }
     }
 
-    if (countersAllowed) {
+    if (countersAllowed && canModify.allowed) {
         // Add Counter Logic
         const globalCounterTypes = Object.keys(globalCounters).sort();
 

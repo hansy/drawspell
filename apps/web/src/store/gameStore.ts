@@ -5,7 +5,7 @@ import { Card, GameState, Zone } from '../types';
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from '../lib/constants';
 import { getZoneByType } from '../lib/gameSelectors';
 import { ZONE } from '../constants/zones';
-import { canCreateToken, canMoveCard, canTapCard, canUpdatePlayer, canViewZone } from '../rules/permissions';
+import { canModifyCardState, canMoveCard, canTapCard, canUpdatePlayer, canViewZone } from '../rules/permissions';
 import { logPermission } from '../rules/logger';
 import { getCardFaces, getCurrentFaceIndex, isTransformableCard, syncCardStatsToFace } from '../lib/cardDisplay';
 import { decrementCounter, enforceZoneCounterRules, isBattlefieldZone, mergeCounters, resolveCounterColor } from '../lib/counters';
@@ -35,6 +35,19 @@ const createSafeStorage = (): Storage => {
     }
 
     return window.localStorage;
+};
+
+const resolveControllerAfterMove = (card: Card, fromZone: Zone, toZone: Zone): string => {
+    if (toZone.type === ZONE.BATTLEFIELD) {
+        // Returning to owner's battlefield always reassigns control to owner.
+        if (toZone.ownerId === card.ownerId) return card.ownerId;
+        // Moving between different battlefields hands control to the destination battlefield owner.
+        if (fromZone.ownerId !== toZone.ownerId) return toZone.ownerId;
+    } else {
+        // Leaving the battlefield to an owner-only zone resets control to the owner.
+        if (card.controllerId !== card.ownerId) return card.ownerId;
+    }
+    return card.controllerId;
 };
 
 export const useGameStore = create<GameStore>()(
@@ -315,7 +328,7 @@ export const useGameStore = create<GameStore>()(
                     const currentZone = state.zones[sourceCard.zoneId];
                     if (!currentZone) return;
 
-                    const tokenPermission = canCreateToken({ actorId: actor }, currentZone);
+                    const tokenPermission = canModifyCardState({ actorId: actor }, sourceCard, currentZone);
                     if (!tokenPermission.allowed) {
                         logPermission({ action: 'duplicateCard', actorId: actor, allowed: false, reason: tokenPermission.reason, details: { cardId, zoneId: currentZone.id } });
                         return;
@@ -363,6 +376,19 @@ export const useGameStore = create<GameStore>()(
                                 },
                                 buildLogContext()
                             );
+                        }
+                    }
+
+                    if (cardBefore) {
+                        const cardZone = get().zones[cardBefore.zoneId];
+                        const controlledFields = ['power', 'toughness', 'basePower', 'baseToughness', 'customText', 'faceDown', 'currentFaceIndex'];
+                        const requiresControl = Object.keys(updates).some(key => controlledFields.includes(key));
+                        if (requiresControl) {
+                            const permission = canModifyCardState({ actorId: actor }, cardBefore, cardZone);
+                            if (!permission.allowed) {
+                                logPermission({ action: 'updateCard', actorId: actor, allowed: false, reason: permission.reason, details: { cardId: id, zoneId: cardBefore.zoneId, updates: Object.keys(updates) } });
+                                return;
+                            }
                         }
                     }
 
@@ -432,6 +458,13 @@ export const useGameStore = create<GameStore>()(
                     if (zone?.type !== ZONE.BATTLEFIELD) return;
                     if (!isTransformableCard(card)) return;
 
+                    const actor = snapshot.myPlayerId;
+                    const permission = canModifyCardState({ actorId: actor }, card, zone);
+                    if (!permission.allowed) {
+                        logPermission({ action: 'transformCard', actorId: actor, allowed: false, reason: permission.reason, details: { cardId, zoneId: zone.id } });
+                        return;
+                    }
+
                     const faces = getCardFaces(card);
                     const targetIndex = faces.length
                         ? typeof faceIndex === "number"
@@ -441,7 +474,7 @@ export const useGameStore = create<GameStore>()(
 
                     const targetFaceName = faces[targetIndex]?.name;
 
-                    emitLog('card.transform', { actorId: card.controllerId, cardId, zoneId: card.zoneId, toFaceName: targetFaceName, cardName: card.name }, buildLogContext());
+                    emitLog('card.transform', { actorId: actor, cardId, zoneId: card.zoneId, toFaceName: targetFaceName, cardName: card.name }, buildLogContext());
 
                     if (applyShared((maps) => yTransformCard(maps, cardId, targetIndex))) return;
 
@@ -469,6 +502,8 @@ export const useGameStore = create<GameStore>()(
 
                     if (!fromZone || !toZone) return;
 
+                    const nextControllerId = resolveControllerAfterMove(card, fromZone, toZone);
+                    const controlWillChange = nextControllerId !== card.controllerId;
                     const permission = canMoveCard({ actorId: actor, card, fromZone, toZone });
                     if (!permission.allowed) {
                         logPermission({
@@ -484,7 +519,7 @@ export const useGameStore = create<GameStore>()(
 
                     const bothBattlefields = fromZone.type === ZONE.BATTLEFIELD && toZone.type === ZONE.BATTLEFIELD;
                     const sameBattlefield = bothBattlefields && fromZoneId === toZoneId;
-                    const controlShift = bothBattlefields && fromZone.ownerId !== toZone.ownerId;
+                    const controlShift = controlWillChange && toZone.type === ZONE.BATTLEFIELD;
 
                     if (!opts?.suppressLog && !sameBattlefield) {
                         const movePayload: any = {
@@ -497,7 +532,7 @@ export const useGameStore = create<GameStore>()(
                             toZoneType: toZone.type,
                             faceDown: opts?.faceDown,
                         };
-                        if (controlShift) movePayload.gainsControlBy = toZone.ownerId;
+                        if (controlShift) movePayload.gainsControlBy = nextControllerId;
                         emitLog('card.move', movePayload, buildLogContext());
                     }
 
@@ -515,6 +550,13 @@ export const useGameStore = create<GameStore>()(
                         }
 
                         yMoveCard(maps, cardId, toZoneId, position);
+
+                        if (controlWillChange) {
+                            const movedCard = sharedSnapshot(maps).cards[cardId];
+                            if (movedCard && movedCard.controllerId !== nextControllerId) {
+                                yUpsertCard(maps, { ...movedCard, controllerId: nextControllerId });
+                            }
+                        }
 
                         // Determine new faceDown state
                         let newFaceDown = opts?.faceDown;
@@ -622,6 +664,7 @@ export const useGameStore = create<GameStore>()(
                                 tapped: nextTapped,
                                 counters: nextCounters,
                                 faceDown: opts?.faceDown ?? nextCard.faceDown,
+                                controllerId: controlWillChange ? nextControllerId : nextCard.controllerId,
                             };
                             return {
                                 cards: cardsCopy,
@@ -661,6 +704,7 @@ export const useGameStore = create<GameStore>()(
                             tapped: nextTapped,
                             counters: nextCounters,
                             faceDown: newFaceDown,
+                            controllerId: controlWillChange ? nextControllerId : nextCard.controllerId,
                         };
 
                         return {
@@ -685,6 +729,8 @@ export const useGameStore = create<GameStore>()(
                     const toZone = snapshot.zones[toZoneId];
                     if (!fromZone || !toZone) return;
 
+                    const nextControllerId = resolveControllerAfterMove(card, fromZone, toZone);
+                    const controlWillChange = nextControllerId !== card.controllerId;
                     const permission = canMoveCard({ actorId: actor, card, fromZone, toZone });
                     if (!permission.allowed) {
                         logPermission({
@@ -700,7 +746,7 @@ export const useGameStore = create<GameStore>()(
 
                     const bothBattlefields = fromZone.type === ZONE.BATTLEFIELD && toZone.type === ZONE.BATTLEFIELD;
                     const sameBattlefield = bothBattlefields && fromZoneId === toZoneId;
-                    const controlShift = bothBattlefields && fromZone.ownerId !== toZone.ownerId;
+                    const controlShift = controlWillChange && toZone.type === ZONE.BATTLEFIELD;
 
                     if (!sameBattlefield) {
                         const movePayload: any = {
@@ -712,7 +758,7 @@ export const useGameStore = create<GameStore>()(
                             fromZoneType: fromZone.type,
                             toZoneType: toZone.type,
                         };
-                        if (controlShift) movePayload.gainsControlBy = toZone.ownerId;
+                        if (controlShift) movePayload.gainsControlBy = nextControllerId;
                         emitLog('card.move', movePayload, buildLogContext());
                     }
 
@@ -730,6 +776,13 @@ export const useGameStore = create<GameStore>()(
                         }
 
                         yMoveCard(maps, cardId, toZoneId);
+
+                        if (controlWillChange) {
+                            const movedCard = sharedSnapshot(maps).cards[cardId];
+                            if (movedCard && movedCard.controllerId !== nextControllerId) {
+                                yUpsertCard(maps, { ...movedCard, controllerId: nextControllerId });
+                            }
+                        }
 
                         // place at bottom (front) of toZone
                         const toOrder = sharedSnapshot(maps).zones[toZoneId]?.cardIds ?? [];
@@ -791,6 +844,7 @@ export const useGameStore = create<GameStore>()(
                             zoneId: toZoneId,
                             tapped: nextTapped,
                             counters: nextCounters,
+                            controllerId: controlWillChange ? nextControllerId : nextCard.controllerId,
                         };
 
                         return {
@@ -820,8 +874,9 @@ export const useGameStore = create<GameStore>()(
 
                     const actorIsOwner = actor === card.ownerId;
                     const actorIsZoneHost = actor === zone.ownerId;
-                    if (!actorIsOwner && !actorIsZoneHost) {
-                        logPermission({ action: 'removeCard', actorId: actor, allowed: false, reason: 'Only owner or zone host may remove this token', details: { cardId } });
+                    const actorIsController = actor === card.controllerId;
+                    if (!actorIsOwner && !actorIsZoneHost && !actorIsController) {
+                        logPermission({ action: 'removeCard', actorId: actor, allowed: false, reason: 'Only owner, controller, or zone host may remove this token', details: { cardId } });
                         return;
                     }
 
@@ -1162,8 +1217,9 @@ export const useGameStore = create<GameStore>()(
                     const zone = state.zones[card.zoneId];
                     if (!isBattlefieldZone(zone)) return;
 
-                    if (actor !== card.ownerId) {
-                        logPermission({ action: 'addCounterToCard', actorId: actor, allowed: false, reason: 'Only the card owner may add counters', details: { cardId, zoneId: card.zoneId, counterType: counter.type } });
+                    const permission = canModifyCardState({ actorId: actor }, card, zone);
+                    if (!permission.allowed) {
+                        logPermission({ action: 'addCounterToCard', actorId: actor, allowed: false, reason: permission.reason, details: { cardId, zoneId: card.zoneId, counterType: counter.type } });
                         return;
                     }
 
@@ -1202,8 +1258,9 @@ export const useGameStore = create<GameStore>()(
                     const zone = state.zones[card.zoneId];
                     if (!isBattlefieldZone(zone)) return;
 
-                    if (actor !== card.ownerId) {
-                        logPermission({ action: 'removeCounterFromCard', actorId: actor, allowed: false, reason: 'Only the card owner may remove counters', details: { cardId, zoneId: card.zoneId, counterType } });
+                    const permission = canModifyCardState({ actorId: actor }, card, zone);
+                    if (!permission.allowed) {
+                        logPermission({ action: 'removeCounterFromCard', actorId: actor, allowed: false, reason: permission.reason, details: { cardId, zoneId: card.zoneId, counterType } });
                         return;
                     }
 

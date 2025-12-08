@@ -305,4 +305,23 @@ describe('gameStore move/tap interactions', () => {
     useGameStore.getState().moveCard(card.id, exile.id, undefined, 'me');
     expect(useGameStore.getState().cards[card.id].counters).toEqual([]);
   });
+
+  it('updates controller when a card moves between battlefields', () => {
+    const myBattlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', ['c30']);
+    const oppBattlefield = makeZone('bf-opp', 'BATTLEFIELD', 'opp', []);
+    const card = makeCard('c30', myBattlefield.id, 'me');
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { ...state.zones, [myBattlefield.id]: myBattlefield, [oppBattlefield.id]: oppBattlefield },
+      cards: { ...state.cards, [card.id]: card },
+      myPlayerId: 'me',
+    }));
+
+    useGameStore.getState().moveCard(card.id, oppBattlefield.id, undefined, 'me');
+    expect(useGameStore.getState().cards[card.id].controllerId).toBe('opp');
+
+    useGameStore.getState().moveCard(card.id, myBattlefield.id, undefined, 'me');
+    expect(useGameStore.getState().cards[card.id].controllerId).toBe('me');
+  });
 });

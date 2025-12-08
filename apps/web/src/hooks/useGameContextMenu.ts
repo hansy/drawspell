@@ -5,7 +5,7 @@ import { useGameStore } from '../store/gameStore';
 import { Card, ScryfallRelatedCard, ZoneId } from '../types';
 import { ContextMenuItem } from '../components/Game/context/menu';
 import { actionRegistry } from '../components/Game/context/actionsRegistry';
-import { canCreateToken } from '../rules/permissions';
+import { canModifyCardState } from '../rules/permissions';
 import { ZONE } from '../constants/zones';
 import { fetchScryfallCardByUri } from '../services/scryfallCard';
 import { getCard as getCachedCard } from '../services/scryfallCache';
@@ -41,7 +41,7 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
         const zone = state.zones[card.zoneId];
         if (!zone || zone.type !== ZONE.BATTLEFIELD) return;
 
-        const permission = canCreateToken({ actorId: myPlayerId }, zone);
+        const permission = canModifyCardState({ actorId: myPlayerId }, card, zone);
         if (!permission.allowed) {
             toast.error(permission.reason ?? 'Not allowed to create related card here');
             return;
@@ -63,8 +63,8 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
             const toughness = scryfallCard.toughness ?? frontFace?.toughness;
             state.addCard({
                 id: uuidv4(),
-                ownerId: zone.ownerId,
-                controllerId: zone.ownerId,
+                ownerId: myPlayerId,
+                controllerId: myPlayerId,
                 zoneId: zone.id,
                 name: frontFace?.name || scryfallCard.name || related.name,
                 // imageUrl omitted - use scryfall.image_uris.normal instead

@@ -127,7 +127,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
             e.stopPropagation();
             onClose();
           }}
-          className="absolute -top-10 -right-10 z-50 p-2 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors border border-zinc-700 shadow-lg"
+          className="absolute -top-10 -right-10 p-2 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors border border-zinc-700 shadow-lg"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -170,11 +170,11 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
               className={cn(
                 "bg-zinc-900/90 backdrop-blur-sm p-2 rounded-lg border border-zinc-700 shadow-xl min-w-[120px] max-w-[200px] mt-2",
                 locked &&
-                  currentCard.ownerId === myPlayerId &&
+                  currentCard.controllerId === myPlayerId &&
                   "cursor-text hover:border-indigo-500/50 transition-colors"
               )}
               onClick={(e) => {
-                if (!locked || currentCard.ownerId !== myPlayerId) return;
+                if (!locked || currentCard.controllerId !== myPlayerId) return;
                 e.stopPropagation();
               }}
             >
@@ -283,7 +283,7 @@ const CustomTextEditor: React.FC<{ card: CardType; locked?: boolean }> = ({
   const [text, setText] = useState(card.customText || "");
   const updateCard = useGameStore((state) => state.updateCard);
   const myPlayerId = useGameStore((state) => state.myPlayerId);
-  const isOwner = card.ownerId === myPlayerId;
+  const isController = card.controllerId === myPlayerId;
 
   useEffect(() => {
     setText(card.customText || "");
@@ -323,7 +323,7 @@ const CustomTextEditor: React.FC<{ card: CardType; locked?: boolean }> = ({
     <div
       className="text-sm text-zinc-200 whitespace-pre-wrap break-words"
       onClick={(e) => {
-        if (locked && isOwner) {
+        if (locked && isController) {
           e.stopPropagation();
           setIsEditing(true);
         }

@@ -5,6 +5,18 @@ import { ActorContext, MoveContext, PermissionResult, ViewResult } from './types
 const HIDDEN_ZONES = new Set<ZoneType>([ZONE.LIBRARY, ZONE.HAND]);
 
 const isHiddenZone = (zoneType: ZoneType) => HIDDEN_ZONES.has(zoneType);
+const requireBattlefieldController = (
+  ctx: ActorContext,
+  card: { controllerId: string },
+  zone: { type: ZoneType } | undefined,
+  action: string
+): PermissionResult => {
+  if (!zone || zone.type !== ZONE.BATTLEFIELD) {
+    return { allowed: false, reason: `Cards can only ${action} on the battlefield` };
+  }
+  const isController = ctx.actorId === card.controllerId;
+  return isController ? { allowed: true } : { allowed: false, reason: `Only controller may ${action}` };
+};
 
 /**
  * Who can see what in a zone.
@@ -39,6 +51,7 @@ export function canViewZone(
 export function canMoveCard(ctx: MoveContext): PermissionResult {
   const { actorId, card, fromZone, toZone } = ctx;
   const actorIsOwner = actorId === card.ownerId;
+  const actorIsController = actorId === card.controllerId;
   const actorIsFromHost = actorId === fromZone.ownerId;
   const actorIsToHost = actorId === toZone.ownerId;
   const isToken = isTokenCard(card);
@@ -49,7 +62,7 @@ export function canMoveCard(ctx: MoveContext): PermissionResult {
   const toBattlefield = toZone.type === ZONE.BATTLEFIELD;
   const bothBattlefields = fromBattlefield && toBattlefield;
 
-  // Non-battlefield destinations must belong to the card owner (battlefields are the only shared space).
+  // Cards (except tokens) may only exist in their owner's zones or any battlefield.
   if (!toBattlefield && toZone.ownerId !== card.ownerId) {
     return { allowed: false, reason: 'Cards may only enter their owner seat zones or any battlefield' };
   }
@@ -80,15 +93,14 @@ export function canMoveCard(ctx: MoveContext): PermissionResult {
   }
 
   if (bothBattlefields) {
-    if (actorIsOwner) return { allowed: true };
-    if (actorIsFromHost || actorIsToHost) return { allowed: true };
-    return { allowed: false, reason: 'Only owner or host of battlefield may move this card' };
+    if (actorIsOwner || actorIsController) return { allowed: true };
+    return { allowed: false, reason: 'Only owner or controller may move this card between battlefields' };
   }
 
   if (toBattlefield) {
     // Entering a battlefield from a non-battlefield zone.
-    if (actorIsOwner || actorIsToHost) return { allowed: true };
-    return { allowed: false, reason: 'Only card owner or battlefield host may move this card here' };
+    if (actorIsOwner || actorIsController) return { allowed: true };
+    return { allowed: false, reason: 'Only owner or controller may move this card here' };
   }
 
   // Non-battlefield destinations (seat zones): only the card owner may move their card here.
@@ -108,12 +120,18 @@ export function canTapCard(
   card: { controllerId: string },
   zone?: { type: ZoneType }
 ): PermissionResult {
-  if (!zone || zone.type !== ZONE.BATTLEFIELD) {
-    return { allowed: false, reason: 'Cards can only be tapped on the battlefield' };
-  }
+  return requireBattlefieldController(ctx, card, zone, 'tap/untap');
+}
 
-  const isController = ctx.actorId === card.controllerId;
-  return isController ? { allowed: true } : { allowed: false, reason: 'Only controller may tap/untap' };
+/**
+ * Battlefield-only controller actions such as edit text, P/T, face changes, counters, etc.
+ */
+export function canModifyCardState(
+  ctx: ActorContext,
+  card: { controllerId: string },
+  zone?: { type: ZoneType }
+): PermissionResult {
+  return requireBattlefieldController(ctx, card, zone, 'modify this card');
 }
 
 /**

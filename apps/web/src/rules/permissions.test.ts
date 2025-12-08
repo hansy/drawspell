@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canMoveCard, canViewZone, canCreateToken, canUpdatePlayer } from './permissions';
+import { canMoveCard, canViewZone, canCreateToken, canUpdatePlayer, canModifyCardState } from './permissions';
 import { ZONE } from '../constants/zones';
 import { Card, Zone, Player } from '../types';
 
@@ -70,13 +70,24 @@ describe('canMoveCard', () => {
     expect(
       canMoveCard({ actorId: 'owner', card: token, fromZone, toZone }).allowed
     ).toBe(true);
+    const controlledToken = { ...token, controllerId: 'ally' };
     expect(
-      canMoveCard({ actorId: 'ally', card: token, fromZone, toZone }).allowed
+      canMoveCard({ actorId: 'ally', card: controlledToken, fromZone, toZone }).allowed
     ).toBe(true);
   });
 
   it('allows host to move a foreign card on their battlefield', () => {
     const card = makeCard({ ownerId: 'owner', zoneId: 'bf-host' });
+    const fromZone = makeZone('bf-host', ZONE.BATTLEFIELD, 'host');
+    const toZone = makeZone('bf-host', ZONE.BATTLEFIELD, 'host');
+
+    expect(
+      canMoveCard({ actorId: 'host', card, fromZone, toZone }).allowed
+    ).toBe(false);
+  });
+
+  it('allows a controller to move a foreign card on their battlefield', () => {
+    const card = makeCard({ ownerId: 'owner', controllerId: 'host', zoneId: 'bf-host' });
     const fromZone = makeZone('bf-host', ZONE.BATTLEFIELD, 'host');
     const toZone = makeZone('bf-host', ZONE.BATTLEFIELD, 'host');
 
@@ -132,6 +143,26 @@ describe('canMoveCard', () => {
     expect(
       canMoveCard({ actorId: 'opponent', card, fromZone, toZone }).allowed
     ).toBe(false);
+  });
+});
+
+describe('canModifyCardState', () => {
+  it('allows controller on battlefield to modify', () => {
+    const battlefield = makeZone('bf', ZONE.BATTLEFIELD, 'p1');
+    const card = makeCard({ ownerId: 'owner', controllerId: 'p1', zoneId: battlefield.id });
+    expect(canModifyCardState({ actorId: 'p1' }, card, battlefield).allowed).toBe(true);
+  });
+
+  it('blocks non-controller from modifying', () => {
+    const battlefield = makeZone('bf', ZONE.BATTLEFIELD, 'p1');
+    const card = makeCard({ ownerId: 'owner', controllerId: 'owner', zoneId: battlefield.id });
+    expect(canModifyCardState({ actorId: 'stranger' }, card, battlefield).allowed).toBe(false);
+  });
+
+  it('blocks modification outside the battlefield', () => {
+    const graveyard = makeZone('gy', ZONE.GRAVEYARD, 'owner');
+    const card = makeCard({ zoneId: graveyard.id });
+    expect(canModifyCardState({ actorId: 'owner' }, card, graveyard).allowed).toBe(false);
   });
 });
 

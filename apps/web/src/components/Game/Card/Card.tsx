@@ -192,7 +192,7 @@ export const Card: React.FC<CardProps> = ({
   const handleClick = (e: React.MouseEvent) => {
     const state = useGameStore.getState();
     if (zoneType !== ZONE.BATTLEFIELD || isDragging) return;
-    if (card.ownerId !== state.myPlayerId) return;
+    if (card.controllerId !== state.myPlayerId) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
     toggleLock(card, rect);
