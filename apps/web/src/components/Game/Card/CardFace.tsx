@@ -25,7 +25,7 @@ interface CardFaceProps {
   showNameLabel?: boolean;
   rotateLabel?: boolean;
   customTextNode?: React.ReactNode;
-  customTextPosition?: "sidebar" | "bottom-left";
+  customTextPosition?: "sidebar" | "bottom-left" | "top-left";
 }
 
 export const CardFace: React.FC<CardFaceProps> = ({
@@ -106,7 +106,7 @@ export const CardFace: React.FC<CardFaceProps> = ({
                     parseInt(card.basePower || "0")
                     ? "text-green-500"
                     : parseInt(displayPower || "0") <
-                      parseInt(card.basePower || "0")
+                        parseInt(card.basePower || "0")
                       ? "text-red-500"
                       : "text-white"
                 )}
@@ -147,7 +147,7 @@ export const CardFace: React.FC<CardFaceProps> = ({
                     parseInt(card.baseToughness || "0")
                     ? "text-green-500"
                     : parseInt(displayToughness || "0") <
-                      parseInt(card.baseToughness || "0")
+                        parseInt(card.baseToughness || "0")
                       ? "text-red-500"
                       : "text-white"
                 )}
@@ -185,7 +185,7 @@ export const CardFace: React.FC<CardFaceProps> = ({
       {showNameLabel && card.zoneId.includes("battlefield") && !faceDown && (
         <div
           className={cn(
-            "absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900/90 text-zinc-100 text-[10px] px-1.5 py-0.5 rounded-sm border border-zinc-700 shadow-sm z-10 leading-tight whitespace-normal break-words pointer-events-none text-center min-w-max max-w-[120%]",
+            "absolute left-1/2 bottom-full -translate-x-1/2 bg-zinc-900/90 text-zinc-100 text-md px-1.5 py-0.5 rounded-sm border border-zinc-700 shadow-sm z-10 leading-tight whitespace-normal break-words pointer-events-none text-center w-fit max-w-[160%]",
             rotateLabel && "rotate-180"
           )}
         >
@@ -194,7 +194,8 @@ export const CardFace: React.FC<CardFaceProps> = ({
       )}
 
       {/* Counters and Sidebar Custom Text */}
-      {(card.counters.length > 0 || (customTextNode && customTextPosition === "sidebar")) && (
+      {(card.counters.length > 0 ||
+        (customTextNode && customTextPosition === "sidebar")) && (
         <div
           className={cn(
             "absolute top-0 right-0 flex flex-col gap-1 items-end pr-1 pt-1",
@@ -268,6 +269,13 @@ export const CardFace: React.FC<CardFaceProps> = ({
       {/* Bottom-Left Custom Text */}
       {customTextPosition === "bottom-left" && customTextNode && (
         <div className="absolute bottom-1 left-1 z-10 max-w-[80%]">
+          {customTextNode}
+        </div>
+      )}
+
+      {/* Top-Left Custom Text */}
+      {customTextPosition === "top-left" && customTextNode && (
+        <div className="absolute top-2 z-10 max-w-full text-center">
           {customTextNode}
         </div>
       )}
