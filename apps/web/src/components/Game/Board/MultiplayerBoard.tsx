@@ -19,7 +19,7 @@ import { useGameContextMenu } from '../../../hooks/useGameContextMenu';
 import { NumberPromptDialog } from '../UI/NumberPromptDialog';
 import { TextPromptDialog } from '../UI/TextPromptDialog';
 import { LogDrawer } from '../UI/LogDrawer';
-import { useYjsSync } from '../../../hooks/useYjsSync';
+import { useWebRTCSync } from '../../../hooks/useWebRTCSync';
 import { useNavigate } from '@tanstack/react-router';
 import { getYDocHandles, getYProvider, setYProvider } from '../../../yjs/yManager';
 import { removePlayer } from '../../../yjs/yMutations';
@@ -56,7 +56,7 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
     const { slots, layoutMode, myPlayerId } = usePlayerLayout();
 
 
-    const { status: syncStatus, peers } = useYjsSync(sessionId);
+    const { status: syncStatus, peers } = useWebRTCSync(sessionId);
     const seededRef = React.useRef(false);
 
     const [zoneViewerState, setZoneViewerState] = useState<{ isOpen: boolean; zoneId: string | null; count?: number }>({
