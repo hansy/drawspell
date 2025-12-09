@@ -40,71 +40,77 @@ export interface CardViewProps {
   onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-export const CardView = React.forwardRef<HTMLDivElement, CardViewProps>(
-  (
-    {
-      card,
-      style,
-      className,
-      imageClassName,
-      onContextMenu,
-      faceDown,
-      isDragging,
-      onDoubleClick,
-      onClick,
-      onMouseEnter,
-      onMouseLeave,
-      imageTransform,
-      preferArtCrop = false,
-      rotateLabel,
-      ...props
-    },
-    ref
-  ) => {
-    return (
-      <div
-        ref={ref}
-        style={style}
-        className={cn(
-          CARD_HEIGHT_CLASS,
-          CARD_ASPECT_CLASS,
-          "bg-zinc-800 rounded-lg border border-zinc-700 shadow-md flex flex-col items-center justify-center select-none relative z-0",
-          !isDragging &&
-          "hover:scale-105 hover:shadow-xl hover:z-10 hover:border-indigo-500/50 cursor-grab active:cursor-grabbing",
-          card.tapped && "border-zinc-600 bg-zinc-900",
-          isDragging &&
-          "shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-indigo-500 cursor-grabbing",
-          className
-        )}
-        onDoubleClick={onDoubleClick}
-        onClick={onClick}
-        onContextMenu={onContextMenu}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-        {...props}
-      >
-        <CardFace
-          card={card}
-          faceDown={faceDown}
-          imageClassName={imageClassName}
-          imageTransform={imageTransform}
-          preferArtCrop={preferArtCrop}
-          rotateLabel={rotateLabel}
-          customTextPosition="top-left"
-          customTextNode={
-            card.customText ? (
-              <div className="bg-zinc-900/90 text-zinc-100 text-sm px-1.5 py-0.5 rounded-sm border border-zinc-700 shadow-sm leading-tight whitespace-normal break-words">
-                {card.customText}
-              </div>
-            ) : null
-          }
-        />
-      </div>
-    );
-  }
+export const CardView = React.memo(
+  React.forwardRef<HTMLDivElement, CardViewProps>(
+    (
+      {
+        card,
+        style,
+        className,
+        imageClassName,
+        onContextMenu,
+        faceDown,
+        isDragging,
+        onDoubleClick,
+        onClick,
+        onMouseEnter,
+        onMouseLeave,
+        imageTransform,
+        preferArtCrop = false,
+        rotateLabel,
+        ...props
+      },
+      ref
+    ) => {
+      const customTextNode = React.useMemo(
+        () =>
+          card.customText ? (
+            <div className="bg-zinc-900/90 text-zinc-100 text-sm px-1.5 py-0.5 rounded-sm border border-zinc-700 shadow-sm leading-tight whitespace-normal break-words">
+              {card.customText}
+            </div>
+          ) : null,
+        [card.customText]
+      );
+
+      return (
+        <div
+          ref={ref}
+          style={style}
+          className={cn(
+            CARD_HEIGHT_CLASS,
+            CARD_ASPECT_CLASS,
+            "bg-zinc-800 rounded-lg border border-zinc-700 shadow-md flex flex-col items-center justify-center select-none relative z-0",
+            !isDragging &&
+              "hover:scale-105 hover:shadow-xl hover:z-10 hover:border-indigo-500/50 cursor-grab active:cursor-grabbing",
+            card.tapped && "border-zinc-600 bg-zinc-900",
+            isDragging &&
+              "shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-indigo-500 cursor-grabbing",
+            className
+          )}
+          onDoubleClick={onDoubleClick}
+          onClick={onClick}
+          onContextMenu={onContextMenu}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+          {...props}
+        >
+          <CardFace
+            card={card}
+            faceDown={faceDown}
+            imageClassName={imageClassName}
+            imageTransform={imageTransform}
+            preferArtCrop={preferArtCrop}
+            rotateLabel={rotateLabel}
+            customTextPosition="top-left"
+            customTextNode={customTextNode}
+          />
+        </div>
+      );
+    }
+  )
 );
 
-export const Card: React.FC<CardProps> = ({
+const CardInner: React.FC<CardProps> = ({
   card,
   style: propStyle,
   className,
@@ -134,69 +140,88 @@ export const Card: React.FC<CardProps> = ({
   });
 
   const isDragging = propIsDragging ?? internalIsDragging;
-  const zone = useGameStore((state) => state.zones[card.zoneId]);
-  const zoneType = zone?.type;
+  const zoneType = useGameStore((state) => state.zones[card.zoneId]?.type);
+  const myPlayerId = useGameStore((state) => state.myPlayerId);
+  const tapCard = useGameStore((state) => state.tapCard);
   const useArtCrop = preferArtCrop ?? false;
 
-  const { transform: propTransform, ...restPropStyle } = propStyle || {};
+  // Memoize style computation
+  const style = React.useMemo<React.CSSProperties>(() => {
+    const { transform: propTransform, ...restPropStyle } = propStyle || {};
+    const transformParts: string[] = [];
+    if (typeof propTransform === "string") transformParts.push(propTransform);
+    if (scale && scale !== 1) transformParts.push(`scale(${scale})`);
+    if (card.tapped) transformParts.push("rotate(90deg)");
 
-  // Compose transforms
-  const transformParts: string[] = [];
-  if (typeof propTransform === "string") transformParts.push(propTransform);
-  if (scale && scale !== 1) transformParts.push(`scale(${scale})`);
-  if (card.tapped) transformParts.push("rotate(90deg)");
+    return {
+      ...restPropStyle,
+      transform: transformParts.length ? transformParts.join(" ") : undefined,
+      transformOrigin: "center center",
+      opacity: isDragging ? 0 : 1,
+    };
+  }, [propStyle, scale, card.tapped, isDragging]);
 
-  const style: React.CSSProperties = {
-    ...restPropStyle,
-    transform: transformParts.length ? transformParts.join(" ") : undefined,
-    transformOrigin: "center center",
-    opacity: isDragging ? 0 : 1, // Hide original when dragging
-  };
+  // Memoize image transform
+  const imageTransform = React.useMemo(() => {
+    const flipRotation = getFlipRotation(card);
+    return flipRotation ? `rotate(${flipRotation}deg)` : undefined;
+  }, [card.scryfall?.layout, card.currentFaceIndex]);
 
   // Hover Logic
   const hoverTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
 
-  const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isDragging) return;
-    // Allow preview if faceDown ONLY if we are the owner
-    const isOwner = card.ownerId === useGameStore.getState().myPlayerId;
-    if (faceDown && !isOwner) return;
+  const handleMouseEnter = React.useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (isDragging) return;
+      // Allow preview if faceDown ONLY if we are the owner
+      const isOwner = card.ownerId === myPlayerId;
+      if (faceDown && !isOwner) return;
 
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
-    }
-
-    const rect = e.currentTarget.getBoundingClientRect();
-
-    if (zoneType === ZONE.HAND || zoneType === ZONE.COMMANDER) {
-      showPreview(card, rect);
-    } else if (zoneType === ZONE.BATTLEFIELD) {
-      hoverTimeoutRef.current = setTimeout(() => {
-        showPreview(card, rect);
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
         hoverTimeoutRef.current = null;
-      }, 250);
-    }
-  };
+      }
 
-  const handleMouseLeave = () => {
+      const rect = e.currentTarget.getBoundingClientRect();
+
+      if (zoneType === ZONE.HAND || zoneType === ZONE.COMMANDER) {
+        showPreview(card, rect);
+      } else if (zoneType === ZONE.BATTLEFIELD) {
+        hoverTimeoutRef.current = setTimeout(() => {
+          showPreview(card, rect);
+          hoverTimeoutRef.current = null;
+        }, 250);
+      }
+    },
+    [isDragging, card, faceDown, myPlayerId, zoneType, showPreview]
+  );
+
+  const handleMouseLeave = React.useCallback(() => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
       hoverTimeoutRef.current = null;
     }
     hidePreview();
-  };
+  }, [hidePreview]);
 
-  const handleClick = (e: React.MouseEvent) => {
-    const state = useGameStore.getState();
-    if (zoneType !== ZONE.BATTLEFIELD || isDragging) return;
-    if (card.controllerId !== state.myPlayerId) return;
+  const handleClick = React.useCallback(
+    (e: React.MouseEvent) => {
+      if (zoneType !== ZONE.BATTLEFIELD || isDragging) return;
+      if (card.controllerId !== myPlayerId) return;
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    toggleLock(card, rect);
-  };
+      const rect = e.currentTarget.getBoundingClientRect();
+      toggleLock(card, rect);
+    },
+    [zoneType, isDragging, card, myPlayerId, toggleLock]
+  );
+
+  const handleDoubleClick = React.useCallback(() => {
+    if (zoneType !== ZONE.BATTLEFIELD) return;
+    if (card.ownerId !== myPlayerId) return;
+    tapCard(card.id, myPlayerId);
+  }, [zoneType, card.id, card.ownerId, myPlayerId, tapCard]);
 
   // Cleanup on unmount
   React.useEffect(() => {
@@ -209,35 +234,26 @@ export const Card: React.FC<CardProps> = ({
   }, [hidePreview]);
 
   return (
-    <>
-      <CardView
-        ref={setNodeRef}
-        card={card}
-        style={style}
-        className={className}
-        onContextMenu={onContextMenu}
-        faceDown={faceDown}
-        isDragging={isDragging}
-        onDoubleClick={() => {
-          const state = useGameStore.getState();
-          const zone = state.zones[card.zoneId];
-          if (zone?.type !== ZONE.BATTLEFIELD) return;
-          if (card.ownerId !== state.myPlayerId) return;
-          state.tapCard(card.id, state.myPlayerId);
-        }}
-        onClick={handleClick}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        imageClassName={undefined}
-        imageTransform={(() => {
-          const flipRotation = getFlipRotation(card);
-          return flipRotation ? `rotate(${flipRotation}deg)` : undefined;
-        })()}
-        preferArtCrop={useArtCrop}
-        rotateLabel={rotateLabel}
-        {...listeners}
-        {...attributes}
-      />
-    </>
+    <CardView
+      ref={setNodeRef}
+      card={card}
+      style={style}
+      className={className}
+      onContextMenu={onContextMenu}
+      faceDown={faceDown}
+      isDragging={isDragging}
+      onDoubleClick={handleDoubleClick}
+      onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      imageClassName={undefined}
+      imageTransform={imageTransform}
+      preferArtCrop={useArtCrop}
+      rotateLabel={rotateLabel}
+      {...listeners}
+      {...attributes}
+    />
   );
 };
+
+export const Card = React.memo(CardInner);

@@ -20,11 +20,10 @@ interface ZoneProps {
     innerRef?: (node: HTMLDivElement | null) => void;
 }
 
-export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, cardScale = 1, mirrorY = false, onContextMenu, innerRef }) => {
-    const cards = useGameStore((state) => state.cards);
-    const zones = useGameStore((state) => state.zones);
+const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, cardScale = 1, mirrorY = false, onContextMenu, innerRef }) => {
     const myPlayerId = useGameStore((state) => state.myPlayerId);
 
+    // Only subscribe to the ghost card for THIS zone
     const ghostState = useDragStore((state) => {
         if (state.ghostCard?.zoneId === zone.id) {
             return state.ghostCard;
@@ -53,16 +52,19 @@ export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 
 
     const { active } = useDndContext();
 
+    // Optimized: only check validity when dragging over this zone
     const isValidDrop = React.useMemo(() => {
         if (!active || !isOver) return false;
 
         const cardId = active.data.current?.cardId as string | undefined;
         if (!cardId) return false;
 
-        const card = cards[cardId];
+        // Get card and zone data directly from store to avoid stale references
+        const state = useGameStore.getState();
+        const card = state.cards[cardId];
         if (!card) return false;
 
-        const fromZone = zones[card.zoneId];
+        const fromZone = state.zones[card.zoneId];
         if (!fromZone) return false;
 
         const permission = canMoveCard({
@@ -73,7 +75,7 @@ export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 
         });
 
         return permission.allowed;
-    }, [active, cards, isOver, myPlayerId, zone, zones]);
+    }, [active?.id, active?.data.current?.cardId, isOver, myPlayerId, zone.id, zone.type, zone.ownerId]);
 
     return (
         <div
@@ -107,3 +109,5 @@ export const Zone: React.FC<ZoneProps> = ({ zone, className, children, layout = 
         </div>
     );
 };
+
+export const Zone = React.memo(ZoneInner);

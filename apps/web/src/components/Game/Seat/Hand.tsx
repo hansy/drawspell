@@ -22,7 +22,7 @@ interface HandProps {
   scale?: number;
 }
 
-const SortableCard = ({
+const SortableCard = React.memo(({
   card,
   isTop,
   isMe,
@@ -51,10 +51,14 @@ const SortableCard = ({
     disabled: !isMe,
   });
 
-  const style = {
+  const style = React.useMemo(() => ({
     transform: CSS.Transform.toString(transform),
     transition,
-  };
+  }), [transform, transition]);
+
+  const handleContextMenu = React.useCallback((e: React.MouseEvent) => {
+    onCardContextMenu?.(e, card);
+  }, [onCardContextMenu, card]);
 
   return (
     <div
@@ -80,7 +84,7 @@ const SortableCard = ({
           card={card}
           className="shadow-xl ring-1 ring-black/50"
           faceDown={!isMe}
-          onContextMenu={(e) => onCardContextMenu?.(e, card)}
+          onContextMenu={handleContextMenu}
           disableDrag // We use Sortable's drag handle
           isDragging={isDragging}
           scale={1.5}
@@ -88,9 +92,9 @@ const SortableCard = ({
       </div>
     </div>
   );
-};
+});
 
-export const Hand: React.FC<HandProps> = ({
+const HandInner: React.FC<HandProps> = ({
   zone,
   cards,
   isTop,
@@ -100,6 +104,9 @@ export const Hand: React.FC<HandProps> = ({
   className,
   scale = 1,
 }) => {
+  // Memoize card IDs array for SortableContext
+  const cardIds = React.useMemo(() => cards.map((c) => c.id), [cards]);
+
   return (
     <div
       className={cn(
@@ -135,7 +142,7 @@ export const Hand: React.FC<HandProps> = ({
         )}
       >
         <SortableContext
-          items={cards.map((c) => c.id)}
+          items={cardIds}
           strategy={horizontalListSortingStrategy}
         >
           <div
@@ -159,3 +166,5 @@ export const Hand: React.FC<HandProps> = ({
     </div>
   );
 };
+
+export const Hand = React.memo(HandInner);

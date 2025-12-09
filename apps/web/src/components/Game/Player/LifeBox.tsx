@@ -12,7 +12,7 @@ interface LifeBoxProps {
   isRight?: boolean;
 }
 
-export const LifeBox: React.FC<LifeBoxProps> = ({
+const LifeBoxInner: React.FC<LifeBoxProps> = ({
   player,
   isMe,
   className,
@@ -23,11 +23,11 @@ export const LifeBox: React.FC<LifeBoxProps> = ({
   const canEditLife = isMe === true;
   const canEditCommanderDamage = isMe === true;
 
-  const handleLifeChange = (amount: number) => {
+  const handleLifeChange = React.useCallback((amount: number) => {
     updatePlayer(player.id, { life: player.life + amount });
-  };
+  }, [updatePlayer, player.id, player.life]);
 
-  const handleCommanderDamageChange = (sourceId: string, amount: number) => {
+  const handleCommanderDamageChange = React.useCallback((sourceId: string, amount: number) => {
     const currentDamage = player.commanderDamage[sourceId] || 0;
     const newDamage = Math.max(0, currentDamage + amount);
 
@@ -45,7 +45,7 @@ export const LifeBox: React.FC<LifeBoxProps> = ({
         },
       });
     }
-  };
+  }, [updatePlayer, player.id, player.life, player.commanderDamage]);
 
   return (
     <div
@@ -170,3 +170,5 @@ export const LifeBox: React.FC<LifeBoxProps> = ({
     </div>
   );
 };
+
+export const LifeBox = React.memo(LifeBoxInner);

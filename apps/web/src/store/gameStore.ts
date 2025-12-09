@@ -546,7 +546,9 @@ export const useGameStore = create<GameStore>()(
                         emitLog('card.move', movePayload, buildLogContext());
                     }
 
-                    if (applyShared((maps) => {
+                    // Apply to Yjs (if connected) but always continue to update local state
+                    // This "dual-write" ensures immediate visual feedback while Yjs syncs in background
+                    applyShared((maps) => {
                         const snapshot = sharedSnapshot(maps);
                         const sharedCard = snapshot.cards[cardId];
                         const sharedFrom = snapshot.zones[fromZoneId];
@@ -584,7 +586,7 @@ export const useGameStore = create<GameStore>()(
                                 yUpsertCard(maps, { ...movedCard, faceDown: newFaceDown });
                             }
                         }
-                    })) return;
+                    });
 
                     const leavingBattlefield = fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD;
                     const resetToFront = leavingBattlefield ? syncCardStatsToFace({ ...card, currentFaceIndex: 0 }, 0) : card;

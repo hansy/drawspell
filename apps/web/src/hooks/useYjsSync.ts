@@ -375,6 +375,9 @@ export function useYjsSync(sessionId: string) {
       }
     };
 
+    // Use a longer debounce for batching multiple rapid updates
+    const SYNC_DEBOUNCE_MS = 50; // Batch updates within 50ms window
+
     const scheduleFullSync = () => {
       if (fullSyncTimer.current !== null) {
         clearTimeout(fullSyncTimer.current);
@@ -382,7 +385,7 @@ export function useYjsSync(sessionId: string) {
       fullSyncTimer.current = setTimeout(() => {
         fullSyncTimer.current = null;
         fullSyncToStore();
-      }, 16) as unknown as number;
+      }, SYNC_DEBOUNCE_MS) as unknown as number;
     };
 
     // Sync local store to Yjs (for recovery)

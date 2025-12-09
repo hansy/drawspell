@@ -28,7 +28,7 @@ interface CardFaceProps {
   customTextPosition?: "sidebar" | "bottom-left" | "top-left";
 }
 
-export const CardFace: React.FC<CardFaceProps> = ({
+const CardFaceInner: React.FC<CardFaceProps> = ({
   card,
   faceDown,
   imageClassName,
@@ -49,21 +49,26 @@ export const CardFace: React.FC<CardFaceProps> = ({
   );
   const updateCard = useGameStore((state) => state.updateCard);
   const globalCounters = useGameStore((state) => state.globalCounters);
-  const displayImageUrl = getDisplayImageUrl(card, { preferArtCrop });
-  const displayName = getDisplayName(card);
+
+  // Memoize display values
+  const displayImageUrl = React.useMemo(
+    () => getDisplayImageUrl(card, { preferArtCrop }),
+    [card.imageUrl, card.scryfall?.image_uris, card.currentFaceIndex, preferArtCrop]
+  );
+  const displayName = React.useMemo(() => getDisplayName(card), [card.name, card.scryfall?.card_faces, card.currentFaceIndex]);
   const showPT =
     shouldShowPowerToughness(card) &&
     card.zoneId.includes("battlefield") &&
     !hidePT;
-  const displayPower = getDisplayPower(card);
-  const displayToughness = getDisplayToughness(card);
+  const displayPower = React.useMemo(() => getDisplayPower(card), [card.power, card.scryfall?.card_faces, card.currentFaceIndex]);
+  const displayToughness = React.useMemo(() => getDisplayToughness(card), [card.toughness, card.scryfall?.card_faces, card.currentFaceIndex]);
 
-  const handleUpdatePT = (type: "power" | "toughness", delta: number) => {
+  const handleUpdatePT = React.useCallback((type: "power" | "toughness", delta: number) => {
     const faceStat = getCurrentFace(card)?.[type];
     const currentVal = parseInt((card as any)[type] ?? faceStat ?? "0");
     if (isNaN(currentVal)) return;
     updateCard(card.id, { [type]: (currentVal + delta).toString() });
-  };
+  }, [card, updateCard]);
 
   return (
     <>
@@ -73,6 +78,8 @@ export const CardFace: React.FC<CardFaceProps> = ({
         <img
           src={displayImageUrl}
           alt={displayName}
+          loading="lazy"
+          decoding="async"
           className={cn(
             "w-full h-full object-cover rounded pointer-events-none",
             imageClassName
@@ -282,3 +289,5 @@ export const CardFace: React.FC<CardFaceProps> = ({
     </>
   );
 };
+
+export const CardFace = React.memo(CardFaceInner);

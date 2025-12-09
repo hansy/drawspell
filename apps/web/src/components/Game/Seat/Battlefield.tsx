@@ -22,7 +22,50 @@ interface BattlefieldProps {
     showContextMenuCursor?: boolean;
 }
 
-export const Battlefield: React.FC<BattlefieldProps> = ({
+// Memoized card wrapper to prevent unnecessary re-renders
+const BattlefieldCard = React.memo<{
+    card: CardType;
+    zoneWidth: number;
+    zoneHeight: number;
+    mirrorForViewer?: boolean;
+    isTop: boolean;
+    viewScale: number;
+    onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
+}>(({ card, zoneWidth, zoneHeight, mirrorForViewer, isTop, viewScale, onCardContextMenu }) => {
+    const viewPosition = mirrorForViewer ? mirrorNormalizedY(card.position) : card.position;
+    const { x, y } = fromNormalizedPosition(viewPosition, zoneWidth || 1, zoneHeight || 1);
+    const baseWidth = BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;
+    const baseHeight = BASE_CARD_HEIGHT;
+    const left = x - baseWidth / 2;
+    const top = y - baseHeight / 2;
+
+    const style = React.useMemo(() => ({
+        position: 'absolute' as const,
+        left,
+        top,
+        transform: isTop ? 'rotate(180deg)' : undefined
+    }), [left, top, isTop]);
+
+    const handleContextMenu = React.useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        onCardContextMenu?.(e, card);
+    }, [onCardContextMenu, card]);
+
+    return (
+        <Card
+            card={card}
+            style={style}
+            onContextMenu={handleContextMenu}
+            scale={viewScale}
+            rotateLabel={isTop}
+            faceDown={card.faceDown}
+        />
+    );
+});
+
+BattlefieldCard.displayName = 'BattlefieldCard';
+
+const BattlefieldInner: React.FC<BattlefieldProps> = ({
     zone,
     cards,
     player,
@@ -42,18 +85,38 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     const zoneRef = React.useRef<HTMLDivElement | null>(null);
     const [zoneSize, setZoneSize] = React.useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
+    // Debounced resize handler to avoid excessive state updates
+    const resizeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
     React.useEffect(() => {
         if (!zoneRef.current) return;
         const observer = new ResizeObserver((entries) => {
             const entry = entries[0];
             if (entry?.contentRect) {
                 const { width, height } = entry.contentRect;
-                setZoneSize({ width, height });
+                // Debounce resize updates
+                if (resizeTimeoutRef.current) {
+                    clearTimeout(resizeTimeoutRef.current);
+                }
+                resizeTimeoutRef.current = setTimeout(() => {
+                    setZoneSize((prev) => {
+                        // Only update if changed significantly (> 1px)
+                        if (Math.abs(prev.width - width) > 1 || Math.abs(prev.height - height) > 1) {
+                            return { width, height };
+                        }
+                        return prev;
+                    });
+                }, 16);
             }
         });
         observer.observe(zoneRef.current);
-        return () => observer.disconnect();
-    }, [zoneRef]);
+        return () => {
+            observer.disconnect();
+            if (resizeTimeoutRef.current) {
+                clearTimeout(resizeTimeoutRef.current);
+            }
+        };
+    }, []);
 
     return (
         <div
@@ -86,35 +149,18 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
                         }}
                     />
                 )}
-                {cards.map(card => {
-                    const viewPosition = mirrorForViewer ? mirrorNormalizedY(card.position) : card.position;
-                    const { x, y } = fromNormalizedPosition(viewPosition, zoneSize.width || 1, zoneSize.height || 1);
-                    // Use BASE dimensions for positioning because Card applies scale with transformOrigin: center
-                    // The scale transform will shrink the card around its center, keeping it at (x, y)
-                    const baseWidth = BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;
-                    const baseHeight = BASE_CARD_HEIGHT;
-                    const left = x - baseWidth / 2;
-                    const top = y - baseHeight / 2;
-                    return (
-                        <Card
-                            key={card.id}
-                            card={card}
-                            style={{
-                                position: 'absolute',
-                                left,
-                                top,
-                                transform: isTop ? 'rotate(180deg)' : undefined
-                            }}
-                            onContextMenu={(e) => {
-                                e.stopPropagation();
-                                onCardContextMenu?.(e, card);
-                            }}
-                            scale={viewScale}
-                            rotateLabel={isTop}
-                            faceDown={card.faceDown}
-                        />
-                    );
-                })}
+                {cards.map(card => (
+                    <BattlefieldCard
+                        key={card.id}
+                        card={card}
+                        zoneWidth={zoneSize.width}
+                        zoneHeight={zoneSize.height}
+                        mirrorForViewer={mirrorForViewer}
+                        isTop={isTop}
+                        viewScale={viewScale}
+                        onCardContextMenu={onCardContextMenu}
+                    />
+                ))}
             </Zone>
 
             {/* Placeholder Text */}
@@ -130,7 +176,9 @@ export const Battlefield: React.FC<BattlefieldProps> = ({
     );
 };
 
-const ZoomEdgeOverlay = () => {
+export const Battlefield = React.memo(BattlefieldInner);
+
+const ZoomEdgeOverlay = React.memo(() => {
     const zoomEdge = useDragStore((state) => state.zoomEdge);
     const myPlayerId = useGameStore((state) => state.myPlayerId);
     const battlefieldViewScale = useGameStore((state) => state.battlefieldViewScale);
@@ -169,4 +217,6 @@ const ZoomEdgeOverlay = () => {
             </div>
         </>
     );
-};
+});
+
+ZoomEdgeOverlay.displayName = 'ZoomEdgeOverlay';

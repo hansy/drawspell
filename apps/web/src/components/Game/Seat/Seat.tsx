@@ -36,7 +36,7 @@ interface SeatProps {
   battlefieldScale?: number;
 }
 
-export const Seat: React.FC<SeatProps> = ({
+const SeatInner: React.FC<SeatProps> = ({
   player,
   position,
   color,
@@ -57,20 +57,20 @@ export const Seat: React.FC<SeatProps> = ({
   const isTop = position.startsWith("top");
   const isRight = position.endsWith("right");
 
-  const playerZones = getPlayerZones(zones, player.id);
-  const handZone = playerZones.hand;
-  const libraryZone = playerZones.library;
-  const graveyardZone = playerZones.graveyard;
-  const exileZone = playerZones.exile;
-  const battlefieldZone = playerZones.battlefield;
-  const commandZone = playerZones.commander;
+  // Memoize zone lookups to avoid recalculation on every render
+  const playerZones = React.useMemo(
+    () => getPlayerZones(zones, player.id),
+    [zones, player.id]
+  );
+  const { hand: handZone, library: libraryZone, graveyard: graveyardZone, exile: exileZone, battlefield: battlefieldZone, commander: commandZone } = playerZones;
 
-  const libraryCards = getCardsInZone(cards, libraryZone);
-  const graveyardCards = getCardsInZone(cards, graveyardZone);
-  const exileCards = getCardsInZone(cards, exileZone);
-  const battlefieldCards = getCardsInZone(cards, battlefieldZone);
-  const commandCards = getCardsInZone(cards, commandZone);
-  const handCards = getCardsInZone(cards, handZone);
+  // Memoize card arrays per zone
+  const libraryCards = React.useMemo(() => getCardsInZone(cards, libraryZone), [cards, libraryZone]);
+  const graveyardCards = React.useMemo(() => getCardsInZone(cards, graveyardZone), [cards, graveyardZone]);
+  const exileCards = React.useMemo(() => getCardsInZone(cards, exileZone), [cards, exileZone]);
+  const battlefieldCards = React.useMemo(() => getCardsInZone(cards, battlefieldZone), [cards, battlefieldZone]);
+  const commandCards = React.useMemo(() => getCardsInZone(cards, commandZone), [cards, commandZone]);
+  const handCards = React.useMemo(() => getCardsInZone(cards, handZone), [cards, handZone]);
 
   const inverseScale = (1 / scale) * 100;
 
@@ -271,3 +271,5 @@ export const Seat: React.FC<SeatProps> = ({
     </div>
   );
 };
+
+export const Seat = React.memo(SeatInner);

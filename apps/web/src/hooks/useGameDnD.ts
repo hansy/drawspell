@@ -22,10 +22,13 @@ import { ZONE } from '../constants/zones';
 import { canMoveCard } from '../rules/permissions';
 import { fromNormalizedPosition, mirrorNormalizedY, snapNormalizedWithZone, toNormalizedPosition } from '../lib/positions';
 
+// Throttle helper for drag move events
+const DRAG_MOVE_THROTTLE_MS = 16; // ~60fps
+
 export const useGameDnD = () => {
-    const cards = useGameStore((state) => state.cards);
-    const zones = useGameStore((state) => state.zones);
+    // Use getState() for hot path reads to avoid re-renders
     const moveCard = useGameStore((state) => state.moveCard);
+    const reorderZoneCards = useGameStore((state) => state.reorderZoneCards);
     const setGhostCard = useDragStore((state) => state.setGhostCard);
     const setActiveCardId = useDragStore((state) => state.setActiveCardId);
     const setOverCardScale = useDragStore((state) => state.setOverCardScale);
@@ -89,8 +92,27 @@ export const useGameDnD = () => {
 
     const dragMoveLogged = React.useRef(false);
     const startLogged = React.useRef(false);
+    const lastMoveTime = React.useRef(0);
+    const pendingMoveFrame = React.useRef<number | null>(null);
 
-    const handleDragMove = (event: DragMoveEvent) => {
+    const handleDragMove = React.useCallback((event: DragMoveEvent) => {
+        // Throttle drag move to prevent excessive calculations
+        const now = performance.now();
+        if (now - lastMoveTime.current < DRAG_MOVE_THROTTLE_MS) {
+            // Schedule update for next frame if not already scheduled
+            if (!pendingMoveFrame.current) {
+                pendingMoveFrame.current = requestAnimationFrame(() => {
+                    pendingMoveFrame.current = null;
+                    handleDragMoveImpl(event);
+                });
+            }
+            return;
+        }
+        lastMoveTime.current = now;
+        handleDragMoveImpl(event);
+    }, []);
+
+    const handleDragMoveImpl = (event: DragMoveEvent) => {
         if (currentDragSeq.current == null) {
             // Late move after drag has ended; ignore to avoid resurrecting ghosts
             return;
@@ -103,6 +125,11 @@ export const useGameDnD = () => {
             setOverCardScale(1);
             return;
         }
+
+        // Get fresh state for hot path
+        const state = useGameStore.getState();
+        const cards = state.cards;
+        const zones = state.zones;
 
         const activeCardId = active.data.current?.cardId;
         const activeCard = cards[activeCardId];
@@ -229,7 +256,13 @@ export const useGameDnD = () => {
         }
     };
 
-    const handleDragEnd = (event: DragEndEvent) => {
+    const handleDragEnd = React.useCallback((event: DragEndEvent) => {
+        // Cancel any pending animation frame
+        if (pendingMoveFrame.current) {
+            cancelAnimationFrame(pendingMoveFrame.current);
+            pendingMoveFrame.current = null;
+        }
+
         const { active, over } = event;
         setGhostCard(null);
         setActiveCardId(null);
@@ -239,6 +272,11 @@ export const useGameDnD = () => {
         if (over && active.id !== over.id) {
             const cardId = active.data.current?.cardId as CardId;
             const toZoneId = over.data.current?.zoneId as ZoneId;
+
+            // Get fresh state
+            const state = useGameStore.getState();
+            const cards = state.cards;
+            const zones = state.zones;
 
             const activeCard = cards[cardId];
             const targetZone = zones[toZoneId];
@@ -252,9 +290,11 @@ export const useGameDnD = () => {
                     const newIndex = targetZone.cardIds.indexOf(overCardId);
                     if (oldIndex !== -1 && newIndex !== -1) {
                         const newOrder = arrayMove(targetZone.cardIds, oldIndex, newIndex);
-                        useGameStore.getState().reorderZoneCards(targetZone.id, newOrder, myPlayerId);
+                        reorderZoneCards(targetZone.id, newOrder, myPlayerId);
                     }
                 }
+                // Reset drag sequence before returning
+                currentDragSeq.current = null;
                 return;
             }
 
@@ -330,7 +370,7 @@ export const useGameDnD = () => {
 
         // Drag is over from our perspective; ignore any subsequent move events
         currentDragSeq.current = null;
-    };
+    }, [setGhostCard, setActiveCardId, setOverCardScale, setZoomEdge, moveCard, reorderZoneCards, myPlayerId]);
 
     return {
         sensors,
