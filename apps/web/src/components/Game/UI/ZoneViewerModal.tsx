@@ -49,6 +49,7 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
     const containerRef = React.useRef<HTMLDivElement>(null);
     const [orderedCardIds, setOrderedCardIds] = useState<string[]>([]);
     const [draggingId, setDraggingId] = useState<string | null>(null);
+    const [frozenCardIds, setFrozenCardIds] = useState<string[] | null>(null);
 
     const zone = zoneId ? zones[zoneId] : null;
     const canView = zone ? canViewZone({ actorId: myPlayerId }, zone, { viewAll: !count }) : null;
@@ -58,6 +59,14 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
             setFilterText("");
         }
     }, [isOpen]);
+
+    React.useEffect(() => {
+        if (!isOpen || !zone || zone.type !== ZONE.LIBRARY || !count || count <= 0) {
+            setFrozenCardIds(null);
+            return;
+        }
+        setFrozenCardIds(zone.cardIds.slice(-count));
+    }, [isOpen, zoneId, count]);
 
     const viewMode = useMemo(() => {
         if (zone?.type === ZONE.LIBRARY && !count) return "grouped";
@@ -71,7 +80,12 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
 
         // If count is specified, take from the END (top of library)
         if (count && count > 0) {
-            cardIds = cardIds.slice(-count);
+            if (zone.type === ZONE.LIBRARY && frozenCardIds && frozenCardIds.length) {
+                const frozenSet = new Set(frozenCardIds);
+                cardIds = cardIds.filter((id) => frozenSet.has(id));
+            } else {
+                cardIds = cardIds.slice(-count);
+            }
         }
 
         // Map to card objects
@@ -102,7 +116,7 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
         }
 
         return currentCards;
-    }, [zone, cards, count, filterText]);
+    }, [zone, cards, count, filterText, frozenCardIds]);
 
     React.useEffect(() => {
         setOrderedCardIds(displayCards.map((card) => card.id));
