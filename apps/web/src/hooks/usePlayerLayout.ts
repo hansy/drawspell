@@ -18,9 +18,16 @@ export const usePlayerLayout = () => {
     .filter((p) => !seen.has(p.id))
     .sort((a, b) => a.id.localeCompare(b.id));
   const sortedPlayers = [...orderedByShared, ...fallback];
+  const myIndex = myPlayerId
+    ? sortedPlayers.findIndex((p) => p.id === myPlayerId)
+    : -1;
+  const layoutPlayers =
+    myIndex > 0
+      ? [...sortedPlayers.slice(myIndex), ...sortedPlayers.slice(0, myIndex)]
+      : sortedPlayers;
 
   // Determine Layout Mode
-  const playerCount = sortedPlayers.length;
+  const playerCount = layoutPlayers.length;
   let layoutMode: "single" | "split" | "quadrant" = "single";
   if (playerCount >= 3) layoutMode = "quadrant";
   else if (playerCount === 2) layoutMode = "split";
@@ -35,7 +42,7 @@ export const usePlayerLayout = () => {
     // 1 Player: Full Screen anchored bottom-left
     slots = [
       {
-        player: sortedPlayers[0],
+        player: layoutPlayers[0],
         position: "bottom-left",
         color: PLAYER_COLORS[0],
       },
@@ -44,12 +51,12 @@ export const usePlayerLayout = () => {
     // 2 Players: Top/Bottom using shared order
     slots = [
       {
-        player: sortedPlayers[1],
+        player: layoutPlayers[1],
         position: "top-left",
         color: PLAYER_COLORS[1],
       },
       {
-        player: sortedPlayers[0],
+        player: layoutPlayers[0],
         position: "bottom-left",
         color: PLAYER_COLORS[0],
       },
@@ -62,22 +69,22 @@ export const usePlayerLayout = () => {
 
     slots = [
       {
-        player: sortedPlayers[1],
+        player: layoutPlayers[1],
         position: "top-left",
         color: PLAYER_COLORS[1],
       },
       {
-        player: sortedPlayers[2],
+        player: layoutPlayers[2],
         position: "top-right",
         color: PLAYER_COLORS[2],
       },
       {
-        player: sortedPlayers[0],
+        player: layoutPlayers[0],
         position: "bottom-left",
         color: PLAYER_COLORS[0],
       },
       {
-        player: sortedPlayers[3],
+        player: layoutPlayers[3],
         position: "bottom-right",
         color: PLAYER_COLORS[3],
       },

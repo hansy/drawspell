@@ -69,8 +69,8 @@ describe('usePlayerLayout', () => {
       expect(result?.layoutMode).toBe('split');
       const bottom = result?.slots.find((s) => s.position === 'bottom-left')?.player?.id;
       const top = result?.slots.find((s) => s.position === 'top-left')?.player?.id;
-      expect(bottom).toBe('pB'); // first in shared order
-      expect(top).toBe('pA'); // second in shared order
+      expect(bottom).toBe('pA'); // me is always bottom
+      expect(top).toBe('pB'); // other player after rotation
     });
   });
 
@@ -97,6 +97,38 @@ describe('usePlayerLayout', () => {
       const top = result?.slots.find((s) => s.position === 'top-left')?.player?.id;
       expect(bottom).toBe('pA'); // alphabetical fallback
       expect(top).toBe('pB');
+    });
+  });
+
+  it('rotates shared playerOrder so me is bottom-left (quadrant layout)', async () => {
+    const p1 = createPlayer('p1');
+    const p2 = createPlayer('p2');
+    const p3 = createPlayer('p3');
+    const p4 = createPlayer('p4');
+
+    act(() => {
+      useGameStore.setState((state) => ({
+        ...state,
+        players: { p1, p2, p3, p4 },
+        playerOrder: ['p1', 'p2', 'p3', 'p4'],
+        myPlayerId: 'p2',
+      }));
+    });
+
+    let result: ProbeValue | null = null;
+    render(<Probe onValue={(v) => { result = v; }} />);
+
+    await waitFor(() => {
+      expect(result).not.toBeNull();
+      expect(result?.layoutMode).toBe('quadrant');
+      const bl = result?.slots.find((s) => s.position === 'bottom-left')?.player?.id;
+      const br = result?.slots.find((s) => s.position === 'bottom-right')?.player?.id;
+      const tl = result?.slots.find((s) => s.position === 'top-left')?.player?.id;
+      const tr = result?.slots.find((s) => s.position === 'top-right')?.player?.id;
+      expect(bl).toBe('p2');
+      expect(br).toBe('p1');
+      expect(tl).toBe('p3');
+      expect(tr).toBe('p4');
     });
   });
 });
