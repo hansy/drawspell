@@ -1122,25 +1122,31 @@ export const useGameStore = create<GameStore>()(
                         return;
                     }
 
-                    set((current) => {
-                        const nextCards = { ...current.cards };
-                        const nextZones = { ...current.zones };
+	                    set((current) => {
+	                        const nextCards = { ...current.cards };
+	                        const nextZones = { ...current.zones };
 
-                        const ownedCards = Object.values(current.cards).filter(card => card.ownerId === playerId);
-                        const libraryKeeps = nextZones[libraryZone.id]?.cardIds.filter(id => {
-                            const card = nextCards[id];
-                            return card && card.ownerId !== playerId;
-                        }) ?? [];
+	                        const ownedCards = Object.values(current.cards).filter(card => card.ownerId === playerId);
+	                        const libraryKeeps = nextZones[libraryZone.id]?.cardIds.filter(id => {
+	                            const card = nextCards[id];
+	                            return card && card.ownerId !== playerId;
+	                        }) ?? [];
 
-                        const toLibrary: string[] = [];
+	                        const toLibrary: string[] = [];
 
-                        ownedCards.forEach(card => {
-                            const fromZone = nextZones[card.zoneId];
-                            if (fromZone) {
-                                nextZones[card.zoneId] = {
-                                    ...fromZone,
-                                    cardIds: fromZone.cardIds.filter(id => id !== card.id),
-                                };
+	                        ownedCards.forEach(card => {
+	                            const fromZone = nextZones[card.zoneId];
+	                            if (fromZone && fromZone.ownerId === playerId) {
+	                                const fromType = (fromZone as any).type as string;
+	                                if (fromType === ZONE.COMMANDER || fromType === 'command') {
+	                                    return;
+	                                }
+	                            }
+	                            if (fromZone) {
+	                                nextZones[card.zoneId] = {
+	                                    ...fromZone,
+	                                    cardIds: fromZone.cardIds.filter(id => id !== card.id),
+	                                };
                             }
 
                             if (card.isToken) {
