@@ -6,6 +6,7 @@ import * as Y from 'yjs';
 export type YDocHandles = {
   doc: Y.Doc;
   players: Y.Map<any>;
+  playerOrder: Y.Array<string>;
   zones: Y.Map<any>;
   cards: Y.Map<any>;
   zoneCardOrders: Y.Map<Y.Array<string>>;
@@ -20,6 +21,7 @@ export function createGameYDoc(): YDocHandles {
   return {
     doc,
     players: doc.getMap('players'),
+    playerOrder: doc.getArray('playerOrder'),
     zones: doc.getMap('zones'),
     cards: doc.getMap('cards'),
     zoneCardOrders: doc.getMap('zoneCardOrders'),

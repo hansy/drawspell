@@ -43,6 +43,7 @@ export function acquireSession(sessionId: string): YDocHandles {
     const handles: YDocHandles = {
       doc,
       players: doc.getMap('players'),
+      playerOrder: doc.getArray('playerOrder'),
       zones: doc.getMap('zones'),
       cards: doc.getMap('cards'),
       zoneCardOrders: doc.getMap('zoneCardOrders'),
@@ -213,6 +214,7 @@ export function runMutation(fn: (maps: SharedMaps) => void): boolean {
   
   handles.doc.transact(() => fn({
     players: handles.players,
+    playerOrder: handles.playerOrder,
     zones: handles.zones,
     cards: handles.cards,
     zoneCardOrders: handles.zoneCardOrders,
@@ -249,6 +251,7 @@ export function batchMutations(fn: () => void): void {
     handles.doc.transact(() => {
       const maps: SharedMaps = {
         players: handles.players,
+        playerOrder: handles.playerOrder,
         zones: handles.zones,
         cards: handles.cards,
         zoneCardOrders: handles.zoneCardOrders,
@@ -277,6 +280,7 @@ export function flushPendingMutations(): void {
   handles.doc.transact(() => {
     const maps: SharedMaps = {
       players: handles.players,
+      playerOrder: handles.playerOrder,
       zones: handles.zones,
       cards: handles.cards,
       zoneCardOrders: handles.zoneCardOrders,

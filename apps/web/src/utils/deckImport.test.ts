@@ -232,6 +232,7 @@ describe('fetchScryfallCards', () => {
             ok: true,
             json: () => Promise.resolve({
                 ...baseScryfallCard,
+                id: 'some-scryfall-id',
                 name: 'Wear // Tear',
                 type_line: 'Instant // Instant',
                 oracle_text: 'Destroy target artifact // Destroy target enchantment',

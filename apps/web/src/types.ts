@@ -77,6 +77,7 @@ export interface Player {
 
 export interface GameState {
   players: Record<PlayerId, Player>;
+  playerOrder: PlayerId[];
   cards: Record<CardId, Card>;
   zones: Record<ZoneId, Zone>;
   battlefieldViewScale: Record<PlayerId, number>;

@@ -14,6 +14,7 @@ import { ZONE } from '../constants/zones';
 
 export type SharedMaps = {
   players: Y.Map<Y.Map<any>>;
+  playerOrder: Y.Array<string>;
   zones: Y.Map<Y.Map<any>>;
   cards: Y.Map<Y.Map<any>>;
   zoneCardOrders: Y.Map<Y.Array<string>>;
@@ -112,6 +113,23 @@ const readCommanderDamage = (source: any): Record<string, number> => {
   return commanderDamage;
 };
 
+const ensurePlayerInOrder = (maps: SharedMaps, playerId: string) => {
+  const order = maps.playerOrder;
+  const current = order.toArray();
+  if (!current.includes(playerId)) {
+    order.push([playerId]);
+  }
+};
+
+const removePlayerFromOrder = (maps: SharedMaps, playerId: string) => {
+  const order = maps.playerOrder;
+  for (let i = order.length - 1; i >= 0; i--) {
+    if (order.get(i) === playerId) {
+      order.delete(i, 1);
+    }
+  }
+};
+
 const writePlayer = (maps: SharedMaps, player: Player) => {
   const target = ensureChildMap(maps.players, player.id);
   target.set('id', player.id);
@@ -131,6 +149,7 @@ const writePlayer = (maps: SharedMaps, player: Player) => {
   commanderDamage.forEach((_v, key) => {
     if (!seen.has(key as string)) commanderDamage.delete(key as string);
   });
+  ensurePlayerInOrder(maps, player.id);
 };
 
 const readPlayer = (maps: SharedMaps, playerId: string): Player | null => {
@@ -267,6 +286,7 @@ const getCardsSnapshot = (maps: SharedMaps): Record<string, Card> => {
 export function removePlayer(maps: SharedMaps, playerId: string) {
   maps.players.delete(playerId);
   maps.battlefieldViewScale.delete(playerId);
+  removePlayerFromOrder(maps, playerId);
 
   // Remove owned zones and their cards
   maps.zones.forEach((_zoneValue, zoneId) => {
@@ -499,6 +519,7 @@ export const sharedSnapshot = (maps: SharedMaps) => {
   const cards: Record<string, Card> = {};
   const globalCounters: Record<string, string> = {};
   const battlefieldViewScale: Record<string, number> = {};
+  const playerOrder: string[] = [];
 
   maps.players.forEach((_value, key) => {
     const p = readPlayer(maps, key as string);
@@ -524,5 +545,11 @@ export const sharedSnapshot = (maps: SharedMaps) => {
     }
   });
 
-  return { players, zones, cards, globalCounters, battlefieldViewScale };
+  maps.playerOrder.forEach((id) => {
+    if (typeof id === 'string') {
+      playerOrder.push(id);
+    }
+  });
+
+  return { players, zones, cards, globalCounters, battlefieldViewScale, playerOrder };
 };

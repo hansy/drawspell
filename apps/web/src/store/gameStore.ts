@@ -68,6 +68,7 @@ export const useGameStore = create<GameStore>()(
                 if (!handles) return;
                 const maps = {
                     players: handles.players,
+                    playerOrder: handles.playerOrder,
                     zones: handles.zones,
                     cards: handles.cards,
                     zoneCardOrders: handles.zoneCardOrders,
@@ -113,6 +114,18 @@ export const useGameStore = create<GameStore>()(
                         const clamped = Math.min(Math.max(scale, 0.5), 1);
                         handles.battlefieldViewScale.set(playerId, clamped);
                     });
+
+                    const MAX_PLAYERS_SYNC = 8;
+                    const allowedPlayers = new Set(Object.keys(state.players));
+                    const desiredOrder = (state.playerOrder ?? []).filter((id) => allowedPlayers.has(id)).slice(0, MAX_PLAYERS_SYNC);
+                    Array.from(allowedPlayers).sort().forEach((id) => {
+                        if (desiredOrder.length >= MAX_PLAYERS_SYNC) return;
+                        if (!desiredOrder.includes(id)) desiredOrder.push(id);
+                    });
+                    handles.playerOrder.delete(0, handles.playerOrder.length);
+                    if (desiredOrder.length) {
+                        handles.playerOrder.insert(0, desiredOrder);
+                    }
                 });
             };
 
@@ -127,6 +140,7 @@ export const useGameStore = create<GameStore>()(
 
             return ({
                 players: {},
+                playerOrder: [],
                 cards: {},
                 zones: {},
                 battlefieldViewScale: {},
@@ -147,6 +161,7 @@ export const useGameStore = create<GameStore>()(
 
                     set((state) => ({
                         players: {},
+                        playerOrder: [],
                         cards: {},
                         zones: {},
                         battlefieldViewScale: {},
@@ -198,6 +213,9 @@ export const useGameStore = create<GameStore>()(
                     if (applyShared((maps) => yUpsertPlayer(maps, normalized))) return;
                     set((state) => ({
                         players: { ...state.players, [normalized.id]: normalized },
+                        playerOrder: state.playerOrder.includes(normalized.id)
+                            ? state.playerOrder
+                            : [...state.playerOrder, normalized.id],
                     }));
                 },
 
@@ -1379,6 +1397,9 @@ export const useGameStore = create<GameStore>()(
 
                 if (!state.battlefieldViewScale) {
                     state.battlefieldViewScale = {};
+                }
+                if (!state.playerOrder) {
+                    state.playerOrder = [];
                 }
                 if (!state.playerIdsBySession) {
                     state.playerIdsBySession = {};

@@ -164,6 +164,27 @@ const sanitizeCard = (value: any, zones: Record<string, Zone>): Card | null => {
   };
 };
 
+const sanitizePlayerOrder = (value: any, players: Record<string, Player>, max: number): string[] => {
+  const result: string[] = [];
+  const seen = new Set<string>();
+  const source = Array.isArray(value) ? value : [];
+  for (const id of source) {
+    if (typeof id !== 'string') continue;
+    if (!players[id]) continue;
+    if (seen.has(id)) continue;
+    result.push(id);
+    seen.add(id);
+    if (result.length >= max) return result;
+  }
+  const remaining = Object.keys(players).sort();
+  for (const id of remaining) {
+    if (seen.has(id)) continue;
+    result.push(id);
+    if (result.length >= max) break;
+  }
+  return result;
+};
+
 /**
  * Build the WebRTC signaling URL from the WebSocket server URL.
  * Converts /signal to /webrtc endpoint.
@@ -186,7 +207,7 @@ export function useWebRTCSync(sessionId: string) {
     const handles = acquireSession(sessionId);
     setActiveSession(sessionId);
 
-    const { doc, players, zones, cards, zoneCardOrders, globalCounters, battlefieldViewScale, logs } = handles;
+    const { doc, players, playerOrder, zones, cards, zoneCardOrders, globalCounters, battlefieldViewScale, logs } = handles;
 
     // Setup store
     const store = useGameStore.getState();
@@ -258,7 +279,7 @@ export function useWebRTCSync(sessionId: string) {
       }
       applyingRemoteUpdate = true;
       try {
-        const snapshot = sharedSnapshot({ players, zones, cards, zoneCardOrders, globalCounters, battlefieldViewScale } as any);
+        const snapshot = sharedSnapshot({ players, playerOrder, zones, cards, zoneCardOrders, globalCounters, battlefieldViewScale } as any);
 
         const safePlayers: Record<string, Player> = {};
         let playerCount = 0;
@@ -310,11 +331,14 @@ export function useWebRTCSync(sessionId: string) {
           safeBattlefieldViewScale[pid] = clampNumber(value, 0.5, 1, 1);
         });
 
+        const safePlayerOrder = sanitizePlayerOrder(snapshot.playerOrder, safePlayers, MAX_PLAYERS);
+
         useGameStore.setState({
           players: safePlayers,
           zones: safeZones,
           cards: safeCards,
           globalCounters: safeGlobalCounters,
+          playerOrder: safePlayerOrder,
           battlefieldViewScale: safeBattlefieldViewScale,
         });
       } finally {
@@ -336,7 +360,7 @@ export function useWebRTCSync(sessionId: string) {
     // Sync local store to Yjs
     const syncStoreToShared = () => {
       const state = useGameStore.getState();
-      const sharedMaps = { players, zones, cards, zoneCardOrders, globalCounters, battlefieldViewScale } as any;
+      const sharedMaps = { players, playerOrder, zones, cards, zoneCardOrders, globalCounters, battlefieldViewScale } as any;
       doc.transact(() => {
         players.forEach((_value, key) => {
           if (!state.players[key as string]) players.delete(key);
@@ -370,6 +394,17 @@ export function useWebRTCSync(sessionId: string) {
         Object.entries(state.battlefieldViewScale).forEach(([key, value]) => {
           battlefieldViewScale.set(key, clampNumber(value, 0.5, 1, 1));
         });
+
+        const allowedPlayers = new Set(Object.keys(state.players));
+        const desiredOrder = (state.playerOrder ?? []).filter((id) => allowedPlayers.has(id)).slice(0, MAX_PLAYERS);
+        Array.from(allowedPlayers).sort().forEach((id) => {
+          if (desiredOrder.length >= MAX_PLAYERS) return;
+          if (!desiredOrder.includes(id)) desiredOrder.push(id);
+        });
+        playerOrder.delete(0, playerOrder.length);
+        if (desiredOrder.length) {
+          playerOrder.insert(0, desiredOrder);
+        }
       });
     };
 
@@ -485,4 +520,3 @@ export function useWebRTCSync(sessionId: string) {
 
   return { status, peers };
 }
-

@@ -1,14 +1,15 @@
 import * as Y from 'yjs';
 import { describe, expect, it } from 'vitest';
-import { moveCard, SharedMaps, sharedSnapshot, upsertCard as yUpsertCard, upsertZone as yUpsertZone } from './yMutations';
+import { moveCard, removePlayer, SharedMaps, sharedSnapshot, upsertCard as yUpsertCard, upsertPlayer as yUpsertPlayer, upsertZone as yUpsertZone } from './yMutations';
 import { ZONE } from '../constants/zones';
-import { Card, Zone } from '../types';
+import { Card, Player, Zone } from '../types';
 import { SNAP_GRID_SIZE } from '../lib/snapping';
 
 const createSharedMaps = (): SharedMaps => {
   const doc = new Y.Doc();
   return {
     players: doc.getMap('players'),
+    playerOrder: doc.getArray('playerOrder'),
     zones: doc.getMap('zones'),
     cards: doc.getMap('cards'),
     zoneCardOrders: doc.getMap('zoneCardOrders'),
@@ -87,5 +88,21 @@ describe('sharedSnapshot legacy compatibility', () => {
     expect(snapshot.zones.z1?.cardIds).toEqual(['c1']);
     expect(snapshot.cards.c1?.zoneId).toBe('z1');
     expect(snapshot.cards.c1?.counters[0]).toEqual({ type: '+1/+1', count: 2 });
+  });
+});
+
+describe('player order tracking', () => {
+  it('adds and removes players from the shared order', () => {
+    const maps = createSharedMaps();
+    const p1: Player = { id: 'p1', name: 'P1', life: 40, counters: [], commanderDamage: {}, commanderTax: 0 };
+    const p2: Player = { id: 'p2', name: 'P2', life: 40, counters: [], commanderDamage: {}, commanderTax: 0 };
+
+    yUpsertPlayer(maps, p1);
+    yUpsertPlayer(maps, p2);
+
+    expect(sharedSnapshot(maps).playerOrder).toEqual(['p1', 'p2']);
+
+    removePlayer(maps, 'p1');
+    expect(sharedSnapshot(maps).playerOrder).toEqual(['p2']);
   });
 });
