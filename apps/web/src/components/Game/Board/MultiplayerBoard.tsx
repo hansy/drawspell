@@ -21,8 +21,6 @@ import { TextPromptDialog } from '../UI/TextPromptDialog';
 import { LogDrawer } from '../UI/LogDrawer';
 import { useMultiplayerSync } from '../../../hooks/useMultiplayerSync';
 import { useNavigate } from '@tanstack/react-router';
-import { getYDocHandles, getYProvider, setYProvider } from '../../../yjs/docManager';
-import { removePlayer } from '../../../yjs/yMutations';
 
 
 
@@ -57,7 +55,6 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
 
 
     const { status: syncStatus, peers } = useMultiplayerSync(sessionId);
-    const seededRef = React.useRef(false);
 
     const [zoneViewerState, setZoneViewerState] = useState<{ isOpen: boolean; zoneId: string | null; count?: number }>({
         isOpen: false,
@@ -69,40 +66,8 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
     };
 
     const handleLeave = () => {
-        const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-        void (async () => {
-            const handles = getYDocHandles();
-            if (handles) {
-                handles.doc.transact(() => {
-                    removePlayer(
-                        {
-                            players: handles.players,
-                            zones: handles.zones,
-                            cards: handles.cards,
-                            zoneCardOrders: handles.zoneCardOrders,
-                            globalCounters: handles.globalCounters,
-                            battlefieldViewScale: handles.battlefieldViewScale,
-                        },
-                        myPlayerId,
-                    );
-                });
-                await sleep(25);
-            }
-
-            const provider = getYProvider();
-            if (provider) {
-                try { provider.disconnect(); } catch (_err) { }
-                try { provider.destroy(); } catch (_err) { }
-                setYProvider(null);
-            }
-
-            const currentSessionId = useGameStore.getState().sessionId;
-            if (currentSessionId) {
-                useGameStore.getState().forgetSessionIdentity(currentSessionId);
-            }
-            useGameStore.getState().resetSession();
-            navigate({ to: '/' });
-        })();
+        useGameStore.getState().leaveGame();
+        navigate({ to: '/' });
     };
 
     const handleCopyLink = async () => {
@@ -117,53 +82,10 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
 
     // Debugging moved to DragMonitor component
     const { contextMenu, handleCardContextMenu, handleZoneContextMenu, handleBattlefieldContextMenu, closeContextMenu, countPrompt, closeCountPrompt, textPrompt, closeTextPrompt } = useGameContextMenu(myPlayerId, handleViewZone);
-    const hasHydrated = useGameStore((state) => state.hasHydrated);
 
     const [isLoadDeckModalOpen, setIsLoadDeckModalOpen] = useState(false);
     const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
     const [isLogOpen, setIsLogOpen] = useState(false);
-
-    // Auto-initialize if player is missing (e.g. after reset)
-    React.useEffect(() => {
-        const store = useGameStore.getState();
-        if (store.sessionId !== sessionId) return;
-        if (store.myPlayerId !== myPlayerId) return;
-        if (!hasHydrated) return;
-        if (syncStatus === 'connecting') return;
-        if (seededRef.current) return;
-
-        const state = useGameStore.getState();
-        const players = state.players;
-
-        // Seed when our player is missing. If already present (local or remote), do nothing.
-        if (players[myPlayerId]) {
-            seededRef.current = true;
-            return;
-        }
-
-        const { addPlayer, addZone } = state;
-        const label = `Player ${myPlayerId.slice(0, 4).toUpperCase()}`;
-        addPlayer({
-            id: myPlayerId,
-            name: label,
-            life: 40,
-            counters: [],
-            commanderDamage: {},
-            commanderTax: 0,
-        });
-
-        const zoneTypes = [ZONE.LIBRARY, ZONE.HAND, ZONE.BATTLEFIELD, ZONE.GRAVEYARD, ZONE.EXILE, ZONE.COMMANDER] as const;
-        zoneTypes.forEach(type => {
-            addZone({
-                id: `${myPlayerId}-${type}`,
-                type,
-                ownerId: myPlayerId,
-                cardIds: []
-            });
-        });
-
-        seededRef.current = true;
-    }, [myPlayerId, hasHydrated, sessionId, syncStatus]);
 
     const getGridClass = () => {
         switch (layoutMode) {

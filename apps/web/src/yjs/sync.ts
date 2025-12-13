@@ -90,7 +90,10 @@ const sanitizePlayer = (value: any): Player | null => {
 
 const sanitizeZone = (value: any): Zone | null => {
   if (!value || typeof value.id !== "string" || typeof value.ownerId !== "string") return null;
-  if (!["library", "hand", "battlefield", "graveyard", "exile", "commander"].includes(value.type)) return null;
+  const rawType = typeof value.type === "string" ? value.type : null;
+  const type = rawType === "command" ? "commander" : rawType;
+  if (!type) return null;
+  if (!["library", "hand", "battlefield", "graveyard", "exile", "commander"].includes(type)) return null;
   const ids: string[] = Array.isArray(value.cardIds)
     ? Array.from(
         new Set<string>((value.cardIds as unknown[]).filter((cardId): cardId is string => typeof cardId === "string"))
@@ -98,7 +101,7 @@ const sanitizeZone = (value: any): Zone | null => {
     : [];
   return {
     id: value.id,
-    type: value.type,
+    type,
     ownerId: value.ownerId,
     cardIds: ids,
   };

@@ -125,6 +125,7 @@ export interface GameState {
   ensurePlayerIdForSession: (sessionId: string) => string;
   forgetSessionIdentity: (sessionId: string) => void;
   ensureSessionVersion: (sessionId: string) => number;
+  leaveGame: () => void;
   setBattlefieldViewScale: (playerId: PlayerId, scale: number) => void;
 
   // Hydration

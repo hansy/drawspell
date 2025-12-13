@@ -9,9 +9,9 @@ import { logPermission } from '../rules/logger';
 import { getCardFaces, getCurrentFaceIndex, isTransformableCard, syncCardStatsToFace } from '../lib/cardDisplay';
 import { decrementCounter, enforceZoneCounterRules, isBattlefieldZone, mergeCounters, resolveCounterColor } from '../lib/counters';
 import { emitLog, clearLogs } from '../logging/logStore';
-import { runWithSharedDoc } from '../yjs/docManager';
+import { destroySession, getSessionHandles, runWithSharedDoc } from '../yjs/docManager';
 import { isApplyingRemoteUpdate } from '../yjs/sync';
-import { addCounterToCard as yAddCounterToCard, duplicateCard as yDuplicateCard, moveCard as yMoveCard, patchPlayer as yPatchPlayer, removeCard as yRemoveCard, removeCounterFromCard as yRemoveCounterFromCard, reorderZoneCards as yReorderZoneCards, resetDeck as yResetDeck, setBattlefieldViewScale as ySetBattlefieldViewScale, sharedSnapshot, transformCard as yTransformCard, unloadDeck as yUnloadDeck, upsertCard as yUpsertCard, upsertPlayer as yUpsertPlayer, upsertZone as yUpsertZone, SharedMaps } from '../yjs/yMutations';
+import { addCounterToCard as yAddCounterToCard, duplicateCard as yDuplicateCard, moveCard as yMoveCard, patchPlayer as yPatchPlayer, removeCard as yRemoveCard, removeCounterFromCard as yRemoveCounterFromCard, removePlayer as yRemovePlayer, reorderZoneCards as yReorderZoneCards, resetDeck as yResetDeck, setBattlefieldViewScale as ySetBattlefieldViewScale, sharedSnapshot, transformCard as yTransformCard, unloadDeck as yUnloadDeck, upsertCard as yUpsertCard, upsertPlayer as yUpsertPlayer, upsertZone as yUpsertZone, SharedMaps } from '../yjs/yMutations';
 import { bumpPosition, clampNormalizedPosition, findAvailablePositionNormalized, GRID_STEP_Y, migratePositionToNormalized, positionsRoughlyEqual } from '../lib/positions';
 
 interface GameStore extends GameState {
@@ -135,6 +135,39 @@ export const useGameStore = create<GameStore>()(
                         sessionVersions: { ...state.sessionVersions, [sessionId]: next },
                     }));
                     return next;
+                },
+
+                leaveGame: () => {
+                    const sessionId = get().sessionId;
+                    const playerId = get().myPlayerId;
+
+                    if (sessionId) {
+                        const handles = getSessionHandles(sessionId);
+                        if (handles) {
+                            handles.doc.transact(() => {
+                                yRemovePlayer(
+                                    {
+                                        players: handles.players,
+                                        playerOrder: handles.playerOrder,
+                                        zones: handles.zones,
+                                        cards: handles.cards,
+                                        zoneCardOrders: handles.zoneCardOrders,
+                                        globalCounters: handles.globalCounters,
+                                        battlefieldViewScale: handles.battlefieldViewScale,
+                                    } as any,
+                                    playerId,
+                                );
+                            });
+                        }
+
+                        try {
+                            destroySession(sessionId);
+                        } catch (_err) {}
+
+                        get().forgetSessionIdentity(sessionId);
+                    }
+
+                    get().resetSession();
                 },
 
                 setHasHydrated: (state) => {

@@ -8,6 +8,7 @@ import { WebsocketProvider } from "y-websocket";
 import { Awareness, removeAwarenessStates } from "y-protocols/awareness";
 import { useGameStore } from "../store/gameStore";
 import { bindSharedLogStore } from "../logging/logStore";
+import { ZONE } from "../constants/zones";
 import {
   acquireSession,
   cleanupStaleSessions,
@@ -19,7 +20,7 @@ import {
   setActiveSession,
   flushPendingMutations,
 } from "../yjs/docManager";
-import { sharedSnapshot, type SharedMaps } from "../yjs/yMutations";
+import { sharedSnapshot, type SharedMaps, upsertPlayer, upsertZone } from "../yjs/yMutations";
 import {
   isApplyingRemoteUpdate,
   sanitizeSharedSnapshot,
@@ -68,6 +69,7 @@ const buildSignalingUrl = (): string | null => {
 };
 
 export function useMultiplayerSync(sessionId: string) {
+  const hasHydrated = useGameStore((state) => state.hasHydrated);
   const [status, setStatus] = useState<SyncStatus>("connecting");
   const [peers, setPeers] = useState(1);
   const fullSyncTimer = useRef<number | null>(null);
@@ -75,6 +77,7 @@ export function useMultiplayerSync(sessionId: string) {
   useEffect(() => {
     if (!sessionId) return;
     if (typeof window === "undefined") return;
+    if (!hasHydrated) return;
 
     cleanupStaleSessions();
     const handles = acquireSession(sessionId);
@@ -148,6 +151,53 @@ export function useMultiplayerSync(sessionId: string) {
       });
     };
 
+    const ensureLocalPlayerInitialized = () => {
+      const snapshot = sharedSnapshot(sharedMaps as any);
+      const playerId = ensuredPlayerId;
+
+      const playerExists = Boolean(snapshot.players[playerId]);
+      const hasZoneOfType = (type: string) =>
+        Object.values(snapshot.zones).some((z) => z.ownerId === playerId && (z as any).type === type);
+
+      // Support legacy "command" zone type when deciding whether to create commander.
+      const hasCommanderZone = hasZoneOfType(ZONE.COMMANDER) || hasZoneOfType("command");
+
+      const zoneSpecs: Array<{ type: string; shouldCreate: boolean }> = [
+        { type: ZONE.LIBRARY, shouldCreate: !hasZoneOfType(ZONE.LIBRARY) },
+        { type: ZONE.HAND, shouldCreate: !hasZoneOfType(ZONE.HAND) },
+        { type: ZONE.BATTLEFIELD, shouldCreate: !hasZoneOfType(ZONE.BATTLEFIELD) },
+        { type: ZONE.GRAVEYARD, shouldCreate: !hasZoneOfType(ZONE.GRAVEYARD) },
+        { type: ZONE.EXILE, shouldCreate: !hasZoneOfType(ZONE.EXILE) },
+        { type: ZONE.COMMANDER, shouldCreate: !hasCommanderZone },
+      ];
+
+      if (playerExists && zoneSpecs.every((z) => !z.shouldCreate)) return;
+
+      doc.transact(() => {
+        if (!playerExists) {
+          upsertPlayer(sharedMaps, {
+            id: playerId,
+            name: `Player ${playerId.slice(0, 4).toUpperCase()}`,
+            life: 40,
+            counters: [],
+            commanderDamage: {},
+            commanderTax: 0,
+            deckLoaded: false,
+          } as any);
+        }
+
+        zoneSpecs.forEach(({ type, shouldCreate }) => {
+          if (!shouldCreate) return;
+          upsertZone(sharedMaps, {
+            id: `${playerId}-${type}`,
+            type: type as any,
+            ownerId: playerId,
+            cardIds: [],
+          } as any);
+        });
+      });
+    };
+
     const SYNC_DEBOUNCE_MS = 50;
     const scheduleFullSync = () => {
       if (fullSyncTimer.current !== null) {
@@ -172,7 +222,13 @@ export function useMultiplayerSync(sessionId: string) {
     pushLocalAwareness();
 
     const handleAwareness = () => {
-      setPeers(awareness.getStates().size || 1);
+      const states = awareness.getStates();
+      const unique = new Set<string>();
+      states.forEach((state: any, clientId: number) => {
+        const userId = state?.client?.id;
+        unique.add(typeof userId === "string" ? `u:${userId}` : `c:${clientId}`);
+      });
+      setPeers(Math.max(1, unique.size));
     };
     awareness.on("change", handleAwareness);
     handleAwareness();
@@ -192,6 +248,7 @@ export function useMultiplayerSync(sessionId: string) {
       if (!isSynced) return;
       flushPendingMutations();
       setTimeout(() => fullSyncToStore(), 50);
+      setTimeout(() => ensureLocalPlayerInitialized(), 60);
     });
 
     flushPendingMutations();
@@ -236,7 +293,7 @@ export function useMultiplayerSync(sessionId: string) {
       releaseSession(sessionId);
       cleanupStaleSessions();
     };
-  }, [sessionId]);
+  }, [sessionId, hasHydrated]);
 
   return { status, peers };
 }
