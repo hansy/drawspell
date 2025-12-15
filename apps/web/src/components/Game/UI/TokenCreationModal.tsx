@@ -10,6 +10,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { ZONE } from '../../../constants/zones';
 import { clampNormalizedPosition, findAvailablePositionNormalized, GRID_STEP_X, GRID_STEP_Y } from '../../../lib/positions';
 import { toast } from 'sonner';
+import { cacheCards } from '../../../services/scryfallCache';
+import { toScryfallCardLite } from '../../../types/scryfallLite';
 
 interface TokenCreationModalProps {
     isOpen: boolean;
@@ -70,8 +72,14 @@ export const TokenCreationModal: React.FC<TokenCreationModalProps> = ({ isOpen, 
         const state = useGameStore.getState();
         const battlefield = state.zones[battlefieldId];
         const frontFace = selectedToken.card_faces?.[0];
-        const imageUrl = selectedToken.image_uris?.normal || frontFace?.image_uris?.normal;
         const name = frontFace?.name || selectedToken.name;
+        const power = selectedToken.power ?? frontFace?.power;
+        const toughness = selectedToken.toughness ?? frontFace?.toughness;
+        const scryfallLite = toScryfallCardLite(selectedToken);
+
+        cacheCards([selectedToken]).catch((err) => {
+            console.warn('[TokenCreationModal] Failed to cache token card:', err);
+        });
 
         for (let i = 0; i < quantity; i++) {
             const base = clampNormalizedPosition({
@@ -93,11 +101,14 @@ export const TokenCreationModal: React.FC<TokenCreationModalProps> = ({ isOpen, 
                 faceDown: false,
                 rotation: 0,
                 scryfallId: selectedToken.id,
-                oracleText: selectedToken.oracle_text,
-                imageUrl,
-                scryfall: selectedToken,
+                // oracleText omitted - fetch on-demand from cache
+                scryfall: scryfallLite,
                 currentFaceIndex: 0,
-                isToken: true
+                isToken: true,
+                power,
+                toughness,
+                basePower: power,
+                baseToughness: toughness,
             });
         }
 

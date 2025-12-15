@@ -11,6 +11,8 @@ import {
 } from '../lib/positions';
 import { getCardFaces, getCurrentFaceIndex, isTransformableCard, syncCardStatsToFace } from '../lib/cardDisplay';
 import { ZONE } from '../constants/zones';
+import type { ScryfallCardLite } from '../types/scryfallLite';
+import { isFullScryfallCard, toScryfallCardLite } from '../types/scryfallLite';
 
 export type SharedMaps = {
   players: Y.Map<Y.Map<any>>;
@@ -23,6 +25,96 @@ export type SharedMaps = {
 };
 
 type Counter = Card['counters'][number];
+
+// Write-time sync limits. These are intentionally conservative to keep
+// Yjs updates bounded even if UI accidentally passes large blobs.
+const MAX_NAME_LENGTH = 120;
+const MAX_TYPE_LINE_LENGTH = 240;
+const MAX_ORACLE_TEXT_LENGTH = 2_000;
+const MAX_IMAGE_URL_LENGTH = 1_024;
+const MAX_SCRYFALL_ID_LENGTH = 64;
+const MAX_CUSTOM_TEXT_LENGTH = 280;
+const MAX_COUNTER_TYPE_LENGTH = 64;
+const MAX_COUNTER_COLOR_LENGTH = 32;
+const MAX_COUNTERS = 24;
+const MAX_PLAYER_NAME_LENGTH = 120;
+const MAX_PLAYER_COLOR_LENGTH = 16;
+
+const clampString = (value: unknown, max: number): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  return value.length > max ? value.slice(0, max) : value;
+};
+
+const sanitizeImageUrl = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  // Avoid syncing huge embedded images.
+  if (value.startsWith('data:')) return undefined;
+  return value.length > MAX_IMAGE_URL_LENGTH ? value.slice(0, MAX_IMAGE_URL_LENGTH) : value;
+};
+
+const sanitizeCountersForSync = (value: unknown): Counter[] => {
+  if (!Array.isArray(value)) return [];
+  const result: Counter[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw.type !== 'string') continue;
+    const type = raw.type.slice(0, MAX_COUNTER_TYPE_LENGTH);
+    if (!type) continue;
+    const countRaw = typeof raw.count === 'number' && Number.isFinite(raw.count) ? Math.floor(raw.count) : 0;
+    const count = Math.max(0, Math.min(999, countRaw));
+    const next: Counter = { type, count };
+    if (typeof raw.color === 'string') next.color = raw.color.slice(0, MAX_COUNTER_COLOR_LENGTH);
+    result.push(next);
+    if (result.length >= MAX_COUNTERS) break;
+  }
+  return result;
+};
+
+const normalizeScryfallLiteForSync = (value: unknown): ScryfallCardLite | undefined => {
+  if (!value || typeof value !== 'object') return undefined;
+  const card = value as any;
+  if (isFullScryfallCard(card)) return toScryfallCardLite(card);
+
+  const id = typeof card.id === 'string' ? card.id : undefined;
+  const layout = typeof card.layout === 'string' ? card.layout : undefined;
+  if (!id || !layout) return undefined;
+
+  // If the object already looks like a safe lite payload, preserve reference to avoid rewrite churn.
+  const allowedKeys = new Set(['id', 'layout', 'cmc', 'image_uris', 'card_faces']);
+  const topKeys = Object.keys(card);
+  const hasExtraTopKeys = topKeys.some((k) => !allowedKeys.has(k));
+  if (!hasExtraTopKeys) return card as ScryfallCardLite;
+
+  const lite: ScryfallCardLite = { id, layout };
+  if (typeof card.cmc === 'number' && Number.isFinite(card.cmc)) {
+    lite.cmc = card.cmc;
+  }
+
+  if (card.image_uris && typeof card.image_uris === 'object') {
+    const normal = sanitizeImageUrl(card.image_uris.normal);
+    const art_crop = sanitizeImageUrl(card.image_uris.art_crop);
+    if (normal || art_crop) lite.image_uris = { normal, art_crop };
+  }
+
+  if (Array.isArray(card.card_faces)) {
+    const faces = card.card_faces
+      .filter((face: any) => face && typeof face === 'object' && typeof face.name === 'string')
+      .slice(0, 8)
+      .map((face: any) => {
+        const liteFace: any = { name: face.name.slice(0, MAX_NAME_LENGTH) };
+        if (face.image_uris && typeof face.image_uris === 'object') {
+          const normal = sanitizeImageUrl(face.image_uris.normal);
+          const art_crop = sanitizeImageUrl(face.image_uris.art_crop);
+          if (normal || art_crop) liteFace.image_uris = { normal, art_crop };
+        }
+        if (typeof face.power === 'string') liteFace.power = face.power.slice(0, 16);
+        if (typeof face.toughness === 'string') liteFace.toughness = face.toughness.slice(0, 16);
+        return liteFace;
+      });
+    if (faces.length) lite.card_faces = faces;
+  }
+
+  return lite;
+};
 
 const ensureChildMap = (parent: Y.Map<any>, key: string): Y.Map<any> => {
   const existing = parent.get(key);
@@ -141,13 +233,13 @@ const removePlayerFromOrder = (maps: SharedMaps, playerId: string) => {
 const writePlayer = (maps: SharedMaps, player: Player) => {
   const target = ensureChildMap(maps.players, player.id);
   target.set('id', player.id);
-  target.set('name', player.name);
+  target.set('name', clampString(player.name, MAX_PLAYER_NAME_LENGTH));
   target.set('life', player.life);
-  target.set('color', player.color);
+  target.set('color', clampString(player.color, MAX_PLAYER_COLOR_LENGTH));
   target.set('cursor', player.cursor);
   target.set('commanderTax', player.commanderTax);
   target.set('deckLoaded', player.deckLoaded);
-  target.set('counters', player.counters);
+  target.set('counters', sanitizeCountersForSync(player.counters));
   const commanderDamage = ensureChildMap(target, 'commanderDamage');
   const seen = new Set<string>();
   Object.entries(player.commanderDamage ?? {}).forEach(([pid, dmg]) => {
@@ -221,7 +313,16 @@ const writeCard = (maps: SharedMaps, card: Card) => {
       : clampNormalizedPosition(card.position || { x: 0.5, y: 0.5 });
 
   const countersMap = ensureChildMap(target, 'counters');
-  writeCounters(countersMap, card.counters);
+  const counters = sanitizeCountersForSync(card.counters);
+  writeCounters(countersMap, counters);
+
+  const name = (card.name || 'Card').slice(0, MAX_NAME_LENGTH);
+  const imageUrl = sanitizeImageUrl(card.imageUrl);
+  const oracleText = clampString(card.oracleText, MAX_ORACLE_TEXT_LENGTH);
+  const typeLine = clampString(card.typeLine, MAX_TYPE_LINE_LENGTH);
+  const scryfallId = clampString(card.scryfallId, MAX_SCRYFALL_ID_LENGTH);
+  const scryfall = normalizeScryfallLiteForSync(card.scryfall);
+  const customText = clampString(card.customText, MAX_CUSTOM_TEXT_LENGTH);
 
   target.set('id', card.id);
   target.set('ownerId', card.ownerId);
@@ -232,18 +333,18 @@ const writeCard = (maps: SharedMaps, card: Card) => {
   target.set('currentFaceIndex', card.currentFaceIndex ?? 0);
   target.set('position', normalizedPosition);
   target.set('rotation', card.rotation);
-  target.set('name', card.name);
-  target.set('imageUrl', card.imageUrl);
-  target.set('oracleText', card.oracleText);
-  target.set('typeLine', card.typeLine);
-  target.set('scryfallId', card.scryfallId);
-  target.set('scryfall', card.scryfall);
+  target.set('name', name);
+  target.set('imageUrl', imageUrl);
+  target.set('oracleText', oracleText);
+  target.set('typeLine', typeLine);
+  target.set('scryfallId', scryfallId);
+  target.set('scryfall', scryfall);
   target.set('isToken', card.isToken);
-  target.set('power', card.power);
-  target.set('toughness', card.toughness);
-  target.set('basePower', card.basePower);
-  target.set('baseToughness', card.baseToughness);
-  target.set('customText', card.customText);
+  target.set('power', clampString(card.power, 16));
+  target.set('toughness', clampString(card.toughness, 16));
+  target.set('basePower', clampString(card.basePower, 16));
+  target.set('baseToughness', clampString(card.baseToughness, 16));
+  target.set('customText', customText);
 
   const order = ensureZoneOrder(maps, card.zoneId);
   if (!order.toArray().includes(card.id)) {
@@ -350,11 +451,11 @@ export function patchCard(maps: SharedMaps, cardId: string, updates: CardPatch) 
   if ('controllerId' in updates) setIfChanged(target, 'controllerId', updates.controllerId);
   if ('rotation' in updates) setIfChanged(target, 'rotation', updates.rotation);
   if ('currentFaceIndex' in updates) setIfChanged(target, 'currentFaceIndex', updates.currentFaceIndex ?? 0);
-  if ('customText' in updates) setIfChanged(target, 'customText', updates.customText);
-  if ('power' in updates) setIfChanged(target, 'power', updates.power);
-  if ('toughness' in updates) setIfChanged(target, 'toughness', updates.toughness);
-  if ('basePower' in updates) setIfChanged(target, 'basePower', updates.basePower);
-  if ('baseToughness' in updates) setIfChanged(target, 'baseToughness', updates.baseToughness);
+  if ('customText' in updates) setIfChanged(target, 'customText', clampString(updates.customText, MAX_CUSTOM_TEXT_LENGTH));
+  if ('power' in updates) setIfChanged(target, 'power', clampString(updates.power, 16));
+  if ('toughness' in updates) setIfChanged(target, 'toughness', clampString(updates.toughness, 16));
+  if ('basePower' in updates) setIfChanged(target, 'basePower', clampString(updates.basePower, 16));
+  if ('baseToughness' in updates) setIfChanged(target, 'baseToughness', clampString(updates.baseToughness, 16));
 
   if ('position' in updates && updates.position) {
     const normalized =
@@ -367,7 +468,7 @@ export function patchCard(maps: SharedMaps, cardId: string, updates: CardPatch) 
   if ('counters' in updates) {
     const zoneId = target.get('zoneId') as string | undefined;
     const zone = zoneId ? readZone(maps, zoneId) : null;
-    const nextCounters = enforceZoneCounterRules(Array.isArray(updates.counters) ? updates.counters : [], zone || undefined);
+    const nextCounters = enforceZoneCounterRules(sanitizeCountersForSync(updates.counters), zone || undefined);
     const countersMap = ensureChildMap(target, 'counters');
     writeCounters(countersMap, nextCounters);
   }

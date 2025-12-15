@@ -1206,22 +1206,26 @@ export const useGameStore = create<GameStore>()(
                 },
 
                 addGlobalCounter: (name: string, color?: string, _isRemote?: boolean) => {
-                    const existing = get().globalCounters[name];
+                    const normalizedName = name.trim().slice(0, 64);
+                    if (!normalizedName) return;
+
+                    const existing = get().globalCounters[normalizedName];
                     if (existing) return;
 
-                    const resolvedColor = resolveCounterColor(name, get().globalCounters);
+                    const resolvedColor = resolveCounterColor(normalizedName, get().globalCounters);
+                    const normalizedColor = (color || resolvedColor).slice(0, 16);
 
                     if (applyShared((maps) => {
-                        const current = maps.globalCounters.get(name) as string | undefined;
+                        const current = maps.globalCounters.get(normalizedName) as string | undefined;
                         if (current) return;
-                        maps.globalCounters.set(name, color || resolvedColor);
+                        maps.globalCounters.set(normalizedName, normalizedColor);
                     })) return;
 
                     set((state) => ({
-                        globalCounters: { ...state.globalCounters, [name]: color || resolvedColor }
+                        globalCounters: { ...state.globalCounters, [normalizedName]: normalizedColor }
                     }));
 
-                    emitLog('counter.global.add', { counterType: name, color: color || resolvedColor }, buildLogContext());
+                    emitLog('counter.global.add', { counterType: normalizedName, color: normalizedColor }, buildLogContext());
                 },
 
                 addCounterToCard: (cardId, counter, actorId, _isRemote) => {

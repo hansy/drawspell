@@ -39,7 +39,7 @@ export const AddCounterModal: React.FC<AddCounterModalProps> = ({ isOpen, onClos
     };
 
     const handleAdd = () => {
-        const type = selectedType === 'custom' ? customType.trim() : selectedType;
+        const type = (selectedType === 'custom' ? customType.trim() : selectedType).slice(0, 64);
         if (!type) return;
 
         const color = resolveCounterColor(type, globalCounters);
@@ -86,6 +86,7 @@ export const AddCounterModal: React.FC<AddCounterModalProps> = ({ isOpen, onClos
                                     setSelectedType('custom');
                                     setCustomType(e.target.value);
                                 }}
+                                maxLength={64}
                                 className="bg-zinc-800 border-zinc-700 w-full"
                                 placeholder="e.g. +1/+1, Poison"
                                 autoFocus

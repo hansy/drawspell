@@ -157,6 +157,59 @@ describe('Yjs update size regression', () => {
 
     expect(bytes).toBeLessThan(2_000);
   });
+
+  it('upsertCard strips full ScryfallCard blobs before syncing', () => {
+    const { doc, maps } = createDocAndMaps();
+
+    const zone: Zone = {
+      id: 'z1',
+      type: ZONE.BATTLEFIELD,
+      ownerId: 'p1',
+      cardIds: [],
+    };
+    yUpsertZone(maps, zone);
+
+    const hugeBlob = 'x'.repeat(50_000);
+    const fullScryfall: any = {
+      id: 's1',
+      layout: 'token',
+      type_line: 'Token Creature',
+      color_identity: [],
+      blob: hugeBlob,
+      image_uris: { normal: 'https://example.com/card.png' },
+      card_faces: [{ name: 'Face', image_uris: { normal: 'https://example.com/face.png' }, power: '1', toughness: '1' }],
+    };
+
+    const card: Card = {
+      id: 'c1',
+      ownerId: 'p1',
+      controllerId: 'p1',
+      zoneId: zone.id,
+      name: 'Big Token',
+      typeLine: 'Token Creature',
+      scryfallId: 's1',
+      scryfall: fullScryfall,
+      tapped: false,
+      faceDown: false,
+      position: { x: 0.1, y: 0.1 },
+      rotation: 0,
+      counters: [],
+    };
+
+    const bytes = measureTransactionUpdateBytes(doc, () => {
+      yUpsertCard(maps, card);
+    });
+
+    // If full Scryfall payloads ever leak into the shared doc, this will spike.
+    expect(bytes).toBeLessThan(10_000);
+
+    const snapshot = sharedSnapshot(maps);
+    const stored: any = snapshot.cards.c1?.scryfall;
+    expect(stored).toBeTruthy();
+    expect('type_line' in stored).toBe(false);
+    expect('color_identity' in stored).toBe(false);
+    expect('blob' in stored).toBe(false);
+  });
 });
 
 describe('sharedSnapshot legacy compatibility', () => {
@@ -211,5 +264,40 @@ describe('player order tracking', () => {
 
     removePlayer(maps, 'p1');
     expect(sharedSnapshot(maps).playerOrder).toEqual(['p2']);
+  });
+});
+
+describe('write-time clamping', () => {
+  it('clamps customText and counter type lengths', () => {
+    const maps = createSharedMaps();
+
+    const zone: Zone = {
+      id: 'z1',
+      type: ZONE.BATTLEFIELD,
+      ownerId: 'p1',
+      cardIds: ['c1'],
+    };
+
+    const card: Card = {
+      id: 'c1',
+      ownerId: 'p1',
+      controllerId: 'p1',
+      zoneId: zone.id,
+      name: 'Card',
+      tapped: false,
+      faceDown: false,
+      position: { x: 0.1, y: 0.1 },
+      rotation: 0,
+      counters: [{ type: 'x'.repeat(500), count: 1, color: '#'.repeat(200) }],
+      customText: 'y'.repeat(1_000),
+    };
+
+    yUpsertZone(maps, zone);
+    yUpsertCard(maps, card);
+
+    const snapshot = sharedSnapshot(maps);
+    expect(snapshot.cards.c1?.customText?.length).toBe(280);
+    expect(snapshot.cards.c1?.counters?.[0]?.type.length).toBeLessThanOrEqual(64);
+    expect(snapshot.cards.c1?.counters?.[0]?.color?.length).toBeLessThanOrEqual(32);
   });
 });

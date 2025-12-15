@@ -43,6 +43,7 @@ export const TextPromptDialog: React.FC<TextPromptDialogProps> = ({
                         value={value}
                         autoFocus
                         onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setValue(e.target.value)}
+                        maxLength={280}
                         className="bg-zinc-900 border-zinc-800 text-zinc-100 min-h-[100px] resize-none"
                         placeholder="Enter text..."
                     />
