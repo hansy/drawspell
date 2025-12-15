@@ -110,7 +110,7 @@ export const useGameDnD = () => {
         }
         lastMoveTime.current = now;
         handleDragMoveImpl(event);
-    }, []);
+    }, [moveCard, myPlayerId, reorderZoneCards, setGhostCard, setOverCardScale, setZoomEdge]);
 
     const handleDragMoveImpl = (event: DragMoveEvent) => {
         if (currentDragSeq.current == null) {
@@ -123,6 +123,7 @@ export const useGameDnD = () => {
         if (!over) {
             setGhostCard(null);
             setOverCardScale(1);
+            setZoomEdge(null);
             return;
         }
 

@@ -1319,7 +1319,10 @@ export const useGameStore = create<GameStore>()(
                     const current = get().battlefieldViewScale[playerId];
                     if (current === clamped) return;
 
-                    if (applyShared((maps) => ySetBattlefieldViewScale(maps, playerId, clamped))) return;
+                    // Apply to Yjs for multiplayer sync, but also update local store immediately.
+                    // The shared-doc -> store sync is debounced; without an optimistic local update,
+                    // continuous changes (like drag-to-zoom) can appear unresponsive.
+                    applyShared((maps) => ySetBattlefieldViewScale(maps, playerId, clamped));
 
                     set((state) => ({
                         battlefieldViewScale: {
