@@ -17,6 +17,8 @@ interface SideZoneProps {
   cardClassName?: string;
   faceDown?: boolean;
   showContextMenuCursor?: boolean;
+  rightIndicator?: React.ReactNode;
+  indicatorSide?: "left" | "right";
 }
 
 // Shared rendering for vertical sidebar zones (library/graveyard/exile).
@@ -32,6 +34,8 @@ export const SideZone: React.FC<SideZoneProps> = ({
   cardClassName,
   faceDown,
   showContextMenuCursor,
+  rightIndicator,
+  indicatorSide = "right",
 }) => {
   return (
     <div
@@ -46,9 +50,22 @@ export const SideZone: React.FC<SideZoneProps> = ({
           ZONE_SIDEWAYS_CLASSES,
           "bg-zinc-800/30 rounded-lg border-2 border-dashed border-zinc-700 flex items-center justify-center relative",
           "bg-zinc-800/30 rounded-lg border-2 border-dashed border-zinc-700 flex items-center justify-center relative",
-          showContextMenuCursor ? "cursor-context-menu" : (onClick && "cursor-pointer")
+          showContextMenuCursor
+            ? "cursor-context-menu"
+            : onClick && "cursor-pointer"
         )}
       >
+        {rightIndicator && (
+          <div
+            className={cn(
+              "absolute top-1/2 -translate-y-1/2 pointer-events-none z-[10] drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)]",
+              // Keep the indicator "inland" by placing it inside the zone bounds.
+              indicatorSide === "left" ? "left-[-20px]" : "right-[-20px]"
+            )}
+          >
+            {rightIndicator}
+          </div>
+        )}
         {card ? (
           <div className="w-full h-full relative overflow-hidden rounded-lg">
             <Card

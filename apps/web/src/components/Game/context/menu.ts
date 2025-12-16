@@ -1,4 +1,4 @@
-import { Card, CardId, PlayerId, ScryfallRelatedCard, Zone, ZoneId } from '../../../types';
+import { Card, CardId, Player, PlayerId, ScryfallRelatedCard, Zone, ZoneId } from '../../../types';
 import { ScryfallCard } from '../../../types/scryfall';
 import { getPlayerZones } from '../../../lib/gameSelectors';
 import { ZONE, ZONE_LABEL } from '../../../constants/zones';
@@ -40,7 +40,9 @@ export const buildZoneMoveActions = (
     allZones: Record<ZoneId, Zone>,
     actorId: PlayerId,
     moveCard: (cardId: CardId, toZoneId: ZoneId, opts?: { faceDown?: boolean }) => void,
-    moveCardToBottom?: (cardId: CardId, toZoneId: ZoneId) => void
+    moveCardToBottom?: (cardId: CardId, toZoneId: ZoneId) => void,
+    players?: Record<PlayerId, Player>,
+    setCardReveal?: (cardId: CardId, reveal: { toAll?: boolean; to?: PlayerId[] } | null) => void
 ): ContextMenuItem[] => {
     const playerZones = getPlayerZones(allZones, currentZone.ownerId);
     const hand = playerZones.hand;
@@ -65,6 +67,22 @@ export const buildZoneMoveActions = (
     };
 
     if (currentZone.type === ZONE.LIBRARY) {
+        if (setCardReveal && actorId === card.ownerId) {
+            const others = players ? Object.values(players).filter((p) => p.id !== actorId) : [];
+            const playerItems: ContextMenuItem[] = others.map((p) => ({
+                type: 'action',
+                label: p.name || p.id,
+                onSelect: () => setCardReveal(card.id, { to: [p.id] }),
+            }));
+
+            items.push({ type: 'action', label: 'Reveal to all', onSelect: () => setCardReveal(card.id, { toAll: true }) });
+            if (playerItems.length) {
+                items.push({ type: 'action', label: 'Reveal to...', onSelect: () => { }, submenu: playerItems });
+            }
+            items.push({ type: 'action', label: 'Hide reveal', onSelect: () => setCardReveal(card.id, null) });
+            items.push({ type: 'separator', id: 'reveal-divider' });
+        }
+
         if (library && moveCardToBottom) addIfAllowed(library, `Move to Bottom of ${ZONE_LABEL.library}`, () => moveCardToBottom(card.id, library.id));
         addIfAllowed(graveyard, `Move to ${ZONE_LABEL.graveyard}`, () => moveCard(card.id, graveyard!.id));
         addIfAllowed(exile, `Move to ${ZONE_LABEL.exile}`, () => moveCard(card.id, exile!.id));
@@ -89,6 +107,7 @@ export const buildZoneMoveActions = (
 interface CardActionBuilderParams {
     card: Card;
     zones: Record<ZoneId, Zone>;
+    players?: Record<PlayerId, Player>;
     myPlayerId: PlayerId;
     moveCard: (cardId: CardId, toZoneId: ZoneId, position?: { x: number; y: number }, actorId?: PlayerId, isRemote?: boolean, opts?: { suppressLog?: boolean; faceDown?: boolean }) => void;
     tapCard: (cardId: CardId) => void;
@@ -102,6 +121,7 @@ interface CardActionBuilderParams {
     globalCounters: Record<string, string>;
     updateCard?: (cardId: CardId, updates: Partial<Card>) => void;
     openTextPrompt?: (opts: { title: string; message?: string; initialValue?: string; onSubmit: (value: string) => void }) => void;
+    setCardReveal?: (cardId: CardId, reveal: { toAll?: boolean; to?: PlayerId[] } | null) => void;
     /** Pre-fetched related parts from full Scryfall data (tokens, meld parts, etc.) */
     relatedParts?: ScryfallRelatedCard[];
 }
@@ -109,6 +129,7 @@ interface CardActionBuilderParams {
 export const buildCardActions = ({
     card,
     zones,
+    players,
     myPlayerId,
     moveCard,
     tapCard,
@@ -122,12 +143,29 @@ export const buildCardActions = ({
     globalCounters,
     updateCard,
     openTextPrompt,
+    setCardReveal,
     relatedParts: preloadedRelatedParts,
 }: CardActionBuilderParams): ContextMenuItem[] => {
     const items: ContextMenuItem[] = [];
     const currentZone = zones[card.zoneId];
     const countersAllowed = currentZone?.type === ZONE.BATTLEFIELD;
     const canModify = canModifyCardState({ actorId: myPlayerId }, card, currentZone);
+
+    if (setCardReveal && currentZone && (currentZone.type === ZONE.HAND || currentZone.type === ZONE.LIBRARY) && myPlayerId === card.ownerId) {
+        const others = players ? Object.values(players).filter((p) => p.id !== myPlayerId) : [];
+        const playerItems: ContextMenuItem[] = others.map((p) => ({
+            type: 'action',
+            label: p.name || p.id,
+            onSelect: () => setCardReveal(card.id, { to: [p.id] }),
+        }));
+
+        items.push({ type: 'action', label: 'Reveal to all', onSelect: () => setCardReveal(card.id, { toAll: true }) });
+        if (playerItems.length) {
+            items.push({ type: 'action', label: 'Reveal to...', onSelect: () => { }, submenu: playerItems });
+        }
+        items.push({ type: 'action', label: 'Hide reveal', onSelect: () => setCardReveal(card.id, null) });
+        items.push({ type: 'separator', id: 'reveal-divider' });
+    }
 
     const canTap = canTapCard({ actorId: myPlayerId }, card, currentZone);
     if (canTap.allowed) {

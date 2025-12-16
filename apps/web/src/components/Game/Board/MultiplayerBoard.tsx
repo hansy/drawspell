@@ -22,6 +22,7 @@ import { LogDrawer } from '../UI/LogDrawer';
 import { useMultiplayerSync } from '../../../hooks/useMultiplayerSync';
 import { useNavigate } from '@tanstack/react-router';
 import { computePlayerColors, resolveOrderedPlayerIds } from '../../../lib/playerColors';
+import { OpponentLibraryRevealsModal } from '../UI/OpponentLibraryRevealsModal';
 
 
 
@@ -89,6 +90,7 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
     const [isLoadDeckModalOpen, setIsLoadDeckModalOpen] = useState(false);
     const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
     const [isLogOpen, setIsLogOpen] = useState(false);
+    const [revealedLibraryZoneId, setRevealedLibraryZoneId] = useState<string | null>(null);
 
     const getGridClass = () => {
         switch (layoutMode) {
@@ -237,6 +239,7 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
                                         battlefieldScale={battlefieldViewScale[slot.player.id] ?? 1}
                                         onViewZone={handleViewZone}
                                         onDrawCard={(playerId) => useGameStore.getState().drawCard(playerId, myPlayerId)}
+                                        onOpponentLibraryReveals={(zoneId) => setRevealedLibraryZoneId(zoneId)}
                                     />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-zinc-800 font-bold text-2xl uppercase tracking-widest select-none">
@@ -298,6 +301,11 @@ export const MultiplayerBoard: React.FC<MultiplayerBoardProps> = ({ sessionId })
                     isOpen={isLogOpen}
                     onClose={() => setIsLogOpen(false)}
                     playerColors={playerColors}
+                />
+                <OpponentLibraryRevealsModal
+                    isOpen={Boolean(revealedLibraryZoneId)}
+                    onClose={() => setRevealedLibraryZoneId(null)}
+                    zoneId={revealedLibraryZoneId}
                 />
                 <DragMonitor />
                 <DragOverlay dropAnimation={null}>

@@ -25,6 +25,7 @@ const MAX_PLAYERS = 8;
 const MAX_ZONES = MAX_PLAYERS * 10; // 80 zones
 const MAX_COUNTERS = 24;
 const MAX_NAME_LENGTH = 120;
+const MAX_REVEALED_TO = MAX_PLAYERS;
 
 const clampNumber = (value: unknown, min: number, max: number, fallback: number) => {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
@@ -114,6 +115,16 @@ const sanitizeCard = (value: any, zones: Record<string, Zone>): Card | null => {
   const counters = sanitizeCounters(value.counters);
   const position = normalizePosition(value.position);
   const rotation = clampNumber(value.rotation, -360, 360, 0);
+  const revealedTo =
+    Array.isArray(value.revealedTo)
+      ? Array.from(
+          new Set(
+            (value.revealedTo as unknown[]).filter(
+              (pid): pid is string => typeof pid === "string"
+            )
+          )
+        ).slice(0, MAX_REVEALED_TO)
+      : undefined;
   const faceIndex =
     typeof value.currentFaceIndex === "number" && Number.isFinite(value.currentFaceIndex)
       ? Math.max(0, Math.floor(value.currentFaceIndex))
@@ -126,6 +137,9 @@ const sanitizeCard = (value: any, zones: Record<string, Zone>): Card | null => {
     zoneId: value.zoneId,
     tapped: Boolean(value.tapped),
     faceDown: Boolean(value.faceDown),
+    knownToAll: Boolean(value.knownToAll),
+    revealedToAll: Boolean(value.revealedToAll),
+    revealedTo,
     currentFaceIndex: faceIndex,
     position,
     rotation,

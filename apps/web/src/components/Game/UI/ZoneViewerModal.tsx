@@ -33,9 +33,11 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
     const [filterText, setFilterText] = useState("");
     const zones = useGameStore((state) => state.zones);
     const cards = useGameStore((state) => state.cards);
+    const players = useGameStore((state) => state.players);
     const moveCard = useGameStore((state) => state.moveCard);
     const moveCardToBottom = useGameStore((state) => state.moveCardToBottom);
     const reorderZoneCards = useGameStore((state) => state.reorderZoneCards);
+    const setCardReveal = useGameStore((state) => state.setCardReveal);
     const myPlayerId = useGameStore((state) => state.myPlayerId);
 
     const [contextMenu, setContextMenu] = useState<{
@@ -189,7 +191,9 @@ export const ZoneViewerModal: React.FC<ZoneViewerModalProps> = ({
                 zones,
                 myPlayerId,
                 (cardId, toZoneId, opts) => moveCard(cardId, toZoneId, undefined, myPlayerId, undefined, opts),
-                (cardId, toZoneId) => moveCardToBottom(cardId, toZoneId, myPlayerId)
+                (cardId, toZoneId) => moveCardToBottom(cardId, toZoneId, myPlayerId),
+                players,
+                (cardId, reveal) => setCardReveal(cardId, reveal, myPlayerId)
             )
             : [];
 

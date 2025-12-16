@@ -39,6 +39,7 @@ const MAX_COUNTER_COLOR_LENGTH = 32;
 const MAX_COUNTERS = 24;
 const MAX_PLAYER_NAME_LENGTH = 120;
 const MAX_PLAYER_COLOR_LENGTH = 16;
+const MAX_REVEALED_TO = 8;
 
 const clampString = (value: unknown, max: number): string | undefined => {
   if (typeof value !== 'string') return undefined;
@@ -330,6 +331,14 @@ const writeCard = (maps: SharedMaps, card: Card) => {
   target.set('zoneId', card.zoneId);
   target.set('tapped', card.tapped);
   target.set('faceDown', card.faceDown);
+  target.set('knownToAll', Boolean(card.knownToAll));
+  target.set('revealedToAll', Boolean(card.revealedToAll));
+  target.set(
+    'revealedTo',
+    Array.isArray(card.revealedTo)
+      ? Array.from(new Set(card.revealedTo.filter((id) => typeof id === 'string'))).slice(0, MAX_REVEALED_TO)
+      : undefined
+  );
   target.set('currentFaceIndex', card.currentFaceIndex ?? 0);
   target.set('position', normalizedPosition);
   target.set('rotation', card.rotation);
@@ -371,6 +380,9 @@ const readCard = (maps: SharedMaps, cardId: string): Card | null => {
     zoneId: getVal('zoneId'),
     tapped: getVal('tapped'),
     faceDown: getVal('faceDown'),
+    knownToAll: getVal('knownToAll'),
+    revealedToAll: getVal('revealedToAll'),
+    revealedTo: getVal('revealedTo'),
     currentFaceIndex: getVal('currentFaceIndex'),
     position: normalizedPosition,
     rotation: getVal('rotation'),
@@ -395,6 +407,9 @@ export type CardPatch = Partial<
     Card,
     | 'tapped'
     | 'faceDown'
+    | 'knownToAll'
+    | 'revealedToAll'
+    | 'revealedTo'
     | 'controllerId'
     | 'rotation'
     | 'currentFaceIndex'
@@ -448,6 +463,17 @@ export function patchCard(maps: SharedMaps, cardId: string, updates: CardPatch) 
 
   if ('tapped' in updates) setIfChanged(target, 'tapped', updates.tapped);
   if ('faceDown' in updates) setIfChanged(target, 'faceDown', updates.faceDown);
+  if ('knownToAll' in updates) setIfChanged(target, 'knownToAll', updates.knownToAll);
+  if ('revealedToAll' in updates) setIfChanged(target, 'revealedToAll', updates.revealedToAll);
+  if ('revealedTo' in updates) {
+    const next =
+      updates.revealedTo === undefined
+        ? undefined
+        : Array.isArray(updates.revealedTo)
+          ? Array.from(new Set(updates.revealedTo.filter((id) => typeof id === 'string'))).slice(0, MAX_REVEALED_TO)
+          : [];
+    setIfChanged(target, 'revealedTo', next);
+  }
   if ('controllerId' in updates) setIfChanged(target, 'controllerId', updates.controllerId);
   if ('rotation' in updates) setIfChanged(target, 'rotation', updates.rotation);
   if ('currentFaceIndex' in updates) setIfChanged(target, 'currentFaceIndex', updates.currentFaceIndex ?? 0);

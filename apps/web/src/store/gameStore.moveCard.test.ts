@@ -128,6 +128,69 @@ describe('gameStore move/tap interactions', () => {
     expect(updated.tapped).toBe(false);
   });
 
+  it('marks a card as known when entering a public zone face-up and keeps it when returning to hand', () => {
+    const hand = makeZone('hand-me', 'HAND', 'me', ['cKnown']);
+    const battlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', []);
+    const library = makeZone('lib-me', 'LIBRARY', 'me', []);
+
+    const card = makeCard('cKnown', hand.id, 'me', false);
+
+    useGameStore.setState((state) => ({
+      zones: { ...state.zones, [hand.id]: hand, [battlefield.id]: battlefield, [library.id]: library },
+      cards: { ...state.cards, [card.id]: card },
+    }));
+
+    useGameStore.getState().moveCard(card.id, battlefield.id, undefined, 'me');
+    expect(useGameStore.getState().cards[card.id].knownToAll).toBe(true);
+
+    useGameStore.getState().moveCard(card.id, hand.id, undefined, 'me');
+    expect(useGameStore.getState().cards[card.id].knownToAll).toBe(true);
+
+    // Entering library hides again.
+    useGameStore.getState().moveCard(card.id, library.id, undefined, 'me');
+    const inLibrary = useGameStore.getState().cards[card.id];
+    expect(inLibrary.knownToAll).toBe(false);
+    expect(inLibrary.revealedToAll).toBe(false);
+    expect(inLibrary.revealedTo ?? []).toHaveLength(0);
+  });
+
+  it('clears reveal metadata when playing a card to the battlefield face-down', () => {
+    const hand = makeZone('hand-me', 'HAND', 'me', ['cFD']);
+    const battlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', []);
+
+    const card = { ...makeCard('cFD', hand.id, 'me', false), knownToAll: true, revealedToAll: true, revealedTo: ['opponent'] };
+
+    useGameStore.setState((state) => ({
+      zones: { ...state.zones, [hand.id]: hand, [battlefield.id]: battlefield },
+      cards: { ...state.cards, [card.id]: card },
+    }));
+
+    useGameStore.getState().moveCard(card.id, battlefield.id, undefined, 'me', undefined, { faceDown: true });
+    const moved = useGameStore.getState().cards[card.id];
+    expect(moved.faceDown).toBe(true);
+    expect(moved.knownToAll).toBe(false);
+    expect(moved.revealedToAll).toBe(false);
+    expect(moved.revealedTo ?? []).toHaveLength(0);
+  });
+
+  it('clears reveals for all cards in a library when shuffling', () => {
+    const library = makeZone('lib-me', 'LIBRARY', 'me', ['c1', 'c2']);
+    const c1 = { ...makeCard('c1', library.id, 'me', false), revealedToAll: true, revealedTo: ['opponent'] };
+    const c2 = { ...makeCard('c2', library.id, 'me', false), knownToAll: true };
+
+    useGameStore.setState((state) => ({
+      zones: { ...state.zones, [library.id]: library },
+      cards: { ...state.cards, c1, c2 },
+    }));
+
+    useGameStore.getState().shuffleLibrary('me', 'me');
+    const next = useGameStore.getState().cards;
+    expect(next.c1.revealedToAll).toBe(false);
+    expect(next.c1.revealedTo ?? []).toHaveLength(0);
+    expect(next.c1.knownToAll).toBe(false);
+    expect(next.c2.knownToAll).toBe(false);
+  });
+
   it('reorders cards within a zone for the owner', () => {
     const graveyard = makeZone('gy-me', 'GRAVEYARD', 'me', ['c3', 'c4', 'c5']);
     const cardsInZone = [

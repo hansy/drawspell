@@ -9,6 +9,7 @@ import { ZONE } from "../../../constants/zones";
 import { CardFace } from "./CardFace";
 import { useCardPreview } from "./CardPreviewProvider";
 import { getFlipRotation } from "../../../lib/cardDisplay";
+import { canViewerSeeCardIdentity } from "../../../lib/reveal";
 
 interface CardProps {
   card: CardType;
@@ -185,9 +186,8 @@ const CardInner: React.FC<CardProps> = ({
   const handleMouseEnter = React.useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (isDragging) return;
-      // Allow preview if faceDown ONLY if we are the owner
-      const isOwner = card.ownerId === myPlayerId;
-      if (faceDown && !isOwner) return;
+      const canPeek = canViewerSeeCardIdentity(card, zoneType, myPlayerId);
+      if (faceDown && !canPeek) return;
 
       if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current);
@@ -197,8 +197,8 @@ const CardInner: React.FC<CardProps> = ({
       const rect = e.currentTarget.getBoundingClientRect();
 
       if (zoneType === ZONE.HAND) {
-        // Only allowing hover jump/preview for MY hand (or if I own the card)
-        if (card.ownerId === myPlayerId) {
+        // Allow preview in hand only if the viewer can see the identity (own hand or revealed).
+        if (canPeek) {
           showPreview(card, rect);
         }
       } else if (zoneType === ZONE.COMMANDER) {
@@ -223,14 +223,15 @@ const CardInner: React.FC<CardProps> = ({
 
   const handleClick = React.useCallback(
     (e: React.MouseEvent) => {
-      // Allow locking in Battlefield AND Hand (if it's my hand)
-      const allowedInHand = zoneType === ZONE.HAND && card.ownerId === myPlayerId;
+      // Allow locking in Battlefield AND Hand (if identity is visible to viewer).
+      const allowedInHand = zoneType === ZONE.HAND && canViewerSeeCardIdentity(card, zoneType, myPlayerId);
       if ((zoneType !== ZONE.BATTLEFIELD && !allowedInHand) || isDragging) return;
+      if (faceDown && !canViewerSeeCardIdentity(card, zoneType, myPlayerId)) return;
 
       const rect = e.currentTarget.getBoundingClientRect();
       toggleLock(card, rect);
     },
-    [zoneType, isDragging, card, myPlayerId, toggleLock]
+    [zoneType, isDragging, card, myPlayerId, toggleLock, faceDown]
   );
 
   const handleDoubleClick = React.useCallback(() => {

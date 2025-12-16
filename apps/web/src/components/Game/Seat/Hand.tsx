@@ -4,6 +4,8 @@ import { Zone as ZoneType, Card as CardType } from "../../../types";
 import { Card } from "../Card/Card";
 import { Zone } from "../Zone/Zone";
 import { ZONE_LABEL } from "@/constants/zones";
+import { useGameStore } from "../../../store/gameStore";
+import { shouldRenderFaceDown } from "../../../lib/reveal";
 import {
   SortableContext,
   useSortable,
@@ -33,6 +35,7 @@ const SortableCard = React.memo(({
   isMe: boolean;
   onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
 }) => {
+  const myPlayerId = useGameStore((state) => state.myPlayerId);
   const {
     attributes,
     listeners,
@@ -83,7 +86,7 @@ const SortableCard = React.memo(({
         <Card
           card={card}
           className="shadow-xl ring-1 ring-black/50"
-          faceDown={!isMe}
+          faceDown={shouldRenderFaceDown(card, "hand", myPlayerId)}
           onContextMenu={handleContextMenu}
           disableDrag // We use Sortable's drag handle
           isDragging={isDragging}

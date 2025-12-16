@@ -589,6 +589,26 @@ export const useGameStore = create<GameStore>()(
                         if (newFaceDown !== undefined) {
                             yPatchCard(maps, cardId, { faceDown: newFaceDown });
                         }
+
+                        // Reveal rules (best-effort UX only).
+                        // - Entering library hides again.
+                        // - Entering public zones face-up becomes public knowledge.
+                        // - Battlefield face-down hides identity for everyone except controller peek.
+                        const toType = toZone.type;
+                        const fromType = fromZone.type;
+                        const toHidden = toType === ZONE.HAND || toType === ZONE.LIBRARY;
+                        const enteringLibrary = toType === ZONE.LIBRARY && fromType !== ZONE.LIBRARY;
+                        const faceDownBattlefield = toType === ZONE.BATTLEFIELD && newFaceDown === true;
+
+                        if (enteringLibrary || faceDownBattlefield) {
+                            yPatchCard(maps, cardId, {
+                                knownToAll: false,
+                                revealedToAll: false,
+                                revealedTo: [],
+                            } as any);
+                        } else if (!toHidden && !faceDownBattlefield) {
+                            yPatchCard(maps, cardId, { knownToAll: true } as any);
+                        }
                     });
 
                     const leavingBattlefield = fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD;
@@ -670,15 +690,54 @@ export const useGameStore = create<GameStore>()(
                             }
                         }
 
+                        const applyRevealRules = (
+                            next: typeof card,
+                            fromType: string,
+                            toType: string,
+                            faceDown: boolean | undefined
+                        ) => {
+                            // Entering library: everything becomes hidden again.
+                            if (toType === ZONE.LIBRARY && fromType !== ZONE.LIBRARY) {
+                                return {
+                                    ...next,
+                                    knownToAll: false,
+                                    revealedToAll: false,
+                                    revealedTo: [],
+                                };
+                            }
+
+                            // Battlefield face-down hides identity from everyone except controller peek.
+                            if (toType === ZONE.BATTLEFIELD && faceDown === true) {
+                                return {
+                                    ...next,
+                                    knownToAll: false,
+                                    revealedToAll: false,
+                                    revealedTo: [],
+                                };
+                            }
+
+                            // Any face-up card in a public zone becomes public knowledge.
+                            const toHidden = toType === ZONE.HAND || toType === ZONE.LIBRARY;
+                            if (!toHidden) {
+                                return {
+                                    ...next,
+                                    knownToAll: true,
+                                };
+                            }
+
+                            return next;
+                        };
+
                         // If moving within the same zone
                         if (fromZoneId === toZoneId) {
                             const nextCard = leavingBattlefield ? resetToFront : card;
+                            const nextFaceDown = opts?.faceDown ?? nextCard.faceDown;
                             cardsCopy[cardId] = {
-                                ...nextCard,
+                                ...applyRevealRules(nextCard as any, fromZone.type, toZone.type, nextFaceDown),
                                 position: newPosition,
                                 tapped: nextTapped,
                                 counters: nextCounters,
-                                faceDown: opts?.faceDown ?? nextCard.faceDown,
+                                faceDown: nextFaceDown,
                                 controllerId: controlWillChange ? nextControllerId : nextCard.controllerId,
                             };
                             return {
@@ -713,7 +772,7 @@ export const useGameStore = create<GameStore>()(
                         }
 
                         cardsCopy[cardId] = {
-                            ...nextCard,
+                            ...applyRevealRules(nextCard as any, fromZone.type, toZone.type, newFaceDown),
                             zoneId: toZoneId,
                             position: newPosition,
                             tapped: nextTapped,
@@ -795,6 +854,15 @@ export const useGameStore = create<GameStore>()(
                         const toOrder = snapshot.zones[toZoneId]?.cardIds ?? [];
                         const reordered = [cardId, ...toOrder.filter((id) => id !== cardId)];
                         yReorderZoneCards(maps, toZoneId, reordered);
+
+                        if (toZone.type === ZONE.LIBRARY && fromZone.type !== ZONE.LIBRARY) {
+                            yPatchCard(maps, cardId, { knownToAll: false, revealedToAll: false, revealedTo: [] } as any);
+                        } else {
+                            const toHidden = toZone.type === ZONE.HAND || toZone.type === ZONE.LIBRARY;
+                            if (!toHidden && !(toZone.type === ZONE.BATTLEFIELD && card.faceDown)) {
+                                yPatchCard(maps, cardId, { knownToAll: true } as any);
+                            }
+                        }
                     })) return;
 
                     const leavingBattlefield = fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD;
@@ -846,12 +914,19 @@ export const useGameStore = create<GameStore>()(
                         const resetToFront = syncCardStatsToFace({ ...card, currentFaceIndex: 0 }, 0);
 
                         const nextCard = leavingBattlefield ? resetToFront : card;
+                        const revealCleared = toZone.type === ZONE.LIBRARY && fromZone.type !== ZONE.LIBRARY
+                            ? { knownToAll: false, revealedToAll: false, revealedTo: [] as string[] }
+                            : null;
+                        const shouldMarkKnown =
+                            (toZone.type !== ZONE.HAND && toZone.type !== ZONE.LIBRARY) &&
+                            !(toZone.type === ZONE.BATTLEFIELD && nextCard.faceDown);
                         cardsCopy[cardId] = {
                             ...nextCard,
                             zoneId: toZoneId,
                             tapped: nextTapped,
                             counters: nextCounters,
                             controllerId: controlWillChange ? nextControllerId : nextCard.controllerId,
+                            ...(revealCleared ?? (shouldMarkKnown ? { knownToAll: true } : null)),
                         };
 
                         return {
@@ -1056,13 +1131,24 @@ export const useGameStore = create<GameStore>()(
                         if (!zone) return;
                         const shuffledIds = [...zone.cardIds].sort(() => Math.random() - 0.5);
                         yReorderZoneCards(maps, libraryZone.id, shuffledIds);
+                        // Shuffling hides any previously revealed/known library cards again.
+                        zone.cardIds.forEach((id) => {
+                            yPatchCard(maps, id, { knownToAll: false, revealedToAll: false, revealedTo: [] } as any);
+                        });
                     });
 
                     if (!sharedApplied) {
                         set((state) => {
                             const shuffledIds = [...(state.zones[libraryZone.id]?.cardIds || [])].sort(() => Math.random() - 0.5);
+                            const cardsCopy = { ...state.cards };
+                            shuffledIds.forEach((id) => {
+                                const card = cardsCopy[id];
+                                if (!card) return;
+                                cardsCopy[id] = { ...card, knownToAll: false, revealedToAll: false, revealedTo: [] };
+                            });
 
                             return {
+                                cards: cardsCopy,
                                 zones: {
                                     ...state.zones,
                                     [libraryZone.id]: { ...state.zones[libraryZone.id], cardIds: shuffledIds },
@@ -1074,6 +1160,44 @@ export const useGameStore = create<GameStore>()(
                     logPermission({ action: 'shuffleLibrary', actorId: actor, allowed: true, details: { playerId } });
 
                     emitLog('library.shuffle', { actorId: actor, playerId }, buildLogContext());
+                },
+
+                setCardReveal: (cardId, reveal, actorId, _isRemote) => {
+                    const actor = actorId ?? get().myPlayerId;
+                    const snapshot = get();
+                    const card = snapshot.cards[cardId];
+                    if (!card) return;
+                    if (actor !== card.ownerId) return;
+
+                    const zoneType = snapshot.zones[card.zoneId]?.type;
+                    if (zoneType !== ZONE.HAND && zoneType !== ZONE.LIBRARY) return;
+
+                    const updates: any = {};
+                    if (!reveal) {
+                        updates.revealedToAll = false;
+                        updates.revealedTo = [];
+                    } else if (reveal.toAll) {
+                        updates.revealedToAll = true;
+                        updates.revealedTo = [];
+                    } else {
+                        const to = Array.isArray(reveal.to) ? reveal.to.filter((id) => typeof id === 'string' && id !== card.ownerId) : [];
+                        updates.revealedToAll = false;
+                        updates.revealedTo = Array.from(new Set([...(card.revealedTo ?? []), ...to]));
+                    }
+
+                    if (applyShared((maps) => {
+                        yPatchCard(maps, cardId, updates);
+                    })) return;
+
+                    set((state) => ({
+                        cards: {
+                            ...state.cards,
+                            [cardId]: {
+                                ...state.cards[cardId],
+                                ...updates,
+                            },
+                        },
+                    }));
                 },
 
                 resetDeck: (playerId, actorId, _isRemote) => {

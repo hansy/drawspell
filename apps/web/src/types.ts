@@ -35,6 +35,18 @@ export interface Card extends CardIdentity {
   // State
   tapped: boolean;
   faceDown: boolean;
+  /**
+   * Reveal/visibility metadata (best-effort UX only; not cryptographically private).
+   *
+   * - `knownToAll`: sticky "public knowledge" once the card is face-up in a public zone.
+   * - `revealedToAll` / `revealedTo`: explicit reveal from hidden zones (hand/library).
+   *
+   * Library entry and shuffles clear these fields.
+   * Battlefield face-down hides identity from everyone except controller peek.
+   */
+  knownToAll?: boolean;
+  revealedToAll?: boolean;
+  revealedTo?: PlayerId[];
   // 0-based index into the Scryfall card_faces array. Defaults to the front face.
   currentFaceIndex?: number;
   // Center position relative to the zone (logical/unscaled units)
@@ -108,6 +120,14 @@ export interface GameState {
   untapAll: (playerId: PlayerId, isRemote?: boolean) => void;
   drawCard: (playerId: PlayerId, actorId?: PlayerId, isRemote?: boolean) => void;
   shuffleLibrary: (playerId: PlayerId, actorId?: PlayerId, isRemote?: boolean) => void;
+  setCardReveal: (
+    cardId: CardId,
+    reveal:
+      | { toAll?: boolean; to?: PlayerId[] }
+      | null,
+    actorId?: PlayerId,
+    isRemote?: boolean
+  ) => void;
   resetDeck: (playerId: PlayerId, actorId?: PlayerId, isRemote?: boolean) => void;
   unloadDeck: (playerId: PlayerId, actorId?: PlayerId, isRemote?: boolean) => void;
   setDeckLoaded: (playerId: PlayerId, loaded: boolean, isRemote?: boolean) => void;

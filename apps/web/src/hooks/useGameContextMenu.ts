@@ -116,6 +116,7 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
         const cardActions = actionRegistry.buildCardActions({
             card,
             zones,
+            players: useGameStore.getState().players,
             myPlayerId,
             moveCard: (cardId, toZoneId, position, _actorId, isRemote, opts) => moveCard(cardId, toZoneId, position, myPlayerId, isRemote, opts),
             tapCard: (cardId) => useGameStore.getState().tapCard(cardId, myPlayerId),
@@ -123,6 +124,7 @@ export const useGameContextMenu = (myPlayerId: string, onViewZone?: (zoneId: Zon
             duplicateCard: (cardId) => duplicateCard(cardId, myPlayerId),
             createRelatedCard,
             updateCard: (cardId, updates) => useGameStore.getState().updateCard(cardId, updates, myPlayerId),
+            setCardReveal: (cardId, reveal) => useGameStore.getState().setCardReveal(cardId, reveal, myPlayerId),
             addCounter: (cardId, counter) => {
                 useGameStore.getState().addCounterToCard(cardId, counter);
             },

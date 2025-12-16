@@ -10,12 +10,14 @@ import { LifeBox } from "../Player/LifeBox";
 import { Hand } from "./Hand";
 import { Battlefield } from "./Battlefield";
 import { Button } from "../../ui/button";
-import { Plus } from "lucide-react";
+import { Eye, Plus } from "lucide-react";
 import { CommanderZone } from "./CommanderZone";
 import { BottomBar } from "./BottomBar";
 import { getCardsInZone, getPlayerZones } from "../../../lib/gameSelectors";
 import { SideZone } from "./SideZone";
 import { ZONE, ZONE_LABEL } from "../../../constants/zones";
+import { canViewerSeeCardIdentity } from "../../../lib/reveal";
+import { useGameStore } from "../../../store/gameStore";
 
 interface SeatProps {
   player: Player;
@@ -34,6 +36,7 @@ interface SeatProps {
   onViewZone?: (zoneId: ZoneId, count?: number) => void;
   onDrawCard?: (playerId: string) => void;
   battlefieldScale?: number;
+  onOpponentLibraryReveals?: (zoneId: ZoneId) => void;
 }
 
 const SeatInner: React.FC<SeatProps> = ({
@@ -53,26 +56,63 @@ const SeatInner: React.FC<SeatProps> = ({
   onViewZone,
   onDrawCard,
   battlefieldScale = 1,
+  onOpponentLibraryReveals,
 }) => {
   const isTop = position.startsWith("top");
   const isRight = position.endsWith("right");
+  const myPlayerId = useGameStore((state) => state.myPlayerId);
 
   // Memoize zone lookups to avoid recalculation on every render
   const playerZones = React.useMemo(
     () => getPlayerZones(zones, player.id),
     [zones, player.id]
   );
-  const { hand: handZone, library: libraryZone, graveyard: graveyardZone, exile: exileZone, battlefield: battlefieldZone, commander: commandZone } = playerZones;
+  const {
+    hand: handZone,
+    library: libraryZone,
+    graveyard: graveyardZone,
+    exile: exileZone,
+    battlefield: battlefieldZone,
+    commander: commandZone,
+  } = playerZones;
 
   // Memoize card arrays per zone
-  const libraryCards = React.useMemo(() => getCardsInZone(cards, libraryZone), [cards, libraryZone]);
-  const graveyardCards = React.useMemo(() => getCardsInZone(cards, graveyardZone), [cards, graveyardZone]);
-  const exileCards = React.useMemo(() => getCardsInZone(cards, exileZone), [cards, exileZone]);
-  const battlefieldCards = React.useMemo(() => getCardsInZone(cards, battlefieldZone), [cards, battlefieldZone]);
-  const commandCards = React.useMemo(() => getCardsInZone(cards, commandZone), [cards, commandZone]);
-  const handCards = React.useMemo(() => getCardsInZone(cards, handZone), [cards, handZone]);
+  const libraryCards = React.useMemo(
+    () => getCardsInZone(cards, libraryZone),
+    [cards, libraryZone]
+  );
+  const graveyardCards = React.useMemo(
+    () => getCardsInZone(cards, graveyardZone),
+    [cards, graveyardZone]
+  );
+  const exileCards = React.useMemo(
+    () => getCardsInZone(cards, exileZone),
+    [cards, exileZone]
+  );
+  const battlefieldCards = React.useMemo(
+    () => getCardsInZone(cards, battlefieldZone),
+    [cards, battlefieldZone]
+  );
+  const commandCards = React.useMemo(
+    () => getCardsInZone(cards, commandZone),
+    [cards, commandZone]
+  );
+  const handCards = React.useMemo(
+    () => getCardsInZone(cards, handZone),
+    [cards, handZone]
+  );
 
   const inverseScale = (1 / scale) * 100;
+
+  const opponentLibraryRevealCount = React.useMemo(() => {
+    if (!libraryZone) return 0;
+    if (isMe) return 0;
+    return libraryZone.cardIds.filter((id) => {
+      const card = cards[id];
+      if (!card) return false;
+      return canViewerSeeCardIdentity(card, ZONE.LIBRARY, myPlayerId);
+    }).length;
+  }, [libraryZone, cards, isMe, myPlayerId]);
 
   return (
     <div
@@ -155,12 +195,30 @@ const SeatInner: React.FC<SeatProps> = ({
                 onContextMenu={onZoneContextMenu}
                 faceDown
                 showContextMenuCursor={player.deckLoaded}
+                indicatorSide={isRight ? "left" : "right"}
+                onClick={
+                  !isMe &&
+                  opponentLibraryRevealCount > 0 &&
+                  onOpponentLibraryReveals
+                    ? (e) => {
+                        e.preventDefault();
+                        onOpponentLibraryReveals(libraryZone.id);
+                      }
+                    : undefined
+                }
+                rightIndicator={
+                  !isMe && opponentLibraryRevealCount > 0 ? (
+                    <div className="w-9 h-9 rounded-full bg-zinc-950/95 border border-zinc-700 flex items-center justify-center shadow-lg">
+                      <Eye size={20} className="text-white" />
+                    </div>
+                  ) : undefined
+                }
                 onDoubleClick={
                   isMe && onDrawCard
                     ? (e) => {
-                      e.preventDefault();
-                      onDrawCard(player.id);
-                    }
+                        e.preventDefault();
+                        onDrawCard(player.id);
+                      }
                     : undefined
                 }
                 emptyContent={
