@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Eye } from "lucide-react";
 import { Card as CardType } from "../../../types";
 import { CARD_ASPECT_RATIO } from "../../../lib/constants";
 import { cn } from "../../../lib/utils";
@@ -150,6 +151,32 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     >
       {locked && onClose && (
         <div className="absolute -top-10 -right-16 flex items-center gap-2">
+          {/* Revealed Icon - Only visible to controller */}
+          {(currentCard.revealedToAll || (currentCard.revealedTo && currentCard.revealedTo.length > 0)) &&
+            currentCard.controllerId === myPlayerId && (
+              <div
+                className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors border border-zinc-700 shadow-lg relative group/preview-eye cursor-help"
+                title={currentCard.revealedToAll ? "Revealed to everyone" : "Revealed to specific players"}
+              >
+                <Eye
+                  size={16}
+                  strokeWidth={2}
+                />
+                <div className="absolute right-0 bottom-full mb-2 hidden group-hover/preview-eye:block bg-zinc-900 text-xs text-white p-2 rounded border border-zinc-700 whitespace-nowrap z-50 shadow-xl min-w-[100px]">
+                  <div className="font-bold mb-1 border-b border-zinc-700 pb-1">Revealed to:</div>
+                  {currentCard.revealedToAll ? (
+                    <div>Everyone</div>
+                  ) : (
+                    <div className="flex flex-col gap-0.5">
+                      {(currentCard.revealedTo || []).map(id => {
+                        // We need access to players map. Ideally we fetch it from store here.
+                        return <PlayerName key={id} playerId={id} />;
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           {hasMultipleFaces && (
             <button
               onClick={handleFlip}
@@ -220,6 +247,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
         // But if showCounters=false isn't a prop..
         // Let's modify CardFace usage below.
 
+        hideRevealIcon={true}
         showNameLabel={false}
         customTextPosition="sidebar"
         customTextNode={
@@ -397,3 +425,8 @@ const CustomTextEditor: React.FC<{ card: CardType; locked?: boolean }> = ({
     </div>
   );
 };
+
+function PlayerName({ playerId }: { playerId: string }) {
+  const player = useGameStore((state) => state.players[playerId]);
+  return <div>{player?.name || playerId}</div>;
+}

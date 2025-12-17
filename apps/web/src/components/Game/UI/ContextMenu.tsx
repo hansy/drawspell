@@ -143,6 +143,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, referenceElement
                                         {item.shortcut}
                                     </span>
                                 )}
+                                {item.checked && (
+                                    <span className="mr-2 text-indigo-400">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="20 6 9 17 4 12" />
+                                        </svg>
+                                    </span>
+                                )}
                                 {item.submenu && <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-300" />}
                             </button>
 

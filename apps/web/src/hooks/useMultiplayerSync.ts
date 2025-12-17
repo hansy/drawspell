@@ -36,6 +36,7 @@ import {
   computePlayerColors,
   resolveOrderedPlayerIds,
 } from "../lib/playerColors";
+import { useClientPrefsStore } from "../store/clientPrefsStore";
 
 export type SyncStatus = "connecting" | "connected";
 
@@ -164,6 +165,8 @@ export function useMultiplayerSync(sessionId: string) {
     const ensureLocalPlayerInitialized = () => {
       const snapshot = sharedSnapshot(sharedMaps as any);
       const playerId = ensuredPlayerId;
+      const desiredName = useClientPrefsStore.getState().ensureUsername();
+      const defaultName = `Player ${playerId.slice(0, 4).toUpperCase()}`;
 
       const playerExists = Boolean(snapshot.players[playerId]);
       const hasZoneOfType = (type: string) =>
@@ -194,10 +197,18 @@ export function useMultiplayerSync(sessionId: string) {
         (p: any) => !p?.color
       );
 
+      const currentName = snapshot.players?.[playerId]?.name;
+      const needsNameUpdate = Boolean(
+        desiredName &&
+          desiredName !== currentName &&
+          (!currentName || currentName === defaultName)
+      );
+
       if (
         playerExists &&
         zoneSpecs.every((z) => !z.shouldCreate) &&
-        !missingAnyColor
+        !missingAnyColor &&
+        !needsNameUpdate
       )
         return;
 
@@ -205,7 +216,7 @@ export function useMultiplayerSync(sessionId: string) {
         if (!playerExists) {
           upsertPlayer(sharedMaps, {
             id: playerId,
-            name: `Player ${playerId.slice(0, 4).toUpperCase()}`,
+            name: desiredName,
             life: 40,
             counters: [],
             commanderDamage: {},
@@ -213,8 +224,10 @@ export function useMultiplayerSync(sessionId: string) {
             deckLoaded: false,
             color: desiredColors[playerId],
           } as any);
-        } else if (!snapshot.players[playerId]?.color) {
-          patchPlayer(sharedMaps, playerId, { color: desiredColors[playerId] } as any);
+        } else {
+          if (needsNameUpdate) {
+            patchPlayer(sharedMaps, playerId, { name: desiredName } as any);
+          }
         }
 
         Object.entries(desiredColors).forEach(([id, color]) => {

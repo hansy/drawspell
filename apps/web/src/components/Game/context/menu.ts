@@ -46,6 +46,7 @@ export interface ContextMenuAction {
   submenu?: ContextMenuItem[];
   disabledReason?: string;
   shortcut?: string;
+  checked?: boolean;
 }
 
 export interface ContextMenuSeparator {
@@ -101,31 +102,59 @@ export const buildZoneMoveActions = (
       const others = players
         ? Object.values(players).filter((p) => p.id !== actorId)
         : [];
-      const playerItems: ContextMenuItem[] = others.map((p) => ({
+
+      const revealItems: ContextMenuItem[] = [];
+
+      // Reveal to All
+      revealItems.push({
         type: "action",
-        label: p.name || p.id,
-        onSelect: () => setCardReveal(card.id, { to: [p.id] }),
-      }));
+        label: "Reveal to all",
+        checked: card.revealedToAll,
+        onSelect: () => setCardReveal(card.id, { toAll: true }),
+      });
+
+      revealItems.push({ type: "separator" });
+
+      // Individual Players
+      others.forEach((p) => {
+        const isRevealed = card.revealedToAll || card.revealedTo?.includes(p.id);
+        revealItems.push({
+          type: "action",
+          label: p.name || p.id,
+          checked: isRevealed,
+          onSelect: () => {
+            if (card.revealedToAll) {
+              const newTo = others.filter((o) => o.id !== p.id).map((o) => o.id);
+              setCardReveal(card.id, { to: newTo });
+            } else {
+              const current = card.revealedTo ?? [];
+              let newTo: string[];
+              if (current.includes(p.id)) {
+                newTo = current.filter((id) => id !== p.id);
+              } else {
+                newTo = [...current, p.id];
+              }
+              setCardReveal(card.id, { to: newTo });
+            }
+          },
+        });
+      });
+
+      revealItems.push({ type: "separator" });
+
+      // Hide for all
+      revealItems.push({
+        type: "action",
+        label: "Hide for all",
+        onSelect: () => setCardReveal(card.id, null),
+      });
 
       items.push({
         type: "action",
-        label: "Reveal to all",
-        onSelect: () => setCardReveal(card.id, { toAll: true }),
+        label: "Reveal",
+        onSelect: () => { },
+        submenu: revealItems,
       });
-      if (playerItems.length) {
-        items.push({
-          type: "action",
-          label: "Reveal to...",
-          onSelect: () => { },
-          submenu: playerItems,
-        });
-      }
-      items.push({
-        type: "action",
-        label: "Hide reveal",
-        onSelect: () => setCardReveal(card.id, null),
-      });
-      items.push({ type: "separator", id: "reveal-divider" });
     }
 
     if (library && moveCardToBottom)
@@ -256,31 +285,61 @@ export const buildCardActions = ({
     const others = players
       ? Object.values(players).filter((p) => p.id !== myPlayerId)
       : [];
-    const playerItems: ContextMenuItem[] = others.map((p) => ({
+
+    const revealItems: ContextMenuItem[] = [];
+
+    // Reveal to All Action
+    revealItems.push({
       type: "action",
-      label: p.name || p.id,
-      onSelect: () => setCardReveal(card.id, { to: [p.id] }),
-    }));
+      label: "Reveal to all",
+      checked: card.revealedToAll,
+      onSelect: () => setCardReveal(card.id, { toAll: true }),
+    });
+
+    revealItems.push({ type: "separator" });
+
+    // Individual Players
+    others.forEach((p) => {
+      const isRevealed = card.revealedToAll || card.revealedTo?.includes(p.id);
+      revealItems.push({
+        type: "action",
+        label: p.name || p.id,
+        checked: isRevealed,
+        onSelect: () => {
+          if (card.revealedToAll) {
+            // If currently revealed to all, switching off one person means
+            // switching to explicit list of everyone ELSE.
+            const newTo = others.filter((o) => o.id !== p.id).map((o) => o.id);
+            setCardReveal(card.id, { to: newTo });
+          } else {
+            const current = card.revealedTo ?? [];
+            let newTo: string[];
+            if (current.includes(p.id)) {
+              newTo = current.filter((id) => id !== p.id);
+            } else {
+              newTo = [...current, p.id];
+            }
+            setCardReveal(card.id, { to: newTo });
+          }
+        },
+      });
+    });
+
+    revealItems.push({ type: "separator" });
+
+    // Hide for all
+    revealItems.push({
+      type: "action",
+      label: "Hide for all",
+      onSelect: () => setCardReveal(card.id, null),
+    });
 
     items.push({
       type: "action",
-      label: "Reveal to all",
-      onSelect: () => setCardReveal(card.id, { toAll: true }),
+      label: "Reveal",
+      onSelect: () => { },
+      submenu: revealItems,
     });
-    if (playerItems.length) {
-      items.push({
-        type: "action",
-        label: "Reveal to...",
-        onSelect: () => { },
-        submenu: playerItems,
-      });
-    }
-    items.push({
-      type: "action",
-      label: "Hide reveal",
-      onSelect: () => setCardReveal(card.id, null),
-    });
-    items.push({ type: "separator", id: "reveal-divider" });
   }
 
   const canTap = canTapCard({ actorId: myPlayerId }, card, currentZone);

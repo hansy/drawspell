@@ -1181,12 +1181,14 @@ export const useGameStore = create<GameStore>()(
                         updates.revealedTo = [];
                     } else {
                         const MAX_REVEALED_TO = 8;
+                        // Use provided list directly (replace semantics), filtering out owner and validating strings
                         const to = Array.isArray(reveal.to)
                             ? reveal.to.filter((id) => typeof id === 'string' && id !== card.ownerId)
                             : [];
                         updates.revealedToAll = false;
-                        const merged = Array.from(new Set([...(card.revealedTo ?? []), ...to]));
-                        updates.revealedTo = merged.slice(Math.max(0, merged.length - MAX_REVEALED_TO));
+                        // Deduplicate in case the caller sent duplicates
+                        const unique = Array.from(new Set(to));
+                        updates.revealedTo = unique.slice(0, MAX_REVEALED_TO);
                     }
 
                     if (applyShared((maps) => {

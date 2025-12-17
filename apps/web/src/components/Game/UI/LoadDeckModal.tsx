@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../ui/dialog';
 import { Button } from '../../ui/button';
 import { toast } from 'sonner';
@@ -7,6 +7,8 @@ import { useGameStore } from '../../../store/gameStore';
 import { ZONE } from '../../../constants/zones';
 import { getZoneByType } from '../../../lib/gameSelectors';
 import { batchSharedMutations, getYDocHandles, getYProvider } from '../../../yjs/docManager';
+import { useClientPrefsStore } from '../../../store/clientPrefsStore';
+import { cn } from '../../../lib/utils';
 
 
 interface LoadDeckModalProps {
@@ -19,11 +21,38 @@ export const LoadDeckModal: React.FC<LoadDeckModalProps> = ({ isOpen, onClose, p
     const [importText, setImportText] = useState('');
     const [isImporting, setIsImporting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [prefilledFromLastImport, setPrefilledFromLastImport] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+    const wasOpenRef = useRef(false);
 
     const addCard = useGameStore((state) => state.addCard);
     const setDeckLoaded = useGameStore((state) => state.setDeckLoaded);
     const shuffleLibrary = useGameStore((state) => state.shuffleLibrary);
     const zones = useGameStore((state) => state.zones);
+
+    const lastImportedDeckText = useClientPrefsStore((state) => state.lastImportedDeckText);
+    const setLastImportedDeckText = useClientPrefsStore((state) => state.setLastImportedDeckText);
+
+    useEffect(() => {
+        const justOpened = isOpen && !wasOpenRef.current;
+        wasOpenRef.current = isOpen;
+        if (!justOpened) return;
+
+        setError(null);
+
+        const stored = (lastImportedDeckText ?? '').trim();
+        if (stored) {
+            setImportText(stored);
+            setPrefilledFromLastImport(true);
+            setTimeout(() => {
+                textareaRef.current?.focus();
+                textareaRef.current?.select();
+            }, 0);
+        } else {
+            setPrefilledFromLastImport(false);
+            setTimeout(() => textareaRef.current?.focus(), 0);
+        }
+    }, [isOpen, lastImportedDeckText]);
 
     const handleImport = async () => {
         if (!importText.trim()) return;
@@ -89,6 +118,7 @@ export const LoadDeckModal: React.FC<LoadDeckModalProps> = ({ isOpen, onClose, p
                 shuffleLibrary(playerId, playerId);
             });
             toast.success("Deck successfully loaded");
+            setLastImportedDeckText(importText);
             setImportText('');
             onClose();
         } catch (err: any) {
@@ -111,11 +141,24 @@ export const LoadDeckModal: React.FC<LoadDeckModalProps> = ({ isOpen, onClose, p
 
                 <div className="grid gap-4 py-4">
                     <textarea
+                        ref={textareaRef}
                         value={importText}
-                        onChange={(e) => setImportText(e.target.value)}
+                        onChange={(e) => {
+                            if (prefilledFromLastImport) setPrefilledFromLastImport(false);
+                            setImportText(e.target.value);
+                        }}
                         placeholder="4 Lightning Bolt&#10;20 Mountain..."
-                        className="w-full h-64 bg-zinc-900 border border-zinc-800 rounded-md p-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none placeholder:text-zinc-600"
+                        className={cn(
+                            "w-full h-64 bg-zinc-900 border border-zinc-800 rounded-md p-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none placeholder:text-zinc-600",
+                            prefilledFromLastImport && "ring-2 ring-amber-500/30 border-amber-500/50"
+                        )}
                     />
+
+                    {prefilledFromLastImport && (
+                        <div className="text-amber-200/80 text-xs bg-amber-950/30 p-2 rounded border border-amber-900/50">
+                            Loaded your last imported deck — paste to replace.
+                        </div>
+                    )}
 
                     {error && (
                         <div className="text-red-400 text-sm bg-red-950/30 p-2 rounded border border-red-900/50">

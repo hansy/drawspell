@@ -111,7 +111,7 @@ export const CardView = React.memo(
             imageTransform={imageTransform}
             preferArtCrop={preferArtCrop}
             rotateLabel={rotateLabel}
-            customTextPosition="top-left"
+            customTextPosition="center"
             customTextNode={customTextNode}
           />
         </div>
