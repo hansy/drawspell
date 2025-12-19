@@ -9,6 +9,7 @@ export type GameShortcutId =
   | "game.shuffleLibrary"
   | "zone.viewGraveyard"
   | "zone.viewExile"
+  | "zone.viewLibraryAll"
   | "zone.viewLibraryTop"
   | "game.mulligan"
   | "deck.reset"
@@ -102,6 +103,13 @@ export const GAME_SHORTCUTS: GameShortcutDefinition[] = [
     binding: { key: "e" },
     title: "View Exile",
     description: "Opens your exile viewer.",
+    requiresDeckLoaded: true,
+  },
+  {
+    id: "zone.viewLibraryAll",
+    binding: { key: "v", shift: true },
+    title: "View Library",
+    description: "Opens your library viewer.",
     requiresDeckLoaded: true,
   },
   {

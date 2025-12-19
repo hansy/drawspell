@@ -19,6 +19,7 @@ const EVENT_IDS = [
   "card.duplicate",
   "card.remove",
   "card.pt",
+  "card.tokenCreate",
   "counter.add",
   "counter.remove",
   "counter.global.add",
@@ -116,4 +117,3 @@ describe("logEventRegistry", () => {
     expect(parts.map((p) => p.text).join("")).toBe("Bob gains control of Lightning Bolt");
   });
 });
-

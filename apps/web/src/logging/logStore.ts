@@ -174,9 +174,21 @@ const syncSharedLogsToStore = () => {
     const lastId = current[current.length - 1]?.id;
     const anchorIndex = shared.findIndex((e) => e?.id === lastId);
     if (anchorIndex >= 0) {
+      const sharedAnchor = shared[anchorIndex];
+      const currentLast = current[current.length - 1];
       const appended = shared.slice(anchorIndex + 1);
+      const shouldReplaceLast =
+        sharedAnchor &&
+        currentLast &&
+        sharedAnchor.id === currentLast.id &&
+        sharedAnchor.ts !== currentLast.ts;
+      const base = shouldReplaceLast
+        ? [...current.slice(0, -1), sharedAnchor]
+        : current;
       if (appended.length > 0) {
-        next = [...current, ...appended].slice(-MAX_LOG_ENTRIES);
+        next = [...base, ...appended].slice(-MAX_LOG_ENTRIES);
+      } else if (shouldReplaceLast) {
+        next = base;
       }
     }
     // if no anchor found, ignore to avoid accepting rewrites

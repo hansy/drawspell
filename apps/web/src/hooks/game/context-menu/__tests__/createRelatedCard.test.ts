@@ -36,6 +36,16 @@ const createRelated = (overrides: Partial<ScryfallRelatedCard> = {}): ScryfallRe
   ...overrides,
 });
 
+const createPlayer = (id: string) =>
+  ({
+    id,
+    name: id,
+    life: 40,
+    counters: [],
+    commanderDamage: {},
+    commanderTax: 0,
+  }) as any;
+
 describe("createRelatedCardHandler", () => {
   it("adds the planned card and toasts success", async () => {
     const zone = createBattlefieldZone("me-battlefield", "me", ["c1"]);
@@ -45,6 +55,7 @@ describe("createRelatedCardHandler", () => {
     const getState = () => ({
       zones: { [zone.id]: zone },
       cards: { [sourceCard.id]: sourceCard },
+      players: { me: createPlayer("me") },
       addCard,
     });
 
@@ -99,6 +110,7 @@ describe("createRelatedCardHandler", () => {
     const getState = () => ({
       zones: { [zone.id]: zone },
       cards: { [sourceCard.id]: sourceCard },
+      players: { me: createPlayer("me") },
       addCard,
     });
 
@@ -128,6 +140,7 @@ describe("createRelatedCardHandler", () => {
     const getState = () => ({
       zones: { [zone.id]: zone },
       cards: { [sourceCard.id]: sourceCard },
+      players: { me: createPlayer("me") },
       addCard,
     });
 

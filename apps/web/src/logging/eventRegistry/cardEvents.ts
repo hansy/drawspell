@@ -51,6 +51,13 @@ type PTPayload = {
   cardName?: string;
 };
 
+type TokenCreatePayload = {
+  playerId: string;
+  actorId?: string;
+  tokenName: string;
+  count?: number;
+};
+
 const formatMove: LogEventDefinition<MovePayload>["format"] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
   const fromZone = ctx.zones[payload.fromZoneId];
@@ -158,6 +165,14 @@ const formatPT: LogEventDefinition<PTPayload>["format"] = (payload, ctx) => {
   return [actor, { kind: "text", text: " set " }, cardPart, { kind: "text", text: ` P/T to ${to} (was ${from})` }];
 };
 
+const formatTokenCreate: LogEventDefinition<TokenCreatePayload>["format"] = (payload, ctx) => {
+  const player = buildPlayerPart(ctx, payload.playerId);
+  const count = payload.count ?? 1;
+  const tokenName = payload.tokenName?.trim() || "Token";
+  const suffix = count === 1 ? "" : "s";
+  return [player, { kind: "text", text: ` created ${count} ${tokenName} token${suffix}` }];
+};
+
 export const cardEvents = {
   "card.move": {
     format: formatMove,
@@ -180,5 +195,7 @@ export const cardEvents = {
   "card.pt": {
     format: formatPT,
   },
+  "card.tokenCreate": {
+    format: formatTokenCreate,
+  },
 } satisfies Partial<Record<LogEventId, LogEventDefinition<any>>>;
-

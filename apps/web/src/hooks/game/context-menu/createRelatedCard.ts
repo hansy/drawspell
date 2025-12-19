@@ -1,6 +1,7 @@
 import type { Card, GameState, PlayerId } from "@/types";
 import type { ScryfallCard, ScryfallRelatedCard } from "@/types/scryfall";
 
+import { emitLog } from "@/logging/logStore";
 import { planRelatedBattlefieldCardCreation } from "./relatedCardCreation";
 
 export type ToastLike = {
@@ -10,7 +11,7 @@ export type ToastLike = {
 
 export type LoggerLike = Pick<Console, "error">;
 
-type StoreLike = Pick<GameState, "zones" | "cards" | "addCard">;
+type StoreLike = Pick<GameState, "zones" | "cards" | "players" | "addCard">;
 
 export const createRelatedCardHandler = (params: {
   actorId: PlayerId;
@@ -53,6 +54,18 @@ export const createRelatedCardHandler = (params: {
     }
 
     state.addCard(planned.card);
+    if (planned.card.isToken) {
+      emitLog(
+        "card.tokenCreate",
+        {
+          actorId: params.actorId,
+          playerId: params.actorId,
+          tokenName: planned.card.name ?? related.name,
+          count: 1,
+        },
+        { players: state.players, cards: state.cards, zones: state.zones }
+      );
+    }
     params.toast.success(
       `Created ${related.name}${planned.card.isToken ? " token" : ""}`
     );

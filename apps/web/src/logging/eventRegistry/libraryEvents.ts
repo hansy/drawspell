@@ -9,7 +9,7 @@ type ShufflePayload = { playerId: string; actorId?: string };
 const formatDraw: LogEventDefinition<DrawPayload>["format"] = (payload, ctx) => {
   const player = buildPlayerPart(ctx, payload.playerId);
   const count = payload.count || 1;
-  const cardText = count === 1 ? "drew a card" : `drew ${count} cards`;
+  const cardText = `drew ${count} card${count === 1 ? "" : "s"}`;
   return [player, { kind: "text", text: ` ${cardText}` }];
 };
 
@@ -38,4 +38,3 @@ export const libraryEvents = {
     },
   },
 } satisfies Partial<Record<LogEventId, LogEventDefinition<any>>>;
-

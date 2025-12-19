@@ -189,6 +189,12 @@ export const runGameShortcut = (params: {
       params.handleViewZone(exile.id);
       return true;
     }
+    case "zone.viewLibraryAll": {
+      const library = myZones.library;
+      if (!library) return false;
+      params.handleViewZone(library.id);
+      return true;
+    }
     case "zone.viewLibraryTop": {
       const library = myZones.library;
       if (!library) return false;
@@ -249,4 +255,3 @@ export const isDeckLoadedForShortcut = (
   const me = players?.[myPlayerId];
   return Boolean(me?.deckLoaded);
 };
-

@@ -80,6 +80,7 @@ const buildLibraryViewMenu = ({
       type: "action",
       label: "View all",
       onSelect: () => onViewZone(zoneId),
+      shortcut: getShortcutLabel("zone.viewLibraryAll"),
     },
     {
       type: "action",

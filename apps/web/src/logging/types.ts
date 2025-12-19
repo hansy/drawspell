@@ -14,6 +14,7 @@ export type LogEventId =
   | 'card.duplicate'
   | 'card.remove'
   | 'card.pt'
+  | 'card.tokenCreate'
   | 'counter.add'
   | 'counter.remove'
   | 'counter.global.add';

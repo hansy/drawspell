@@ -90,7 +90,7 @@ describe('buildZoneMoveActions', () => {
 
     const reveal = actions.find(
       (a): a is Extract<typeof a, { type: 'action' }> =>
-        a.type === 'action' && a.label === 'Reveal'
+        a.type === 'action' && a.label === 'Reveal to ...'
     );
     expect(reveal?.submenu?.length).toBeGreaterThan(0);
 
