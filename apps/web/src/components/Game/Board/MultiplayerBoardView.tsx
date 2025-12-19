@@ -1,0 +1,239 @@
+import React from "react";
+import { DndContext, DragOverlay, getClientRect, pointerWithin } from "@dnd-kit/core";
+
+import { ZONE } from "../../../constants/zones";
+import { CardView } from "../Card/Card";
+import { CardPreviewProvider } from "../Card/CardPreviewProvider";
+import { Seat } from "../Seat/Seat";
+import { ContextMenu } from "../UI/ContextMenu";
+import { AddCounterModal } from "../UI/AddCounterModal";
+import { LoadDeckModal } from "../UI/LoadDeckModal";
+import { LogDrawer } from "../UI/LogDrawer";
+import { NumberPromptDialog } from "../UI/NumberPromptDialog";
+import { OpponentLibraryRevealsModal } from "../UI/OpponentLibraryRevealsModal";
+import { ShortcutsDrawer } from "../UI/ShortcutsDrawer";
+import { Sidenav } from "../UI/Sidenav";
+import { TextPromptDialog } from "../UI/TextPromptDialog";
+import { TokenCreationModal } from "../UI/TokenCreationModal";
+import { ZoneViewerModal } from "../UI/ZoneViewerModal";
+import { EditUsernameDialog } from "../../Username/EditUsernameDialog";
+
+import type { MultiplayerBoardController } from "./useMultiplayerBoardController";
+
+export const MultiplayerBoardView: React.FC<MultiplayerBoardController> = ({
+  zones,
+  cards,
+  players,
+  battlefieldViewScale,
+  playerColors,
+  gridClass,
+  scale,
+  myPlayerId,
+  slots,
+  activeModal,
+  setActiveModal,
+  overCardScale,
+  activeCardId,
+  sensors,
+  handleDragStart,
+  handleDragMove,
+  handleDragEnd,
+  syncStatus,
+  peers,
+  handleViewZone,
+  contextMenu,
+  handleCardContextMenu,
+  handleZoneContextMenu,
+  handleBattlefieldContextMenu,
+  closeContextMenu,
+  countPrompt,
+  closeCountPrompt,
+  textPrompt,
+  closeTextPrompt,
+  isLoadDeckModalOpen,
+  setIsLoadDeckModalOpen,
+  isTokenModalOpen,
+  setIsTokenModalOpen,
+  isLogOpen,
+  setIsLogOpen,
+  isShortcutsOpen,
+  setIsShortcutsOpen,
+  isEditUsernameOpen,
+  setIsEditUsernameOpen,
+  zoneViewerState,
+  setZoneViewerState,
+  revealedLibraryZoneId,
+  setRevealedLibraryZoneId,
+  preferredUsername,
+  handleUsernameSubmit,
+  handleDrawCard,
+  handleCopyLink,
+  handleLeave,
+}) => {
+  return (
+    <CardPreviewProvider>
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragMove={handleDragMove}
+        onDragEnd={handleDragEnd}
+        measuring={{
+          draggable: { measure: getClientRect },
+          dragOverlay: { measure: getClientRect },
+        }}
+        collisionDetection={pointerWithin}
+      >
+        <div
+          className="relative h-screen w-screen bg-zinc-950 text-zinc-100 overflow-hidden flex font-sans selection:bg-indigo-500/30"
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <Sidenav
+            onCreateToken={() => setIsTokenModalOpen(true)}
+            onToggleLog={() => setIsLogOpen(!isLogOpen)}
+            onCopyLink={handleCopyLink}
+            onLeaveGame={handleLeave}
+            onOpenShortcuts={() => setIsShortcutsOpen(true)}
+            syncStatus={syncStatus}
+            peerCount={peers}
+          />
+
+          <div className={`w-full h-full grid ${gridClass} pl-12`}>
+            {slots.map((slot, index) => (
+              <div key={index} className="relative border-zinc-800/50">
+                {slot.player ? (
+                  <Seat
+                    player={slot.player}
+                    position={slot.position}
+                    color={slot.color}
+                    zones={zones}
+                    cards={cards}
+                    isMe={slot.player.id === myPlayerId}
+                    viewerPlayerId={myPlayerId}
+                    onCardContextMenu={handleCardContextMenu}
+                    onZoneContextMenu={handleZoneContextMenu}
+                    onBattlefieldContextMenu={(e) =>
+                      handleBattlefieldContextMenu(e, () => setIsTokenModalOpen(true))
+                    }
+                    onLoadDeck={() => setIsLoadDeckModalOpen(true)}
+                    onEditUsername={
+                      slot.player.id === myPlayerId
+                        ? () => setIsEditUsernameOpen(true)
+                        : undefined
+                    }
+                    opponentColors={playerColors}
+                    scale={scale}
+                    battlefieldScale={battlefieldViewScale[slot.player.id] ?? 1}
+                    onViewZone={handleViewZone}
+                    onDrawCard={handleDrawCard}
+                    onOpponentLibraryReveals={(zoneId) => setRevealedLibraryZoneId(zoneId)}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-zinc-800 font-bold text-2xl uppercase tracking-widest select-none">
+                    Empty Seat
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            items={contextMenu.items}
+            onClose={closeContextMenu}
+            title={contextMenu.title}
+          />
+        )}
+        <NumberPromptDialog
+          open={Boolean(countPrompt)}
+          title={countPrompt?.title || ""}
+          message={countPrompt?.message}
+          onSubmit={(value) => countPrompt?.onSubmit(value)}
+          onClose={closeCountPrompt}
+          initialValue={countPrompt?.initialValue ?? 1}
+        />
+        <TextPromptDialog
+          open={Boolean(textPrompt)}
+          title={textPrompt?.title || ""}
+          message={textPrompt?.message}
+          initialValue={textPrompt?.initialValue}
+          onSubmit={(value) => textPrompt?.onSubmit(value)}
+          onClose={closeTextPrompt}
+        />
+
+        <LoadDeckModal
+          isOpen={isLoadDeckModalOpen}
+          onClose={() => setIsLoadDeckModalOpen(false)}
+          playerId={myPlayerId}
+        />
+        <TokenCreationModal
+          isOpen={isTokenModalOpen}
+          onClose={() => setIsTokenModalOpen(false)}
+          playerId={myPlayerId}
+        />
+        <AddCounterModal
+          isOpen={activeModal?.type === "ADD_COUNTER"}
+          onClose={() => setActiveModal(null)}
+          cardId={activeModal?.type === "ADD_COUNTER" ? activeModal.cardId : ""}
+        />
+        <ZoneViewerModal
+          isOpen={zoneViewerState.isOpen}
+          onClose={() => setZoneViewerState((prev) => ({ ...prev, isOpen: false }))}
+          zoneId={zoneViewerState.zoneId}
+          count={zoneViewerState.count}
+        />
+        <LogDrawer
+          isOpen={isLogOpen}
+          onClose={() => setIsLogOpen(false)}
+          playerColors={playerColors}
+        />
+        <OpponentLibraryRevealsModal
+          isOpen={Boolean(revealedLibraryZoneId)}
+          onClose={() => setRevealedLibraryZoneId(null)}
+          zoneId={revealedLibraryZoneId}
+        />
+        <ShortcutsDrawer
+          isOpen={isShortcutsOpen}
+          onClose={() => setIsShortcutsOpen(false)}
+        />
+        <EditUsernameDialog
+          open={isEditUsernameOpen}
+          onClose={() => setIsEditUsernameOpen(false)}
+          initialValue={players[myPlayerId]?.name ?? preferredUsername ?? ""}
+          onSubmit={handleUsernameSubmit}
+        />
+        <DragOverlay dropAnimation={null}>
+          {activeCardId && cards[activeCardId]
+            ? (() => {
+                const overlayCard = cards[activeCardId];
+                const overlayZone = zones[overlayCard.zoneId];
+                const overlayPreferArtCrop = false;
+                const viewScale =
+                  overlayZone?.type === ZONE.BATTLEFIELD
+                    ? (battlefieldViewScale[overlayZone.ownerId] ?? 1)
+                    : 1;
+                const targetScale = overCardScale || viewScale;
+                return (
+                  <div
+                    style={{
+                      transform: `scale(${scale * targetScale})`,
+                      transformOrigin: "top left",
+                    }}
+                  >
+                    <CardView
+                      card={overlayCard}
+                      isDragging
+                      preferArtCrop={overlayPreferArtCrop}
+                      faceDown={overlayCard.faceDown}
+                    />
+                  </div>
+                );
+              })()
+            : null}
+        </DragOverlay>
+      </DndContext>
+    </CardPreviewProvider>
+  );
+};
+

@@ -4,7 +4,6 @@ import { Zone as ZoneType, Card as CardType } from "../../../types";
 import { Card } from "../Card/Card";
 import { Zone } from "../Zone/Zone";
 import { ZONE_LABEL } from "@/constants/zones";
-import { useGameStore } from "../../../store/gameStore";
 import { shouldRenderFaceDown } from "../../../lib/reveal";
 import {
   SortableContext,
@@ -19,6 +18,7 @@ interface HandProps {
   isTop: boolean;
   isRight: boolean;
   isMe: boolean;
+  viewerPlayerId: string;
   onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
   className?: string;
   scale?: number;
@@ -28,14 +28,15 @@ const SortableCard = React.memo(({
   card,
   isTop,
   isMe,
+  viewerPlayerId,
   onCardContextMenu,
 }: {
   card: CardType;
   isTop: boolean;
   isMe: boolean;
+  viewerPlayerId: string;
   onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
 }) => {
-  const myPlayerId = useGameStore((state) => state.myPlayerId);
   const {
     attributes,
     listeners,
@@ -86,7 +87,7 @@ const SortableCard = React.memo(({
         <Card
           card={card}
           className="shadow-xl ring-1 ring-black/50"
-          faceDown={shouldRenderFaceDown(card, "hand", myPlayerId)}
+          faceDown={shouldRenderFaceDown(card, "hand", viewerPlayerId)}
           onContextMenu={handleContextMenu}
           disableDrag // We use Sortable's drag handle
           isDragging={isDragging}
@@ -103,6 +104,7 @@ const HandInner: React.FC<HandProps> = ({
   isTop,
   isRight,
   isMe,
+  viewerPlayerId,
   onCardContextMenu,
   className,
   scale = 1,
@@ -160,6 +162,7 @@ const HandInner: React.FC<HandProps> = ({
                 card={card}
                 isTop={isTop}
                 isMe={isMe}
+                viewerPlayerId={viewerPlayerId}
                 onCardContextMenu={onCardContextMenu}
               />
             ))}

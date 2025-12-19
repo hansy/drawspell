@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ZONE, ZONE_LABEL } from '../../../constants/zones';
-import { Card, PlayerId, Zone } from '../../../types';
+import { Card, Player, PlayerId, Zone } from '../../../types';
 import { buildCardActions, buildZoneMoveActions, buildZoneViewActions } from './menu';
 
 const makeZone = (id: string, type: (typeof ZONE)[keyof typeof ZONE], ownerId: PlayerId): Zone => ({
@@ -22,6 +22,15 @@ const baseCard: Card = {
   rotation: 0,
   counters: [],
 };
+
+const makePlayer = (id: PlayerId, name: string): Player => ({
+  id,
+  name,
+  life: 40,
+  counters: [],
+  commanderDamage: {},
+  commanderTax: 0,
+});
 
 describe('buildZoneMoveActions', () => {
   it('builds allowed moves between visible zones', () => {
@@ -48,6 +57,63 @@ describe('buildZoneMoveActions', () => {
     expect(labels).toContain(`Move to ${ZONE_LABEL.battlefield} (face-up)`);
     expect(labels).toContain(`Move to ${ZONE_LABEL.battlefield} (face-down)`);
     expect(labels).toContain(`Move to Bottom of ${ZONE_LABEL.library}`);
+  });
+
+  it('includes reveal submenu for owner in library', () => {
+    const current = makeZone('lib', ZONE.LIBRARY, 'p1');
+    const gy = makeZone('gy', ZONE.GRAVEYARD, 'p1');
+    const zones = { lib: current, gy };
+    const players = {
+      p1: makePlayer('p1', 'Owner'),
+      p2: makePlayer('p2', 'Alice'),
+      p3: makePlayer('p3', 'Bob'),
+    };
+    const setCardReveal = vi.fn();
+
+    const actions = buildZoneMoveActions(
+      {
+        ...baseCard,
+        zoneId: current.id,
+        ownerId: 'p1',
+        controllerId: 'p1',
+        revealedToAll: false,
+        revealedTo: ['p2'],
+      },
+      current,
+      zones,
+      'p1',
+      vi.fn(),
+      undefined,
+      players,
+      setCardReveal
+    );
+
+    const reveal = actions.find(
+      (a): a is Extract<typeof a, { type: 'action' }> =>
+        a.type === 'action' && a.label === 'Reveal'
+    );
+    expect(reveal?.submenu?.length).toBeGreaterThan(0);
+
+    const revealToAll = reveal?.submenu?.find(
+      (a): a is Extract<typeof a, { type: 'action' }> =>
+        a.type === 'action' && a.label === 'Reveal to all'
+    );
+    revealToAll?.onSelect();
+    expect(setCardReveal).toHaveBeenCalledWith('c1', { toAll: true });
+
+    const alice = reveal?.submenu?.find(
+      (a): a is Extract<typeof a, { type: 'action' }> =>
+        a.type === 'action' && a.label === 'Alice'
+    );
+    alice?.onSelect();
+    expect(setCardReveal).toHaveBeenCalledWith('c1', { to: [] });
+
+    const hide = reveal?.submenu?.find(
+      (a): a is Extract<typeof a, { type: 'action' }> =>
+        a.type === 'action' && a.label === 'Hide for all'
+    );
+    hide?.onSelect();
+    expect(setCardReveal).toHaveBeenCalledWith('c1', null);
   });
 });
 

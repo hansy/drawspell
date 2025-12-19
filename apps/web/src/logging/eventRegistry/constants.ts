@@ -1,0 +1,2 @@
+export const DEFAULT_AGGREGATE_WINDOW_MS = 2000;
+

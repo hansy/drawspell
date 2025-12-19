@@ -49,7 +49,6 @@ export const SideZone: React.FC<SideZoneProps> = ({
         className={cn(
           ZONE_SIDEWAYS_CLASSES,
           "bg-zinc-800/30 rounded-lg border-2 border-dashed border-zinc-700 flex items-center justify-center relative",
-          "bg-zinc-800/30 rounded-lg border-2 border-dashed border-zinc-700 flex items-center justify-center relative",
           showContextMenuCursor
             ? "cursor-context-menu"
             : onClick && "cursor-pointer"

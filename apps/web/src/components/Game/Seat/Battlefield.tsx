@@ -3,10 +3,10 @@ import { cn } from '../../../lib/utils';
 import { Zone as ZoneType, Card as CardType, Player } from '../../../types';
 import { Card } from '../Card/Card';
 import { Zone } from '../Zone/Zone';
-import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from '../../../lib/constants';
 import { useDragStore } from '../../../store/dragStore';
 import { useGameStore } from '../../../store/gameStore';
-import { fromNormalizedPosition, mirrorNormalizedY } from '../../../lib/positions';
+import { computeBattlefieldCardLayout } from './battlefieldModel';
+import { useElementSize } from '../../../hooks/useElementSize';
 
 interface BattlefieldProps {
     zone: ZoneType;
@@ -14,6 +14,7 @@ interface BattlefieldProps {
     player: Player;
     isTop: boolean;
     isMe?: boolean;
+    viewerPlayerId: string;
     mirrorForViewer?: boolean;
     scale?: number;
     viewScale?: number;
@@ -28,31 +29,33 @@ const BattlefieldCard = React.memo<{
     card: CardType;
     zoneWidth: number;
     zoneHeight: number;
+    viewerPlayerId: string;
     mirrorForViewer?: boolean;
     viewScale: number;
     onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
     playerColors: Record<string, string>;
     zoneOwnerId: string;
-}>(({ card, zoneWidth, zoneHeight, mirrorForViewer, viewScale, onCardContextMenu, playerColors, zoneOwnerId }) => {
-    const viewPosition = mirrorForViewer ? mirrorNormalizedY(card.position) : card.position;
-    const { x, y } = fromNormalizedPosition(viewPosition, zoneWidth || 1, zoneHeight || 1);
-    const baseWidth = BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;
-    const baseHeight = BASE_CARD_HEIGHT;
-    const left = x - baseWidth / 2;
-    const top = y - baseHeight / 2;
-
-    const myPlayerId = useGameStore((state) => state.myPlayerId);
-
-    // Highlight if card is owned by someone else AND not on their battlefield (which is implied if it's on THIS battlefield and owner != zoneOwner)
-    // Actually simpler: if card.ownerId != zoneOwnerId, it's a foreign card on this battlefield. 
-    // Requirement: "cards controlled by others when NOT on their battlefield to be lightly highlighted by their color"
-    // Interpretation: "controlled by others" -> "owned by others" (based on example). 
-    // Example: "I am red, I give my card to someone else". That card is on someone else's board. Owner=Me(Red), ZoneOwner=Them. 
-    // Highlight Color = My Color (Red).
-    const highlightColor = card.ownerId !== zoneOwnerId ? playerColors[card.ownerId] : undefined;
-
-    // Disable drag if I don't control the card
-    const isController = card.controllerId === myPlayerId;
+}>(
+    ({
+        card,
+        zoneWidth,
+        zoneHeight,
+        viewerPlayerId,
+        mirrorForViewer,
+        viewScale,
+        onCardContextMenu,
+        playerColors,
+        zoneOwnerId,
+    }) => {
+        const { left, top, highlightColor, disableDrag } = computeBattlefieldCardLayout({
+            card,
+            zoneOwnerId,
+            viewerPlayerId,
+            zoneWidth,
+            zoneHeight,
+            mirrorForViewer,
+            playerColors,
+        });
 
     const style = React.useMemo(() => ({
         position: 'absolute' as const,
@@ -73,10 +76,11 @@ const BattlefieldCard = React.memo<{
             scale={viewScale}
             faceDown={card.faceDown}
             highlightColor={highlightColor}
-            disableDrag={!isController}
+            disableDrag={disableDrag}
         />
     );
-});
+    }
+);
 
 BattlefieldCard.displayName = 'BattlefieldCard';
 
@@ -86,6 +90,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     player,
     isTop,
     isMe,
+    viewerPlayerId,
     mirrorForViewer,
     scale = 1,
     viewScale = 1,
@@ -98,41 +103,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     const showGrid = Boolean(activeCardId);
     const GRID_SIZE = 30 * viewScale;
     const gridColor = 'rgba(148, 163, 184, 0.3)'; // zinc-400/30
-    const zoneRef = React.useRef<HTMLDivElement | null>(null);
-    const [zoneSize, setZoneSize] = React.useState<{ width: number; height: number }>({ width: 0, height: 0 });
-
-    // Debounced resize handler to avoid excessive state updates
-    const resizeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    React.useEffect(() => {
-        if (!zoneRef.current) return;
-        const observer = new ResizeObserver((entries) => {
-            const entry = entries[0];
-            if (entry?.contentRect) {
-                const { width, height } = entry.contentRect;
-                // Debounce resize updates
-                if (resizeTimeoutRef.current) {
-                    clearTimeout(resizeTimeoutRef.current);
-                }
-                resizeTimeoutRef.current = setTimeout(() => {
-                    setZoneSize((prev) => {
-                        // Only update if changed significantly (> 1px)
-                        if (Math.abs(prev.width - width) > 1 || Math.abs(prev.height - height) > 1) {
-                            return { width, height };
-                        }
-                        return prev;
-                    });
-                }, 16);
-            }
-        });
-        observer.observe(zoneRef.current);
-        return () => {
-            observer.disconnect();
-            if (resizeTimeoutRef.current) {
-                clearTimeout(resizeTimeoutRef.current);
-            }
-        };
-    }, []);
+    const { ref: zoneRef, size: zoneSize } = useElementSize<HTMLDivElement>();
 
     return (
         <div
@@ -151,9 +122,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                 cardScale={viewScale}
                 mirrorY={mirrorForViewer}
                 onContextMenu={onContextMenu}
-                innerRef={(node) => {
-                    zoneRef.current = node;
-                }}
+                innerRef={zoneRef}
             >
                 {showGrid && (
                     <div
@@ -171,6 +140,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                         card={card}
                         zoneWidth={zoneSize.width}
                         zoneHeight={zoneSize.height}
+                        viewerPlayerId={viewerPlayerId}
                         mirrorForViewer={mirrorForViewer}
                         viewScale={viewScale}
                         onCardContextMenu={onCardContextMenu}

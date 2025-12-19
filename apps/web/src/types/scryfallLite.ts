@@ -96,9 +96,13 @@ export const toScryfallCardLite = (
  * Check if a card has the full Scryfall data or just lite
  */
 export const isFullScryfallCard = (
-  card: import('./scryfall').ScryfallCard | ScryfallCardLite
+  card: unknown
 ): card is import('./scryfall').ScryfallCard => {
   // Full cards have type_line, lite cards don't
-  return 'type_line' in card && 'color_identity' in card;
+  return (
+    typeof card === "object" &&
+    card !== null &&
+    "type_line" in card &&
+    "color_identity" in card
+  );
 };
-

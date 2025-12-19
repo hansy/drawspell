@@ -8,7 +8,7 @@ import { WebsocketProvider } from "y-websocket";
 import { Awareness, removeAwarenessStates } from "y-protocols/awareness";
 import { useGameStore } from "../store/gameStore";
 import { bindSharedLogStore } from "../logging/logStore";
-import { ZONE } from "../constants/zones";
+import { getOrCreateClientKey } from "../lib/clientKey";
 import {
   acquireSession,
   cleanupStaleSessions,
@@ -20,75 +20,42 @@ import {
   setActiveSession,
   flushPendingMutations,
 } from "../yjs/docManager";
+import { type SharedMaps } from "../yjs/yMutations";
+import { isApplyingRemoteUpdate } from "../yjs/sync";
+import { buildSignalingUrlFromEnv } from "../lib/wsSignaling";
+import { useClientPrefsStore } from "../store/clientPrefsStore";
+import { createFullSyncToStore } from "./multiplayerSync/fullSyncToStore";
+import { ensureLocalPlayerInitialized } from "./multiplayerSync/ensureLocalPlayerInitialized";
+import { computePeerCount } from "./multiplayerSync/peerCount";
 import {
-  patchPlayer,
-  sharedSnapshot,
-  type SharedMaps,
-  upsertPlayer,
-  upsertZone,
-} from "../yjs/yMutations";
-import {
-  isApplyingRemoteUpdate,
-  sanitizeSharedSnapshot,
-  withApplyingRemoteUpdate,
-} from "../yjs/sync";
-import {
-  computePlayerColors,
-  resolveOrderedPlayerIds,
-} from "../lib/playerColors";
-import { normalizeUsernameInput, useClientPrefsStore } from "../store/clientPrefsStore";
+  cancelDebouncedTimeout,
+  scheduleDebouncedTimeout,
+} from "./multiplayerSync/debouncedTimeout";
+import { disposeSessionTransport } from "./multiplayerSync/disposeSessionTransport";
 
 export type SyncStatus = "connecting" | "connected";
 
-const CLIENT_KEY_STORAGE = "mtg:client-key";
 const CLIENT_VERSION = "web-3-ws";
-
-const genUuidLike = () => {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-};
-
-const getClientKey = () => {
-  if (typeof window === "undefined") return "server";
-  try {
-    const existing = window.sessionStorage.getItem(CLIENT_KEY_STORAGE);
-    if (existing) return existing;
-    const next =
-      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID()
-        : genUuidLike();
-    window.sessionStorage.setItem(CLIENT_KEY_STORAGE, next);
-    return next;
-  } catch (_err) {
-    return genUuidLike();
-  }
-};
-
-const buildSignalingUrl = (): string | null => {
-  const envUrl = (import.meta as any).env?.VITE_WEBSOCKET_SERVER as
-    | string
-    | undefined;
-  if (!envUrl) {
-    console.error("[signal] VITE_WEBSOCKET_SERVER is required");
-    return null;
-  }
-  const normalized = envUrl.replace(/^http/, "ws").replace(/\/$/, "");
-  return normalized.endsWith("/signal") ? normalized : `${normalized}/signal`;
-};
 
 export function useMultiplayerSync(sessionId: string) {
   const hasHydrated = useGameStore((state) => state.hasHydrated);
   const [status, setStatus] = useState<SyncStatus>("connecting");
   const [peers, setPeers] = useState(1);
-  const fullSyncTimer = useRef<number | null>(null);
+  const fullSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const postSyncFullSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const postSyncInitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!sessionId) return;
     if (typeof window === "undefined") return;
     if (!hasHydrated) return;
+
+    const envUrl = import.meta.env.VITE_WEBSOCKET_SERVER;
+    const signalingUrl = buildSignalingUrlFromEnv(envUrl);
+    if (!signalingUrl) {
+      console.error("[signal] VITE_WEBSOCKET_SERVER is required");
+      return;
+    }
 
     cleanupStaleSessions();
     const handles = acquireSession(sessionId);
@@ -114,7 +81,7 @@ export function useMultiplayerSync(sessionId: string) {
       zoneCardOrders,
       globalCounters,
       battlefieldViewScale,
-    } as any;
+    };
 
     // Setup store
     const store = useGameStore.getState();
@@ -128,13 +95,16 @@ export function useMultiplayerSync(sessionId: string) {
     }
     const sessionVersion = useGameStore.getState().ensureSessionVersion(sessionId);
 
-    const signalingUrl = buildSignalingUrl();
-    if (!signalingUrl) return;
-
     bindSharedLogStore(logs);
 
     const awareness = new Awareness(doc);
-    const clientKey = getClientKey();
+    const clientKey = getOrCreateClientKey({
+      storage: window.sessionStorage,
+      randomUUID:
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID.bind(crypto)
+          : undefined,
+    });
 
     const provider = new WebsocketProvider(signalingUrl, sessionId, doc, {
       awareness,
@@ -150,116 +120,22 @@ export function useMultiplayerSync(sessionId: string) {
     setSessionProvider(sessionId, provider);
     setSessionAwareness(sessionId, awareness);
 
-    const fullSyncToStore = () => {
-      if (fullSyncTimer.current !== null) {
-        clearTimeout(fullSyncTimer.current);
-        fullSyncTimer.current = null;
-      }
-      withApplyingRemoteUpdate(() => {
-        const snapshot = sharedSnapshot(sharedMaps as any);
-        const safe = sanitizeSharedSnapshot(snapshot as any);
-        useGameStore.setState(safe);
-      });
-    };
+    const fullSyncToStore = createFullSyncToStore(sharedMaps, (next) => {
+      useGameStore.setState(next);
+    });
 
-    const ensureLocalPlayerInitialized = () => {
-      const snapshot = sharedSnapshot(sharedMaps as any);
-      const playerId = ensuredPlayerId;
-      const defaultName = `Player ${playerId.slice(0, 4).toUpperCase()}`;
-      const desiredName =
-        normalizeUsernameInput(useClientPrefsStore.getState().username) ??
-        defaultName;
-
-      const playerExists = Boolean(snapshot.players[playerId]);
-      const hasZoneOfType = (type: string) =>
-        Object.values(snapshot.zones).some((z) => z.ownerId === playerId && (z as any).type === type);
-
-      // Support legacy "command" zone type when deciding whether to create commander.
-      const hasCommanderZone = hasZoneOfType(ZONE.COMMANDER) || hasZoneOfType("command");
-
-      const zoneSpecs: Array<{ type: string; shouldCreate: boolean }> = [
-        { type: ZONE.LIBRARY, shouldCreate: !hasZoneOfType(ZONE.LIBRARY) },
-        { type: ZONE.HAND, shouldCreate: !hasZoneOfType(ZONE.HAND) },
-        { type: ZONE.BATTLEFIELD, shouldCreate: !hasZoneOfType(ZONE.BATTLEFIELD) },
-        { type: ZONE.GRAVEYARD, shouldCreate: !hasZoneOfType(ZONE.GRAVEYARD) },
-        { type: ZONE.EXILE, shouldCreate: !hasZoneOfType(ZONE.EXILE) },
-        { type: ZONE.COMMANDER, shouldCreate: !hasCommanderZone },
-      ];
-
-      const orderedIds = resolveOrderedPlayerIds(
-        snapshot.players as any,
-        (snapshot.playerOrder as any) ?? []
-      );
-      const orderedIdsWithLocal = orderedIds.includes(playerId)
-        ? orderedIds
-        : [...orderedIds, playerId];
-      const desiredColors = computePlayerColors(orderedIdsWithLocal);
-
-      const missingAnyColor = Object.values(snapshot.players).some(
-        (p: any) => !p?.color
-      );
-
-      const currentName = snapshot.players?.[playerId]?.name;
-      const needsNameUpdate = Boolean(
-        desiredName &&
-          desiredName !== currentName &&
-          (!currentName || currentName === defaultName)
-      );
-
-      if (
-        playerExists &&
-        zoneSpecs.every((z) => !z.shouldCreate) &&
-        !missingAnyColor &&
-        !needsNameUpdate
-      )
-        return;
-
-      doc.transact(() => {
-        if (!playerExists) {
-          upsertPlayer(sharedMaps, {
-            id: playerId,
-            name: desiredName,
-            life: 40,
-            counters: [],
-            commanderDamage: {},
-            commanderTax: 0,
-            deckLoaded: false,
-            color: desiredColors[playerId],
-          } as any);
-        } else {
-          if (needsNameUpdate) {
-            patchPlayer(sharedMaps, playerId, { name: desiredName } as any);
-          }
-        }
-
-        Object.entries(desiredColors).forEach(([id, color]) => {
-          const current = (snapshot.players as any)?.[id];
-          if (!current?.color) {
-            patchPlayer(sharedMaps, id, { color } as any);
-          }
-        });
-
-        zoneSpecs.forEach(({ type, shouldCreate }) => {
-          if (!shouldCreate) return;
-          upsertZone(sharedMaps, {
-            id: `${playerId}-${type}`,
-            type: type as any,
-            ownerId: playerId,
-            cardIds: [],
-          } as any);
-        });
+    const ensureLocalPlayer = () => {
+      ensureLocalPlayerInitialized({
+        transact: (fn) => doc.transact(fn),
+        sharedMaps,
+        playerId: ensuredPlayerId,
+        preferredUsername: useClientPrefsStore.getState().username,
       });
     };
 
     const SYNC_DEBOUNCE_MS = 50;
     const scheduleFullSync = () => {
-      if (fullSyncTimer.current !== null) {
-        clearTimeout(fullSyncTimer.current);
-      }
-      fullSyncTimer.current = setTimeout(() => {
-        fullSyncTimer.current = null;
-        fullSyncToStore();
-      }, SYNC_DEBOUNCE_MS) as unknown as number;
+      scheduleDebouncedTimeout(fullSyncTimer, SYNC_DEBOUNCE_MS, fullSyncToStore);
     };
 
     const handleDocUpdate = () => {
@@ -275,13 +151,7 @@ export function useMultiplayerSync(sessionId: string) {
     pushLocalAwareness();
 
     const handleAwareness = () => {
-      const states = awareness.getStates();
-      const unique = new Set<string>();
-      states.forEach((state: any, clientId: number) => {
-        const userId = state?.client?.id;
-        unique.add(typeof userId === "string" ? `u:${userId}` : `c:${clientId}`);
-      });
-      setPeers(Math.max(1, unique.size));
+      setPeers(computePeerCount(awareness.getStates()));
     };
     awareness.on("change", handleAwareness);
     handleAwareness();
@@ -300,8 +170,8 @@ export function useMultiplayerSync(sessionId: string) {
     provider.on("sync", (isSynced: boolean) => {
       if (!isSynced) return;
       flushPendingMutations();
-      setTimeout(() => fullSyncToStore(), 50);
-      setTimeout(() => ensureLocalPlayerInitialized(), 60);
+      scheduleDebouncedTimeout(postSyncFullSyncTimer, 50, fullSyncToStore);
+      scheduleDebouncedTimeout(postSyncInitTimer, 60, ensureLocalPlayer);
     });
 
     flushPendingMutations();
@@ -314,34 +184,19 @@ export function useMultiplayerSync(sessionId: string) {
 
       awareness.off("change", handleAwareness);
       doc.off("update", handleDocUpdate);
-      if (fullSyncTimer.current !== null) {
-        clearTimeout(fullSyncTimer.current);
-        fullSyncTimer.current = null;
-      }
+      cancelDebouncedTimeout(fullSyncTimer);
+      cancelDebouncedTimeout(postSyncFullSyncTimer);
+      cancelDebouncedTimeout(postSyncInitTimer);
 
       bindSharedLogStore(null);
       setActiveSession(null);
 
-      // Avoid clobbering a newer provider during fast remounts (e.g. React StrictMode).
-      try {
-        const currentProvider = getSessionProvider(sessionId);
-        if (currentProvider === provider) {
-          // Note: setSessionProvider(..., null) disconnects/destroys the existing provider.
-          setSessionProvider(sessionId, null);
-        } else {
-          try {
-            provider.disconnect();
-            provider.destroy();
-          } catch (_err) {}
-        }
-      } catch (_err) {}
-
-      try {
-        const currentAwareness = getSessionAwareness(sessionId);
-        if (currentAwareness === awareness) {
-          setSessionAwareness(sessionId, null);
-        }
-      } catch (_err) {}
+      disposeSessionTransport(sessionId, { provider, awareness }, {
+        getSessionProvider,
+        setSessionProvider,
+        getSessionAwareness,
+        setSessionAwareness,
+      });
 
       releaseSession(sessionId);
       cleanupStaleSessions();

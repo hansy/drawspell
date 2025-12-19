@@ -1,4 +1,3 @@
-import React from 'react';
 import { createSuggestedUsername, useClientPrefsStore } from '../../store/clientPrefsStore';
 import { UsernameForm } from './UsernameForm';
 
@@ -24,4 +23,3 @@ export function UsernamePromptScreen() {
     </div>
   );
 }
-

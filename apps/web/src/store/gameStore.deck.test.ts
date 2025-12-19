@@ -1,29 +1,11 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useGameStore } from './gameStore';
 import { ZONE } from '../constants/zones';
-
-const createMemoryStorage = () => {
-  const store = new Map<string, string>();
-  return {
-    getItem: (key: string) => store.get(key) ?? null,
-    setItem: (key: string, value: string) => { store.set(key, value); },
-    removeItem: (key: string) => { store.delete(key); },
-    clear: () => store.clear(),
-    key: (index: number) => Array.from(store.keys())[index] ?? null,
-    get length() {
-      return store.size;
-    },
-  } as Storage;
-};
+import { ensureLocalStorage } from './testUtils';
 
 describe('gameStore deck management', () => {
   beforeAll(() => {
-    if (typeof globalThis.localStorage === 'undefined') {
-      Object.defineProperty(globalThis, 'localStorage', {
-        value: createMemoryStorage(),
-        configurable: true,
-      });
-    }
+    ensureLocalStorage();
   });
 
   beforeEach(() => {
@@ -72,6 +54,37 @@ describe('gameStore deck management', () => {
 	    expect(state.zones[exile.id].cardIds).toEqual([]);
 	    expect(state.zones[battlefield.id].cardIds).toEqual([]);
 	  });
+
+    it('clears reveal metadata for all cards in the library on reset', () => {
+      const library = buildZone('lib-me', 'LIBRARY', 'me', ['c1', 'o1']);
+      const graveyard = buildZone('gy-me', 'GRAVEYARD', 'me', ['c2']);
+
+      useGameStore.setState((state) => ({
+        ...state,
+        zones: { [library.id]: library, [graveyard.id]: graveyard },
+        players: { me: { id: 'me', name: 'Me', life: 40, counters: [], commanderDamage: {}, commanderTax: 0, deckLoaded: true } },
+        cards: {
+          c1: { id: 'c1', name: 'Card1', ownerId: 'me', controllerId: 'me', zoneId: library.id, tapped: false, faceDown: false, position: { x: 0, y: 0 }, rotation: 0, counters: [], knownToAll: true, revealedToAll: true, revealedTo: ['opponent'] },
+          c2: { id: 'c2', name: 'Card2', ownerId: 'me', controllerId: 'me', zoneId: graveyard.id, tapped: false, faceDown: false, position: { x: 0, y: 0 }, rotation: 0, counters: [], knownToAll: true, revealedToAll: true, revealedTo: ['opponent'] },
+          o1: { id: 'o1', name: 'Other', ownerId: 'opp', controllerId: 'opp', zoneId: library.id, tapped: false, faceDown: false, position: { x: 0, y: 0 }, rotation: 0, counters: [], knownToAll: true, revealedToAll: true, revealedTo: ['me'] },
+        },
+      }));
+
+      useGameStore.getState().resetDeck('me', 'me');
+
+      const state = useGameStore.getState();
+      expect(state.cards.c1.knownToAll).toBe(false);
+      expect(state.cards.c1.revealedToAll).toBe(false);
+      expect(state.cards.c1.revealedTo ?? []).toHaveLength(0);
+
+      expect(state.cards.c2.knownToAll).toBe(false);
+      expect(state.cards.c2.revealedToAll).toBe(false);
+      expect(state.cards.c2.revealedTo ?? []).toHaveLength(0);
+
+      expect(state.cards.o1.knownToAll).toBe(false);
+      expect(state.cards.o1.revealedToAll).toBe(false);
+      expect(state.cards.o1.revealedTo ?? []).toHaveLength(0);
+    });
 
 	  it('keeps commander-zone cards in place when resetting the deck', () => {
 	    const library = buildZone('lib-me', 'LIBRARY', 'me', ['c1']);

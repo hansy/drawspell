@@ -1,9 +1,21 @@
 import { useGameStore } from "../store/gameStore";
+import type { Player } from "../types";
 import {
   computePlayerColors,
   isPlayerColor,
+  type PlayerColor,
   PLAYER_COLOR_PALETTE,
 } from "../lib/playerColors";
+
+export type SeatPosition = "bottom-left" | "bottom-right" | "top-left" | "top-right";
+
+export type LayoutMode = "single" | "split" | "quadrant";
+
+export type PlayerLayoutSlot = {
+  player: Player | undefined;
+  position: SeatPosition;
+  color: PlayerColor;
+};
 
 export const usePlayerLayout = () => {
   const players = useGameStore((state) => state.players);
@@ -33,17 +45,17 @@ export const usePlayerLayout = () => {
 
   // Determine Layout Mode
   const playerCount = layoutPlayers.length;
-  let layoutMode: "single" | "split" | "quadrant" = "single";
+  let layoutMode: LayoutMode = "single";
   if (playerCount >= 3) layoutMode = "quadrant";
   else if (playerCount === 2) layoutMode = "split";
 
   // Generate Slots based on Mode
-  let slots = [];
+  let slots: PlayerLayoutSlot[] = [];
 
   // Colors are assigned to players (not seats) so they remain consistent regardless of view rotation.
   const canonicalIds = sortedPlayers.map((p) => p.id);
   const canonicalColors = computePlayerColors(canonicalIds);
-  const resolveColor = (playerId: string, fallbackIndex = 0) => {
+  const resolveColor = (playerId: string, fallbackIndex = 0): PlayerColor => {
     const player = players[playerId];
     if (player && isPlayerColor(player.color)) return player.color;
     return canonicalColors[playerId] ?? PLAYER_COLOR_PALETTE[fallbackIndex];

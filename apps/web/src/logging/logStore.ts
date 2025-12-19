@@ -4,9 +4,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { getYDocHandles } from '../yjs/docManager';
 import { logEventRegistry } from './eventRegistry';
 import { LogContext, LogEventDefinition, LogEventId, LogMessage } from './types';
+import { computeAggregatedLogEntryUpdate } from './logEntryModel';
 
 const MAX_LOG_ENTRIES = 200;
-const DEFAULT_AGGREGATE_WINDOW_MS = 2000;
 
 interface LogStoreState {
   entries: LogMessage[];
@@ -14,31 +14,6 @@ interface LogStoreState {
   clear: () => void;
   setEntries: (entries: LogMessage[]) => void;
 }
-
-const buildEntry = (
-  eventId: LogEventId,
-  payload: any,
-  ctx: LogContext,
-  aggregateKey?: string,
-  existingId?: string,
-  timestamp = Date.now(),
-  sourceClientId?: number,
-): LogMessage => {
-  const def = logEventRegistry[eventId];
-  const parts = def.format(payload, ctx);
-
-  return {
-    id: existingId ?? uuidv4(),
-    ts: timestamp,
-    eventId,
-    actorId: payload?.actorId,
-    visibility: 'public',
-    parts,
-    payload,
-    aggregateKey,
-    sourceClientId,
-  };
-};
 
 const normalizeSharedEntry = (value: any): LogMessage | undefined => {
   if (!value) return undefined;
@@ -69,25 +44,27 @@ const writeSharedLog = (
   handles.doc.transact(() => {
     const lastValue = logs.length > 0 ? logs.get(logs.length - 1) : undefined;
     const lastEntry = normalizeSharedEntry(lastValue);
-    const windowMs = def.aggregate?.windowMs ?? DEFAULT_AGGREGATE_WINDOW_MS;
 
-    if (
-      aggregateKey &&
-      def.aggregate &&
-      lastEntry &&
-      lastEntry.aggregateKey === aggregateKey &&
-      now - lastEntry.ts <= windowMs
-    ) {
-      const mergedPayload = def.aggregate.mergePayload(lastEntry.payload, payload);
-      const mergedEntry = buildEntry(eventId, mergedPayload, ctx, aggregateKey, lastEntry.id, now, sourceClientId);
+    const update = computeAggregatedLogEntryUpdate({
+      eventId,
+      def,
+      payload,
+      ctx,
+      aggregateKey,
+      lastEntry: lastEntry ?? undefined,
+      timestamp: now,
+      sourceClientId,
+      createId: uuidv4,
+    });
+
+    if (update.kind === "replaceLast") {
       logs.delete(logs.length - 1, 1);
-      logs.push([mergedEntry]);
+      logs.push([update.entry]);
       trimSharedLogs(logs);
       return;
     }
 
-    const entry = buildEntry(eventId, payload, ctx, aggregateKey, undefined, now, sourceClientId);
-    logs.push([entry]);
+    logs.push([update.entry]);
     trimSharedLogs(logs);
   });
 
@@ -124,20 +101,23 @@ export const useLogStore = create<LogStoreState>((set) => {
     set((state) => {
       const entries = [...state.entries];
 
-      if (aggregateKey && def.aggregate && entries.length > 0) {
-        const last = entries[entries.length - 1];
-        const windowMs = def.aggregate.windowMs ?? DEFAULT_AGGREGATE_WINDOW_MS;
+      const update = computeAggregatedLogEntryUpdate({
+        eventId,
+        def,
+        payload,
+        ctx,
+        aggregateKey,
+        lastEntry: entries[entries.length - 1],
+        timestamp: now,
+        createId: uuidv4,
+      });
 
-        if (last.aggregateKey === aggregateKey && now - last.ts <= windowMs) {
-          const mergedPayload = def.aggregate.mergePayload(last.payload, payload);
-          const mergedEntry = buildEntry(eventId, mergedPayload, ctx, aggregateKey, last.id, now);
-          entries[entries.length - 1] = mergedEntry;
-          return { entries };
-        }
+      if (update.kind === "replaceLast") {
+        entries[entries.length - 1] = update.entry;
+      } else {
+        entries.push(update.entry);
       }
 
-      const entry = buildEntry(eventId, payload, ctx, aggregateKey, undefined, now);
-      entries.push(entry);
       if (entries.length > MAX_LOG_ENTRIES) {
         entries.splice(0, entries.length - MAX_LOG_ENTRIES);
       }

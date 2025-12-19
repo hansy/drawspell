@@ -1,0 +1,90 @@
+import React from "react";
+import { cn } from "../../../lib/utils";
+import { CARD_HEIGHT_CLASS, CARD_ASPECT_CLASS } from "../../../lib/constants";
+
+import type { CardViewProps } from "./types";
+import { CardFace } from "./CardFace";
+
+export const CardView = React.memo(
+  React.forwardRef<HTMLDivElement, CardViewProps>(
+    (
+      {
+        card,
+        style,
+        className,
+        imageClassName,
+        onContextMenu,
+        faceDown,
+        isDragging,
+        onDoubleClick,
+        onClick,
+        onMouseEnter,
+        onMouseLeave,
+        imageTransform,
+        preferArtCrop = false,
+        rotateLabel,
+        highlightColor,
+        disableHoverAnimation,
+        ...props
+      },
+      ref
+    ) => {
+      const customTextNode = React.useMemo(
+        () =>
+          card.customText ? (
+            <div className="bg-zinc-900/90 text-zinc-100 text-sm px-1.5 py-0.5 rounded-sm border border-zinc-700 shadow-sm leading-tight whitespace-normal break-words">
+              {card.customText}
+            </div>
+          ) : null,
+        [card.customText]
+      );
+
+      return (
+        <div
+          ref={ref}
+          style={style}
+          className={cn(
+            CARD_HEIGHT_CLASS,
+            CARD_ASPECT_CLASS,
+            "bg-zinc-800 rounded-lg border border-zinc-700 shadow-md flex flex-col items-center justify-center select-none relative z-0",
+            !isDragging &&
+              !disableHoverAnimation &&
+              "hover:scale-105 hover:shadow-xl hover:z-10 hover:border-indigo-500/50 cursor-grab active:cursor-grabbing",
+            card.tapped && "border-zinc-600 bg-zinc-900",
+            isDragging &&
+              "shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-indigo-500 cursor-grabbing",
+            highlightColor === "rose" &&
+              "ring-2 ring-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.5)]",
+            highlightColor === "violet" &&
+              "ring-2 ring-violet-500 shadow-[0_0_15px_rgba(139,92,246,0.5)]",
+            highlightColor === "sky" &&
+              "ring-2 ring-sky-500 shadow-[0_0_15px_rgba(14,165,233,0.5)]",
+            highlightColor === "amber" &&
+              "ring-2 ring-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)]",
+            className
+          )}
+          onDoubleClick={onDoubleClick}
+          onClick={onClick}
+          onContextMenu={onContextMenu}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+          {...props}
+        >
+          <CardFace
+            card={card}
+            faceDown={faceDown}
+            imageClassName={imageClassName}
+            imageTransform={imageTransform}
+            preferArtCrop={preferArtCrop}
+            rotateLabel={rotateLabel}
+            customTextPosition="center"
+            customTextNode={customTextNode}
+          />
+        </div>
+      );
+    }
+  )
+);
+
+CardView.displayName = "CardView";
+

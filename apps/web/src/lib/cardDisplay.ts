@@ -117,3 +117,6 @@ export const syncCardStatsToFace = (
     baseToughness: hasToughness ? targetFace.toughness : undefined,
   };
 };
+
+export const resetCardToFrontFace = (card: Card): Card =>
+  syncCardStatsToFace({ ...card, currentFaceIndex: 0 }, 0);

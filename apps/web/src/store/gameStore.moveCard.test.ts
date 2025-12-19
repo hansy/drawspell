@@ -2,6 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useGameStore } from './gameStore';
 import { ZONE } from '../constants/zones';
 import { GRID_STEP_X, GRID_STEP_Y } from '../lib/positions';
+import { ensureLocalStorage } from './testUtils';
 
 const makeZone = (id: string, type: keyof typeof ZONE, ownerId: string, cardIds: string[] = []) => ({
   id,
@@ -24,27 +25,8 @@ const makeCard = (id: string, zoneId: string, ownerId: string, tapped = false) =
 });
 
 describe('gameStore move/tap interactions', () => {
-  const createMemoryStorage = () => {
-    const store = new Map<string, string>();
-    return {
-      getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => { store.set(key, value); },
-      removeItem: (key: string) => { store.delete(key); },
-      clear: () => store.clear(),
-      key: (index: number) => Array.from(store.keys())[index] ?? null,
-      get length() {
-        return store.size;
-      },
-    } as Storage;
-  };
-
   beforeAll(() => {
-    if (typeof globalThis.localStorage === 'undefined') {
-      Object.defineProperty(globalThis, 'localStorage', {
-        value: createMemoryStorage(),
-        configurable: true,
-      });
-    }
+    ensureLocalStorage();
   });
 
   beforeEach(() => {
@@ -111,6 +93,49 @@ describe('gameStore move/tap interactions', () => {
     expect(state.cards[token.id]).toBeUndefined();
     expect(state.zones[battlefield.id].cardIds).not.toContain(token.id);
     expect(state.zones[library.id].cardIds).not.toContain(token.id);
+  });
+
+  it('clears reveal metadata when moving to bottom of the library', () => {
+    const hand = makeZone('hand-me', 'HAND', 'me', ['cBottom']);
+    const library = makeZone('lib-me', 'LIBRARY', 'me', []);
+
+    const card = {
+      ...makeCard('cBottom', hand.id, 'me', false),
+      knownToAll: true,
+      revealedToAll: true,
+      revealedTo: ['opponent'],
+    };
+
+    useGameStore.setState((state) => ({
+      zones: { ...state.zones, [hand.id]: hand, [library.id]: library },
+      cards: { ...state.cards, [card.id]: card },
+    }));
+
+    useGameStore.getState().moveCardToBottom(card.id, library.id, 'me');
+
+    const moved = useGameStore.getState().cards[card.id];
+    expect(moved.zoneId).toBe(library.id);
+    expect(moved.knownToAll).toBe(false);
+    expect(moved.revealedToAll).toBe(false);
+    expect(moved.revealedTo ?? []).toHaveLength(0);
+  });
+
+  it('clears faceDown when moving to bottom of a non-battlefield zone', () => {
+    const battlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', ['cFaceDown']);
+    const hand = makeZone('hand-me', 'HAND', 'me', []);
+
+    const card = { ...makeCard('cFaceDown', battlefield.id, 'me', false), faceDown: true };
+
+    useGameStore.setState((state) => ({
+      zones: { ...state.zones, [battlefield.id]: battlefield, [hand.id]: hand },
+      cards: { ...state.cards, [card.id]: card },
+    }));
+
+    useGameStore.getState().moveCardToBottom(card.id, hand.id, 'me');
+
+    const moved = useGameStore.getState().cards[card.id];
+    expect(moved.zoneId).toBe(hand.id);
+    expect(moved.faceDown).toBe(false);
   });
 
   it('denies tapping a card that is not on the battlefield', () => {

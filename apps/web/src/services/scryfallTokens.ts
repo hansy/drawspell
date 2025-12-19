@@ -1,4 +1,5 @@
 import { ScryfallCard, ScryfallListResult } from "../types/scryfall";
+import { isAbortError } from "../lib/errors";
 
 export const TOKEN_SEARCH_PREFIX = "(type:token OR type:emblem) (game:paper)";
 export const MIN_TOKEN_SEARCH_CHARS = 3;
@@ -64,7 +65,7 @@ export function createDebouncedTokenSearch(
 
   let timer: ReturnType<typeof setTimeout> | null = null;
   let inFlight: AbortController | null = null;
-  let pendingReject: ((reason?: any) => void) | null = null;
+  let pendingReject: ((reason?: unknown) => void) | null = null;
 
   const cancelTimers = () => {
     if (timer) {
@@ -83,7 +84,7 @@ export function createDebouncedTokenSearch(
   const rejectPending = (message: string) => {
     if (!pendingReject) return;
     const error = new Error(message);
-    (error as any).name = "AbortError";
+    error.name = "AbortError";
     pendingReject(error);
     pendingReject = null;
   };
@@ -116,7 +117,7 @@ export function createDebouncedTokenSearch(
           });
           resolve(result);
         } catch (error) {
-          if ((error as any).name === "AbortError") {
+          if (isAbortError(error)) {
             return;
           }
           reject(error);

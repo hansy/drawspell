@@ -4,19 +4,25 @@ export interface PermissionLogEntry {
   actorId: string;
   allowed: boolean;
   reason?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
-const nodeProcessEnv = (globalThis as any).process?.env as Record<string, unknown> | undefined;
+const nodeProcessEnv = (() => {
+  const maybeProcess = (globalThis as { process?: unknown }).process;
+  if (!maybeProcess || typeof maybeProcess !== 'object') return undefined;
+  const maybeEnv = (maybeProcess as { env?: unknown }).env;
+  if (!maybeEnv || typeof maybeEnv !== 'object') return undefined;
+  return maybeEnv as Record<string, unknown>;
+})();
 
 const isTestEnv =
-  (import.meta as any).env?.MODE === 'test' || Boolean(nodeProcessEnv?.VITEST);
+  import.meta.env.MODE === 'test' || Boolean(nodeProcessEnv?.VITEST);
 
 const nodeEnv =
   typeof nodeProcessEnv?.NODE_ENV === 'string' ? nodeProcessEnv.NODE_ENV : undefined;
 
 const isDevEnv =
-  (import.meta as any).env?.DEV === true ||
+  import.meta.env.DEV === true ||
   (nodeEnv != null && nodeEnv !== 'production');
 
 const ENABLE_PERMISSION_LOGS = isDevEnv && !isTestEnv;

@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { Eye } from "lucide-react";
 import { Card as CardType } from "../../../types";
-import { CARD_ASPECT_RATIO } from "../../../lib/constants";
-import { cn } from "../../../lib/utils";
-import { CardFace } from "./CardFace";
 
+import { cn } from "../../../lib/utils";
+import { ZONE } from "../../../constants/zones";
 import { useGameStore } from "../../../store/gameStore";
+import { getNextCardStatUpdate } from "../../../lib/cardPT";
+import { computeCardPreviewPosition } from "../../../lib/cardPreviewPosition";
 import {
-  getCurrentFace,
   getDisplayPower,
   getDisplayToughness,
   getFlipRotation,
   shouldShowPowerToughness,
 } from "../../../lib/cardDisplay";
+import { CardPreviewView } from "./CardPreviewView";
 
 interface CardPreviewProps {
   card: CardType;
@@ -40,6 +40,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   const [isPositioned, setIsPositioned] = useState(false);
   const updateCard = useGameStore((state) => state.updateCard);
   const myPlayerId = useGameStore((state) => state.myPlayerId);
+  const players = useGameStore((state) => state.players);
 
   // Subscribe to the live card data to ensure we have the latest P/T and counters
   const liveCard = useGameStore((state) => state.cards[card.id]);
@@ -50,6 +51,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   const displayPower = getDisplayPower(currentCard);
   const displayToughness = getDisplayToughness(currentCard);
   const flipRotation = getFlipRotation(currentCard);
+  const zoneType = useGameStore((state) => state.zones[currentCard.zoneId]?.type);
 
   // Local face override for previewing DFCs
   const [overrideFaceIndex, setOverrideFaceIndex] = useState<number | null>(null);
@@ -60,44 +62,17 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   }, [card.id]);
 
   useEffect(() => {
-    const calculatePosition = () => {
-      const calculatedHeight = width * 1.4;
-
-      let top = anchorRect.top - calculatedHeight - GAP;
-      let left = anchorRect.left + anchorRect.width / 2 - width / 2;
-
-      // Viewport Collision Detection
-      // Default is ABOVE.
-      // If it goes off the TOP, try BELOW.
-      if (top < GAP) {
-        const topBelow = anchorRect.bottom + GAP;
-        // Check if BELOW fits in the viewport
-        if (topBelow + calculatedHeight <= window.innerHeight - GAP) {
-          top = topBelow;
-        } else {
-          // If neither fits perfectly, pick the one with MORE space or clamp?
-          // For now, if top is cut off, we force below, but we might need to clamp it to bottom edge if it's too tall?
-          // Actually, if it's too tall for below, it will be cropped.
-          // Let's try to keep it on screen.
-          if (topBelow + calculatedHeight > window.innerHeight) {
-            // If below is also too big, maybe align to bottom?
-            // But we want it near the card.
-            // Let's just stick to the logic: if top is bad, go below.
-            top = topBelow;
-          }
-        }
-      }
-
-      // Clamp left to viewport
-      const maxLeft = window.innerWidth - width - GAP;
-      left = Math.max(GAP, Math.min(left, maxLeft));
-
-      setStyle({ top, left, opacity: 1 });
-      setIsPositioned(true);
-    };
-
-    // Run immediately
-    calculatePosition();
+    const calculatedHeight = width * 1.4;
+    const { top, left } = computeCardPreviewPosition({
+      anchorRect,
+      previewWidth: width,
+      previewHeight: calculatedHeight,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      gapPx: GAP,
+    });
+    setStyle({ top, left, opacity: 1 });
+    setIsPositioned(true);
 
     // Optional: Re-calculate on scroll/resize
     // window.addEventListener('resize', calculatePosition);
@@ -106,10 +81,9 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   }, [anchorRect, width]);
 
   const handleUpdatePT = (type: "power" | "toughness", delta: number) => {
-    const faceStat = getCurrentFace(currentCard)?.[type];
-    const currentVal = parseInt((currentCard as any)[type] ?? faceStat ?? "0");
-    if (isNaN(currentVal)) return;
-    updateCard(currentCard.id, { [type]: (currentVal + delta).toString() });
+    const update = getNextCardStatUpdate(currentCard, type, delta);
+    if (!update) return;
+    updateCard(currentCard.id, update);
   };
 
   // Don't render until positioned to avoid jump
@@ -129,239 +103,67 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   };
 
   const isController = currentCard.controllerId === myPlayerId;
-  const isHand = currentCard.zoneId.includes('hand');
+  const isHand = zoneType === ZONE.HAND;
 
   // If in hand, we hide ancillary things
   const showAncillary = !isHand;
 
+  const showControllerRevealIcon = Boolean(
+    locked &&
+      onClose &&
+      (currentCard.revealedToAll ||
+        (currentCard.revealedTo && currentCard.revealedTo.length > 0)) &&
+      currentCard.controllerId === myPlayerId
+  );
+
+  const controllerRevealNames = showControllerRevealIcon
+    ? currentCard.revealedToAll
+      ? []
+      : (currentCard.revealedTo || []).map((id) => players[id]?.name || id)
+    : [];
+
+  const customTextNode =
+    showAncillary && currentCard.customText ? (
+      <div
+        className={cn(
+          "bg-zinc-900/90 backdrop-blur-sm p-2 rounded-lg border border-zinc-700 shadow-xl min-w-[120px] max-w-[200px] mt-2",
+          locked &&
+            currentCard.controllerId === myPlayerId &&
+            "cursor-text hover:border-indigo-500/50 transition-colors"
+        )}
+        onClick={(e) => {
+          if (!locked || currentCard.controllerId !== myPlayerId) return;
+          e.stopPropagation();
+        }}
+      >
+        <CustomTextEditor card={currentCard} locked={locked} />
+      </div>
+    ) : null;
+
   return (
-    <div
-      className={cn(
-        "fixed z-[9999] rounded-xl shadow-2xl border-2 border-indigo-500/50 bg-zinc-900 transition-opacity duration-200 ease-out",
-        locked ? "pointer-events-auto" : "pointer-events-none",
-        CARD_ASPECT_RATIO
-      )}
-      style={{
-        top: style.top,
-        left: style.left,
-        width: width,
-        opacity: style.opacity,
-      }}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      {locked && onClose && (
-        <div className="absolute -top-10 -right-16 flex items-center gap-2">
-          {/* Revealed Icon - Only visible to controller */}
-          {(currentCard.revealedToAll || (currentCard.revealedTo && currentCard.revealedTo.length > 0)) &&
-            currentCard.controllerId === myPlayerId && (
-              <div
-                className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors border border-zinc-700 shadow-lg relative group/preview-eye cursor-help"
-                title={currentCard.revealedToAll ? "Revealed to everyone" : "Revealed to specific players"}
-              >
-                <Eye
-                  size={16}
-                  strokeWidth={2}
-                />
-                <div className="absolute right-0 bottom-full mb-2 hidden group-hover/preview-eye:block bg-zinc-900 text-xs text-white p-2 rounded border border-zinc-700 whitespace-nowrap z-50 shadow-xl min-w-[100px]">
-                  <div className="font-bold mb-1 border-b border-zinc-700 pb-1">Revealed to:</div>
-                  {currentCard.revealedToAll ? (
-                    <div>Everyone</div>
-                  ) : (
-                    <div className="flex flex-col gap-0.5">
-                      {(currentCard.revealedTo || []).map(id => {
-                        // We need access to players map. Ideally we fetch it from store here.
-                        return <PlayerName key={id} playerId={id} />;
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          {hasMultipleFaces && (
-            <button
-              onClick={handleFlip}
-              className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors border border-zinc-700 shadow-lg"
-              title="Preview transform/flip"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38" />
-              </svg>
-            </button>
-          )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
-            className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors border border-zinc-700 shadow-lg"
-            title="Close preview"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
-        </div>
-      )}
-
-      {/* Token Label */}
-      {currentCard.isToken && (
-        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-900/90 text-zinc-400 text-xs font-bold px-3 py-1 rounded-full border border-zinc-700 shadow-lg z-40 uppercase tracking-wider">
-          Token
-        </div>
-      )}
-
-      <CardFace
-        card={previewCard}
-        countersClassName={showAncillary ? "top-4 -right-2" : "hidden"}
-        imageClassName="object-cover"
-        imageTransform={flipRotation ? `rotate(${flipRotation}deg)` : undefined}
-        preferArtCrop={false}
-        interactive={showAncillary && locked && isController}
-        hidePT={true} // Always hide internal P/T, we render external always
-        showCounterLabels={showAncillary} // Hide counters if in hand (via masking or empty)
-        // Actually CardFace doesn't reject counters if showCounterLabels=false, it just hides the labels.
-        // We probably want to hide them entirely. CardFace renders counters map.
-        // We can pass a filtered card or check logic inside CardFace, but let's see props.
-        // CardFace doesn't have a check to HIDE counters completely.
-        // But if showCounters=false isn't a prop..
-        // Let's modify CardFace usage below.
-
-        hideRevealIcon={true}
-        showNameLabel={false}
-        customTextPosition="sidebar"
-        customTextNode={
-          showAncillary && currentCard.customText ? (
-            <div
-              className={cn(
-                "bg-zinc-900/90 backdrop-blur-sm p-2 rounded-lg border border-zinc-700 shadow-xl min-w-[120px] max-w-[200px] mt-2",
-                locked &&
-                currentCard.controllerId === myPlayerId &&
-                "cursor-text hover:border-indigo-500/50 transition-colors"
-              )}
-              onClick={(e) => {
-                if (!locked || currentCard.controllerId !== myPlayerId) return;
-                e.stopPropagation();
-              }}
-            >
-              <CustomTextEditor card={currentCard} locked={locked} />
-            </div>
-          ) : null
-        }
-      />
-
-      {/* External Power/Toughness (Always rendered, but buttons only accessible when locked) */}
-      {showAncillary && showPT && (
-        <div className="absolute bottom-0 left-full ml-4 bg-zinc-900 px-3 py-2 rounded-lg border border-zinc-700 shadow-xl z-50 flex items-center gap-3 min-w-max">
-          {/* Power */}
-          {/* Power */}
-          <div className="relative group/pt flex items-center justify-center w-12 h-10">
-            <span
-              className={cn(
-                "text-2xl font-bold text-center z-0",
-                parseInt(displayPower || "0") >
-                  parseInt(currentCard.basePower || "0")
-                  ? "text-green-500"
-                  : parseInt(displayPower || "0") <
-                    parseInt(currentCard.basePower || "0")
-                    ? "text-red-500"
-                    : "text-white"
-              )}
-            >
-              {displayPower}
-            </span>
-
-            {/* Overlay Controls */}
-            {isController && (
-              <div className="absolute inset-0 flex items-center justify-between opacity-0 group-hover/pt:opacity-100 transition-opacity z-10">
-                <button
-                  className="h-full w-1/2 flex items-center justify-center bg-zinc-900/80 hover:bg-zinc-800/90 text-white font-bold rounded-l text-sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleUpdatePT("power", -1);
-                  }}
-                >
-                  -
-                </button>
-                <button
-                  className="h-full w-1/2 flex items-center justify-center bg-zinc-900/80 hover:bg-zinc-800/90 text-white font-bold rounded-r text-sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleUpdatePT("power", 1);
-                  }}
-                >
-                  +
-                </button>
-              </div>
-            )}
-          </div>
-
-          <span className="text-zinc-600 font-bold text-xl">/</span>
-
-          {/* Toughness */}
-          <div className="relative group/pt flex items-center justify-center w-12 h-10">
-            <span
-              className={cn(
-                "text-2xl font-bold text-center z-0",
-                parseInt(displayToughness || "0") >
-                  parseInt(currentCard.baseToughness || "0")
-                  ? "text-green-500"
-                  : parseInt(displayToughness || "0") <
-                    parseInt(currentCard.baseToughness || "0")
-                    ? "text-red-500"
-                    : "text-white"
-              )}
-            >
-              {displayToughness}
-            </span>
-
-            {/* Overlay Controls */}
-            {isController && (
-              <div className="absolute inset-0 flex items-center justify-between opacity-0 group-hover/pt:opacity-100 transition-opacity z-10">
-                <button
-                  className="h-full w-1/2 flex items-center justify-center bg-zinc-900/80 hover:bg-zinc-800/90 text-white font-bold rounded-l text-sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleUpdatePT("toughness", -1);
-                  }}
-                >
-                  -
-                </button>
-                <button
-                  className="h-full w-1/2 flex items-center justify-center bg-zinc-900/80 hover:bg-zinc-800/90 text-white font-bold rounded-r text-sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleUpdatePT("toughness", 1);
-                  }}
-                >
-                  +
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+    <CardPreviewView
+      currentCard={currentCard}
+      previewCard={previewCard}
+      locked={locked}
+      onClose={onClose}
+      width={width}
+      top={style.top}
+      left={style.left}
+      opacity={style.opacity}
+      showControllerRevealIcon={showControllerRevealIcon}
+      controllerRevealToAll={Boolean(currentCard.revealedToAll)}
+      controllerRevealNames={controllerRevealNames}
+      hasMultipleFaces={hasMultipleFaces}
+      onFlip={handleFlip}
+      flipRotation={flipRotation}
+      showAncillary={showAncillary}
+      isController={isController}
+      customTextNode={customTextNode}
+      showPT={showPT}
+      displayPower={displayPower}
+      displayToughness={displayToughness}
+      onPTDelta={handleUpdatePT}
+    />
   );
 };
 
@@ -425,8 +227,3 @@ const CustomTextEditor: React.FC<{ card: CardType; locked?: boolean }> = ({
     </div>
   );
 };
-
-function PlayerName({ playerId }: { playerId: string }) {
-  const player = useGameStore((state) => state.players[playerId]);
-  return <div>{player?.name || playerId}</div>;
-}

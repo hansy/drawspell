@@ -1,382 +1,174 @@
-import React from 'react';
+import React from "react";
 import {
-    useSensor,
-    useSensors,
-    PointerSensor,
-    DragEndEvent,
-    DragMoveEvent,
-    DragStartEvent
-} from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
-import { useGameStore } from '../store/gameStore';
-import { useDragStore } from '../store/dragStore';
-import { ZoneId, CardId } from '../types';
-import {
-    getEventCoordinates,
-    calculatePointerOffset,
-    DragPosition,
-    DragOffset
-} from '../lib/dnd';
-import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from '../lib/constants';
-import { ZONE } from '../constants/zones';
-import { canMoveCard } from '../rules/permissions';
-import { fromNormalizedPosition, mirrorNormalizedY, snapNormalizedWithZone, toNormalizedPosition } from '../lib/positions';
+  useSensor,
+  useSensors,
+  PointerSensor,
+  DragEndEvent,
+  DragMoveEvent,
+  DragStartEvent,
+} from "@dnd-kit/core";
+import { arrayMove } from "@dnd-kit/sortable";
+
+import { useGameStore } from "../store/gameStore";
+import { useDragStore } from "../store/dragStore";
+import type { CardId, ZoneId } from "../types";
+import { computeDragEndPlan, computeDragMoveUiState } from "./gameDnD/model";
 
 // Throttle helper for drag move events
 const DRAG_MOVE_THROTTLE_MS = 16; // ~60fps
 
 export const useGameDnD = () => {
-    // Use getState() for hot path reads to avoid re-renders
-    const moveCard = useGameStore((state) => state.moveCard);
-    const reorderZoneCards = useGameStore((state) => state.reorderZoneCards);
-    const setGhostCard = useDragStore((state) => state.setGhostCard);
-    const setActiveCardId = useDragStore((state) => state.setActiveCardId);
-    const setOverCardScale = useDragStore((state) => state.setOverCardScale);
-    const setZoomEdge = useDragStore((state) => state.setZoomEdge);
-    const myPlayerId = useGameStore((state) => state.myPlayerId);
+  const moveCard = useGameStore((state) => state.moveCard);
+  const reorderZoneCards = useGameStore((state) => state.reorderZoneCards);
+  const setGhostCard = useDragStore((state) => state.setGhostCard);
+  const setActiveCardId = useDragStore((state) => state.setActiveCardId);
+  const setOverCardScale = useDragStore((state) => state.setOverCardScale);
+  const setZoomEdge = useDragStore((state) => state.setZoomEdge);
+  const myPlayerId = useGameStore((state) => state.myPlayerId);
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, {
-            activationConstraint: {
-                distance: 8,
-            },
-        })
-    );
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
-    // Track pointer start and offset to card center so positioning follows the cursor.
-    const dragPointerStart = React.useRef<DragPosition | null>(null);
-    const dragPointerToCenter = React.useRef<DragOffset>({ x: 0, y: 0 });
-    const startGhostPos = React.useRef<DragPosition | null>(null);
-    const lastGhostPos = React.useRef<DragPosition | null>(null);
-    const cardRectRef = React.useRef<DOMRect | null>(null);
-    const dragSeq = React.useRef(0);
-    const currentDragSeq = React.useRef<number | null>(null);
+  const dragSeq = React.useRef(0);
+  const currentDragSeq = React.useRef<number | null>(null);
 
-    const handleDragStart = (event: DragStartEvent) => {
-        currentDragSeq.current = ++dragSeq.current;
+  const handleDragStart = (event: DragStartEvent) => {
+    currentDragSeq.current = ++dragSeq.current;
 
-        setGhostCard(null);
-        dragMoveLogged.current = false;
-        startGhostPos.current = null;
-        lastGhostPos.current = null;
-        if (event.active.data.current?.cardId) {
-            setActiveCardId(event.active.data.current.cardId);
-        }
+    setGhostCard(null);
+    if (event.active.data.current?.cardId) {
+      setActiveCardId(event.active.data.current.cardId);
+    }
+  };
 
-        const { active, activatorEvent } = event as any;
-        // @ts-ignore - rect is available on active
-        const activeRect = active.rect.current?.initial || active.rect.current?.translated;
+  const lastMoveTime = React.useRef(0);
+  const pendingMoveFrame = React.useRef<number | null>(null);
+  const latestMoveEvent = React.useRef<DragMoveEvent | null>(null);
 
-        // Prefer a live measurement of the draggable node to capture transforms (rotation/scale).
-        const nodeRect = active.data.current?.nodeRef?.current?.getBoundingClientRect?.();
-        const targetRect = activatorEvent?.target?.getBoundingClientRect?.();
-        const rect = nodeRect || targetRect || activeRect || null;
-        cardRectRef.current = rect;
-
-        const pointer = getEventCoordinates(event);
-
-        // Fallback to card center if we couldn't read the pointer (keeps the ghost anchored).
-        const center = rect
-            ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
-            : null;
-
-        dragPointerStart.current = pointer || center;
-
-        if (center && pointer && rect) {
-            dragPointerToCenter.current = calculatePointerOffset(pointer, rect);
-        } else {
-            dragPointerToCenter.current = { x: 0, y: 0 };
-        }
-
-    };
-
-    const dragMoveLogged = React.useRef(false);
-    const startLogged = React.useRef(false);
-    const lastMoveTime = React.useRef(0);
-    const pendingMoveFrame = React.useRef<number | null>(null);
-
-    const handleDragMove = React.useCallback((event: DragMoveEvent) => {
-        // Throttle drag move to prevent excessive calculations
-        const now = performance.now();
-        if (now - lastMoveTime.current < DRAG_MOVE_THROTTLE_MS) {
-            // Schedule update for next frame if not already scheduled
-            if (!pendingMoveFrame.current) {
-                pendingMoveFrame.current = requestAnimationFrame(() => {
-                    pendingMoveFrame.current = null;
-                    handleDragMoveImpl(event);
-                });
-            }
-            return;
-        }
-        lastMoveTime.current = now;
-        handleDragMoveImpl(event);
-    }, [moveCard, myPlayerId, reorderZoneCards, setGhostCard, setOverCardScale, setZoomEdge]);
-
-    const handleDragMoveImpl = (event: DragMoveEvent) => {
-        if (currentDragSeq.current == null) {
-            // Late move after drag has ended; ignore to avoid resurrecting ghosts
-            return;
-        }
-
-        const { active, over } = event;
-
-        if (!over) {
-            setGhostCard(null);
-            setOverCardScale(1);
-            setZoomEdge(null);
-            return;
-        }
-
-        // Get fresh state for hot path
-        const state = useGameStore.getState();
-        const cards = state.cards;
-        const zones = state.zones;
-
-        const activeCardId = active.data.current?.cardId;
-        const activeCard = cards[activeCardId];
-        const isTapped = active.data.current?.tapped || activeCard?.tapped;
-
-        // If over a battlefield zone, show ghost card
-        if (over.data.current?.type === ZONE.BATTLEFIELD) {
-            const zoneId = over.id as string;
-            const targetZone = zones[zoneId];
-            const fromZone = activeCard ? zones[activeCard.zoneId] : undefined;
-
-            if (activeCard && targetZone && fromZone) {
-                const permission = canMoveCard({
-                    actorId: myPlayerId,
-                    card: activeCard,
-                    fromZone,
-                    toZone: targetZone
-                });
-                if (!permission.allowed) {
-                    setGhostCard(null);
-                    return;
-                }
-
-                // @ts-ignore - over.rect is available at runtime
-                const overRect = over.rect as any;
-                const scale = over.data.current?.scale || 1;
-                const viewScale = over.data.current?.cardScale || 1;
-                const mirrorY = Boolean(over.data.current?.mirrorY);
-                setOverCardScale(viewScale);
-
-                // Use the translated rect center for accurate position
-                // This correctly handles scroll offsets in the source container
-                // @ts-ignore - active.rect.current.translated is available at runtime
-                const activeRect = active.rect.current?.translated;
-                if (!activeRect) return;
-
-                const centerScreen = {
-                    x: activeRect.left + activeRect.width / 2,
-                    y: activeRect.top + activeRect.height / 2,
-                };
-
-                const unsnappedPos = {
-                    x: (centerScreen.x - overRect.left) / scale,
-                    y: (centerScreen.y - overRect.top) / scale,
-                };
-
-                const zoneWidth = (overRect?.width || 0) / scale;
-                const zoneHeight = (overRect?.height || 0) / scale;
-
-                const baseWidth = BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;
-                const cardWidth = (isTapped ? BASE_CARD_HEIGHT : baseWidth) * viewScale;
-                const cardHeight = (isTapped ? baseWidth : BASE_CARD_HEIGHT) * viewScale;
-
-                // Clamp the position to zone bounds (instead of rejecting)
-                // This is more forgiving and handles scroll offset issues
-                const clampedPos = {
-                    x: Math.max(cardWidth / 2, Math.min(unsnappedPos.x, zoneWidth - cardWidth / 2)),
-                    y: Math.max(cardHeight / 2, Math.min(unsnappedPos.y, zoneHeight - cardHeight / 2))
-                };
-
-                const unsnappedNormalized = toNormalizedPosition(clampedPos, zoneWidth, zoneHeight);
-                const unsnappedCanonical = mirrorY ? mirrorNormalizedY(unsnappedNormalized) : unsnappedNormalized;
-                const snappedCanonical = snapNormalizedWithZone(
-                    unsnappedCanonical,
-                    zoneWidth,
-                    zoneHeight,
-                    cardWidth,
-                    cardHeight
-                );
-                const ghostNormalized = mirrorY ? mirrorNormalizedY(snappedCanonical) : snappedCanonical;
-                const ghostPosition = fromNormalizedPosition(ghostNormalized, zoneWidth, zoneHeight);
-
-                setGhostCard({
-                    zoneId,
-                    position: ghostPosition,
-                    tapped: isTapped
-                });
-                if (!dragMoveLogged.current) {
-                    startGhostPos.current = ghostPosition;
-                    dragMoveLogged.current = true;
-                }
-                lastGhostPos.current = ghostPosition;
-
-                // One-time per drag anchor tracking (kept for potential future use)
-                if (!startLogged.current) {
-                    startLogged.current = true;
-                }
-            }
-        } else {
-            setGhostCard(null);
-            setOverCardScale(1);
-        }
-
-        // Edge Detection for Zoom
-        if (over && over.data.current?.type === ZONE.BATTLEFIELD) {
-            const zoneId = over.id as string;
-            const targetZone = zones[zoneId];
-            // Only allow zoom on OWN battlefield
-            if (targetZone && targetZone.ownerId === myPlayerId) {
-                // @ts-ignore - rect is available on active
-                const activeRect = active.rect.current?.translated;
-                // @ts-ignore - rect is available on over
-                const overRect = over.rect;
-
-                if (activeRect && overRect) {
-                    const EDGE_THRESHOLD = 30; // px
-
-                    let edge: 'top' | 'bottom' | 'left' | 'right' | null = null;
-
-                    if (activeRect.top < overRect.top + EDGE_THRESHOLD) edge = 'top';
-                    else if (activeRect.bottom > overRect.bottom - EDGE_THRESHOLD) edge = 'bottom';
-                    else if (activeRect.left < overRect.left + EDGE_THRESHOLD) edge = 'left';
-                    else if (activeRect.right > overRect.right - EDGE_THRESHOLD) edge = 'right';
-
-                    setZoomEdge(edge);
-                } else {
-                    setZoomEdge(null);
-                }
-            } else {
-                setZoomEdge(null);
-            }
-        } else {
-            setZoomEdge(null);
-        }
-    };
-
-    const handleDragEnd = React.useCallback((event: DragEndEvent) => {
-        // Cancel any pending animation frame
-        if (pendingMoveFrame.current) {
-            cancelAnimationFrame(pendingMoveFrame.current);
+  const handleDragMove = React.useCallback(
+    (event: DragMoveEvent) => {
+      const now = performance.now();
+      if (now - lastMoveTime.current < DRAG_MOVE_THROTTLE_MS) {
+        latestMoveEvent.current = event;
+        if (!pendingMoveFrame.current) {
+          pendingMoveFrame.current = requestAnimationFrame(() => {
             pendingMoveFrame.current = null;
+            const latest = latestMoveEvent.current;
+            latestMoveEvent.current = null;
+            lastMoveTime.current = performance.now();
+            if (latest) handleDragMoveImpl(latest);
+          });
         }
+        return;
+      }
+      lastMoveTime.current = now;
+      handleDragMoveImpl(event);
+    },
+    [myPlayerId, setGhostCard, setOverCardScale, setZoomEdge]
+  );
 
-        const { active, over } = event;
-        setGhostCard(null);
-        setActiveCardId(null);
-        setOverCardScale(1);
-        setZoomEdge(null);
+  const handleDragMoveImpl = (event: DragMoveEvent) => {
+    if (currentDragSeq.current == null) {
+      return;
+    }
 
-        if (over && active.id !== over.id) {
-            const cardId = active.data.current?.cardId as CardId;
-            const toZoneId = over.data.current?.zoneId as ZoneId;
+    const state = useGameStore.getState();
+    const { active, over } = event;
 
-            // Get fresh state
-            const state = useGameStore.getState();
-            const cards = state.cards;
-            const zones = state.zones;
+    const activeCardId = active.data.current?.cardId as CardId | undefined;
 
-            const activeCard = cards[cardId];
-            const targetZone = zones[toZoneId];
-            const fromZone = activeCard ? zones[activeCard.zoneId] : undefined;
+    const result = computeDragMoveUiState({
+      myPlayerId,
+      cards: state.cards,
+      zones: state.zones,
+      activeCardId,
+      activeRect: active.rect.current?.translated,
+      activeTapped: Boolean(active.data.current?.tapped),
+      over: over
+        ? {
+            id: over.id as ZoneId,
+            type: over.data.current?.type,
+            rect: over.rect,
+            scale: over.data.current?.scale,
+            cardScale: over.data.current?.cardScale,
+            mirrorY: Boolean(over.data.current?.mirrorY),
+          }
+        : null,
+    });
 
-            // Handle Reordering in Hand
-            if (fromZone && targetZone && fromZone.id === targetZone.id && targetZone.type === ZONE.HAND) {
-                const overCardId = over.data.current?.cardId;
-                if (overCardId && cardId !== overCardId) {
-                    const oldIndex = targetZone.cardIds.indexOf(cardId);
-                    const newIndex = targetZone.cardIds.indexOf(overCardId);
-                    if (oldIndex !== -1 && newIndex !== -1) {
-                        const newOrder = arrayMove(targetZone.cardIds, oldIndex, newIndex);
-                        reorderZoneCards(targetZone.id, newOrder, myPlayerId);
-                    }
-                }
-                // Reset drag sequence before returning
-                currentDragSeq.current = null;
-                return;
-            }
+    setGhostCard(result.ghostCard);
+    setOverCardScale(result.overCardScale);
+    setZoomEdge(result.zoomEdge);
+  };
 
-            if (cardId && toZoneId && activeCard && targetZone && fromZone) {
-                const permission = canMoveCard({
-                    actorId: myPlayerId,
-                    card: activeCard,
-                    fromZone,
-                    toZone: targetZone
-                });
-                if (!permission.allowed) {
-                    console.warn(permission.reason || 'Permission denied: Cannot move card to this zone.');
-                    return;
-                }
+  const handleDragEnd = React.useCallback(
+    (event: DragEndEvent) => {
+      if (pendingMoveFrame.current) {
+        cancelAnimationFrame(pendingMoveFrame.current);
+        pendingMoveFrame.current = null;
+      }
 
-                // Non-battlefield zones ignore geometry/size so cards can always be dropped to the owner's zones.
-                if (targetZone.type !== ZONE.BATTLEFIELD) {
-                    moveCard(cardId, toZoneId, undefined, myPlayerId);
-                    return;
-                }
+      const { active, over } = event;
+      setGhostCard(null);
+      setActiveCardId(null);
+      setOverCardScale(1);
+      setZoomEdge(null);
+      currentDragSeq.current = null;
 
-                // Battlefield keeps positional logic and bounds clamping.
-                // @ts-ignore - over.rect is available at runtime
-                const overRect = over.rect as any;
-                const scale = over.data.current?.scale || 1;
-                const viewScale = over.data.current?.cardScale || 1;
-                const mirrorY = Boolean(over.data.current?.mirrorY);
+      if (!over || active.id === over.id) return;
 
-                // Use the translated rect center for accurate position
-                // This correctly handles scroll offsets in the source container
-                // @ts-ignore - active.rect.current.translated is available at runtime
-                const activeRect = active.rect.current?.translated;
-                if (!activeRect) return;
+      const cardId = active.data.current?.cardId as CardId | undefined;
+      const toZoneId = over.data.current?.zoneId as ZoneId | undefined;
+      if (!cardId || !toZoneId) return;
 
-                const centerScreen = {
-                    x: activeRect.left + activeRect.width / 2,
-                    y: activeRect.top + activeRect.height / 2,
-                };
+      const state = useGameStore.getState();
+      const plan = computeDragEndPlan({
+        myPlayerId,
+        cards: state.cards,
+        zones: state.zones,
+        cardId,
+        toZoneId,
+        overCardId: over.data.current?.cardId as CardId | undefined,
+        activeRect: active.rect.current?.translated,
+        overRect: over.rect,
+        overScale: over.data.current?.scale,
+        overCardScale: over.data.current?.cardScale,
+        mirrorY: Boolean(over.data.current?.mirrorY),
+        activeTapped: Boolean(active.data.current?.tapped),
+      });
 
-                const unsnappedPos = {
-                    x: (centerScreen.x - overRect.left) / scale,
-                    y: (centerScreen.y - overRect.top) / scale,
-                };
+      if (plan.kind === "reorderHand") {
+        const zone = state.zones[plan.zoneId];
+        if (!zone) return;
+        const newOrder = arrayMove(zone.cardIds, plan.oldIndex, plan.newIndex);
+        reorderZoneCards(plan.zoneId, newOrder, myPlayerId);
+        return;
+      }
 
-                const zoneWidth = (overRect?.width || 0) / scale;
-                const zoneHeight = (overRect?.height || 0) / scale;
+      if (plan.kind === "moveCard") {
+        moveCard(plan.cardId, plan.toZoneId, plan.position, myPlayerId);
+      }
+    },
+    [
+      moveCard,
+      myPlayerId,
+      reorderZoneCards,
+      setActiveCardId,
+      setGhostCard,
+      setOverCardScale,
+      setZoomEdge,
+    ]
+  );
 
-                const isTapped = active.data.current?.tapped || activeCard?.tapped;
-                const baseWidth = BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;
-                const cardWidth = (isTapped ? BASE_CARD_HEIGHT : baseWidth) * viewScale;
-                const cardHeight = (isTapped ? baseWidth : BASE_CARD_HEIGHT) * viewScale;
-
-                // Clamp the position to zone bounds (instead of rejecting)
-                // This is more forgiving and handles scroll offset issues
-                const clampedPos = {
-                    x: Math.max(cardWidth / 2, Math.min(unsnappedPos.x, zoneWidth - cardWidth / 2)),
-                    y: Math.max(cardHeight / 2, Math.min(unsnappedPos.y, zoneHeight - cardHeight / 2))
-                };
-
-                const unsnappedNormalized = toNormalizedPosition(clampedPos, zoneWidth, zoneHeight);
-                const unsnappedCanonical = mirrorY ? mirrorNormalizedY(unsnappedNormalized) : unsnappedNormalized;
-                const snappedCanonical = snapNormalizedWithZone(
-                    unsnappedCanonical,
-                    zoneWidth,
-                    zoneHeight,
-                    cardWidth,
-                    cardHeight
-                );
-
-                moveCard(cardId, toZoneId, snappedCanonical, myPlayerId);
-            }
-        }
-
-        // Drag is over from our perspective; ignore any subsequent move events
-        currentDragSeq.current = null;
-    }, [setGhostCard, setActiveCardId, setOverCardScale, setZoomEdge, moveCard, reorderZoneCards, myPlayerId]);
-
-    return {
-        sensors,
-        handleDragStart,
-        handleDragMove,
-        handleDragEnd
-    };
+  return {
+    sensors,
+    handleDragStart,
+    handleDragMove,
+    handleDragEnd,
+  };
 };

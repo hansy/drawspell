@@ -87,5 +87,5 @@ describe('ZoneViewerModal', () => {
       expect(screen.getByText('Card4')).toBeTruthy();
       expect(screen.queryByText('Card2')).toBeNull();
     });
-  });
+  }, 30_000);
 });

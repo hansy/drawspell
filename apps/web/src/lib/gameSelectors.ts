@@ -11,7 +11,7 @@ export const getZoneByType = (
 ): Zone | undefined => {
     return Object.values(zones).find((zone) => {
         if (zone.ownerId !== ownerId) return false;
-        const zoneType = (zone as any).type as string;
+        const zoneType: string = zone.type;
         // Support legacy 'command' type persisted before renaming to 'commander'.
         if (type === ZONE.COMMANDER && (zoneType === 'commander' || zoneType === LEGACY_COMMAND)) return true;
         return zoneType === type;
@@ -33,6 +33,6 @@ export const getPlayerZones = (
 
 // Returns ordered card objects for a zone, filtering out any missing references.
 export const getCardsInZone = (cards: Record<CardId, Card>, zone?: Zone) => {
-    if (!zone) return [] as Card[];
-    return zone.cardIds.map((id) => cards[id]).filter(Boolean);
+    if (!zone) return [];
+    return zone.cardIds.map((id) => cards[id]).filter((card): card is Card => Boolean(card));
 };

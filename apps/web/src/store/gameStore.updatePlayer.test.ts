@@ -1,28 +1,10 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useGameStore } from './gameStore';
-
-const createMemoryStorage = () => {
-  const store = new Map<string, string>();
-  return {
-    getItem: (key: string) => store.get(key) ?? null,
-    setItem: (key: string, value: string) => { store.set(key, value); },
-    removeItem: (key: string) => { store.delete(key); },
-    clear: () => store.clear(),
-    key: (index: number) => Array.from(store.keys())[index] ?? null,
-    get length() {
-      return store.size;
-    },
-  } as Storage;
-};
+import { ensureLocalStorage } from './testUtils';
 
 describe('gameStore updatePlayer permissions', () => {
   beforeAll(() => {
-    if (typeof globalThis.localStorage === 'undefined') {
-      Object.defineProperty(globalThis, 'localStorage', {
-        value: createMemoryStorage(),
-        configurable: true,
-      });
-    }
+    ensureLocalStorage();
   });
 
   beforeEach(() => {

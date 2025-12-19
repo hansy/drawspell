@@ -343,6 +343,56 @@ describe('fetchScryfallCards', () => {
         expect(result.cards).toHaveLength(1);
         expect(result.cards[0].name).toBe('Ojer Taq, Deepest Foundation');
     });
+
+    it('resolves duplicate requests across sections without named fallback', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({
+                data: [{ ...baseScryfallCard }],
+            }),
+        });
+        vi.stubGlobal('fetch', fetchMock as any);
+
+        const parsed: ParsedCard[] = [
+            { quantity: 2, name: 'Lightning Bolt', set: 'lea', collectorNumber: '150', section: 'main' },
+            { quantity: 1, name: 'Lightning Bolt', set: 'lea', collectorNumber: '150', section: 'commander' },
+        ];
+        const result = await fetchScryfallCards(parsed);
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(result.missing).toHaveLength(0);
+        expect(result.cards).toHaveLength(3);
+        expect(result.cards.filter((c) => c.section === 'main')).toHaveLength(2);
+        expect(result.cards.filter((c) => c.section === 'commander')).toHaveLength(1);
+    });
+
+    it('matches slash-separated split names in collection results (Wear/Tear)', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({
+                data: [
+                    {
+                        ...baseScryfallCard,
+                        id: 'wear-tear',
+                        name: 'Wear // Tear',
+                        type_line: 'Instant // Instant',
+                        oracle_text: 'Destroy target artifact // Destroy target enchantment',
+                        collector_number: '222',
+                    },
+                ],
+            }),
+        });
+        vi.stubGlobal('fetch', fetchMock as any);
+
+        const parsed: ParsedCard[] = [{ quantity: 1, name: 'Wear/Tear', set: '', collectorNumber: '', section: 'main' }];
+        const result = await fetchScryfallCards(parsed);
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(result.missing).toHaveLength(0);
+        expect(result.cards).toHaveLength(1);
+        expect(result.cards[0].name).toBe('Wear // Tear');
+        expect(result.cards[0].scryfallId).toBe('wear-tear');
+    });
 });
 
 describe('validateImportResult', () => {
