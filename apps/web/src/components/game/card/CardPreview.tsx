@@ -80,6 +80,23 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     // return () => { ... }
   }, [anchorRect, width]);
 
+  useEffect(() => {
+    if (!locked || !onClose) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest("[data-card-preview]")) return;
+      onClose();
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+    };
+  }, [locked, onClose]);
+
   const handleUpdatePT = (type: "power" | "toughness", delta: number) => {
     const update = getNextCardStatUpdate(currentCard, type, delta);
     if (!update) return;

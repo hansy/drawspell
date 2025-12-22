@@ -32,6 +32,10 @@ export interface CardViewProps {
   onClick?: (e: React.MouseEvent) => void;
   onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onPointerUp?: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerCancel?: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerMove?: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerLeave?: (e: React.PointerEvent<HTMLDivElement>) => void;
   highlightColor?: string;
   disableHoverAnimation?: boolean;
   isSelected?: boolean;

@@ -19,6 +19,9 @@ import { resolveSelectedCardIds } from "@/models/game/selection/selectionModel";
 
 import type { CardProps, CardViewProps } from "@/components/game/card/types";
 
+const PREVIEW_LOCK_LONG_PRESS_MS = 400;
+const PREVIEW_LOCK_MOVE_TOLERANCE_PX = 8;
+
 export type CardController = {
   ref: (node: HTMLElement | null) => void;
   draggableProps: Record<string, unknown>;
@@ -61,9 +64,13 @@ export const useCardController = (props: CardProps): CardController => {
 
   const isDragging = propIsDragging ?? internalIsDragging;
   const interactionsDisabled =
-    Boolean(disableInteractions) || Boolean(propIsDragging) || internalIsDragging;
+    Boolean(disableInteractions) ||
+    Boolean(propIsDragging) ||
+    internalIsDragging;
   const zoneType = useGameStore((state) => state.zones[card.zoneId]?.type);
-  const zoneOwnerId = useGameStore((state) => state.zones[card.zoneId]?.ownerId);
+  const zoneOwnerId = useGameStore(
+    (state) => state.zones[card.zoneId]?.ownerId
+  );
   const myPlayerId = useGameStore((state) => state.myPlayerId);
   const tapCard = useGameStore((state) => state.tapCard);
   const useArtCrop = preferArtCrop ?? false;
@@ -99,6 +106,18 @@ export const useCardController = (props: CardProps): CardController => {
   const hoverTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const lockPressTimeoutRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const lockPressStartRef = React.useRef<{ x: number; y: number } | null>(null);
+
+  const clearLockPress = React.useCallback(() => {
+    if (lockPressTimeoutRef.current) {
+      clearTimeout(lockPressTimeoutRef.current);
+      lockPressTimeoutRef.current = null;
+    }
+    lockPressStartRef.current = null;
+  }, []);
 
   const handleMouseEnter = React.useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -137,9 +156,10 @@ export const useCardController = (props: CardProps): CardController => {
     hidePreview();
   }, [hidePreview]);
 
-  const handleClick = React.useCallback(
-    (e: React.MouseEvent) => {
+  const handleLockPressStart = React.useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
       if (interactionsDisabled) return;
+      if (e.button !== 0) return;
       if (
         e.defaultPrevented ||
         e.shiftKey ||
@@ -160,11 +180,36 @@ export const useCardController = (props: CardProps): CardController => {
         return;
       }
 
-      const rect = e.currentTarget.getBoundingClientRect();
-      toggleLock(card, rect);
+      const target = e.currentTarget;
+      lockPressStartRef.current = { x: e.clientX, y: e.clientY };
+      if (lockPressTimeoutRef.current) {
+        clearTimeout(lockPressTimeoutRef.current);
+      }
+      lockPressTimeoutRef.current = setTimeout(() => {
+        lockPressTimeoutRef.current = null;
+        lockPressStartRef.current = null;
+        const rect = target.getBoundingClientRect();
+        toggleLock(card, rect);
+      }, PREVIEW_LOCK_LONG_PRESS_MS);
     },
     [zoneType, interactionsDisabled, card, toggleLock, faceDown, canPeek]
   );
+
+  const handleLockPressMove = React.useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!lockPressTimeoutRef.current || !lockPressStartRef.current) return;
+      const dx = e.clientX - lockPressStartRef.current.x;
+      const dy = e.clientY - lockPressStartRef.current.y;
+      if (Math.hypot(dx, dy) > PREVIEW_LOCK_MOVE_TOLERANCE_PX) {
+        clearLockPress();
+      }
+    },
+    [clearLockPress]
+  );
+
+  const handleLockPressEnd = React.useCallback(() => {
+    clearLockPress();
+  }, [clearLockPress]);
 
   const handleDoubleClick = React.useCallback(() => {
     if (interactionsDisabled) return;
@@ -240,9 +285,10 @@ export const useCardController = (props: CardProps): CardController => {
       if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current);
       }
+      clearLockPress();
       hidePreview();
     };
-  }, [hidePreview]);
+  }, [hidePreview, clearLockPress]);
 
   const disableHoverAnimation =
     shouldDisableHoverAnimation({
@@ -261,9 +307,12 @@ export const useCardController = (props: CardProps): CardController => {
       faceDown,
       isDragging,
       onDoubleClick: handleDoubleClick,
-      onClick: handleClick,
       onMouseEnter: handleMouseEnter,
       onMouseLeave: handleMouseLeave,
+      onPointerMove: handleLockPressMove,
+      onPointerUp: handleLockPressEnd,
+      onPointerCancel: handleLockPressEnd,
+      onPointerLeave: handleLockPressEnd,
       imageTransform,
       preferArtCrop: useArtCrop,
       rotateLabel,
@@ -276,6 +325,7 @@ export const useCardController = (props: CardProps): CardController => {
       ...attributes,
       onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => {
         handlePointerDown(event);
+        handleLockPressStart(event);
         listeners?.onPointerDown?.(event);
       },
     },

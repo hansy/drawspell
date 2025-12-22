@@ -57,6 +57,7 @@ export const CardPreviewView: React.FC<CardPreviewViewProps> = ({
 }) => {
   return (
     <div
+      data-card-preview
       className={cn(
         "fixed z-[9999] rounded-xl shadow-2xl border-2 border-indigo-500/50 bg-zinc-900 transition-opacity duration-200 ease-out",
         locked ? "pointer-events-auto" : "pointer-events-none",
