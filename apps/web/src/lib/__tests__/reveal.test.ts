@@ -80,4 +80,63 @@ describe("reveal", () => {
       )
     ).toBe(false);
   });
+
+  it("lets spectators see all hands and revealed library cards", () => {
+    const baseCard = {
+      ownerId: "p1",
+      controllerId: "p1",
+      faceDown: false,
+      knownToAll: false,
+      revealedToAll: false,
+      revealedTo: [] as string[],
+    };
+
+    expect(
+      canViewerSeeCardIdentity(baseCard, ZONE.HAND, "spec", "spectator")
+    ).toBe(true);
+    expect(
+      canViewerSeeCardIdentity(baseCard, ZONE.LIBRARY, "spec", "spectator")
+    ).toBe(false);
+    expect(
+      canViewerSeeCardIdentity(
+        { ...baseCard, revealedTo: ["p2"] },
+        ZONE.LIBRARY,
+        "spec",
+        "spectator"
+      )
+    ).toBe(true);
+  });
+
+  it("allows spectator peek on face-down battlefield cards", () => {
+    expect(
+      canViewerSeeCardIdentity(
+        {
+          ownerId: "p1",
+          controllerId: "p2",
+          faceDown: true,
+          knownToAll: false,
+          revealedToAll: false,
+          revealedTo: [],
+        },
+        ZONE.BATTLEFIELD,
+        "spec",
+        "spectator"
+      )
+    ).toBe(true);
+    expect(
+      shouldRenderFaceDown(
+        {
+          ownerId: "p1",
+          controllerId: "p2",
+          faceDown: true,
+          knownToAll: false,
+          revealedToAll: false,
+          revealedTo: [],
+        },
+        ZONE.BATTLEFIELD,
+        "spec",
+        "spectator"
+      )
+    ).toBe(true);
+  });
 });

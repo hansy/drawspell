@@ -41,6 +41,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   gridClass,
   scale,
   myPlayerId,
+  viewerRole,
   slots,
   activeModal,
   setActiveModal,
@@ -54,7 +55,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   handleDragMove,
   handleDragEnd,
   syncStatus,
-  peers,
+  peerCounts,
   isHost,
   roomLocked,
   roomIsFull,
@@ -121,10 +122,11 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
             onLeaveGame={handleLeave}
             onOpenShortcuts={() => setIsShortcutsOpen(true)}
             syncStatus={syncStatus}
-            peerCount={peers}
+            peerCounts={peerCounts}
             isHost={isHost}
             roomLocked={roomLocked}
             roomIsFull={roomIsFull}
+            isSpectator={viewerRole === "spectator"}
           />
 
           <div className={`w-full h-full grid ${gridClass} pl-12`}>
@@ -139,6 +141,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                     cards={cards}
                     isMe={slot.player.id === myPlayerId}
                     viewerPlayerId={myPlayerId}
+                    viewerRole={viewerRole}
                     onCardContextMenu={handleCardContextMenu}
                     onZoneContextMenu={handleZoneContextMenu}
                     onBattlefieldContextMenu={(e) =>

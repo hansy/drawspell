@@ -28,6 +28,7 @@ export const createMoveCard =
   (set: SetState, get: GetState, { applyShared, buildLogContext }: Deps): GameState["moveCard"] =>
   (cardId, toZoneId, position, actorId, _isRemote, opts) => {
     const actor = actorId ?? get().myPlayerId;
+    const role = actor === get().myPlayerId ? get().viewerRole : "player";
     const snapshot = get();
     const card = snapshot.cards[cardId];
     if (!card) return;
@@ -40,7 +41,13 @@ export const createMoveCard =
 
     const nextControllerId = resolveControllerAfterMove(card, fromZone, toZone);
     const controlWillChange = nextControllerId !== card.controllerId;
-    const permission = canMoveCard({ actorId: actor, card, fromZone, toZone });
+    const permission = canMoveCard({
+      actorId: actor,
+      role,
+      card,
+      fromZone,
+      toZone,
+    });
     if (!permission.allowed) {
       logPermission({
         action: "moveCard",

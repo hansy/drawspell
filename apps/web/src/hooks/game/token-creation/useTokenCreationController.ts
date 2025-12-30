@@ -31,6 +31,7 @@ export const useTokenCreationController = ({
   const [quantity, setQuantity] = React.useState(1);
 
   const addCard = useGameStore((state) => state.addCard);
+  const viewerRole = useGameStore((state) => state.viewerRole);
 
   const [debouncedSearch] = React.useState(() => createDebouncedTokenSearch());
 
@@ -90,6 +91,7 @@ export const useTokenCreationController = ({
   }, [query, debouncedSearch]);
 
   const handleCreate = React.useCallback(() => {
+    if (viewerRole === "spectator") return;
     if (!selectedToken) return;
 
     const battlefieldZoneId = `${playerId}-${ZONE.BATTLEFIELD}`;
@@ -123,7 +125,7 @@ export const useTokenCreationController = ({
       `Created ${quantity} ${selectedToken.name} token${quantity > 1 ? "s" : ""}`
     );
     handleClose();
-  }, [addCard, handleClose, playerId, quantity, selectedToken]);
+  }, [addCard, handleClose, playerId, quantity, selectedToken, viewerRole]);
 
   return {
     isOpen,

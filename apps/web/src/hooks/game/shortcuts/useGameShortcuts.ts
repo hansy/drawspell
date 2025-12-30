@@ -1,7 +1,7 @@
 import React from "react";
 import { useLatestRef } from "@/hooks/shared/useLatestRef";
 import { useGameStore } from "@/store/gameStore";
-import type { Player, PlayerId, Zone, ZoneId } from "@/types";
+import type { Player, PlayerId, ViewerRole, Zone, ZoneId } from "@/types";
 import { GAME_SHORTCUTS } from "@/models/game/shortcuts/gameShortcuts";
 import {
   areShortcutsBlockedByUi,
@@ -20,6 +20,7 @@ type CountPromptOptions = {
 };
 
 export type UseGameShortcutsArgs = {
+  viewerRole?: ViewerRole;
   myPlayerId: PlayerId;
   zones: Record<ZoneId, Zone>;
   players: Record<PlayerId, Player>;
@@ -60,6 +61,7 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       const {
+        viewerRole,
         myPlayerId,
         zones,
         players,
@@ -126,6 +128,15 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
         if (closed) {
           consume();
         }
+        return;
+      }
+
+      if (
+        viewerRole === "spectator" &&
+        shortcut.id !== "ui.toggleShortcuts" &&
+        shortcut.id !== "ui.toggleLog" &&
+        shortcut.id !== "room.leave"
+      ) {
         return;
       }
 

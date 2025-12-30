@@ -1,4 +1,4 @@
-import type { Card, PlayerId, Zone, ZoneId } from "@/types";
+import type { Card, PlayerId, ViewerRole, Zone, ZoneId } from "@/types";
 import type { ScryfallCard, ScryfallRelatedCard } from "@/types/scryfall";
 
 import { ZONE } from "@/constants/zones";
@@ -19,6 +19,7 @@ export const planRelatedBattlefieldCardCreation = async (params: {
   sourceCard: Card;
   related: ScryfallRelatedCard;
   actorId: PlayerId;
+  viewerRole?: ViewerRole;
   zonesById: Record<ZoneId, Zone>;
   cardsById: Record<string, Pick<Card, "position">>;
   fetchScryfallCardByUri: (uri: string) => Promise<ScryfallCard>;
@@ -29,7 +30,11 @@ export const planRelatedBattlefieldCardCreation = async (params: {
     return { ok: false, reason: "not_battlefield" };
   }
 
-  const permission = canModifyCardState({ actorId: params.actorId }, params.sourceCard, battlefield);
+  const permission = canModifyCardState(
+    { actorId: params.actorId, role: params.viewerRole },
+    params.sourceCard,
+    battlefield
+  );
   if (!permission.allowed) {
     return {
       ok: false,

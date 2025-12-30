@@ -17,6 +17,8 @@ export const createUpdateCard =
   ): GameState["updateCard"] =>
   (id, updates, actorId, _isRemote) => {
     const actor = actorId ?? get().myPlayerId;
+    const role = actor === get().myPlayerId ? get().viewerRole : "player";
+    if (role === "spectator") return;
     const cardBefore = get().cards[id];
 
     if (
@@ -76,7 +78,7 @@ export const createUpdateCard =
       );
       if (requiresControl) {
         const permission = canModifyCardState(
-          { actorId: actor },
+          { actorId: actor, role },
           cardBefore,
           cardZone
         );
@@ -164,4 +166,3 @@ export const createUpdateCard =
       };
     });
   };
-

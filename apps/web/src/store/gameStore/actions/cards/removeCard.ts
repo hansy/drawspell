@@ -13,12 +13,24 @@ export const createRemoveCard =
   ): GameState["removeCard"] =>
   (cardId, actorId, _isRemote) => {
     const actor = actorId ?? get().myPlayerId;
+    const role = actor === get().myPlayerId ? get().viewerRole : "player";
     const snapshot = get();
     const card = snapshot.cards[cardId];
     if (!card) return;
 
     const zone = snapshot.zones[card.zoneId];
     if (!zone) return;
+
+    if (role === "spectator") {
+      logPermission({
+        action: "removeCard",
+        actorId: actor,
+        allowed: false,
+        reason: "Spectators cannot remove cards",
+        details: { cardId },
+      });
+      return;
+    }
 
     if (!card.isToken) {
       logPermission({
@@ -67,4 +79,3 @@ export const createRemoveCard =
 
     logPermission({ action: "removeCard", actorId: actor, allowed: true, details: { cardId } });
   };
-

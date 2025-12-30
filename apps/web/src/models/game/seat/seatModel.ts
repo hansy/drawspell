@@ -1,4 +1,4 @@
-import type { Card, PlayerId, Zone, ZoneId, ZoneType } from '@/types';
+import type { Card, PlayerId, ViewerRole, Zone, ZoneId, ZoneType } from '@/types';
 
 import { ZONE } from '@/constants/zones';
 import { getCardsInZone, getPlayerZones } from '@/lib/gameSelectors';
@@ -33,6 +33,7 @@ export const createSeatModel = (params: {
   playerId: PlayerId;
   position: SeatPosition;
   viewerPlayerId: PlayerId;
+  viewerRole?: ViewerRole;
   isMe: boolean;
   scale?: number;
   zones: Record<ZoneId, Zone>;
@@ -70,7 +71,12 @@ export const createSeatModel = (params: {
       ? zones.library.cardIds.reduce((count, id) => {
           const card = params.cards[id];
           if (!card) return count;
-          return canViewerSeeCardIdentity(card, ZONE.LIBRARY, params.viewerPlayerId)
+          return canViewerSeeCardIdentity(
+            card,
+            ZONE.LIBRARY,
+            params.viewerPlayerId,
+            params.viewerRole
+          )
             ? count + 1
             : count;
         }, 0)
@@ -85,4 +91,3 @@ export const createSeatModel = (params: {
     opponentLibraryRevealCount,
   };
 };
-

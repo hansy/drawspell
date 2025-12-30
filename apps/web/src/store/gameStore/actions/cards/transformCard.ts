@@ -25,7 +25,8 @@ export const createTransformCard =
     if (!isTransformableCard(card)) return;
 
     const actor = snapshot.myPlayerId;
-    const permission = canModifyCardState({ actorId: actor }, card, zone);
+    const role = snapshot.viewerRole;
+    const permission = canModifyCardState({ actorId: actor, role }, card, zone);
     if (!permission.allowed) {
       logPermission({
         action: "transformCard",
@@ -65,4 +66,3 @@ export const createTransformCard =
       };
     });
   };
-

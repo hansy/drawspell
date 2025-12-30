@@ -45,6 +45,8 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const battlefieldViewScale = useGameStore(
     (state) => state.battlefieldViewScale
   );
+  const viewerRole = useGameStore((state) => state.viewerRole);
+  const setViewerRole = useGameStore((state) => state.setViewerRole);
   const roomHostId = useGameStore((state) => state.roomHostId);
   const roomLockedByHost = useGameStore((state) => state.roomLockedByHost);
   const roomOverCapacity = useGameStore((state) => state.roomOverCapacity);
@@ -59,12 +61,12 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const selectedCardIds = useSelectionStore((state) => state.selectedCardIds);
   const selectionZoneId = useSelectionStore((state) => state.selectionZoneId);
   const { sensors, handleDragStart, handleDragMove, handleDragEnd } =
-    useGameDnD();
+    useGameDnD({ viewerRole });
 
   const { slots, layoutMode, myPlayerId } = usePlayerLayout();
   const gridClass = React.useMemo(() => getGridClass(layoutMode), [layoutMode]);
 
-  const { status: syncStatus, peers, joinBlocked } =
+  const { status: syncStatus, peerCounts, joinBlocked, joinBlockedReason } =
     useMultiplayerSync(sessionId);
 
   const [zoneViewerState, setZoneViewerState] = React.useState<{
@@ -92,6 +94,8 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     }
   }, []);
 
+  const isSpectator = viewerRole === "spectator";
+
   const {
     contextMenu,
     handleCardContextMenu,
@@ -103,7 +107,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     closeCountPrompt,
     textPrompt,
     closeTextPrompt,
-  } = useGameContextMenu(myPlayerId, handleViewZone, () =>
+  } = useGameContextMenu(viewerRole, myPlayerId, handleViewZone, () =>
     setIsDiceRollerOpen(true)
   );
 
@@ -135,13 +139,15 @@ export const useMultiplayerBoardController = (sessionId: string) => {
 
   const handleDrawCard = React.useCallback(
     (playerId: string) => {
+      if (isSpectator) return;
       useGameStore.getState().drawCard(playerId, myPlayerId);
     },
-    [myPlayerId]
+    [isSpectator, myPlayerId]
   );
 
   const handleRollDice = React.useCallback(
     (params: { sides: number; count: number }) => {
+      if (isSpectator) return;
       const safeSides = Math.max(1, Math.floor(params.sides));
       const safeCount = Math.max(1, Math.floor(params.count));
       const results = Array.from(
@@ -155,19 +161,19 @@ export const useMultiplayerBoardController = (sessionId: string) => {
         { players: state.players, cards: state.cards, zones: state.zones }
       );
     },
-    [myPlayerId]
+    [isSpectator, myPlayerId]
   );
 
-  const handleOpenDiceRoller = React.useCallback(
-    () => setIsDiceRollerOpen(true),
-    []
-  );
+  const handleOpenDiceRoller = React.useCallback(() => {
+    if (isSpectator) return;
+    setIsDiceRollerOpen(true);
+  }, [isSpectator]);
 
   const playerCount = Object.keys(players).length;
   const roomIsFull = playerCount >= MAX_ROOM_PLAYERS;
   const roomLocked = roomLockedByHost || roomIsFull;
   const isHost = roomHostId === myPlayerId;
-  const isJoinBlocked = joinBlocked && !players[myPlayerId];
+  const isJoinBlocked = !isSpectator && joinBlocked && !players[myPlayerId];
 
   const handleToggleRoomLock = React.useCallback(() => {
     if (!isHost || roomIsFull) return;
@@ -175,6 +181,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   }, [isHost, roomIsFull, roomLockedByHost, setRoomLockedByHost]);
 
   useGameShortcuts({
+    viewerRole,
     myPlayerId,
     zones,
     players,
@@ -269,7 +276,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     handleDragMove,
     handleDragEnd,
     syncStatus,
-    peers,
+    peerCounts,
     handleViewZone,
     contextMenu,
     handleCardContextMenu,
@@ -308,7 +315,10 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     roomIsFull,
     onToggleRoomLock: handleToggleRoomLock,
     joinBlocked: isJoinBlocked,
+    joinBlockedReason,
     roomOverCapacity,
+    viewerRole,
+    setViewerRole,
   };
 };
 

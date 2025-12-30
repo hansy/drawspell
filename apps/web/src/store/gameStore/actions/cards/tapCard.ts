@@ -14,11 +14,12 @@ export const createTapCard =
   ): GameState["tapCard"] =>
   (cardId, actorId, _isRemote) => {
     const actor = actorId ?? get().myPlayerId;
+    const role = actor === get().myPlayerId ? get().viewerRole : "player";
     const card = get().cards[cardId];
     if (!card) return;
 
     const zone = get().zones[card.zoneId];
-    const permission = canTapCard({ actorId: actor }, card, zone);
+    const permission = canTapCard({ actorId: actor, role }, card, zone);
     if (!permission.allowed) {
       logPermission({
         action: "tapCard",
@@ -51,4 +52,3 @@ export const createTapCard =
       };
     });
   };
-

@@ -47,7 +47,10 @@ describe('buildZoneMoveActions', () => {
       zones,
       'p1',
       vi.fn(),
-      vi.fn()
+      vi.fn(),
+      undefined,
+      undefined,
+      'player'
     );
 
     const labels = actions.map((a) => a.type === 'action' ? a.label : '');
@@ -85,7 +88,8 @@ describe('buildZoneMoveActions', () => {
       vi.fn(),
       undefined,
       players,
-      setCardReveal
+      setCardReveal,
+      'player'
     );
 
     const reveal = actions.find(
@@ -123,6 +127,7 @@ describe('buildZoneViewActions', () => {
     const items = buildZoneViewActions({
       zone,
       myPlayerId: 'owner',
+      viewerRole: 'player',
       drawCard: vi.fn(),
       shuffleLibrary: vi.fn(),
       resetDeck: vi.fn(),
@@ -140,6 +145,7 @@ describe('buildZoneViewActions', () => {
     const items = buildZoneViewActions({
       zone,
       myPlayerId: 'owner',
+      viewerRole: 'player',
       drawCard: vi.fn(),
       shuffleLibrary: vi.fn(),
       resetDeck: vi.fn(),
@@ -161,6 +167,7 @@ describe('buildCardActions', () => {
       card: { ...baseCard, zoneId: battlefield.id },
       zones,
       myPlayerId: 'p1',
+      viewerRole: 'player',
       moveCard: vi.fn(),
       tapCard: vi.fn(),
       transformCard: vi.fn(),
@@ -190,6 +197,7 @@ describe('buildCardActions', () => {
       },
       zones,
       myPlayerId: 'p1',
+      viewerRole: 'player',
       moveCard: vi.fn(),
       tapCard: vi.fn(),
       transformCard: vi.fn(),
@@ -213,6 +221,7 @@ describe('buildCardActions', () => {
       card: { ...baseCard, zoneId: battlefield.id },
       zones,
       myPlayerId: 'p1',
+      viewerRole: 'player',
       moveCard: vi.fn(),
       tapCard: vi.fn(),
       transformCard: vi.fn(),

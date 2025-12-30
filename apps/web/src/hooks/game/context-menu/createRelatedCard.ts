@@ -1,4 +1,4 @@
-import type { Card, GameState, PlayerId } from "@/types";
+import type { Card, GameState, PlayerId, ViewerRole } from "@/types";
 import type { ScryfallCard, ScryfallRelatedCard } from "@/types/scryfall";
 
 import { emitLog } from "@/logging/logStore";
@@ -15,6 +15,7 @@ type StoreLike = Pick<GameState, "zones" | "cards" | "players" | "addCard">;
 
 export const createRelatedCardHandler = (params: {
   actorId: PlayerId;
+  viewerRole?: ViewerRole;
   getState: () => StoreLike;
   toast: ToastLike;
   fetchScryfallCardByUri: (uri: string) => Promise<ScryfallCard>;
@@ -30,6 +31,7 @@ export const createRelatedCardHandler = (params: {
       sourceCard: card,
       related,
       actorId: params.actorId,
+      viewerRole: params.viewerRole,
       zonesById: state.zones,
       cardsById: state.cards,
       fetchScryfallCardByUri: params.fetchScryfallCardByUri,

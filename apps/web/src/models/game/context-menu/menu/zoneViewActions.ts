@@ -1,4 +1,4 @@
-import type { PlayerId, Zone, ZoneId } from "@/types";
+import type { PlayerId, ViewerRole, Zone, ZoneId } from "@/types";
 
 import { ZONE } from "@/constants/zones";
 import { canViewZone } from "@/rules/permissions";
@@ -9,6 +9,7 @@ import type { ContextMenuItem } from "./types";
 interface ZoneActionBuilderParams {
   zone: Zone;
   myPlayerId: PlayerId;
+  viewerRole?: ViewerRole;
   onViewZone?: (zoneId: ZoneId, count?: number) => void;
   drawCard: (playerId: PlayerId) => void;
   shuffleLibrary: (playerId: PlayerId) => void;
@@ -109,6 +110,7 @@ const buildLibraryViewMenu = ({
 export const buildZoneViewActions = ({
   zone,
   myPlayerId,
+  viewerRole,
   onViewZone,
   drawCard,
   shuffleLibrary,
@@ -119,7 +121,11 @@ export const buildZoneViewActions = ({
   const items: ContextMenuItem[] = [];
 
   if (zone.type === ZONE.LIBRARY) {
-    const viewAllPermission = canViewZone({ actorId: myPlayerId }, zone, { viewAll: true });
+    const viewAllPermission = canViewZone(
+      { actorId: myPlayerId, role: viewerRole },
+      zone,
+      { viewAll: true }
+    );
     if (!viewAllPermission.allowed) return items;
     if (zone.ownerId !== myPlayerId) return items;
 
@@ -168,7 +174,7 @@ export const buildZoneViewActions = ({
       shortcut: getShortcutLabel("deck.unload"),
     });
   } else if (zone.type === ZONE.GRAVEYARD || zone.type === ZONE.EXILE) {
-    const viewPermission = canViewZone({ actorId: myPlayerId }, zone);
+    const viewPermission = canViewZone({ actorId: myPlayerId, role: viewerRole }, zone);
     if (viewPermission.allowed && onViewZone)
       items.push({
         type: "action",

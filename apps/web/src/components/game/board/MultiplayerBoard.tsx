@@ -10,7 +10,17 @@ interface MultiplayerBoardProps {
 
 export const MultiplayerBoard: FC<MultiplayerBoardProps> = ({ sessionId }) => {
   const controller = useMultiplayerBoardController(sessionId);
-  const { joinBlocked, roomOverCapacity, ...viewProps } = controller;
+  const {
+    joinBlocked,
+    joinBlockedReason,
+    viewerRole,
+    setViewerRole,
+    roomOverCapacity,
+    ...viewProps
+  } = controller;
+  const isSpectator = viewerRole === "spectator";
+  const canSpectate =
+    joinBlockedReason === "full" || joinBlockedReason === "locked";
   if (roomOverCapacity) {
     return (
       <RoomFullScreen
@@ -20,8 +30,22 @@ export const MultiplayerBoard: FC<MultiplayerBoardProps> = ({ sessionId }) => {
       />
     );
   }
-  if (joinBlocked) {
-    return <RoomFullScreen onLeave={viewProps.handleLeave} />;
+  if (joinBlocked && !isSpectator) {
+    return (
+      <RoomFullScreen
+        onLeave={viewProps.handleLeave}
+        onSpectate={
+          canSpectate ? () => setViewerRole("spectator") : undefined
+        }
+      />
+    );
   }
-  return <MultiplayerBoardView {...viewProps} />;
+  return (
+    <MultiplayerBoardView
+      {...viewProps}
+      viewerRole={viewerRole}
+      setViewerRole={setViewerRole}
+      joinBlockedReason={joinBlockedReason}
+    />
+  );
 };

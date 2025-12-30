@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import type { LayoutMode } from "./usePlayerLayout";
+import type { LayoutMode } from "../player/usePlayerLayout";
 
 export const useBoardScale = (layoutMode: LayoutMode) => {
   const [scale, setScale] = React.useState(1);
@@ -48,4 +48,3 @@ export const useBoardScale = (layoutMode: LayoutMode) => {
 
   return scale;
 };
-

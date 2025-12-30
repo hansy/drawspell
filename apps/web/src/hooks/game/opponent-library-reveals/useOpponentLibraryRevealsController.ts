@@ -22,6 +22,7 @@ export const useOpponentLibraryRevealsController = ({
   zoneId,
 }: OpponentLibraryRevealsControllerInput) => {
   const myPlayerId = useGameStore((state) => state.myPlayerId);
+  const viewerRole = useGameStore((state) => state.viewerRole);
   const players = useGameStore((state) => state.players);
   const zones = useGameStore((state) => state.zones);
   const cards = useGameStore((state) => state.cards);
@@ -30,8 +31,14 @@ export const useOpponentLibraryRevealsController = ({
   const ownerName = resolveZoneOwnerName({ zone, players });
 
   const revealedCardIds = React.useMemo(
-    () => computeRevealedOpponentLibraryCardIds({ zone, cardsById: cards, viewerId: myPlayerId }),
-    [zone, cards, myPlayerId]
+    () =>
+      computeRevealedOpponentLibraryCardIds({
+        zone,
+        cardsById: cards,
+        viewerId: myPlayerId,
+        viewerRole,
+      }),
+    [zone, cards, myPlayerId, viewerRole]
   );
 
   const revealedCards = React.useMemo(
@@ -65,4 +72,3 @@ export const useOpponentLibraryRevealsController = ({
 export type OpponentLibraryRevealsController = NonNullable<
   ReturnType<typeof useOpponentLibraryRevealsController>
 >;
-

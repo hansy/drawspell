@@ -6,8 +6,9 @@ import { normalizeCardForAdd } from "../cardsModel";
 import type { Deps, GetState, SetState } from "./types";
 
 export const createAddCard =
-  (set: SetState, _get: GetState, { applyShared }: Deps): GameState["addCard"] =>
+  (set: SetState, get: GetState, { applyShared }: Deps): GameState["addCard"] =>
   (card, _isRemote) => {
+    if (get().viewerRole === "spectator") return;
     const normalizedCard = normalizeCardForAdd(card);
 
     if (
@@ -39,4 +40,3 @@ export const createAddCard =
       };
     });
   };
-

@@ -3,6 +3,7 @@ import { ScryfallCardLite } from './scryfallLite';
 export type PlayerId = string;
 export type CardId = string;
 export type ZoneId = string;
+export type ViewerRole = "player" | "spectator";
 
 export type CounterType = 'p1p1' | 'm1m1' | 'loyalty' | 'charge' | 'energy' | 'poison' | 'commander' | string;
 
@@ -88,6 +89,7 @@ export interface Player {
 }
 
 export interface GameState {
+  viewerRole: ViewerRole;
   players: Record<PlayerId, Player>;
   playerOrder: PlayerId[];
   cards: Record<CardId, Card>;
@@ -166,6 +168,7 @@ export interface GameState {
   ensureSessionVersion: (sessionId: string) => number;
   leaveGame: () => void;
   setBattlefieldViewScale: (playerId: PlayerId, scale: number) => void;
+  setViewerRole: (role: ViewerRole) => void;
 
   // Hydration
   hasHydrated: boolean;

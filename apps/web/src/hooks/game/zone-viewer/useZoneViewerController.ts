@@ -46,6 +46,7 @@ export const useZoneViewerController = ({
   const reorderZoneCards = useGameStore((state) => state.reorderZoneCards);
   const setCardReveal = useGameStore((state) => state.setCardReveal);
   const myPlayerId = useGameStore((state) => state.myPlayerId);
+  const viewerRole = useGameStore((state) => state.viewerRole);
 
   const [contextMenu, setContextMenu] = React.useState<ZoneViewerContextMenuState>(null);
 
@@ -56,7 +57,9 @@ export const useZoneViewerController = ({
 
   const zone = zoneId ? zones[zoneId] : null;
   const canView = zone
-    ? canViewZone({ actorId: myPlayerId }, zone, { viewAll: !count })
+    ? canViewZone({ actorId: myPlayerId, role: viewerRole }, zone, {
+        viewAll: !count,
+      })
     : null;
 
   React.useEffect(() => {
@@ -144,7 +147,8 @@ export const useZoneViewerController = ({
               moveCard(cardId, toZoneId, undefined, myPlayerId, undefined, opts),
             (cardId, toZoneId) => moveCardToBottom(cardId, toZoneId, myPlayerId),
             players,
-            (cardId, reveal) => setCardReveal(cardId, reveal, myPlayerId)
+            (cardId, reveal) => setCardReveal(cardId, reveal, myPlayerId),
+            viewerRole
           )
         : [];
 
@@ -159,7 +163,16 @@ export const useZoneViewerController = ({
         });
       }
     },
-    [moveCard, moveCardToBottom, myPlayerId, players, setCardReveal, zone, zones]
+    [
+      moveCard,
+      moveCardToBottom,
+      myPlayerId,
+      players,
+      setCardReveal,
+      viewerRole,
+      zone,
+      zones,
+    ]
   );
 
   const closeContextMenu = React.useCallback(() => setContextMenu(null), []);

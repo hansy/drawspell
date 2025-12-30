@@ -1,6 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { Zone as ZoneType, Card as CardType } from "@/types";
+import { Zone as ZoneType, Card as CardType, ViewerRole } from "@/types";
 import { Card } from "../card/Card";
 import { Zone } from "../zone/Zone";
 import { ZONE_LABEL } from "@/constants/zones";
@@ -19,6 +19,7 @@ interface HandProps {
   isRight: boolean;
   isMe: boolean;
   viewerPlayerId: string;
+  viewerRole?: ViewerRole;
   onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
   className?: string;
   scale?: number;
@@ -29,12 +30,14 @@ const SortableCard = React.memo(({
   isTop,
   isMe,
   viewerPlayerId,
+  viewerRole,
   onCardContextMenu,
 }: {
   card: CardType;
   isTop: boolean;
   isMe: boolean;
   viewerPlayerId: string;
+  viewerRole?: ViewerRole;
   onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
 }) => {
   const {
@@ -87,7 +90,7 @@ const SortableCard = React.memo(({
         <Card
           card={card}
           className="shadow-xl ring-1 ring-black/50"
-          faceDown={shouldRenderFaceDown(card, "hand", viewerPlayerId)}
+          faceDown={shouldRenderFaceDown(card, "hand", viewerPlayerId, viewerRole)}
           onContextMenu={handleContextMenu}
           disableDrag // We use Sortable's drag handle
           isDragging={isDragging}
@@ -105,6 +108,7 @@ const HandInner: React.FC<HandProps> = ({
   isRight,
   isMe,
   viewerPlayerId,
+  viewerRole,
   onCardContextMenu,
   className,
   scale = 1,
@@ -163,6 +167,7 @@ const HandInner: React.FC<HandProps> = ({
                 isTop={isTop}
                 isMe={isMe}
                 viewerPlayerId={viewerPlayerId}
+                viewerRole={viewerRole}
                 onCardContextMenu={onCardContextMenu}
               />
             ))}

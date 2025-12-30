@@ -18,11 +18,12 @@ export const createResetDeck =
   ): GameState["resetDeck"] =>
   (playerId, actorId, _isRemote) => {
     const actor = actorId ?? playerId;
+    const role = actor === get().myPlayerId ? get().viewerRole : "player";
     const state = get();
     const libraryZone = getZoneByType(state.zones, playerId, ZONE.LIBRARY);
     if (!libraryZone) return;
 
-    const viewPermission = canViewZone({ actorId: actor }, libraryZone, {
+    const viewPermission = canViewZone({ actorId: actor, role }, libraryZone, {
       viewAll: true,
     });
     if (!viewPermission.allowed) {
@@ -116,4 +117,3 @@ export const createResetDeck =
     });
     emitLog("deck.reset", { actorId: actor, playerId }, buildLogContext());
   };
-

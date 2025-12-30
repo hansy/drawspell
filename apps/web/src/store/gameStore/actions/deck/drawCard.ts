@@ -11,6 +11,7 @@ export const createDrawCard =
   (_set: SetState, get: GetState, { buildLogContext }: Deps): GameState["drawCard"] =>
   (playerId, actorId, _isRemote) => {
     const actor = actorId ?? playerId;
+    const role = actor === get().myPlayerId ? get().viewerRole : "player";
     const state = get();
     const libraryZone = getZoneByType(state.zones, playerId, ZONE.LIBRARY);
     const handZone = getZoneByType(state.zones, playerId, ZONE.HAND);
@@ -23,6 +24,7 @@ export const createDrawCard =
 
     const permission = canMoveCard({
       actorId: actor,
+      role,
       card,
       fromZone: libraryZone,
       toZone: handZone,
@@ -50,4 +52,3 @@ export const createDrawCard =
 
     emitLog("card.draw", { actorId: actor, playerId, count: 1 }, buildLogContext());
   };
-

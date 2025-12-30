@@ -1,4 +1,4 @@
-import { Card, Zone } from '@/types';
+import { Card, Zone, ViewerRole } from '@/types';
 
 // Generic allow/deny result for permission checks.
 export type PermissionResult =
@@ -15,6 +15,7 @@ export type ViewResult = PermissionResult & {
 // Minimal actor context so we can thread current player ID through checks.
 export interface ActorContext {
   actorId: string;
+  role?: ViewerRole;
   // future: capabilities, roles, overrides, etc.
 }
 

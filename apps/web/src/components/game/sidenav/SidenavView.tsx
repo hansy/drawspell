@@ -57,7 +57,7 @@ export const SidenavView: React.FC<SidenavController> = ({
   onCopyLink,
   onLeaveGame,
   syncStatus,
-  peerCount,
+  peerCounts,
   isMenuOpen,
   openMenu,
   closeMenu,
@@ -66,7 +66,28 @@ export const SidenavView: React.FC<SidenavController> = ({
   isHost,
   roomLocked,
   roomIsFull,
+  isSpectator,
 }) => {
+  const peerCountLabel = React.useMemo(() => {
+    const parts: string[] = [];
+    if (peerCounts.players > 0) {
+      parts.push(
+        `${peerCounts.players} ${peerCounts.players === 1 ? "player" : "players"}`
+      );
+    }
+    if (peerCounts.spectators > 0) {
+      parts.push(
+        `${peerCounts.spectators} ${
+          peerCounts.spectators === 1 ? "spectator" : "spectators"
+        }`
+      );
+    }
+    if (parts.length === 0) {
+      return "0 players";
+    }
+    return parts.join(", ");
+  }, [peerCounts.players, peerCounts.spectators]);
+
   return (
     <>
       <div className="fixed left-0 top-0 h-full w-12 flex flex-col items-center py-4 bg-zinc-950 border-r border-zinc-800 z-[60]">
@@ -75,6 +96,7 @@ export const SidenavView: React.FC<SidenavController> = ({
           label="Untap All"
           onClick={handleUntapAll}
           className="hover:text-blue-400"
+          disabled={isSpectator}
         />
 
         <NavIcon
@@ -82,6 +104,7 @@ export const SidenavView: React.FC<SidenavController> = ({
           label="Create Token"
           onClick={onCreateToken}
           className="hover:text-emerald-400"
+          disabled={isSpectator}
         />
 
         <NavIcon
@@ -89,6 +112,7 @@ export const SidenavView: React.FC<SidenavController> = ({
           label="Roll Dice"
           onClick={onOpenDiceRoller}
           className="hover:text-indigo-400"
+          disabled={isSpectator}
         />
 
         <NavIcon
@@ -101,15 +125,15 @@ export const SidenavView: React.FC<SidenavController> = ({
         <div className="flex-1" />
 
         <div className="flex flex-col items-center gap-2">
-          {isHost && (
+          {isHost && !isSpectator && (
             <NavIcon
               icon={roomLocked ? <Lock size={20} /> : <Unlock size={20} />}
               label={
                 roomIsFull
                   ? "Room is full"
                   : roomLocked
-                    ? "Unlock room"
-                    : "Lock room (no more players can join)"
+                    ? "Unlock room (players can join)"
+                    : "Lock room (nobody can join except spectators)"
               }
               onClick={onToggleRoomLock}
               disabled={roomIsFull}
@@ -155,8 +179,7 @@ export const SidenavView: React.FC<SidenavController> = ({
                         <span className="text-zinc-300">
                           Connected
                           <span className="text-zinc-500 ml-1">
-                            ({peerCount}{" "}
-                            {peerCount === 1 ? "player" : "players"})
+                            ({peerCountLabel})
                           </span>
                         </span>
                       </>

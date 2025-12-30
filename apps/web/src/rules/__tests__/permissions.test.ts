@@ -36,6 +36,13 @@ describe('canViewZone', () => {
     expect(canViewZone({ actorId: 'owner' }, graveyard).allowed).toBe(true);
     expect(canViewZone({ actorId: 'opponent' }, graveyard).allowed).toBe(true);
   });
+
+  it('blocks spectators from viewing libraries but allows public zones', () => {
+    const library = makeZone('lib-owner', ZONE.LIBRARY, 'owner');
+    const graveyard = makeZone('gy-owner', ZONE.GRAVEYARD, 'owner');
+    expect(canViewZone({ actorId: 'spec', role: 'spectator' }, library).allowed).toBe(false);
+    expect(canViewZone({ actorId: 'spec', role: 'spectator' }, graveyard).allowed).toBe(true);
+  });
 });
 
 describe('canMoveCard', () => {
@@ -144,6 +151,16 @@ describe('canMoveCard', () => {
       canMoveCard({ actorId: 'opponent', card, fromZone, toZone }).allowed
     ).toBe(false);
   });
+
+  it('blocks spectators from moving cards', () => {
+    const card = makeCard({ ownerId: 'owner', zoneId: 'bf-owner' });
+    const fromZone = makeZone('bf-owner', ZONE.BATTLEFIELD, 'owner');
+    const toZone = makeZone('bf-owner', ZONE.BATTLEFIELD, 'owner');
+
+    expect(
+      canMoveCard({ actorId: 'spec', role: 'spectator', card, fromZone, toZone }).allowed
+    ).toBe(false);
+  });
 });
 
 describe('canModifyCardState', () => {
@@ -163,6 +180,14 @@ describe('canModifyCardState', () => {
     const graveyard = makeZone('gy', ZONE.GRAVEYARD, 'owner');
     const card = makeCard({ zoneId: graveyard.id });
     expect(canModifyCardState({ actorId: 'owner' }, card, graveyard).allowed).toBe(false);
+  });
+
+  it('blocks spectators from modifying cards', () => {
+    const battlefield = makeZone('bf', ZONE.BATTLEFIELD, 'p1');
+    const card = makeCard({ ownerId: 'owner', controllerId: 'p1', zoneId: battlefield.id });
+    expect(
+      canModifyCardState({ actorId: 'spec', role: 'spectator' }, card, battlefield).allowed
+    ).toBe(false);
   });
 });
 
@@ -187,6 +212,11 @@ describe('canCreateToken', () => {
       reason: expect.stringContaining('battlefield'),
     });
   });
+
+  it('blocks spectators from creating tokens', () => {
+    const battlefield = makeZone('bf-owner', ZONE.BATTLEFIELD, 'owner');
+    expect(canCreateToken({ actorId: 'spec', role: 'spectator' }, battlefield).allowed).toBe(false);
+  });
 });
 
 describe('canUpdatePlayer', () => {
@@ -202,5 +232,14 @@ describe('canUpdatePlayer', () => {
     if (!result.allowed) {
       expect(result.reason).toContain('life');
     }
+  });
+
+  it('blocks spectators from updating players', () => {
+    const result = canUpdatePlayer(
+      { actorId: 'spec', role: 'spectator' },
+      player,
+      { life: 39 }
+    );
+    expect(result.allowed).toBe(false);
   });
 });

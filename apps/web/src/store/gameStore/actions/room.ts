@@ -21,6 +21,7 @@ export const createRoomActions = (
 ): Pick<GameState, "setRoomLockedByHost"> => ({
   setRoomLockedByHost: (locked) => {
     const state = get();
+    if (state.viewerRole === "spectator") return;
     if (!state.roomHostId || state.roomHostId !== state.myPlayerId) return;
 
     const playerCount = Object.keys(state.players).length;

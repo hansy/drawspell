@@ -20,11 +20,12 @@ export const createShuffleLibrary =
   ): GameState["shuffleLibrary"] =>
   (playerId, actorId, _isRemote) => {
     const actor = actorId ?? playerId;
+    const role = actor === get().myPlayerId ? get().viewerRole : "player";
     const state = get();
     const libraryZone = getZoneByType(state.zones, playerId, ZONE.LIBRARY);
     if (!libraryZone) return;
 
-    const viewPermission = canViewZone({ actorId: actor }, libraryZone, {
+    const viewPermission = canViewZone({ actorId: actor, role }, libraryZone, {
       viewAll: true,
     });
     if (!viewPermission.allowed) {
@@ -85,4 +86,3 @@ export const createShuffleLibrary =
 
     emitLog("library.shuffle", { actorId: actor, playerId }, buildLogContext());
   };
-

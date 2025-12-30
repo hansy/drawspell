@@ -25,8 +25,11 @@ import { isApplyingRemoteUpdate } from "@/yjs/sync";
 import { buildSignalingUrlFromEnv } from "@/lib/wsSignaling";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
 import { createFullSyncToStore } from "./fullSyncToStore";
-import { ensureLocalPlayerInitialized } from "./ensureLocalPlayerInitialized";
-import { computePeerCount } from "./peerCount";
+import {
+  ensureLocalPlayerInitialized,
+  type LocalPlayerInitResult,
+} from "./ensureLocalPlayerInitialized";
+import { computePeerCounts, type PeerCounts } from "./peerCount";
 import {
   cancelDebouncedTimeout,
   scheduleDebouncedTimeout,
@@ -34,17 +37,37 @@ import {
 import { disposeSessionTransport } from "./disposeSessionTransport";
 
 export type SyncStatus = "connecting" | "connected";
+type JoinBlockedReason = NonNullable<LocalPlayerInitResult>["reason"] | null;
 
 const CLIENT_VERSION = "web-3-ws";
 
 export function useMultiplayerSync(sessionId: string) {
   const hasHydrated = useGameStore((state) => state.hasHydrated);
+  const viewerRole = useGameStore((state) => state.viewerRole);
   const [status, setStatus] = useState<SyncStatus>("connecting");
-  const [peers, setPeers] = useState(1);
+  const [peerCounts, setPeerCounts] = useState<PeerCounts>(() => ({
+    total: 1,
+    players: viewerRole === "spectator" ? 0 : 1,
+    spectators: viewerRole === "spectator" ? 1 : 0,
+  }));
   const [joinBlocked, setJoinBlocked] = useState(false);
+  const [joinBlockedReason, setJoinBlockedReason] =
+    useState<JoinBlockedReason>(null);
+  const awarenessRef = useRef<Awareness | null>(null);
+  const localPlayerIdRef = useRef<string | null>(null);
   const fullSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const postSyncFullSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const postSyncInitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const attemptJoinRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    attemptJoinRef.current?.();
+    const awareness = awarenessRef.current;
+    const playerId = localPlayerIdRef.current;
+    if (awareness && playerId) {
+      awareness.setLocalStateField("client", { id: playerId, role: viewerRole });
+    }
+  }, [viewerRole]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -52,6 +75,7 @@ export function useMultiplayerSync(sessionId: string) {
     if (!hasHydrated) return;
 
     setJoinBlocked(false);
+    setJoinBlockedReason(null);
 
     const envUrl = import.meta.env.VITE_WEBSOCKET_SERVER;
     const signalingUrl = buildSignalingUrlFromEnv(envUrl);
@@ -91,6 +115,7 @@ export function useMultiplayerSync(sessionId: string) {
     // Setup store
     const store = useGameStore.getState();
     const ensuredPlayerId = store.ensurePlayerIdForSession(sessionId);
+    localPlayerIdRef.current = ensuredPlayerId;
     const needsReset =
       store.sessionId !== sessionId || store.myPlayerId !== ensuredPlayerId;
     if (needsReset) {
@@ -103,6 +128,7 @@ export function useMultiplayerSync(sessionId: string) {
     bindSharedLogStore(logs);
 
     const awareness = new Awareness(doc);
+    awarenessRef.current = awareness;
     const clientKey = getOrCreateClientKey({
       storage: window.sessionStorage,
       randomUUID:
@@ -130,6 +156,12 @@ export function useMultiplayerSync(sessionId: string) {
     });
 
     const attemptJoin = () => {
+      const role = useGameStore.getState().viewerRole;
+      if (role === "spectator") {
+        setJoinBlocked(false);
+        setJoinBlockedReason(null);
+        return;
+      }
       const result = ensureLocalPlayerInitialized({
         transact: (fn) => doc.transact(fn),
         sharedMaps,
@@ -138,7 +170,9 @@ export function useMultiplayerSync(sessionId: string) {
       });
       const blocked = result?.status === "blocked";
       setJoinBlocked(blocked);
+      setJoinBlockedReason(blocked ? result!.reason : null);
     };
+    attemptJoinRef.current = attemptJoin;
 
     const SYNC_DEBOUNCE_MS = 50;
     const scheduleFullSync = () => {
@@ -153,12 +187,15 @@ export function useMultiplayerSync(sessionId: string) {
 
     // Awareness
     const pushLocalAwareness = () => {
-      awareness.setLocalStateField("client", { id: ensuredPlayerId });
+      awareness.setLocalStateField("client", {
+        id: ensuredPlayerId,
+        role: useGameStore.getState().viewerRole,
+      });
     };
     pushLocalAwareness();
 
     const handleAwareness = () => {
-      setPeers(computePeerCount(awareness.getStates()));
+      setPeerCounts(computePeerCounts(awareness.getStates()));
     };
     awareness.on("change", handleAwareness);
     handleAwareness();
@@ -185,6 +222,8 @@ export function useMultiplayerSync(sessionId: string) {
 
     return () => {
       awareness.setLocalState(null);
+      awarenessRef.current = null;
+      localPlayerIdRef.current = null;
       try {
         removeAwarenessStates(awareness, [awareness.clientID], "disconnect");
       } catch (_err) {}
@@ -207,8 +246,10 @@ export function useMultiplayerSync(sessionId: string) {
 
       releaseSession(sessionId);
       cleanupStaleSessions();
+
+      attemptJoinRef.current = null;
     };
   }, [sessionId, hasHydrated]);
 
-  return { status, peers, joinBlocked };
+  return { status, peerCounts, joinBlocked, joinBlockedReason };
 }

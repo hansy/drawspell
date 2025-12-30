@@ -33,6 +33,7 @@ export const createMoveCardToBottom =
   ): GameState["moveCardToBottom"] =>
   (cardId, toZoneId, actorId, _isRemote) => {
     const actor = actorId ?? get().myPlayerId;
+    const role = actor === get().myPlayerId ? get().viewerRole : "player";
     const snapshot = get();
     const card = snapshot.cards[cardId];
     if (!card) return;
@@ -44,7 +45,13 @@ export const createMoveCardToBottom =
 
     const nextControllerId = resolveControllerAfterMove(card, fromZone, toZone);
     const controlWillChange = nextControllerId !== card.controllerId;
-    const permission = canMoveCard({ actorId: actor, card, fromZone, toZone });
+    const permission = canMoveCard({
+      actorId: actor,
+      role,
+      card,
+      fromZone,
+      toZone,
+    });
     if (!permission.allowed) {
       logPermission({
         action: "moveCardToBottom",
@@ -171,4 +178,3 @@ export const createMoveCardToBottom =
       };
     });
   };
-

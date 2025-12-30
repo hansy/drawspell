@@ -14,6 +14,7 @@ export const createSetCardReveal =
   (cardId, reveal, actorId, _isRemote) => {
     const actor = actorId ?? get().myPlayerId;
     const snapshot = get();
+    if (snapshot.viewerRole === "spectator") return;
     const card = snapshot.cards[cardId];
     if (!card) return;
     if (actor !== card.ownerId) return;
@@ -40,4 +41,3 @@ export const createSetCardReveal =
       },
     }));
   };
-

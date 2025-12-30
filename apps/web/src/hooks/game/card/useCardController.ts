@@ -72,6 +72,7 @@ export const useCardController = (props: CardProps): CardController => {
     (state) => state.zones[card.zoneId]?.ownerId
   );
   const myPlayerId = useGameStore((state) => state.myPlayerId);
+  const viewerRole = useGameStore((state) => state.viewerRole);
   const tapCard = useGameStore((state) => state.tapCard);
   const useArtCrop = preferArtCrop ?? false;
   const isSelected = useSelectionStore(
@@ -83,8 +84,8 @@ export const useCardController = (props: CardProps): CardController => {
   const selectOnly = useSelectionStore((state) => state.selectOnly);
 
   const canPeek = React.useMemo(
-    () => canViewerSeeCardIdentity(card, zoneType, myPlayerId),
-    [card, zoneType, myPlayerId]
+    () => canViewerSeeCardIdentity(card, zoneType, myPlayerId, viewerRole),
+    [card, zoneType, myPlayerId, viewerRole]
   );
 
   const style = React.useMemo<React.CSSProperties>(
@@ -212,6 +213,7 @@ export const useCardController = (props: CardProps): CardController => {
   }, [clearLockPress]);
 
   const handleDoubleClick = React.useCallback(() => {
+    if (viewerRole === "spectator") return;
     if (interactionsDisabled) return;
     if (zoneType !== ZONE.BATTLEFIELD) return;
     const actorId = myPlayerId;
@@ -249,10 +251,12 @@ export const useCardController = (props: CardProps): CardController => {
     card.tapped,
     myPlayerId,
     tapCard,
+    viewerRole,
   ]);
 
   const handlePointerDown = React.useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
+      if (viewerRole === "spectator") return;
       if (interactionsDisabled) return;
       if (e.button !== 0) return;
       if (zoneType !== ZONE.BATTLEFIELD) return;
@@ -277,6 +281,7 @@ export const useCardController = (props: CardProps): CardController => {
       zoneOwnerId,
       zoneType,
       interactionsDisabled,
+      viewerRole,
     ]
   );
 

@@ -28,6 +28,7 @@ export const createPlayerActions = (
   "addPlayer" | "updatePlayer" | "updateCommanderTax" | "setDeckLoaded"
 > => ({
   addPlayer: (player, _isRemote) => {
+    if (get().viewerRole === "spectator") return;
     const normalized = { ...player, deckLoaded: false, commanderTax: 0 };
     if (applyShared((maps) => yUpsertPlayer(maps, normalized))) return;
     set((state) => ({
@@ -40,10 +41,11 @@ export const createPlayerActions = (
 
   updatePlayer: (id, updates, actorId, _isRemote) => {
     const actor = actorId ?? get().myPlayerId;
+    const role = actor === get().myPlayerId ? get().viewerRole : "player";
     const player = get().players[id];
     if (!player) return;
 
-    const permission = canUpdatePlayer({ actorId: actor }, player, updates);
+    const permission = canUpdatePlayer({ actorId: actor, role }, player, updates);
     if (!permission.allowed) {
       logPermission({
         action: "updatePlayer",
@@ -92,8 +94,19 @@ export const createPlayerActions = (
 
   updateCommanderTax: (playerId, delta, actorId, _isRemote) => {
     const actor = actorId ?? get().myPlayerId;
+    const role = actor === get().myPlayerId ? get().viewerRole : "player";
     const player = get().players[playerId];
     if (!player) return;
+    if (role === "spectator") {
+      logPermission({
+        action: "updateCommanderTax",
+        actorId: actor,
+        allowed: false,
+        reason: "Spectators cannot update players",
+        details: { playerId, delta },
+      });
+      return;
+    }
     if (actor !== playerId) {
       logPermission({
         action: "updateCommanderTax",
@@ -140,6 +153,7 @@ export const createPlayerActions = (
   },
 
   setDeckLoaded: (playerId, loaded, _isRemote) => {
+    if (get().viewerRole === "spectator") return;
     if (
       applyShared((maps) => {
         yPatchPlayer(maps, playerId, { deckLoaded: loaded });

@@ -4,13 +4,14 @@ import { toast } from "sonner";
 
 import { useGameStore } from "@/store/gameStore";
 import { useSelectionStore } from "@/store/selectionStore";
-import type { Card, ZoneId } from "@/types";
+import type { Card, ViewerRole, ZoneId } from "@/types";
 import { actionRegistry } from "@/models/game/context-menu/actionsRegistry";
 import { fetchScryfallCardByUri } from "@/services/scryfall/scryfallCard";
 import { getCard as getCachedCard } from "@/services/scryfall/scryfallCache";
 import { getDisplayName } from "@/lib/cardDisplay";
 import { ZONE } from "@/constants/zones";
 import { getShortcutLabel } from "@/models/game/shortcuts/gameShortcuts";
+import type { ContextMenuItem } from "@/models/game/context-menu/menu/types";
 
 import { fetchBattlefieldRelatedParts } from "./relatedParts";
 import { createCardActionAdapters, createZoneActionAdapters } from "./actionAdapters";
@@ -19,10 +20,12 @@ import { useContextMenuState } from "./useContextMenuState";
 
 // Centralizes context menu state/handlers for cards and zones so UI components can stay lean.
 export const useGameContextMenu = (
+    viewerRole: ViewerRole | undefined,
     myPlayerId: string,
     onViewZone?: (zoneId: ZoneId, count?: number) => void,
     onRollDice?: () => void
 ) => {
+    const isSpectator = viewerRole === "spectator";
     const {
         contextMenu,
         openContextMenu,
@@ -44,16 +47,18 @@ export const useGameContextMenu = (
         () =>
             createRelatedCardHandler({
                 actorId: myPlayerId,
+                viewerRole,
                 getState: useGameStore.getState,
                 toast: { success: toast.success, error: toast.error },
                 fetchScryfallCardByUri,
                 createId: uuidv4,
             }),
-        [myPlayerId]
+        [myPlayerId, viewerRole]
     );
 
     // Builds and opens card-specific actions (tap, counters, move shortcuts).
     const handleCardContextMenu = React.useCallback(async (e: React.MouseEvent, card: Card) => {
+        if (isSpectator) return;
         const store = useGameStore.getState();
         const zone = store.zones[card.zoneId];
         if (!seatHasDeckLoaded(zone?.ownerId ?? card.ownerId)) return;
@@ -78,6 +83,7 @@ export const useGameContextMenu = (
             zones: store.zones,
             players: store.players,
             myPlayerId,
+            viewerRole,
             globalCounters: store.globalCounters,
             relatedParts,
             ...createCardActionAdapters({
@@ -89,10 +95,11 @@ export const useGameContextMenu = (
         });
 
         openContextMenu(e, cardActions, getDisplayName(card));
-    }, [createRelatedCard, myPlayerId, openContextMenu, openTextPrompt, seatHasDeckLoaded]);
+    }, [createRelatedCard, isSpectator, myPlayerId, openContextMenu, openTextPrompt, seatHasDeckLoaded]);
 
     // Builds and opens zone-specific actions (draw/shuffle/view).
     const handleZoneContextMenu = React.useCallback((e: React.MouseEvent, zoneId: ZoneId) => {
+        if (isSpectator) return;
         const store = useGameStore.getState();
         const zone = store.zones[zoneId];
         if (!zone || !seatHasDeckLoaded(zone.ownerId)) return;
@@ -100,6 +107,7 @@ export const useGameContextMenu = (
         const items = actionRegistry.buildZoneViewActions({
             zone,
             myPlayerId,
+            viewerRole,
             onViewZone,
             openCountPrompt,
             ...createZoneActionAdapters({ store, myPlayerId }),
@@ -107,33 +115,35 @@ export const useGameContextMenu = (
         if (items.length > 0) {
             openContextMenu(e, items);
         }
-    }, [myPlayerId, onViewZone, openContextMenu, openCountPrompt, seatHasDeckLoaded]);
+    }, [isSpectator, myPlayerId, onViewZone, openContextMenu, openCountPrompt, seatHasDeckLoaded]);
 
     const handleBattlefieldContextMenu = React.useCallback(
         (e: React.MouseEvent, actions: { onCreateToken: () => void; onOpenDiceRoller?: () => void }) => {
+            if (isSpectator) return;
             if (!seatHasDeckLoaded(myPlayerId)) return;
             const onDiceRoll = actions.onOpenDiceRoller ?? onRollDice;
 
-            const items = [
-                {
-                    type: 'action' as const,
-                    label: 'Roll Dice',
+            const items: ContextMenuItem[] = [];
+            if (onDiceRoll) {
+                items.push({
+                    type: "action",
+                    label: "Roll Dice",
                     onSelect: onDiceRoll,
-                    shortcut: getShortcutLabel('ui.openDiceRoller'),
-                },
-                {
-                    type: 'action' as const,
-                    label: 'Create Token',
-                    onSelect: actions.onCreateToken,
-                    shortcut: getShortcutLabel('ui.openTokenModal'),
-                },
-            ].filter((item) => typeof item.onSelect === 'function');
+                    shortcut: getShortcutLabel("ui.openDiceRoller"),
+                });
+            }
+            items.push({
+                type: "action",
+                label: "Create Token",
+                onSelect: actions.onCreateToken,
+                shortcut: getShortcutLabel("ui.openTokenModal"),
+            });
 
             if (items.length > 0) {
                 openContextMenu(e, items);
             }
         },
-        [myPlayerId, openContextMenu, seatHasDeckLoaded]
+        [isSpectator, myPlayerId, onRollDice, openContextMenu, seatHasDeckLoaded]
     );
 
     return {

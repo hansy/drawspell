@@ -5,12 +5,16 @@ import { ActorContext, MoveContext, PermissionResult, ViewResult } from './types
 const HIDDEN_ZONES = new Set<ZoneType>([ZONE.LIBRARY, ZONE.HAND]);
 
 const isHiddenZone = (zoneType: ZoneType) => HIDDEN_ZONES.has(zoneType);
+const isSpectator = (ctx: ActorContext) => ctx.role === "spectator";
 const requireBattlefieldController = (
   ctx: ActorContext,
   card: { controllerId: string },
   zone: { type: ZoneType } | undefined,
   action: string
 ): PermissionResult => {
+  if (isSpectator(ctx)) {
+    return { allowed: false, reason: "Spectators cannot modify cards" };
+  }
   if (!zone || zone.type !== ZONE.BATTLEFIELD) {
     return { allowed: false, reason: `Cards can only ${action} on the battlefield` };
   }
@@ -31,12 +35,16 @@ export function canViewZone(
   const isOwner = ctx.actorId === zone.ownerId;
 
   if (isHiddenZone(zone.type)) {
-    if (!isOwner) return { allowed: false, reason: 'Hidden zone' };
+    if (isSpectator(ctx)) {
+      if (zone.type === ZONE.HAND) return { allowed: true, visibility: "faces" };
+      return { allowed: false, reason: "Hidden zone" };
+    }
+    if (!isOwner) return { allowed: false, reason: "Hidden zone" };
     // Library "view all" is implicitly owner-only; already satisfied by isOwner.
-    return { allowed: true, visibility: 'faces' };
+    return { allowed: true, visibility: "faces" };
   }
 
-  return { allowed: true, visibility: 'faces' };
+  return { allowed: true, visibility: "faces" };
 }
 
 /**
@@ -49,6 +57,9 @@ export function canViewZone(
  * - Only the destination hidden zone owner may receive cards into it.
  */
 export function canMoveCard(ctx: MoveContext): PermissionResult {
+  if (isSpectator(ctx)) {
+    return { allowed: false, reason: "Spectators cannot move cards" };
+  }
   const { actorId, card, fromZone, toZone } = ctx;
   const actorIsOwner = actorId === card.ownerId;
   const actorIsController = actorId === card.controllerId;
@@ -141,6 +152,9 @@ export function canCreateToken(
   ctx: ActorContext,
   zone: { ownerId: string; type: ZoneType }
 ): PermissionResult {
+  if (isSpectator(ctx)) {
+    return { allowed: false, reason: "Spectators cannot create tokens" };
+  }
   if (zone.type !== ZONE.BATTLEFIELD) {
     return { allowed: false, reason: 'Tokens can only enter the battlefield' };
   }
@@ -157,6 +171,9 @@ export function canUpdatePlayer(
   player: Player,
   updates: Partial<Player>
 ): PermissionResult {
+  if (isSpectator(ctx)) {
+    return { allowed: false, reason: "Spectators cannot update players" };
+  }
   const isSelf = ctx.actorId === player.id;
   if (isSelf) return { allowed: true };
 

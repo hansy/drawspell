@@ -3,6 +3,7 @@ import type {
   CardId,
   Player,
   PlayerId,
+  ViewerRole,
   Zone,
   ZoneId,
 } from "@/types";
@@ -22,7 +23,8 @@ export const buildZoneMoveActions = (
   moveCard: (cardId: CardId, toZoneId: ZoneId, opts?: { faceDown?: boolean }) => void,
   moveCardToBottom?: (cardId: CardId, toZoneId: ZoneId) => void,
   players?: Record<PlayerId, Player>,
-  setCardReveal?: (cardId: CardId, reveal: { toAll?: boolean; to?: PlayerId[] } | null) => void
+  setCardReveal?: (cardId: CardId, reveal: { toAll?: boolean; to?: PlayerId[] } | null) => void,
+  viewerRole?: ViewerRole
 ): ContextMenuItem[] => {
   const playerZones = getPlayerZones(allZones, currentZone.ownerId);
   const hand = playerZones.hand;
@@ -37,6 +39,7 @@ export const buildZoneMoveActions = (
     if (!targetZone) return;
     const permission = canMoveCard({
       actorId,
+      role: viewerRole,
       card,
       fromZone: currentZone,
       toZone: targetZone,
@@ -87,4 +90,3 @@ export const buildZoneMoveActions = (
 
   return items;
 };
-

@@ -1,4 +1,4 @@
-import type { Card, CardId, PlayerId, Zone, ZoneId } from "@/types";
+import type { Card, CardId, PlayerId, ViewerRole, Zone, ZoneId } from "@/types";
 
 import { getPlayerZones } from "@/lib/gameSelectors";
 import { ZONE } from "@/constants/zones";
@@ -20,6 +20,7 @@ type BuildHandZoneMenuItemsParams = {
   currentZone: Zone | undefined;
   zones: Record<ZoneId, Zone>;
   myPlayerId: PlayerId;
+  viewerRole?: ViewerRole;
   moveCard: MoveCardFn;
 };
 
@@ -28,6 +29,7 @@ export const buildHandZoneMenuItems = ({
   currentZone,
   zones,
   myPlayerId,
+  viewerRole,
   moveCard,
 }: BuildHandZoneMenuItemsParams): ContextMenuItem[] => {
   if (currentZone?.type !== ZONE.HAND) return [];
@@ -38,6 +40,7 @@ export const buildHandZoneMenuItems = ({
   if (playerZones.battlefield) {
     const permission = canMoveCard({
       actorId: myPlayerId,
+      role: viewerRole,
       card,
       fromZone: currentZone,
       toZone: playerZones.battlefield,
@@ -62,6 +65,7 @@ export const buildHandZoneMenuItems = ({
   if (playerZones.graveyard) {
     const permission = canMoveCard({
       actorId: myPlayerId,
+      role: viewerRole,
       card,
       fromZone: currentZone,
       toZone: playerZones.graveyard,

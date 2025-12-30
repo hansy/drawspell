@@ -36,6 +36,7 @@ export const useLoadDeckController = ({
   const setDeckLoaded = useGameStore((state) => state.setDeckLoaded);
   const shuffleLibrary = useGameStore((state) => state.shuffleLibrary);
   const zones = useGameStore((state) => state.zones);
+  const viewerRole = useGameStore((state) => state.viewerRole);
 
   const lastImportedDeckText = useClientPrefsStore((state) => state.lastImportedDeckText);
   const setLastImportedDeckText = useClientPrefsStore((state) => state.setLastImportedDeckText);
@@ -70,6 +71,7 @@ export const useLoadDeckController = ({
   );
 
   const handleImport = React.useCallback(async () => {
+    if (viewerRole === "spectator") return;
     if (!importText.trim()) return;
 
     const handles = getYDocHandles();
@@ -131,6 +133,7 @@ export const useLoadDeckController = ({
     setDeckLoaded,
     setLastImportedDeckText,
     shuffleLibrary,
+    viewerRole,
     zones,
   ]);
 

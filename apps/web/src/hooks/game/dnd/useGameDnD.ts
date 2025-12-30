@@ -12,7 +12,7 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { useGameStore } from "@/store/gameStore";
 import { useDragStore } from "@/store/dragStore";
 import { useSelectionStore } from "@/store/selectionStore";
-import type { CardId, ZoneId } from "@/types";
+import type { CardId, ViewerRole, ZoneId } from "@/types";
 import { computeDragEndPlan, computeDragMoveUiState } from "./model";
 import { batchSharedMutations } from "@/yjs/docManager";
 import { getEffectiveCardSize } from "@/lib/dndBattlefield";
@@ -28,7 +28,7 @@ import { resolveSelectedCardIds } from "@/models/game/selection/selectionModel";
 // Throttle helper for drag move events
 const DRAG_MOVE_THROTTLE_MS = 16; // ~60fps
 
-export const useGameDnD = () => {
+export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
   const moveCard = useGameStore((state) => state.moveCard);
   const reorderZoneCards = useGameStore((state) => state.reorderZoneCards);
   const setGhostCards = useDragStore((state) => state.setGhostCards);
@@ -38,6 +38,7 @@ export const useGameDnD = () => {
   const setZoomEdge = useDragStore((state) => state.setZoomEdge);
   const myPlayerId = useGameStore((state) => state.myPlayerId);
   const clearSelection = useSelectionStore((state) => state.clearSelection);
+  const isSpectator = params.viewerRole === "spectator";
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -57,6 +58,7 @@ export const useGameDnD = () => {
   } | null>(null);
 
   const handleDragStart = (event: DragStartEvent) => {
+    if (isSpectator) return;
     currentDragSeq.current = ++dragSeq.current;
     dragSelectionRef.current = null;
 
@@ -119,10 +121,23 @@ export const useGameDnD = () => {
       lastMoveTime.current = now;
       handleDragMoveImpl(event);
     },
-    [myPlayerId, setGhostCards, setOverCardScale, setZoomEdge]
+    [
+      isSpectator,
+      myPlayerId,
+      params.viewerRole,
+      setGhostCards,
+      setOverCardScale,
+      setZoomEdge,
+    ]
   );
 
   const handleDragMoveImpl = (event: DragMoveEvent) => {
+    if (isSpectator) {
+      setGhostCards(null);
+      setOverCardScale(1);
+      setZoomEdge(null);
+      return;
+    }
     if (currentDragSeq.current == null) {
       return;
     }
@@ -134,6 +149,7 @@ export const useGameDnD = () => {
 
     const result = computeDragMoveUiState({
       myPlayerId,
+      viewerRole: params.viewerRole,
       cards: state.cards,
       zones: state.zones,
       activeCardId,
@@ -260,6 +276,7 @@ export const useGameDnD = () => {
 
   const handleDragEnd = React.useCallback(
     (event: DragEndEvent) => {
+      if (isSpectator) return;
       if (pendingMoveFrame.current) {
         cancelAnimationFrame(pendingMoveFrame.current);
         pendingMoveFrame.current = null;
@@ -282,6 +299,7 @@ export const useGameDnD = () => {
       const state = useGameStore.getState();
       const plan = computeDragEndPlan({
         myPlayerId,
+        viewerRole: params.viewerRole,
         cards: state.cards,
         zones: state.zones,
         cardId,
@@ -410,8 +428,10 @@ export const useGameDnD = () => {
     },
     [
       clearSelection,
+      isSpectator,
       moveCard,
       myPlayerId,
+      params.viewerRole,
       reorderZoneCards,
       setActiveCardId,
       setGhostCards,

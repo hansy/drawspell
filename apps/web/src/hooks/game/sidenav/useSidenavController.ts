@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import { useGameStore } from "@/store/gameStore";
+import type { PeerCounts } from "@/hooks/game/multiplayer-sync/peerCount";
 
 export type SyncStatus = "connecting" | "connected";
 
@@ -13,10 +14,11 @@ export type SidenavControllerInput = {
   onLeaveGame?: () => void;
   onOpenShortcuts?: () => void;
   syncStatus?: SyncStatus;
-  peerCount?: number;
+  peerCounts?: PeerCounts;
   isHost?: boolean;
   roomLocked?: boolean;
   roomIsFull?: boolean;
+  isSpectator?: boolean;
 };
 
 export const useSidenavController = ({
@@ -28,10 +30,11 @@ export const useSidenavController = ({
   onLeaveGame,
   onOpenShortcuts,
   syncStatus = "connecting",
-  peerCount = 1,
+  peerCounts = { total: 1, players: 1, spectators: 0 },
   isHost = false,
   roomLocked = false,
   roomIsFull = false,
+  isSpectator = false,
 }: SidenavControllerInput) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
@@ -39,8 +42,9 @@ export const useSidenavController = ({
   const untapAll = useGameStore((state) => state.untapAll);
 
   const handleUntapAll = React.useCallback(() => {
+    if (isSpectator) return;
     untapAll(myPlayerId);
-  }, [myPlayerId, untapAll]);
+  }, [isSpectator, myPlayerId, untapAll]);
 
   const openMenu = React.useCallback(() => setIsMenuOpen(true), []);
   const closeMenu = React.useCallback(() => setIsMenuOpen(false), []);
@@ -58,10 +62,11 @@ export const useSidenavController = ({
     onCopyLink,
     onLeaveGame,
     syncStatus,
-    peerCount,
+    peerCounts,
     isHost,
     roomLocked,
     roomIsFull,
+    isSpectator,
     isMenuOpen,
     openMenu,
     closeMenu,

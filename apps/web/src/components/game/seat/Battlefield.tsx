@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { Zone as ZoneType, Card as CardType, Player } from '@/types';
+import { Zone as ZoneType, Card as CardType, Player, ViewerRole } from '@/types';
 import { Card } from '../card/Card';
 import { CardView } from '../card/CardView';
 import { Zone } from '../zone/Zone';
@@ -21,6 +21,7 @@ interface BattlefieldProps {
     isTop: boolean;
     isMe?: boolean;
     viewerPlayerId: string;
+    viewerRole?: ViewerRole;
     mirrorForViewer?: boolean;
     scale?: number;
     viewScale?: number;
@@ -36,6 +37,7 @@ const BattlefieldCard = React.memo<{
     zoneWidth: number;
     zoneHeight: number;
     viewerPlayerId: string;
+    viewerRole?: ViewerRole;
     mirrorForViewer?: boolean;
     viewScale: number;
     onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
@@ -49,6 +51,7 @@ const BattlefieldCard = React.memo<{
         zoneWidth,
         zoneHeight,
         viewerPlayerId,
+        viewerRole,
         mirrorForViewer,
         viewScale,
         onCardContextMenu,
@@ -66,6 +69,7 @@ const BattlefieldCard = React.memo<{
             mirrorForViewer,
             playerColors,
         });
+        const spectatorDragDisabled = viewerRole === "spectator";
         const isSelected = useSelectionStore((state) =>
             state.selectionZoneId === card.zoneId && state.selectedCardIds.includes(card.id)
         );
@@ -91,7 +95,7 @@ const BattlefieldCard = React.memo<{
                 highlightColor={highlightColor}
                 isSelected={isSelected}
                 isDragging={overrideIsDragging}
-                disableDrag={disableDrag}
+                disableDrag={disableDrag || spectatorDragDisabled}
                 disableInteractions={disableInteractions}
             />
         );
@@ -107,6 +111,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     isTop,
     isMe,
     viewerPlayerId,
+    viewerRole,
     mirrorForViewer,
     scale = 1,
     viewScale = 1,
@@ -358,6 +363,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                         zoneWidth={zoneSize.width}
                         zoneHeight={zoneSize.height}
                         viewerPlayerId={viewerPlayerId}
+                        viewerRole={viewerRole}
                         mirrorForViewer={mirrorForViewer}
                         viewScale={viewScale}
                         onCardContextMenu={onCardContextMenu}

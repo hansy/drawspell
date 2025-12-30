@@ -64,7 +64,7 @@ const Probe: React.FC<{ myPlayerId: string; onValue: (value: HookValue) => void 
   myPlayerId,
   onValue,
 }) => {
-  const value = useGameContextMenu(myPlayerId);
+  const value = useGameContextMenu("player", myPlayerId);
   React.useEffect(() => {
     onValue(value);
   }, [value, onValue]);

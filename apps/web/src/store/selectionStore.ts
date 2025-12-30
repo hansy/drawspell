@@ -11,7 +11,7 @@ type SelectionState = {
 
 const uniqueIds = (ids: string[]) => Array.from(new Set(ids));
 
-export const useSelectionStore = create<SelectionState>((set, get) => ({
+export const useSelectionStore = create<SelectionState>((set) => ({
   selectedCardIds: [],
   selectionZoneId: null,
   setSelection: (ids, zoneId) => {

@@ -1,4 +1,4 @@
-import type { Card, Player, PlayerId, Zone } from "@/types";
+import type { Card, Player, PlayerId, ViewerRole, Zone } from "@/types";
 
 import { ZONE } from "@/constants/zones";
 import { canViewerSeeCardIdentity } from "@/lib/reveal";
@@ -15,6 +15,7 @@ export const computeRevealedOpponentLibraryCardIds = (params: {
   zone: Zone | null;
   cardsById: Record<string, Card>;
   viewerId: PlayerId;
+  viewerRole?: ViewerRole;
 }): string[] => {
   if (!params.zone || params.zone.type !== ZONE.LIBRARY) return [];
   if (params.zone.ownerId === params.viewerId) return [];
@@ -23,7 +24,7 @@ export const computeRevealedOpponentLibraryCardIds = (params: {
   const visible = params.zone.cardIds.filter((id) => {
     const card = params.cardsById[id];
     if (!card) return false;
-    return canViewerSeeCardIdentity(card, ZONE.LIBRARY, params.viewerId);
+    return canViewerSeeCardIdentity(card, ZONE.LIBRARY, params.viewerId, params.viewerRole);
   });
   return visible.reverse();
 };

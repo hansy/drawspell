@@ -3,6 +3,7 @@ import type {
   CardId,
   Player,
   PlayerId,
+  ViewerRole,
   ScryfallRelatedCard,
   Zone,
   ZoneId,
@@ -27,6 +28,7 @@ interface CardActionBuilderParams {
   zones: Record<ZoneId, Zone>;
   players?: Record<PlayerId, Player>;
   myPlayerId: PlayerId;
+  viewerRole?: ViewerRole;
   moveCard: (
     cardId: CardId,
     toZoneId: ZoneId,
@@ -67,6 +69,7 @@ export const buildCardActions = ({
   zones,
   players,
   myPlayerId,
+  viewerRole,
   moveCard,
   tapCard,
   transformCard,
@@ -85,7 +88,11 @@ export const buildCardActions = ({
   const items: ContextMenuItem[] = [];
   const currentZone = zones[card.zoneId];
   const countersAllowed = currentZone?.type === ZONE.BATTLEFIELD;
-  const canModify = canModifyCardState({ actorId: myPlayerId }, card, currentZone);
+  const canModify = canModifyCardState(
+    { actorId: myPlayerId, role: viewerRole },
+    card,
+    currentZone
+  );
 
   if (
     setCardReveal &&
@@ -103,7 +110,7 @@ export const buildCardActions = ({
     );
   }
 
-  const canTap = canTapCard({ actorId: myPlayerId }, card, currentZone);
+  const canTap = canTapCard({ actorId: myPlayerId, role: viewerRole }, card, currentZone);
   if (canTap.allowed) {
     items.push({
       type: "action",
@@ -206,7 +213,16 @@ export const buildCardActions = ({
     });
   }
 
-  items.push(...buildHandZoneMenuItems({ card, currentZone, zones, myPlayerId, moveCard }));
+  items.push(
+    ...buildHandZoneMenuItems({
+      card,
+      currentZone,
+      zones,
+      myPlayerId,
+      viewerRole,
+      moveCard,
+    })
+  );
 
   if (currentZone?.type === ZONE.BATTLEFIELD && card.faceDown) {
     items.push({

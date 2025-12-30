@@ -37,12 +37,15 @@ export const createSessionActions = (
   | "ensureSessionVersion"
   | "leaveGame"
   | "setHasHydrated"
+  | "viewerRole"
+  | "setViewerRole"
 > => ({
   playerIdsBySession: {},
   sessionVersions: {},
   sessionId: uuidv4(),
   myPlayerId: uuidv4(),
   hasHydrated: false,
+  viewerRole: "player",
 
   resetSession: (newSessionId, playerId) => {
     const freshSessionId = newSessionId ?? uuidv4();
@@ -60,6 +63,7 @@ export const createSessionActions = (
       roomHostId: null,
       roomLockedByHost: false,
       roomOverCapacity: false,
+      viewerRole: "player",
       sessionId: freshSessionId,
       myPlayerId: freshPlayerId,
       playerIdsBySession: {
@@ -144,5 +148,9 @@ export const createSessionActions = (
 
   setHasHydrated: (next) => {
     set({ hasHydrated: next });
+  },
+
+  setViewerRole: (role) => {
+    set({ viewerRole: role });
   },
 });

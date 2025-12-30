@@ -20,6 +20,7 @@ export const createDuplicateCard =
   ): GameState["duplicateCard"] =>
   (cardId, actorId, _isRemote) => {
     const actor = actorId ?? get().myPlayerId;
+    const role = actor === get().myPlayerId ? get().viewerRole : "player";
     const state = get();
     const sourceCard = state.cards[cardId];
     if (!sourceCard) return;
@@ -28,7 +29,7 @@ export const createDuplicateCard =
     if (!currentZone) return;
 
     const tokenPermission = canModifyCardState(
-      { actorId: actor },
+      { actorId: actor, role },
       sourceCard,
       currentZone
     );
@@ -75,4 +76,3 @@ export const createDuplicateCard =
     if (applyShared((maps) => yDuplicateCard(maps, cardId, newCardId))) return;
     get().addCard(clonedCard, _isRemote);
   };
-

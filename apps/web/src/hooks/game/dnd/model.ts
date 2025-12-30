@@ -1,4 +1,4 @@
-import type { Card, CardId, PlayerId, Zone, ZoneId, ZoneType } from "@/types";
+import type { Card, CardId, PlayerId, ViewerRole, Zone, ZoneId, ZoneType } from "@/types";
 
 import { ZONE } from "@/constants/zones";
 import { canMoveCard } from "@/rules/permissions";
@@ -23,6 +23,7 @@ export type DragMoveUiState = {
 
 export const computeDragMoveUiState = (params: {
   myPlayerId: PlayerId;
+  viewerRole?: ViewerRole;
   cards: Record<CardId, Card>;
   zones: Record<ZoneId, Zone>;
   activeCardId?: CardId;
@@ -58,6 +59,7 @@ export const computeDragMoveUiState = (params: {
 
   const permission = canMoveCard({
     actorId: params.myPlayerId,
+    role: params.viewerRole,
     card: activeCard,
     fromZone,
     toZone: targetZone,
@@ -118,6 +120,7 @@ export type DragEndPlan =
 
 export const computeDragEndPlan = (params: {
   myPlayerId: PlayerId;
+  viewerRole?: ViewerRole;
   cards: Record<CardId, Card>;
   zones: Record<ZoneId, Zone>;
   cardId: CardId;
@@ -149,6 +152,7 @@ export const computeDragEndPlan = (params: {
 
   const permission = canMoveCard({
     actorId: params.myPlayerId,
+    role: params.viewerRole,
     card: activeCard,
     fromZone,
     toZone: targetZone,
@@ -192,4 +196,3 @@ export const computeDragEndPlan = (params: {
     position: placement.snappedCanonical,
   };
 };
-

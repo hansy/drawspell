@@ -56,11 +56,14 @@ export const Tooltip: React.FC<TooltipProps> = ({
     return children;
   }
 
+  const child = children as React.ReactElement<React.HTMLProps<HTMLElement>>;
+  const referenceProps = getReferenceProps(child.props);
+
   return (
     <>
-      {React.cloneElement(children, {
+      {React.cloneElement(child, {
         ref: refs.setReference,
-        ...getReferenceProps(children.props),
+        ...referenceProps,
       })}
       <FloatingPortal>
         {open && (

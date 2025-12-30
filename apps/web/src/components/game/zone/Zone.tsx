@@ -26,6 +26,7 @@ interface ZoneProps {
 
 const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, cardScale = 1, mirrorY = false, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, innerRef }) => {
     const myPlayerId = useGameStore((state) => state.myPlayerId);
+    const viewerRole = useGameStore((state) => state.viewerRole);
 
     const ghostCard = useDragStore((state) => {
         if (!state.ghostCards || state.ghostCards.length !== 1) return null;
@@ -71,13 +72,14 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 's
 
         const permission = canMoveCard({
             actorId: myPlayerId,
+            role: viewerRole,
             card,
             fromZone,
             toZone: zone
         });
 
         return permission.allowed;
-    }, [active?.id, active?.data.current?.cardId, isOver, myPlayerId, zone.id, zone.type, zone.ownerId]);
+    }, [active?.id, active?.data.current?.cardId, isOver, myPlayerId, viewerRole, zone.id, zone.type, zone.ownerId]);
 
     return (
         <div

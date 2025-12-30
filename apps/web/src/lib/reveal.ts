@@ -1,4 +1,4 @@
-import type { Card, PlayerId, ZoneType } from "@/types";
+import type { Card, PlayerId, ViewerRole, ZoneType } from "@/types";
 import { ZONE } from "@/constants/zones";
 
 export const isHiddenZoneType = (zoneType: ZoneType | undefined) => {
@@ -11,20 +11,36 @@ export const isPublicZoneType = (zoneType: ZoneType | undefined) => {
 
 export const canViewerPeekBattlefieldFaceDown = (
   card: Pick<Card, "controllerId">,
-  viewerId: PlayerId
+  viewerId: PlayerId,
+  viewerRole?: ViewerRole
 ) => {
+  if (viewerRole === "spectator") return true;
   return card.controllerId === viewerId;
 };
 
 export const canViewerSeeCardIdentity = (
   card: Pick<Card, "ownerId" | "controllerId" | "faceDown" | "knownToAll" | "revealedToAll" | "revealedTo">,
   zoneType: ZoneType | undefined,
-  viewerId: PlayerId
+  viewerId: PlayerId,
+  viewerRole?: ViewerRole
 ) => {
+  if (viewerRole === "spectator") {
+    if (zoneType === ZONE.HAND) return true;
+    if (zoneType === ZONE.LIBRARY) {
+      return Boolean(
+        card.knownToAll ||
+          card.revealedToAll ||
+          (card.revealedTo && card.revealedTo.length > 0)
+      );
+    }
+    if (zoneType === ZONE.BATTLEFIELD && card.faceDown) return true;
+    return true;
+  }
+
   if (card.ownerId === viewerId) return true;
 
   if (zoneType === ZONE.BATTLEFIELD && card.faceDown) {
-    return canViewerPeekBattlefieldFaceDown(card, viewerId);
+    return canViewerPeekBattlefieldFaceDown(card, viewerId, viewerRole);
   }
 
   if (isHiddenZoneType(zoneType)) {
@@ -39,12 +55,12 @@ export const canViewerSeeCardIdentity = (
 export const shouldRenderFaceDown = (
   card: Pick<Card, "faceDown" | "ownerId" | "controllerId" | "knownToAll" | "revealedToAll" | "revealedTo">,
   zoneType: ZoneType | undefined,
-  viewerId: PlayerId
+  viewerId: PlayerId,
+  viewerRole?: ViewerRole
 ) => {
   if (zoneType === ZONE.BATTLEFIELD && card.faceDown) return true;
   if (isHiddenZoneType(zoneType)) {
-    return !canViewerSeeCardIdentity(card, zoneType, viewerId);
+    return !canViewerSeeCardIdentity(card, zoneType, viewerId, viewerRole);
   }
   return false;
 };
-

@@ -37,6 +37,7 @@ export const createCounterActions = (
   "addGlobalCounter" | "addCounterToCard" | "removeCounterFromCard"
 > => ({
   addGlobalCounter: (name: string, color?: string, _isRemote?: boolean) => {
+    if (get().viewerRole === "spectator") return;
     const normalizedName = name.trim().slice(0, 64);
     if (!normalizedName) return;
 
@@ -74,10 +75,11 @@ export const createCounterActions = (
     if (!card) return;
 
     const actor = actorId ?? state.myPlayerId;
+    const role = actor === state.myPlayerId ? state.viewerRole : "player";
     const zone = state.zones[card.zoneId];
     if (!isBattlefieldZone(zone)) return;
 
-    const permission = canModifyCardState({ actorId: actor }, card, zone);
+    const permission = canModifyCardState({ actorId: actor, role }, card, zone);
     if (!permission.allowed) {
       logPermission({
         action: "addCounterToCard",
@@ -139,10 +141,11 @@ export const createCounterActions = (
     if (!card) return;
 
     const actor = actorId ?? state.myPlayerId;
+    const role = actor === state.myPlayerId ? state.viewerRole : "player";
     const zone = state.zones[card.zoneId];
     if (!isBattlefieldZone(zone)) return;
 
-    const permission = canModifyCardState({ actorId: actor }, card, zone);
+    const permission = canModifyCardState({ actorId: actor, role }, card, zone);
     if (!permission.allowed) {
       logPermission({
         action: "removeCounterFromCard",
@@ -198,4 +201,3 @@ export const createCounterActions = (
     );
   },
 });
-

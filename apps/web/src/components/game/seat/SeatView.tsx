@@ -4,7 +4,7 @@ import { Eye, Plus } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { ZONE, ZONE_LABEL } from '@/constants/zones';
 import { cn } from '@/lib/utils';
-import type { Card as CardType, Player, ZoneId } from '@/types';
+import type { Card as CardType, Player, ViewerRole, ZoneId } from '@/types';
 
 import { LifeBox } from '../player/LifeBox';
 import { Battlefield } from './Battlefield';
@@ -19,6 +19,7 @@ interface SeatViewProps {
   color: string;
   isMe: boolean;
   viewerPlayerId: string;
+  viewerRole?: ViewerRole;
   scale?: number;
   className?: string;
   opponentColors: Record<string, string>;
@@ -39,6 +40,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
   color,
   isMe,
   viewerPlayerId,
+  viewerRole,
   scale = 1,
   className,
   onCardContextMenu,
@@ -210,16 +212,17 @@ export const SeatView: React.FC<SeatViewProps> = ({
           )}
         >
           {battlefield && (
-            <Battlefield
-              zone={battlefield}
-              cards={battlefieldCards}
-              player={player}
-              isTop={isTop}
-              isMe={isMe}
-              viewerPlayerId={viewerPlayerId}
-              mirrorForViewer={!isMe}
-              scale={scale}
-              viewScale={battlefieldScale}
+              <Battlefield
+                zone={battlefield}
+                cards={battlefieldCards}
+                player={player}
+                isTop={isTop}
+                isMe={isMe}
+                viewerPlayerId={viewerPlayerId}
+                viewerRole={viewerRole}
+                mirrorForViewer={!isMe}
+                scale={scale}
+                viewScale={battlefieldScale}
               onCardContextMenu={onCardContextMenu}
               onContextMenu={isMe ? onBattlefieldContextMenu : undefined}
               showContextMenuCursor={Boolean(player.deckLoaded && isMe)}
@@ -251,6 +254,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 isRight={isRight}
                 isMe={isMe}
                 viewerPlayerId={viewerPlayerId}
+                viewerRole={viewerRole}
                 onCardContextMenu={onCardContextMenu}
                 scale={scale}
               />

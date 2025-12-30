@@ -21,6 +21,7 @@ export const createZoneActions = (
   { applyShared }: Deps
 ): Pick<GameState, "addZone" | "reorderZoneCards"> => ({
   addZone: (zone: Zone, _isRemote?: boolean) => {
+    if (get().viewerRole === "spectator") return;
     if (applyShared((maps) => yUpsertZone(maps, zone))) return;
     set((state) => ({
       zones: { ...state.zones, [zone.id]: zone },
@@ -29,8 +30,20 @@ export const createZoneActions = (
 
   reorderZoneCards: (zoneId, orderedCardIds, actorId, _isRemote) => {
     const actor = actorId ?? get().myPlayerId;
+    const role = actor === get().myPlayerId ? get().viewerRole : "player";
     const zone = get().zones[zoneId];
     if (!zone) return;
+
+    if (role === "spectator") {
+      logPermission({
+        action: "reorderZoneCards",
+        actorId: actor,
+        allowed: false,
+        reason: "Spectators cannot reorder cards",
+        details: { zoneId },
+      });
+      return;
+    }
 
     if (zone.ownerId !== actor) {
       logPermission({

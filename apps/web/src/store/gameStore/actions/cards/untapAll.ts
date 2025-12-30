@@ -7,10 +7,11 @@ import type { Deps, GetState, SetState } from "./types";
 export const createUntapAll =
   (
     set: SetState,
-    _get: GetState,
+    get: GetState,
     { applyShared, buildLogContext }: Deps
   ): GameState["untapAll"] =>
   (playerId, _isRemote) => {
+    if (get().viewerRole === "spectator") return;
     if (
       applyShared((maps) => {
         const snapshot = sharedSnapshot(maps);
@@ -34,4 +35,3 @@ export const createUntapAll =
     });
     emitLog("card.untapAll", { actorId: playerId, playerId }, buildLogContext());
   };
-

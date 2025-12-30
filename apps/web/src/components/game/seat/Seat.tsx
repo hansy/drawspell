@@ -1,6 +1,6 @@
 import React from 'react';
 
-import type { Card as CardType, Player, Zone as ZoneType, ZoneId } from '@/types';
+import type { Card as CardType, Player, ViewerRole, Zone as ZoneType, ZoneId } from '@/types';
 
 import { createSeatModel, type SeatPosition } from '@/models/game/seat/seatModel';
 import { SeatView } from './SeatView';
@@ -13,6 +13,7 @@ export interface SeatProps {
   cards: Record<string, CardType>;
   isMe: boolean;
   viewerPlayerId: string;
+  viewerRole?: ViewerRole;
   scale?: number;
   className?: string;
   onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
@@ -35,6 +36,7 @@ const SeatInner: React.FC<SeatProps> = ({
   cards,
   isMe,
   viewerPlayerId,
+  viewerRole,
   scale = 1,
   className,
   onCardContextMenu,
@@ -54,12 +56,13 @@ const SeatInner: React.FC<SeatProps> = ({
         playerId: player.id,
         position,
         viewerPlayerId,
+        viewerRole,
         isMe,
         scale,
         zones,
         cards,
       }),
-    [cards, isMe, player.id, position, scale, viewerPlayerId, zones]
+    [cards, isMe, player.id, position, scale, viewerPlayerId, viewerRole, zones]
   );
 
   return (
@@ -68,6 +71,7 @@ const SeatInner: React.FC<SeatProps> = ({
       color={color}
       isMe={isMe}
       viewerPlayerId={viewerPlayerId}
+      viewerRole={viewerRole}
       scale={scale}
       className={className}
       onCardContextMenu={onCardContextMenu}
