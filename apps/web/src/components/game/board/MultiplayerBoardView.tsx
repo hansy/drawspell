@@ -284,27 +284,33 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                       className="relative"
                       style={{ width: stackWidth, height: stackHeight }}
                     >
-                      {overlayCards.map((card, index) => (
-                        <div
-                          key={card.id}
-                          className="absolute"
-                          style={{ left: index * offset, top: index * offset }}
-                        >
-                          <CardView
-                            card={card}
-                            isDragging
-                            preferArtCrop={overlayPreferArtCrop}
-                            faceDown={
-                              shouldRenderFaceDown(
+                      {overlayCards.map((card, index) => {
+                        const overlayZoneType = zones[card.zoneId]?.type;
+                        const faceDown =
+                          overlayZoneType === ZONE.LIBRARY
+                            ? true
+                            : shouldRenderFaceDown(
                                 card,
-                                zones[card.zoneId]?.type,
+                                overlayZoneType,
                                 myPlayerId,
                                 viewerRole
-                              )
-                            }
+                              );
+
+                        return (
+                          <div
+                            key={card.id}
+                            className="absolute"
+                            style={{ left: index * offset, top: index * offset }}
+                          >
+                            <CardView
+                              card={card}
+                              isDragging
+                              preferArtCrop={overlayPreferArtCrop}
+                            faceDown={faceDown}
                           />
                         </div>
-                      ))}
+                        );
+                      })}
                       {extraCount > 0 && (
                         <div className="absolute -bottom-2 -right-2 rounded-full bg-zinc-900/80 text-zinc-100 text-xs px-1.5 py-0.5 border border-zinc-700">
                           +{extraCount}
@@ -324,12 +330,15 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                       ? (battlefieldViewScale[overlayZone.ownerId] ?? 1)
                       : 1;
                   const targetScale = overCardScale || viewScale;
-                  const overlayFaceDown = shouldRenderFaceDown(
-                    overlayCard,
-                    overlayZone?.type,
-                    myPlayerId,
-                    viewerRole
-                  );
+                  const overlayFaceDown =
+                    overlayZone?.type === ZONE.LIBRARY
+                      ? true
+                      : shouldRenderFaceDown(
+                          overlayCard,
+                          overlayZone?.type,
+                          myPlayerId,
+                          viewerRole
+                        );
                   return (
                     <div
                       style={{
