@@ -21,6 +21,7 @@ import type { ContextMenuItem } from "./types";
 import { buildRevealMenu } from "./reveal";
 import { buildCounterMenuItems } from "./cardActions/counterMenu";
 import { buildHandZoneMenuItems } from "./cardActions/handZoneMenu";
+import { buildMoveToMenuItem } from "./cardActions/moveToMenu";
 import { getRelatedParts } from "./cardActions/relatedParts";
 
 interface CardActionBuilderParams {
@@ -37,6 +38,7 @@ interface CardActionBuilderParams {
     isRemote?: boolean,
     opts?: { suppressLog?: boolean; faceDown?: boolean; skipCollision?: boolean }
   ) => void;
+  moveCardToBottom?: (cardId: CardId, toZoneId: ZoneId) => void;
   tapCard: (cardId: CardId) => void;
   transformCard: (cardId: CardId, faceIndex?: number) => void;
   duplicateCard: (cardId: CardId) => void;
@@ -71,6 +73,7 @@ export const buildCardActions = ({
   myPlayerId,
   viewerRole,
   moveCard,
+  moveCardToBottom,
   tapCard,
   transformCard,
   duplicateCard,
@@ -223,6 +226,19 @@ export const buildCardActions = ({
       moveCard,
     })
   );
+
+  const moveToMenu = buildMoveToMenuItem({
+    card,
+    currentZone,
+    zones,
+    myPlayerId,
+    viewerRole,
+    moveCard,
+    moveCardToBottom,
+  });
+  if (moveToMenu) {
+    items.push(moveToMenu);
+  }
 
   if (currentZone?.type === ZONE.BATTLEFIELD && card.faceDown) {
     items.push({

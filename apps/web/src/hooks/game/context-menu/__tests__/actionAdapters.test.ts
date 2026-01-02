@@ -14,6 +14,7 @@ describe("gameContextMenu actionAdapters", () => {
         c1: { id: "c1", zoneId: "z1", tapped: false, isToken: true },
       },
       moveCard: vi.fn(),
+      moveCardToBottom: vi.fn(),
       tapCard: vi.fn(),
       transformCard: vi.fn(),
       duplicateCard: vi.fn(),
@@ -49,6 +50,9 @@ describe("gameContextMenu actionAdapters", () => {
       true,
       { faceDown: true }
     );
+
+    adapters.moveCardToBottom("c1", "lib");
+    expect(store.moveCardToBottom).toHaveBeenCalledWith("c1", "lib", "me");
 
     adapters.tapCard("c1");
     expect(store.tapCard).toHaveBeenCalledWith("c1", "me");

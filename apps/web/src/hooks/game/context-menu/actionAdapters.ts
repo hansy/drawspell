@@ -23,6 +23,7 @@ type OpenTextPromptFn = (opts: {
 type StoreForContextMenu = Pick<
   GameState,
   | "moveCard"
+  | "moveCardToBottom"
   | "tapCard"
   | "transformCard"
   | "duplicateCard"
@@ -99,6 +100,11 @@ export const createCardActionAdapters = (params: {
 
   return {
     moveCard,
+    moveCardToBottom: (cardId: CardId, toZoneId: ZoneId) => {
+      applyToTargets(cardId, (card) =>
+        params.store.moveCardToBottom(card.id, toZoneId, params.myPlayerId)
+      );
+    },
     tapCard: (cardId: CardId) => {
       const seedCard = params.store.cards[cardId];
       if (!seedCard) return;

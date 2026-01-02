@@ -1,5 +1,13 @@
 import React from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { act, render, waitFor } from "@testing-library/react";
 
 import type { Card, Zone } from "@/types";
@@ -36,11 +44,11 @@ const buildCard = (id: string, name: string, zoneId: string): Card =>
     counters: [],
   }) as Card;
 
-const Harness: React.FC<{ zoneId: string; count?: number; isOpen?: boolean }> = ({
-  zoneId,
-  count,
-  isOpen = true,
-}) => {
+const Harness: React.FC<{
+  zoneId: string;
+  count?: number;
+  isOpen?: boolean;
+}> = ({ zoneId, count, isOpen = true }) => {
   const controller = useZoneViewerController({
     isOpen,
     onClose: () => {},
@@ -125,13 +133,20 @@ describe("useZoneViewerController", () => {
     expect(listEl).toBeTruthy();
     if (!listEl) throw new Error("Missing list element");
 
-    Object.defineProperty(listEl, "scrollTo", { value: undefined, writable: true });
+    Object.defineProperty(listEl, "scrollTo", {
+      value: undefined,
+      writable: true,
+    });
     listEl.scrollLeft = 120;
 
     act(() => {
       const card = useGameStore.getState().cards.c3;
       controller.handleContextMenu(
-        { preventDefault: () => {}, clientX: 0, clientY: 0 } as React.MouseEvent,
+        {
+          preventDefault: () => {},
+          clientX: 0,
+          clientY: 0,
+        } as React.MouseEvent,
         card
       );
     });
@@ -139,7 +154,8 @@ describe("useZoneViewerController", () => {
     await waitFor(() => expect(latestController?.contextMenu).not.toBeNull());
     const menu = latestController!.contextMenu!;
     const moveItem = menu.items.find(
-      (item) => item.type === "action" && item.label === "Move to Bottom of Library"
+      (item) =>
+        item.type === "action" && item.label === "Move to bottom of Library"
     );
     expect(moveItem && moveItem.type === "action").toBe(true);
 
@@ -188,14 +204,21 @@ describe("useZoneViewerController", () => {
 
     await waitFor(() => expect(latestController).not.toBeNull());
     await waitFor(() =>
-      expect(latestController?.displayCards.map((card) => card.id)).toEqual(["c2", "c3"])
+      expect(latestController?.displayCards.map((card) => card.id)).toEqual([
+        "c2",
+        "c3",
+      ])
     );
 
     const controller = latestController!;
     act(() => {
       const card = useGameStore.getState().cards.c3;
       controller.handleContextMenu(
-        { preventDefault: () => {}, clientX: 0, clientY: 0 } as React.MouseEvent,
+        {
+          preventDefault: () => {},
+          clientX: 0,
+          clientY: 0,
+        } as React.MouseEvent,
         card
       );
     });
@@ -203,7 +226,8 @@ describe("useZoneViewerController", () => {
     await waitFor(() => expect(latestController?.contextMenu).not.toBeNull());
     const menu = latestController!.contextMenu!;
     const moveItem = menu.items.find(
-      (item) => item.type === "action" && item.label === "Move to Bottom of Library"
+      (item) =>
+        item.type === "action" && item.label === "Move to bottom of Library"
     );
     expect(moveItem && moveItem.type === "action").toBe(true);
 
@@ -255,14 +279,20 @@ describe("useZoneViewerController", () => {
 
     await waitFor(() => expect(latestController).not.toBeNull());
     await waitFor(() =>
-      expect(latestController?.displayCards.map((card) => card.id)).toEqual(["c3"])
+      expect(latestController?.displayCards.map((card) => card.id)).toEqual([
+        "c3",
+      ])
     );
 
     const controller = latestController!;
     act(() => {
       const card = useGameStore.getState().cards.c3;
       controller.handleContextMenu(
-        { preventDefault: () => {}, clientX: 0, clientY: 0 } as React.MouseEvent,
+        {
+          preventDefault: () => {},
+          clientX: 0,
+          clientY: 0,
+        } as React.MouseEvent,
         card
       );
     });
@@ -270,7 +300,8 @@ describe("useZoneViewerController", () => {
     await waitFor(() => expect(latestController?.contextMenu).not.toBeNull());
     const menu = latestController!.contextMenu!;
     const moveItem = menu.items.find(
-      (item) => item.type === "action" && item.label === "Move to Bottom of Library"
+      (item) =>
+        item.type === "action" && item.label === "Move to bottom of Library"
     );
     expect(moveItem && moveItem.type === "action").toBe(true);
 
@@ -322,14 +353,20 @@ describe("useZoneViewerController", () => {
 
     await waitFor(() => expect(latestController).not.toBeNull());
     await waitFor(() =>
-      expect(latestController?.displayCards.map((card) => card.id)).toEqual(["c3"])
+      expect(latestController?.displayCards.map((card) => card.id)).toEqual([
+        "c3",
+      ])
     );
 
     const controller = latestController!;
     act(() => {
       const card = useGameStore.getState().cards.c3;
       controller.handleContextMenu(
-        { preventDefault: () => {}, clientX: 0, clientY: 0 } as React.MouseEvent,
+        {
+          preventDefault: () => {},
+          clientX: 0,
+          clientY: 0,
+        } as React.MouseEvent,
         card
       );
     });
@@ -337,7 +374,8 @@ describe("useZoneViewerController", () => {
     await waitFor(() => expect(latestController?.contextMenu).not.toBeNull());
     const menu = latestController!.contextMenu!;
     const moveItem = menu.items.find(
-      (item) => item.type === "action" && item.label === "Move to Bottom of Library"
+      (item) =>
+        item.type === "action" && item.label === "Move to bottom of Library"
     );
     expect(moveItem && moveItem.type === "action").toBe(true);
 
