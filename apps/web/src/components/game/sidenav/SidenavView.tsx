@@ -130,7 +130,7 @@ export const SidenavView: React.FC<SidenavController> = ({
               icon={roomLocked ? <Lock size={20} /> : <Unlock size={20} />}
               label={
                 roomIsFull
-                  ? "Room is full"
+                  ? "Room is full (spectators can still join)"
                   : roomLocked
                     ? "Unlock room (players can join)"
                     : "Lock room (nobody can join except spectators)"

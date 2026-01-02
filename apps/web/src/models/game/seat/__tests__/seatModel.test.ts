@@ -34,6 +34,25 @@ const makeCard = (overrides: Partial<Card>): Card => ({
 });
 
 describe('createSeatModel', () => {
+  it.each([
+    ['top-left', true],
+    ['top-right', true],
+    ['bottom-left', false],
+    ['bottom-right', false],
+  ] as const)('mirrors battlefield Y based on seat position (%s)', (position, expected) => {
+    const model = createSeatModel({
+      playerId: 'p1',
+      position,
+      viewerPlayerId: 'p1',
+      isMe: false,
+      zones: {},
+      cards: {},
+      scale: 1,
+    });
+
+    expect(model.mirrorBattlefieldY).toBe(expected);
+  });
+
   it('never shows opponent library reveal badge for the viewer seat', () => {
     const library: Zone = { id: 'lib', type: ZONE.LIBRARY, ownerId: 'p1', cardIds: ['c1'] };
     const zones = { lib: library };
@@ -82,4 +101,3 @@ describe('createSeatModel', () => {
     expect(model.opponentLibraryRevealCount).toBe(2);
   });
 });
-

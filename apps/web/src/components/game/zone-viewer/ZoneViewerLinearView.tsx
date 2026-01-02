@@ -37,6 +37,7 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
   listRef,
 }) => {
   const renderCards = React.useMemo(() => [...orderedCards].reverse(), [orderedCards]);
+  const [hoveredId, setHoveredId] = React.useState<string | null>(null);
 
   return (
     <div
@@ -47,6 +48,7 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
       {renderCards.map((card, index) => {
         const isPinned = pinnedCardId === card.id;
         const isDragging = draggingId === card.id;
+        const isHovered = hoveredId === card.id;
         return (
           <div
             key={card.id}
@@ -72,13 +74,17 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
               if (!canReorder) return;
               e.preventDefault();
             }}
+            onMouseEnter={() => setHoveredId(card.id)}
+            onMouseLeave={() =>
+              setHoveredId((prev) => (prev === card.id ? null : prev))
+            }
             className={cn(
               "shrink-0 w-[50px] h-full transition-all duration-200 relative group flex items-center justify-center",
-              !interactionsDisabled && "hover:scale-110 hover:z-[100] hover:w-[200px]",
-              isPinned && "scale-110 w-[200px]"
+              !interactionsDisabled && "hover:scale-110",
+              isPinned && "scale-110"
             )}
             style={{
-              zIndex: isPinned ? 200 : renderCards.length - index,
+              zIndex: isPinned ? 200 : isHovered ? 150 : renderCards.length - index,
               opacity: isDragging ? 0.5 : 1,
             }}
           >

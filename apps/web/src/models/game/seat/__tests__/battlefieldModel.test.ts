@@ -25,6 +25,7 @@ describe('battlefieldModel', () => {
       viewerPlayerId: 'p1',
       zoneWidth: 100,
       zoneHeight: 200,
+      mirrorBattlefieldY: false,
       playerColors: {},
     });
 
@@ -32,14 +33,14 @@ describe('battlefieldModel', () => {
     expect(layout.top).toBe(40);
   });
 
-  it('mirrors Y when rendering for the viewer', () => {
+  it('mirrors Y when rendering for a mirrored seat', () => {
     const layout = computeBattlefieldCardLayout({
       card: createCard({ position: { x: 0.5, y: 0.25 } }),
       zoneOwnerId: 'p1',
       viewerPlayerId: 'p1',
       zoneWidth: 100,
       zoneHeight: 200,
-      mirrorForViewer: true,
+      mirrorBattlefieldY: true,
       playerColors: {},
     });
 
@@ -53,6 +54,7 @@ describe('battlefieldModel', () => {
       viewerPlayerId: 'p1',
       zoneWidth: 100,
       zoneHeight: 200,
+      mirrorBattlefieldY: false,
       playerColors: { p2: 'red' },
     });
 
@@ -66,10 +68,10 @@ describe('battlefieldModel', () => {
       viewerPlayerId: 'p1',
       zoneWidth: 100,
       zoneHeight: 200,
+      mirrorBattlefieldY: false,
       playerColors: {},
     });
 
     expect(layout.disableDrag).toBe(true);
   });
 });
-

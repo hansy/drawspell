@@ -16,12 +16,12 @@ export const computeBattlefieldCardLayout = (params: {
   viewerPlayerId: PlayerId;
   zoneWidth: number;
   zoneHeight: number;
-  mirrorForViewer?: boolean;
+  mirrorBattlefieldY: boolean;
   playerColors: Record<string, string>;
 }): BattlefieldCardLayout => {
-  const { card, zoneOwnerId, viewerPlayerId, mirrorForViewer, playerColors } = params;
+  const { card, zoneOwnerId, viewerPlayerId, mirrorBattlefieldY, playerColors } = params;
 
-  const viewPosition = mirrorForViewer ? mirrorNormalizedY(card.position) : card.position;
+  const viewPosition = mirrorBattlefieldY ? mirrorNormalizedY(card.position) : card.position;
   const { x, y } = fromNormalizedPosition(
     viewPosition,
     params.zoneWidth || 1,
@@ -38,4 +38,3 @@ export const computeBattlefieldCardLayout = (params: {
 
   return { left, top, highlightColor, disableDrag };
 };
-

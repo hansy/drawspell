@@ -23,7 +23,7 @@ interface BattlefieldProps {
     isMe?: boolean;
     viewerPlayerId: string;
     viewerRole?: ViewerRole;
-    mirrorForViewer?: boolean;
+    mirrorBattlefieldY: boolean;
     scale?: number;
     viewScale?: number;
     onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
@@ -40,7 +40,7 @@ const BattlefieldCard = React.memo<{
     zoneHeight: number;
     viewerPlayerId: string;
     viewerRole?: ViewerRole;
-    mirrorForViewer?: boolean;
+    mirrorBattlefieldY: boolean;
     viewScale: number;
     onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
     playerColors: Record<string, string>;
@@ -54,7 +54,7 @@ const BattlefieldCard = React.memo<{
         zoneHeight,
         viewerPlayerId,
         viewerRole,
-        mirrorForViewer,
+        mirrorBattlefieldY,
         viewScale,
         onCardContextMenu,
         playerColors,
@@ -68,7 +68,7 @@ const BattlefieldCard = React.memo<{
             viewerPlayerId,
             zoneWidth,
             zoneHeight,
-            mirrorForViewer,
+            mirrorBattlefieldY,
             playerColors,
         });
         const spectatorDragDisabled = viewerRole === "spectator";
@@ -114,7 +114,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     isMe,
     viewerPlayerId,
     viewerRole,
-    mirrorForViewer,
+    mirrorBattlefieldY,
     scale = 1,
     viewScale = 1,
     onCardContextMenu,
@@ -202,7 +202,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
 
         const ids: string[] = [];
         cards.forEach((card) => {
-            const viewPosition = mirrorForViewer ? mirrorNormalizedY(card.position) : card.position;
+            const viewPosition = mirrorBattlefieldY ? mirrorNormalizedY(card.position) : card.position;
             const center = fromNormalizedPosition(viewPosition, zoneSize.width, zoneSize.height);
             const { cardWidth, cardHeight } = getEffectiveCardSize({
                 viewScale,
@@ -221,7 +221,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
             if (intersects) ids.push(card.id);
         });
         return ids;
-    }, [cards, mirrorForViewer, viewScale, zoneSize.height, zoneSize.width]);
+    }, [cards, mirrorBattlefieldY, viewScale, zoneSize.height, zoneSize.width]);
 
     const toggleSelection = React.useCallback((baseSelection: Set<string>, ids: string[]) => {
         const next = new Set(baseSelection);
@@ -339,7 +339,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                 layout="free-form"
                 scale={scale}
                 cardScale={viewScale}
-                mirrorY={mirrorForViewer}
+                mirrorY={mirrorBattlefieldY}
                 onContextMenu={onContextMenu}
                 innerRef={setZoneRef}
                 onPointerDown={handlePointerDown}
@@ -376,7 +376,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                         zoneHeight={zoneSize.height}
                         viewerPlayerId={viewerPlayerId}
                         viewerRole={viewerRole}
-                        mirrorForViewer={mirrorForViewer}
+                        mirrorBattlefieldY={mirrorBattlefieldY}
                         viewScale={viewScale}
                         onCardContextMenu={onCardContextMenu}
                         playerColors={playerColors}

@@ -59,8 +59,13 @@ export const SeatView: React.FC<SeatViewProps> = ({
   zoomControlsDisabled,
   onLifeContextMenu,
 }) => {
-  const { isTop, isRight, inverseScalePercent, opponentLibraryRevealCount } =
-    model;
+  const {
+    isTop,
+    isRight,
+    mirrorBattlefieldY,
+    inverseScalePercent,
+    opponentLibraryRevealCount,
+  } = model;
   const { hand, library, graveyard, exile, battlefield, commander } =
     model.zones;
   const {
@@ -245,7 +250,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               isMe={isMe}
               viewerPlayerId={viewerPlayerId}
               viewerRole={viewerRole}
-              mirrorForViewer={!isMe}
+              mirrorBattlefieldY={mirrorBattlefieldY}
               scale={scale}
               viewScale={battlefieldScale}
               onCardContextMenu={onCardContextMenu}

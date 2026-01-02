@@ -9,6 +9,7 @@ export type SeatPosition = 'bottom-left' | 'bottom-right' | 'top-left' | 'top-ri
 export interface SeatModel {
   isTop: boolean;
   isRight: boolean;
+  mirrorBattlefieldY: boolean;
   inverseScalePercent: number;
   zones: {
     hand?: Zone;
@@ -41,6 +42,7 @@ export const createSeatModel = (params: {
 }): SeatModel => {
   const isTop = params.position.startsWith('top');
   const isRight = params.position.endsWith('right');
+  const mirrorBattlefieldY = isTop;
   const safeScale = params.scale || 1;
   const inverseScalePercent = (1 / safeScale) * 100;
 
@@ -85,6 +87,7 @@ export const createSeatModel = (params: {
   return {
     isTop,
     isRight,
+    mirrorBattlefieldY,
     inverseScalePercent,
     zones,
     cards: cardsByZone,
