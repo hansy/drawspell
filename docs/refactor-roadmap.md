@@ -69,19 +69,19 @@
 ## Refactor Plan
 
 ### Phase 0 - Correctness and safety
-- Unify keyboard zoom handling so only one listener processes +/-. Add a regression test for single-step zoom.
-- Centralize MAX_PLAYERS and update all imports.
-- Make DEBUG_SIGNAL env-driven and default it to false in production builds.
+- [x] Unify keyboard zoom handling so only one listener processes +/-. Add a regression test for single-step zoom.
+- [x] Centralize MAX_PLAYERS and update all imports.
+- [x] Make DEBUG_SIGNAL env-driven and default it to false in production builds.
 
 ### Phase 1 - Sync and server modularity
-- Split useMultiplayerSync into smaller modules (session lifecycle, provider events, awareness, store hydration).
-- Split useMultiplayerBoardController into smaller hooks (room state, modal state, action dispatchers).
-- Break SignalRoom into focused helpers (handshake, rate limiter, awareness, persistence) and add tests.
+- [x] Split useMultiplayerSync into smaller modules (session lifecycle, provider events, awareness, store hydration).
+- [x] Split useMultiplayerBoardController into smaller hooks (room state, modal state, action dispatchers).
+- [x] Break SignalRoom into focused helpers (handshake, rate limiter, awareness, persistence) and add tests.
 
 ### Phase 2 - Battlefield and drag performance
-- Extract selection rectangle logic from Battlefield into a dedicated hook.
-- Cache card bounds for hit testing and throttle selection updates with requestAnimationFrame.
-- Extract ghost overlay and grid overlay into separate components to reduce re-render surface.
+- [x] Extract selection rectangle logic from Battlefield into a dedicated hook.
+- [x] Cache card bounds for hit testing and throttle selection updates with requestAnimationFrame.
+- [x] Extract ghost overlay and grid overlay into separate components to reduce re-render surface.
 
 ### Phase 3 - Menu and Scryfall workflows
 - Open context menus immediately and hydrate related parts asynchronously.

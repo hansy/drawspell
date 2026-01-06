@@ -2,18 +2,16 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { Zone as ZoneType, Card as CardType, Player, ViewerRole } from '@/types';
 import { Card } from '../card/Card';
-import { CardView } from '../card/CardView';
 import { Zone } from '../zone/Zone';
 import { useDragStore } from '@/store/dragStore';
 import { useGameStore } from '@/store/gameStore';
 import { useSelectionStore } from '@/store/selectionStore';
 import { computeBattlefieldCardLayout } from '@/models/game/seat/battlefieldModel';
 import { useElementSize } from "@/hooks/shared/useElementSize";
-import { fromNormalizedPosition, mirrorNormalizedY } from "@/lib/positions";
-import { getEffectiveCardSize } from "@/lib/dndBattlefield";
-import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from "@/lib/constants";
-import { getFlipRotation } from "@/lib/cardDisplay";
 import { useBattlefieldZoomControls } from "@/hooks/game/board/useBattlefieldZoomControls";
+import { useBattlefieldSelection } from "@/hooks/game/board/useBattlefieldSelection";
+import { BattlefieldGridOverlay } from "./BattlefieldGridOverlay";
+import { BattlefieldGhostOverlay } from "./BattlefieldGhostOverlay";
 
 interface BattlefieldProps {
     zone: ZoneType;
@@ -127,8 +125,6 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     const ghostCards = useDragStore((state) => state.ghostCards);
     const isGroupDragging = useDragStore((state) => state.isGroupDragging);
     const showGrid = Boolean(activeCardId);
-    const GRID_SIZE = 30 * viewScale;
-    const gridColor = 'rgba(148, 163, 184, 0.3)'; // zinc-400/30
     const cardsById = useGameStore((state) => state.cards);
     const { ref: zoneSizeRef, size: zoneSize } = useElementSize<HTMLDivElement>();
     const zoneNodeRef = React.useRef<HTMLDivElement | null>(null);
@@ -139,21 +135,8 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
         setZoneNode(node);
     }, [zoneSizeRef]);
     const isSelectionEnabled = Boolean(isMe && zone.ownerId === viewerPlayerId);
-    const setSelection = useSelectionStore((state) => state.setSelection);
     const selectedCardIds = useSelectionStore((state) => state.selectedCardIds);
     const selectionZoneId = useSelectionStore((state) => state.selectionZoneId);
-    const [selectionRect, setSelectionRect] = React.useState<{
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-    } | null>(null);
-    const selectionDragRef = React.useRef<{
-        pointerId: number;
-        start: { x: number; y: number };
-        baseSelection: Set<string>;
-        shiftKey: boolean;
-    } | null>(null);
 
     useBattlefieldZoomControls({
         playerId: viewerPlayerId,
@@ -162,148 +145,22 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
         isBlocked: disableZoomControls,
     });
 
-    const clampRectToZone = React.useCallback((rect: {
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-    }) => {
-        const maxWidth = zoneSize.width;
-        const maxHeight = zoneSize.height;
-        if (!maxWidth || !maxHeight) return rect;
-
-        const left = Math.max(0, Math.min(rect.x, maxWidth));
-        const top = Math.max(0, Math.min(rect.y, maxHeight));
-        const right = Math.max(0, Math.min(rect.x + rect.width, maxWidth));
-        const bottom = Math.max(0, Math.min(rect.y + rect.height, maxHeight));
-
-        return {
-            x: left,
-            y: top,
-            width: Math.max(0, right - left),
-            height: Math.max(0, bottom - top),
-        };
-    }, [zoneSize.height, zoneSize.width]);
-
-    const getSelectionRect = React.useCallback((start: { x: number; y: number }, current: { x: number; y: number }) => {
-        const left = Math.min(start.x, current.x);
-        const top = Math.min(start.y, current.y);
-        const width = Math.abs(current.x - start.x);
-        const height = Math.abs(current.y - start.y);
-        return clampRectToZone({ x: left, y: top, width, height });
-    }, [clampRectToZone]);
-
-    const getIdsInRect = React.useCallback((rect: { x: number; y: number; width: number; height: number }) => {
-        if (!zoneSize.width || !zoneSize.height) return [];
-        const left = rect.x;
-        const right = rect.x + rect.width;
-        const top = rect.y;
-        const bottom = rect.y + rect.height;
-
-        const ids: string[] = [];
-        cards.forEach((card) => {
-            const viewPosition = mirrorBattlefieldY ? mirrorNormalizedY(card.position) : card.position;
-            const center = fromNormalizedPosition(viewPosition, zoneSize.width, zoneSize.height);
-            const { cardWidth, cardHeight } = getEffectiveCardSize({
-                viewScale,
-                isTapped: card.tapped,
-            });
-            const cardLeft = center.x - cardWidth / 2;
-            const cardTop = center.y - cardHeight / 2;
-            const cardRight = cardLeft + cardWidth;
-            const cardBottom = cardTop + cardHeight;
-
-            const intersects =
-                right >= cardLeft &&
-                left <= cardRight &&
-                bottom >= cardTop &&
-                top <= cardBottom;
-            if (intersects) ids.push(card.id);
-        });
-        return ids;
-    }, [cards, mirrorBattlefieldY, viewScale, zoneSize.height, zoneSize.width]);
-
-    const toggleSelection = React.useCallback((baseSelection: Set<string>, ids: string[]) => {
-        const next = new Set(baseSelection);
-        ids.forEach((id) => {
-            if (next.has(id)) {
-                next.delete(id);
-            } else {
-                next.add(id);
-            }
-        });
-        return Array.from(next);
-    }, []);
-
-    const getLocalPoint = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-        const node = zoneNodeRef.current;
-        if (!node) return null;
-        const rect = node.getBoundingClientRect();
-        const safeScale = scale || 1;
-        return {
-            x: (event.clientX - rect.left) / safeScale,
-            y: (event.clientY - rect.top) / safeScale,
-        };
-    }, [scale]);
-
-    const handlePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-        if (!isSelectionEnabled) return;
-        if (event.button !== 0) return;
-        if (event.target instanceof HTMLElement && event.target.closest('[data-card-id]')) return;
-
-        const localPoint = getLocalPoint(event);
-        if (!localPoint) return;
-
-        const selectionState = useSelectionStore.getState();
-        const baseSelection =
-            selectionState.selectionZoneId === zone.id ? selectionState.selectedCardIds : [];
-
-        selectionDragRef.current = {
-            pointerId: event.pointerId,
-            start: localPoint,
-            baseSelection: new Set(baseSelection),
-            shiftKey: event.shiftKey,
-        };
-        zoneNodeRef.current?.setPointerCapture(event.pointerId);
-        setSelectionRect({ x: localPoint.x, y: localPoint.y, width: 0, height: 0 });
-    }, [getLocalPoint, isSelectionEnabled, zone.id]);
-
-    const updateSelectionFromEvent = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-        const selection = selectionDragRef.current;
-        if (!selection || selection.pointerId !== event.pointerId) return;
-
-        const localPoint = getLocalPoint(event);
-        if (!localPoint) return;
-
-        const rect = getSelectionRect(selection.start, localPoint);
-        setSelectionRect(rect);
-
-        const idsInRect = getIdsInRect(rect);
-        const nextIds = selection.shiftKey
-            ? toggleSelection(selection.baseSelection, idsInRect)
-            : idsInRect;
-        setSelection(nextIds, zone.id);
-    }, [getIdsInRect, getLocalPoint, getSelectionRect, setSelection, toggleSelection, zone.id]);
-
-    const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-        updateSelectionFromEvent(event);
-    }, [updateSelectionFromEvent]);
-
-    const handlePointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-        if (!selectionDragRef.current || selectionDragRef.current.pointerId !== event.pointerId) return;
-
-        updateSelectionFromEvent(event);
-        zoneNodeRef.current?.releasePointerCapture(event.pointerId);
-        selectionDragRef.current = null;
-        setSelectionRect(null);
-    }, [updateSelectionFromEvent]);
-
-    const handlePointerCancel = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-        if (!selectionDragRef.current || selectionDragRef.current.pointerId !== event.pointerId) return;
-        zoneNodeRef.current?.releasePointerCapture(event.pointerId);
-        selectionDragRef.current = null;
-        setSelectionRect(null);
-    }, []);
+    const {
+        selectionRect,
+        handlePointerDown,
+        handlePointerMove,
+        handlePointerUp,
+        handlePointerCancel,
+    } = useBattlefieldSelection({
+        zoneId: zone.id,
+        cards,
+        zoneSize,
+        scale,
+        viewScale,
+        mirrorBattlefieldY,
+        zoneNodeRef,
+        isSelectionEnabled,
+    });
 
     const groupGhostForZone = React.useMemo(() => {
         if (!ghostCards || ghostCards.length < 2) return [];
@@ -347,16 +204,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerCancel}
             >
-                {showGrid && (
-                    <div
-                        className="pointer-events-none absolute inset-0 z-0"
-                        style={{
-                            backgroundImage: `radial-gradient(circle, ${gridColor} 2px, transparent 2px)`,
-                            backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`,
-                            backgroundPosition: `-${GRID_SIZE / 2}px -${GRID_SIZE / 2}px`
-                        }}
-                    />
-                )}
+                <BattlefieldGridOverlay visible={showGrid} viewScale={viewScale} />
                 {selectionRect && (
                     <div
                         className="pointer-events-none absolute z-10 border border-indigo-400/70 bg-indigo-400/10"
@@ -393,35 +241,13 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                         }
                     />
                 ))}
-                {ghostCardsForZone.map(({ card, position, tapped }) => {
-                    const baseWidth = BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;
-                    const baseHeight = BASE_CARD_HEIGHT;
-                    const transformParts = [`scale(${viewScale})`];
-                    if (tapped) transformParts.push("rotate(90deg)");
-                    const flipRotation = getFlipRotation(card);
-                    const highlightColor =
-                        card.ownerId !== zone.ownerId ? playerColors[card.ownerId] : undefined;
-
-                    return (
-                        <CardView
-                            key={`ghost-${card.id}`}
-                            card={card}
-                            style={{
-                                position: "absolute",
-                                left: position.x - baseWidth / 2,
-                                top: position.y - baseHeight / 2,
-                                transform: transformParts.join(" "),
-                                transformOrigin: "center center",
-                            }}
-                            className="pointer-events-none opacity-80 z-10"
-                            faceDown={card.faceDown}
-                            imageTransform={flipRotation ? `rotate(${flipRotation}deg)` : undefined}
-                            highlightColor={highlightColor}
-                            isSelected={selectedCardIds.includes(card.id)}
-                            disableHoverAnimation
-                        />
-                    );
-                })}
+                <BattlefieldGhostOverlay
+                    ghostCards={ghostCardsForZone}
+                    viewScale={viewScale}
+                    zoneOwnerId={zone.ownerId}
+                    playerColors={playerColors}
+                    selectedCardIds={selectedCardIds}
+                />
             </Zone>
 
             {/* Placeholder Text */}
