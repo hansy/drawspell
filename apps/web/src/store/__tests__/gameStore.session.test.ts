@@ -1,6 +1,7 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { useGameStore } from '../gameStore';
-import { ensureLocalStorage } from '../testUtils';
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { getOrCreateSessionIdentity, loadSessionIdentity } from "@/lib/sessionIdentity";
+import { useGameStore } from "../gameStore";
+import { ensureLocalStorage } from "../testUtils";
 
 describe('gameStore session actions', () => {
   beforeAll(() => {
@@ -34,23 +35,26 @@ describe('gameStore session actions', () => {
       sessionVersions: { s1: 2 },
     });
 
-    useGameStore.getState().resetSession('s1', 'p1');
+    useGameStore.getState().resetSession("s1");
 
     const state = useGameStore.getState();
+    const identity = getOrCreateSessionIdentity("s1");
     expect(state.sessionId).toBe('s1');
-    expect(state.myPlayerId).toBe('p1');
+    expect(state.myPlayerId).toBe(identity.playerId);
     expect(state.players).toEqual({});
     expect(state.cards).toEqual({});
     expect(state.zones).toEqual({});
     expect(state.battlefieldViewScale).toEqual({});
-    expect(state.playerIdsBySession.s1).toBe('p1');
+    expect(state.playerIdsBySession.s1).toBe(identity.playerId);
     expect(state.sessionVersions.s1).toBe(3);
   });
 
   it('ensurePlayerIdForSession returns a stable id per session', () => {
-    const first = useGameStore.getState().ensurePlayerIdForSession('s2');
+    const first = useGameStore.getState().ensurePlayerIdForSession("s2");
+    const identity = getOrCreateSessionIdentity("s2");
     expect(typeof first).toBe('string');
     expect(first.length).toBeGreaterThan(0);
+    expect(first).toBe(identity.playerId);
     expect(useGameStore.getState().playerIdsBySession.s2).toBe(first);
 
     const second = useGameStore.getState().ensurePlayerIdForSession('s2');
@@ -63,11 +67,12 @@ describe('gameStore session actions', () => {
       sessionVersions: { s3: 1 },
     });
 
-    useGameStore.getState().forgetSessionIdentity('s3');
+    useGameStore.getState().forgetSessionIdentity("s3");
 
     const state = useGameStore.getState();
     expect(state.playerIdsBySession.s3).toBeUndefined();
     expect(state.sessionVersions.s3).toBe(2);
+    expect(loadSessionIdentity("s3")).toBeNull();
   });
 
   it('ensureSessionVersion initializes missing versions', () => {
@@ -107,4 +112,3 @@ describe('gameStore session actions', () => {
     expect(useGameStore.getState().hasHydrated).toBe(true);
   });
 });
-

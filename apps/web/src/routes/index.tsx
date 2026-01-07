@@ -1,12 +1,20 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { v4 as uuidv4 } from 'uuid';
 
+import { ensureSessionAccessKeys } from '@/lib/sessionKeys';
+
 const LandingPage = () => {
   const navigate = useNavigate();
 
   const handleCreateGame = () => {
     const sessionId = uuidv4();
-    navigate({ to: '/game/$sessionId', params: { sessionId } });
+    const keys = ensureSessionAccessKeys(sessionId);
+    const hash = keys.playerKey ? `k=${keys.playerKey}` : undefined;
+    navigate({
+      to: '/game/$sessionId',
+      params: { sessionId },
+      ...(hash ? { hash } : {}),
+    });
   };
 
   return (

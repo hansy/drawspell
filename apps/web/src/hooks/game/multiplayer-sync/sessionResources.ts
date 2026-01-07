@@ -3,6 +3,7 @@ import { Awareness } from "y-protocols/awareness";
 import { WebsocketProvider } from "y-websocket";
 import { bindSharedLogStore } from "@/logging/logStore";
 import { getOrCreateClientKey } from "@/lib/clientKey";
+import { syncSessionAccessKeysFromLocation } from "@/lib/sessionKeys";
 import { buildSignalingUrlFromEnv } from "@/lib/wsSignaling";
 import { useGameStore } from "@/store/gameStore";
 import {
@@ -81,9 +82,18 @@ export function setupSessionResources({
   const ensuredPlayerId = store.ensurePlayerIdForSession(sessionId);
   const needsReset = store.sessionId !== sessionId || store.myPlayerId !== ensuredPlayerId;
   if (needsReset) {
-    store.resetSession(sessionId, ensuredPlayerId);
+    store.resetSession(sessionId);
   } else {
     useGameStore.setState((state) => ({ ...state, sessionId }));
+  }
+
+  const { keys, fromHash } = syncSessionAccessKeysFromLocation(sessionId);
+  if (fromHash.spectatorKey && !fromHash.playerKey) {
+    store.setViewerRole("spectator");
+  } else if (fromHash.playerKey) {
+    store.setViewerRole("player");
+  } else if (keys.spectatorKey && !keys.playerKey) {
+    store.setViewerRole("spectator");
   }
   const sessionVersion = useGameStore.getState().ensureSessionVersion(sessionId);
 
