@@ -102,6 +102,7 @@ export function resetDeck(maps: SharedMaps, playerId: string) {
 
   const shuffled = [...libraryKeeps, ...toLibrary].sort(() => Math.random() - 0.5);
   reorderZoneCards(maps, libraryZone.id, shuffled);
+  patchPlayer(maps, playerId, { libraryTopReveal: undefined });
 }
 
 export function unloadDeck(maps: SharedMaps, playerId: string) {
@@ -111,5 +112,5 @@ export function unloadDeck(maps: SharedMaps, playerId: string) {
     .map((card) => card.id);
 
   ownedIds.forEach((id) => removeCard(maps, id));
-  patchPlayer(maps, playerId, { deckLoaded: false });
+  patchPlayer(maps, playerId, { deckLoaded: false, libraryTopReveal: undefined });
 }

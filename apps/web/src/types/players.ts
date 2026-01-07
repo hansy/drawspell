@@ -1,6 +1,8 @@
 import type { PlayerId } from "./ids";
 import type { Counter } from "./counters";
 
+export type LibraryTopRevealMode = "self" | "all";
+
 export interface Player {
   id: PlayerId;
   name: string;
@@ -11,4 +13,5 @@ export interface Player {
   commanderDamage: Record<PlayerId, number>;
   commanderTax: number;
   deckLoaded?: boolean;
+  libraryTopReveal?: LibraryTopRevealMode;
 }

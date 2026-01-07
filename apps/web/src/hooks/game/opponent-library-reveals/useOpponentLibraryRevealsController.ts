@@ -29,6 +29,7 @@ export const useOpponentLibraryRevealsController = ({
 
   const zone = zoneId ? zones[zoneId] : null;
   const ownerName = resolveZoneOwnerName({ zone, players });
+  const libraryTopReveal = zone ? players[zone.ownerId]?.libraryTopReveal : undefined;
 
   const revealedCardIds = React.useMemo(
     () =>
@@ -37,8 +38,9 @@ export const useOpponentLibraryRevealsController = ({
         cardsById: cards,
         viewerId: myPlayerId,
         viewerRole,
+        libraryTopReveal,
       }),
-    [zone, cards, myPlayerId, viewerRole]
+    [zone, cards, myPlayerId, viewerRole, libraryTopReveal]
   );
 
   const revealedCards = React.useMemo(

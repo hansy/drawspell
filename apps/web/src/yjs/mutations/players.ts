@@ -1,4 +1,4 @@
-import type { Player } from '@/types';
+import type { LibraryTopRevealMode, Player } from '@/types';
 
 import { MAX_PLAYER_COLOR_LENGTH, MAX_PLAYER_NAME_LENGTH } from '../sanitizeLimits';
 
@@ -33,6 +33,11 @@ const removePlayerFromOrder = (maps: SharedMaps, playerId: string) => {
   }
 };
 
+const normalizeLibraryTopReveal = (value: unknown): LibraryTopRevealMode | undefined => {
+  if (value === "self" || value === "all") return value;
+  return undefined;
+};
+
 const writePlayer = (maps: SharedMaps, player: Player) => {
   const target = ensureChildMap(maps.players, player.id);
   target.set('id', player.id);
@@ -42,6 +47,12 @@ const writePlayer = (maps: SharedMaps, player: Player) => {
   target.set('cursor', player.cursor);
   target.set('commanderTax', player.commanderTax);
   target.set('deckLoaded', player.deckLoaded);
+  const libraryTopReveal = normalizeLibraryTopReveal(player.libraryTopReveal);
+  if (libraryTopReveal) {
+    target.set('libraryTopReveal', libraryTopReveal);
+  } else {
+    target.delete('libraryTopReveal');
+  }
   target.set('counters', sanitizeCountersForSync(player.counters));
   const commanderDamage = ensureChildMap(target, 'commanderDamage');
   const seen = new Set<string>();
@@ -61,6 +72,7 @@ export const readPlayer = (maps: SharedMaps, playerId: string): Player | null =>
   const getVal = (key: string) => readValue(target, key);
   const commanderDamageSource = getVal('commanderDamage');
   const commanderDamage = readCommanderDamage(commanderDamageSource);
+  const libraryTopReveal = normalizeLibraryTopReveal(getVal('libraryTopReveal'));
   return {
     id: playerId,
     name: getVal('name'),
@@ -71,6 +83,7 @@ export const readPlayer = (maps: SharedMaps, playerId: string): Player | null =>
     commanderDamage,
     commanderTax: getVal('commanderTax'),
     deckLoaded: getVal('deckLoaded'),
+    libraryTopReveal,
   } as Player;
 };
 

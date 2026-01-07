@@ -30,6 +30,8 @@ export type UseGameShortcutsArgs = {
   closeCountPrompt: () => void;
   textPromptOpen: boolean;
   closeTextPrompt: () => void;
+  topCardRevealPromptOpen: boolean;
+  closeTopCardRevealPrompt: () => void;
   activeModalOpen: boolean;
   closeActiveModal: () => void;
   tokenModalOpen: boolean;
@@ -71,6 +73,8 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
         closeCountPrompt,
         textPromptOpen,
         closeTextPrompt,
+        topCardRevealPromptOpen,
+        closeTopCardRevealPrompt,
         activeModalOpen,
         closeActiveModal,
         tokenModalOpen,
@@ -108,6 +112,8 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
           closeCountPrompt,
           textPromptOpen,
           closeTextPrompt,
+          topCardRevealPromptOpen,
+          closeTopCardRevealPrompt,
           activeModalOpen,
           closeActiveModal,
           tokenModalOpen,
@@ -147,6 +153,7 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
           contextMenuOpen,
           countPromptOpen,
           textPromptOpen,
+          topCardRevealPromptOpen,
           activeModalOpen,
           tokenModalOpen,
           diceRollerOpen,

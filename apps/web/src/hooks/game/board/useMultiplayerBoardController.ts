@@ -105,6 +105,8 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     closeCountPrompt,
     textPrompt,
     closeTextPrompt,
+    topCardRevealPrompt,
+    closeTopCardRevealPrompt,
   } = useGameContextMenu(viewerRole, myPlayerId, handleViewZone, () =>
     setIsDiceRollerOpen(true)
   );
@@ -182,6 +184,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     contextMenuOpen: Boolean(contextMenu),
     countPromptOpen: Boolean(countPrompt),
     textPromptOpen: Boolean(textPrompt),
+    topCardRevealPromptOpen: Boolean(topCardRevealPrompt),
     activeModalOpen: Boolean(activeModal),
     tokenModalOpen: isTokenModalOpen,
     diceRollerOpen: isDiceRollerOpen,
@@ -201,6 +204,8 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     closeCountPrompt,
     textPromptOpen: Boolean(textPrompt),
     closeTextPrompt,
+    topCardRevealPromptOpen: Boolean(topCardRevealPrompt),
+    closeTopCardRevealPrompt,
     activeModalOpen: Boolean(activeModal),
     closeActiveModal: () => setActiveModal(null),
     tokenModalOpen: isTokenModalOpen,
@@ -293,6 +298,8 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     closeCountPrompt,
     textPrompt,
     closeTextPrompt,
+    topCardRevealPrompt,
+    closeTopCardRevealPrompt,
     isLoadDeckModalOpen,
     setIsLoadDeckModalOpen,
     isTokenModalOpen,

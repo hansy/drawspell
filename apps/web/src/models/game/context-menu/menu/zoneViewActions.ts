@@ -1,4 +1,10 @@
-import type { PlayerId, ViewerRole, Zone, ZoneId } from "@/types";
+import type {
+  LibraryTopRevealMode,
+  PlayerId,
+  ViewerRole,
+  Zone,
+  ZoneId,
+} from "@/types";
 
 import { ZONE } from "@/constants/zones";
 import { canViewZone } from "@/rules/permissions";
@@ -17,6 +23,13 @@ interface ZoneActionBuilderParams {
   resetDeck: (playerId: PlayerId) => void;
   mulligan: (playerId: PlayerId, count: number) => void;
   unloadDeck: (playerId: PlayerId) => void;
+  libraryTopReveal?: LibraryTopRevealMode;
+  setLibraryTopReveal?: (mode: LibraryTopRevealMode | null) => void;
+  openTopCardRevealPrompt?: (opts: {
+    title: string;
+    message?: string;
+    onSelect: (mode: LibraryTopRevealMode) => void;
+  }) => void;
   openCountPrompt?: (opts: {
     title: string;
     message: string;
@@ -163,6 +176,9 @@ export const buildZoneViewActions = ({
   resetDeck,
   mulligan,
   unloadDeck,
+  libraryTopReveal,
+  setLibraryTopReveal,
+  openTopCardRevealPrompt,
   openCountPrompt,
 }: ZoneActionBuilderParams): ContextMenuItem[] => {
   const items: ContextMenuItem[] = [];
@@ -178,11 +194,43 @@ export const buildZoneViewActions = ({
 
     items.push(buildLibraryDrawMenu({ myPlayerId, drawCard, openCountPrompt }));
     items.push(
-      buildLibraryDiscardMenu({ myPlayerId, discardFromLibrary, openCountPrompt })
+      buildLibraryDiscardMenu({
+        myPlayerId,
+        discardFromLibrary,
+        openCountPrompt,
+      })
     );
 
     if (onViewZone) {
-      items.push(buildLibraryViewMenu({ zoneId: zone.id, onViewZone, openCountPrompt }));
+      items.push(
+        buildLibraryViewMenu({ zoneId: zone.id, onViewZone, openCountPrompt })
+      );
+    }
+
+    if (setLibraryTopReveal) {
+      if (libraryTopReveal) {
+        items.push({
+          type: "action",
+          label: "Hide top card",
+          onSelect: () => setLibraryTopReveal(null),
+        });
+      } else {
+        items.push({
+          type: "action",
+          label: "Reveal top card (until turned off)",
+          onSelect: () => {
+            if (!openTopCardRevealPrompt) return;
+            openTopCardRevealPrompt({
+              title: "Reveal top card (until turned off)",
+              message: "Who should see the top card?",
+              onSelect: (mode) => setLibraryTopReveal(mode),
+            });
+          },
+          disabledReason: openTopCardRevealPrompt
+            ? undefined
+            : "Prompt unavailable",
+        });
+      }
     }
 
     items.push({
@@ -223,7 +271,10 @@ export const buildZoneViewActions = ({
       shortcut: getShortcutLabel("deck.unload"),
     });
   } else if (zone.type === ZONE.GRAVEYARD || zone.type === ZONE.EXILE) {
-    const viewPermission = canViewZone({ actorId: myPlayerId, role: viewerRole }, zone);
+    const viewPermission = canViewZone(
+      { actorId: myPlayerId, role: viewerRole },
+      zone
+    );
     if (viewPermission.allowed && onViewZone)
       items.push({
         type: "action",

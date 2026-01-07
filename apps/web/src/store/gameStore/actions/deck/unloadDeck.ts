@@ -62,7 +62,11 @@ export const createUnloadDeck =
         const nextPlayers = current.players[playerId]
           ? {
               ...current.players,
-              [playerId]: { ...current.players[playerId], deckLoaded: false },
+              [playerId]: {
+                ...current.players[playerId],
+                deckLoaded: false,
+                libraryTopReveal: undefined,
+              },
             }
           : current.players;
 

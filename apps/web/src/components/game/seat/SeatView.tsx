@@ -3,6 +3,7 @@ import { Eye, Plus } from "lucide-react";
 
 import { Button } from "../../ui/button";
 import { ZONE, ZONE_LABEL } from "@/constants/zones";
+import { canViewerSeeLibraryCardByReveal, canViewerSeeLibraryTopCard } from "@/lib/reveal";
 import { cn } from "@/lib/utils";
 import type { Card as CardType, Player, ViewerRole, ZoneId } from "@/types";
 
@@ -78,6 +79,20 @@ export const SeatView: React.FC<SeatViewProps> = ({
     commander: commandCards,
     hand: handCards,
   } = model.cards;
+  const libraryTopCard = libraryCards[libraryCards.length - 1];
+  const canSeeLibraryTop =
+    Boolean(libraryTopCard) &&
+    (canViewerSeeLibraryCardByReveal(
+      libraryTopCard,
+      viewerPlayerId,
+      viewerRole
+    ) ||
+      canViewerSeeLibraryTopCard({
+        viewerId: viewerPlayerId,
+        ownerId: library?.ownerId ?? player.id,
+        mode: player.libraryTopReveal,
+      }));
+  const libraryFaceDown = libraryTopCard ? !canSeeLibraryTop : true;
 
   return (
     <div className={cn("relative w-full h-full", className)}>
@@ -149,11 +164,11 @@ export const SeatView: React.FC<SeatViewProps> = ({
             {library && (
               <SideZone
                 zone={library}
-                card={libraryCards[0]}
+                card={libraryTopCard}
                 label={ZONE_LABEL.library}
                 count={library.cardIds.length}
                 onContextMenu={onZoneContextMenu}
-                faceDown
+                faceDown={libraryFaceDown}
                 showContextMenuCursor={player.deckLoaded}
                 indicatorSide={isRight ? "left" : "right"}
                 onClick={

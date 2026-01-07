@@ -1,7 +1,7 @@
-import type { Card, Player, PlayerId, ViewerRole, Zone } from "@/types";
+import type { Card, LibraryTopRevealMode, Player, PlayerId, ViewerRole, Zone } from "@/types";
 
 import { ZONE } from "@/constants/zones";
-import { canViewerSeeCardIdentity } from "@/lib/reveal";
+import { canViewerSeeLibraryCardByReveal } from "@/lib/reveal";
 
 export const resolveZoneOwnerName = (params: {
   zone: Pick<Zone, "ownerId"> | null;
@@ -16,15 +16,19 @@ export const computeRevealedOpponentLibraryCardIds = (params: {
   cardsById: Record<string, Card>;
   viewerId: PlayerId;
   viewerRole?: ViewerRole;
+  libraryTopReveal?: LibraryTopRevealMode;
 }): string[] => {
   if (!params.zone || params.zone.type !== ZONE.LIBRARY) return [];
   if (params.zone.ownerId === params.viewerId) return [];
 
   // zone.cardIds is [bottom..top]; show top-first, preserving relative order.
+  const topCardId = getLibraryTopCardId(params.zone);
+  const revealTopToAll = params.libraryTopReveal === "all" && Boolean(topCardId);
   const visible = params.zone.cardIds.filter((id) => {
     const card = params.cardsById[id];
     if (!card) return false;
-    return canViewerSeeCardIdentity(card, ZONE.LIBRARY, params.viewerId, params.viewerRole);
+    if (revealTopToAll && id === topCardId) return true;
+    return canViewerSeeLibraryCardByReveal(card, params.viewerId, params.viewerRole);
   });
   return visible.reverse();
 };

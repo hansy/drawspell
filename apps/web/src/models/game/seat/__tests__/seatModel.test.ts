@@ -100,4 +100,31 @@ describe('createSeatModel', () => {
     expect(model.cards.library).toHaveLength(3);
     expect(model.opponentLibraryRevealCount).toBe(2);
   });
+
+  it('includes the top card when top reveal is set to all', () => {
+    const library: Zone = {
+      id: 'lib3',
+      type: ZONE.LIBRARY,
+      ownerId: 'p2',
+      cardIds: ['c1', 'c2'],
+    };
+    const zones = { lib3: library };
+    const cards = {
+      c1: makeCard({ id: 'c1', ownerId: 'p2', zoneId: 'lib3' }),
+      c2: makeCard({ id: 'c2', ownerId: 'p2', zoneId: 'lib3' }),
+    };
+
+    const model = createSeatModel({
+      playerId: 'p2',
+      position: 'top-right',
+      viewerPlayerId: 'p1',
+      isMe: false,
+      zones,
+      cards,
+      scale: 1,
+      libraryTopReveal: 'all',
+    });
+
+    expect(model.opponentLibraryRevealCount).toBe(1);
+  });
 });

@@ -1,8 +1,15 @@
-import type { Card, PlayerId, ViewerRole, Zone, ZoneId, ZoneType } from '@/types';
+import type {
+  Card,
+  LibraryTopRevealMode,
+  PlayerId,
+  ViewerRole,
+  Zone,
+  ZoneId,
+  ZoneType,
+} from '@/types';
 
-import { ZONE } from '@/constants/zones';
 import { getCardsInZone, getPlayerZones } from '@/lib/gameSelectors';
-import { canViewerSeeCardIdentity } from '@/lib/reveal';
+import { canViewerSeeLibraryCardByReveal } from '@/lib/reveal';
 
 export type SeatPosition = 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
 
@@ -37,6 +44,7 @@ export const createSeatModel = (params: {
   viewerRole?: ViewerRole;
   isMe: boolean;
   scale?: number;
+  libraryTopReveal?: LibraryTopRevealMode;
   zones: Record<ZoneId, Zone>;
   cards: Record<string, Card>;
 }): SeatModel => {
@@ -70,18 +78,36 @@ export const createSeatModel = (params: {
 
   const opponentLibraryRevealCount =
     !params.isMe && zones.library
-      ? zones.library.cardIds.reduce((count, id) => {
-          const card = params.cards[id];
-          if (!card) return count;
-          return canViewerSeeCardIdentity(
-            card,
-            ZONE.LIBRARY,
-            params.viewerPlayerId,
-            params.viewerRole
-          )
-            ? count + 1
-            : count;
-        }, 0)
+      ? (() => {
+          const baseCount = zones.library.cardIds.reduce((count, id) => {
+            const card = params.cards[id];
+            if (!card) return count;
+            return canViewerSeeLibraryCardByReveal(
+              card,
+              params.viewerPlayerId,
+              params.viewerRole
+            )
+              ? count + 1
+              : count;
+          }, 0);
+          const topCardId = zones.library.cardIds.length
+            ? zones.library.cardIds[zones.library.cardIds.length - 1]
+            : null;
+          if (params.libraryTopReveal === "all" && topCardId) {
+            const topCard = params.cards[topCardId];
+            if (
+              topCard &&
+              !canViewerSeeLibraryCardByReveal(
+                topCard,
+                params.viewerPlayerId,
+                params.viewerRole
+              )
+            ) {
+              return baseCount + 1;
+            }
+          }
+          return baseCount;
+        })()
       : 0;
 
   return {

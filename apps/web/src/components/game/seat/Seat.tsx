@@ -72,10 +72,21 @@ const SeatInner: React.FC<SeatProps> = ({
         viewerRole,
         isMe,
         scale,
+        libraryTopReveal: player.libraryTopReveal,
         zones,
         cards,
       }),
-    [cards, isMe, player.id, position, scale, viewerPlayerId, viewerRole, zones]
+    [
+      cards,
+      isMe,
+      player.id,
+      player.libraryTopReveal,
+      position,
+      scale,
+      viewerPlayerId,
+      viewerRole,
+      zones,
+    ]
   );
 
   return (

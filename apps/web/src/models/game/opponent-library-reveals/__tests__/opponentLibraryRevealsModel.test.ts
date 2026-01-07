@@ -65,6 +65,23 @@ describe("opponentLibraryRevealsModel", () => {
     ).toEqual(["c3", "c2", "c1"]);
   });
 
+  it("includes the top card when top reveal is set to all", () => {
+    const zone = { id: "lib", type: ZONE.LIBRARY, ownerId: "p1", cardIds: ["c1", "c2"] } as any;
+    const cardsById = {
+      c1: { id: "c1", ownerId: "p1", controllerId: "p1", faceDown: false } as any,
+      c2: { id: "c2", ownerId: "p1", controllerId: "p1", faceDown: false } as any,
+    };
+
+    expect(
+      computeRevealedOpponentLibraryCardIds({
+        zone,
+        cardsById,
+        viewerId: "me",
+        libraryTopReveal: "all",
+      })
+    ).toEqual(["c2"]);
+  });
+
   it("computes the actual top card id", () => {
     expect(getLibraryTopCardId(null)).toBeNull();
     expect(getLibraryTopCardId({ id: "z", type: ZONE.HAND, ownerId: "p1", cardIds: [] } as any)).toBeNull();
@@ -72,4 +89,3 @@ describe("opponentLibraryRevealsModel", () => {
     expect(getLibraryTopCardId({ id: "z", type: ZONE.LIBRARY, ownerId: "p1", cardIds: ["c1", "c2"] } as any)).toBe("c2");
   });
 });
-

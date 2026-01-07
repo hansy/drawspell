@@ -4,7 +4,14 @@ import { toast } from "sonner";
 
 import { useGameStore } from "@/store/gameStore";
 import { useSelectionStore } from "@/store/selectionStore";
-import type { Card, Player, ScryfallRelatedCard, ViewerRole, ZoneId } from "@/types";
+import type {
+  Card,
+  LibraryTopRevealMode,
+  Player,
+  ScryfallRelatedCard,
+  ViewerRole,
+  ZoneId,
+} from "@/types";
 import { actionRegistry } from "@/models/game/context-menu/actionsRegistry";
 import { fetchScryfallCardByUri } from "@/services/scryfall/scryfallCard";
 import { getCard as getCachedCard } from "@/services/scryfall/scryfallCache";
@@ -38,6 +45,9 @@ export const useGameContextMenu = (
         textPrompt,
         openTextPrompt,
         closeTextPrompt,
+        topCardRevealPrompt,
+        openTopCardRevealPrompt,
+        closeTopCardRevealPrompt,
     } = useContextMenuState();
 
     const seatHasDeckLoaded = React.useCallback((playerId?: string) => {
@@ -127,19 +137,31 @@ export const useGameContextMenu = (
         const zone = store.zones[zoneId];
         if (!zone || !seatHasDeckLoaded(zone.ownerId)) return;
 
+        const libraryTopReveal = store.players[zone.ownerId]?.libraryTopReveal;
+        const setLibraryTopReveal = (mode: LibraryTopRevealMode | null) => {
+          store.updatePlayer(
+            zone.ownerId,
+            { libraryTopReveal: mode ?? undefined },
+            myPlayerId
+          );
+        };
+
         const items = actionRegistry.buildZoneViewActions({
             zone,
             myPlayerId,
             viewerRole,
             onViewZone,
             openCountPrompt,
+            openTopCardRevealPrompt,
+            libraryTopReveal,
+            setLibraryTopReveal,
             ...createZoneActionAdapters({ store, myPlayerId }),
         });
         if (items.length > 0) {
             contextMenuRequestRef.current += 1;
             openContextMenu(e, items);
         }
-    }, [isSpectator, myPlayerId, onViewZone, openContextMenu, openCountPrompt, seatHasDeckLoaded]);
+    }, [isSpectator, myPlayerId, onViewZone, openContextMenu, openCountPrompt, openTopCardRevealPrompt, seatHasDeckLoaded]);
 
     const handleBattlefieldContextMenu = React.useCallback(
         (e: React.MouseEvent, actions: { onCreateToken: () => void; onOpenDiceRoller?: () => void }) => {
@@ -225,5 +247,8 @@ export const useGameContextMenu = (
         textPrompt,
         openTextPrompt,
         closeTextPrompt,
+        topCardRevealPrompt,
+        openTopCardRevealPrompt,
+        closeTopCardRevealPrompt,
     };
 };

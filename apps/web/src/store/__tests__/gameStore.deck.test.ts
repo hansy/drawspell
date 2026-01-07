@@ -35,7 +35,18 @@ describe('gameStore deck management', () => {
     useGameStore.setState((state) => ({
       ...state,
       zones: { [library.id]: library, [graveyard.id]: graveyard, [exile.id]: exile, [battlefield.id]: battlefield },
-      players: { me: { id: 'me', name: 'Me', life: 40, counters: [], commanderDamage: {}, commanderTax: 0, deckLoaded: true } },
+      players: {
+        me: {
+          id: 'me',
+          name: 'Me',
+          life: 40,
+          counters: [],
+          commanderDamage: {},
+          commanderTax: 0,
+          deckLoaded: true,
+          libraryTopReveal: 'self',
+        },
+      },
       cards: {
         c1: { id: 'c1', name: 'Card1', ownerId: 'me', controllerId: 'me', zoneId: library.id, tapped: false, faceDown: false, position: { x: 0, y: 0 }, rotation: 0, counters: [] },
         c2: { id: 'c2', name: 'Card2', ownerId: 'me', controllerId: 'me', zoneId: graveyard.id, tapped: false, faceDown: false, position: { x: 0, y: 0 }, rotation: 0, counters: [] },
@@ -56,7 +67,7 @@ describe('gameStore deck management', () => {
 	    expect(state.zones[battlefield.id].cardIds).toEqual([]);
 	  });
 
-    it('clears reveal metadata for all cards in the library on reset', () => {
+  it('clears reveal metadata for all cards in the library on reset', () => {
       const library = buildZone('lib-me', 'LIBRARY', 'me', ['c1', 'o1']);
       const graveyard = buildZone('gy-me', 'GRAVEYARD', 'me', ['c2']);
 
@@ -85,6 +96,45 @@ describe('gameStore deck management', () => {
     expect(state.cards.o1.knownToAll).toBe(false);
     expect(state.cards.o1.revealedToAll).toBe(false);
     expect(state.cards.o1.revealedTo ?? []).toHaveLength(0);
+  });
+
+  it('clears library top reveal setting when resetting the deck', () => {
+    const library = buildZone('lib-me', 'LIBRARY', 'me', ['c1']);
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [library.id]: library },
+      players: {
+        me: {
+          id: 'me',
+          name: 'Me',
+          life: 40,
+          counters: [],
+          commanderDamage: {},
+          commanderTax: 0,
+          deckLoaded: true,
+          libraryTopReveal: 'all',
+        },
+      },
+      cards: {
+        c1: {
+          id: 'c1',
+          name: 'Card1',
+          ownerId: 'me',
+          controllerId: 'me',
+          zoneId: library.id,
+          tapped: false,
+          faceDown: false,
+          position: { x: 0, y: 0 },
+          rotation: 0,
+          counters: [],
+        },
+      },
+    }));
+
+    useGameStore.getState().resetDeck('me', 'me');
+
+    expect(useGameStore.getState().players.me.libraryTopReveal).toBeUndefined();
   });
 
   it('clears card modifications when resetting the deck', () => {
@@ -240,5 +290,6 @@ describe('gameStore deck management', () => {
     expect(state.zones[library.id].cardIds).toEqual([]);
     expect(state.zones[graveyard.id].cardIds).toEqual([]);
     expect(state.players.me.deckLoaded).toBe(false);
+    expect(state.players.me.libraryTopReveal).toBeUndefined();
   });
 });

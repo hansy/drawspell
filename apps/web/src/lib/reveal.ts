@@ -1,4 +1,4 @@
-import type { Card, PlayerId, ViewerRole, ZoneType } from "@/types";
+import type { Card, LibraryTopRevealMode, PlayerId, ViewerRole, ZoneType } from "@/types";
 import { ZONE } from "@/constants/zones";
 
 export const isHiddenZoneType = (zoneType: ZoneType | undefined) => {
@@ -7,6 +7,27 @@ export const isHiddenZoneType = (zoneType: ZoneType | undefined) => {
 
 export const isPublicZoneType = (zoneType: ZoneType | undefined) => {
   return Boolean(zoneType) && !isHiddenZoneType(zoneType);
+};
+
+export const canViewerSeeLibraryCardByReveal = (
+  card: Pick<Card, "knownToAll" | "revealedToAll" | "revealedTo">,
+  viewerId: PlayerId,
+  viewerRole?: ViewerRole
+) => {
+  if (card.knownToAll) return true;
+  if (card.revealedToAll) return true;
+  if (viewerRole === "spectator") return Boolean(card.revealedTo && card.revealedTo.length > 0);
+  return Boolean(card.revealedTo?.includes(viewerId));
+};
+
+export const canViewerSeeLibraryTopCard = (params: {
+  viewerId: PlayerId;
+  ownerId: PlayerId;
+  mode?: LibraryTopRevealMode | null;
+}) => {
+  if (params.mode === "all") return true;
+  if (params.mode === "self") return params.viewerId === params.ownerId;
+  return false;
 };
 
 export const canViewerPeekBattlefieldFaceDown = (

@@ -20,6 +20,10 @@ export const sanitizePlayer = (value: any): Player | null => {
       }
     });
   }
+  const libraryTopReveal =
+    value.libraryTopReveal === "self" || value.libraryTopReveal === "all"
+      ? value.libraryTopReveal
+      : undefined;
   return {
     id,
     name,
@@ -35,6 +39,7 @@ export const sanitizePlayer = (value: any): Player | null => {
     commanderDamage,
     commanderTax: clampNumber(value.commanderTax, 0, 99, 0),
     deckLoaded: Boolean(value.deckLoaded),
+    libraryTopReveal,
   };
 };
 
@@ -62,4 +67,3 @@ export const sanitizePlayerOrder = (
   }
   return result;
 };
-

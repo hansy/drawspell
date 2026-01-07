@@ -276,6 +276,34 @@ describe('resetDeck', () => {
     expect(snapshot.cards.o1?.revealedTo ?? []).toHaveLength(0);
   });
 
+  it('clears library top reveal setting for the player', () => {
+    const maps = createSharedMaps();
+
+    const library: Zone = {
+      id: 'lib-p1',
+      type: ZONE.LIBRARY,
+      ownerId: 'p1',
+      cardIds: [],
+    };
+
+    yUpsertZone(maps, library);
+    yUpsertPlayer(maps, {
+      id: 'p1',
+      name: 'P1',
+      life: 40,
+      counters: [],
+      commanderDamage: {},
+      commanderTax: 0,
+      deckLoaded: true,
+      libraryTopReveal: 'all',
+    });
+
+    resetDeck(maps, 'p1');
+
+    const snapshot = sharedSnapshot(maps);
+    expect(snapshot.players.p1?.libraryTopReveal).toBeUndefined();
+  });
+
   it('resets owned card state before returning to the library', () => {
     const maps = createSharedMaps();
 
@@ -358,6 +386,7 @@ describe('unloadDeck', () => {
       commanderDamage: {},
       commanderTax: 0,
       deckLoaded: true,
+      libraryTopReveal: 'self',
     });
 
     yUpsertCard(maps, {
@@ -407,6 +436,7 @@ describe('unloadDeck', () => {
     expect(snapshot.zones[library.id]?.cardIds).toEqual(['o1']);
     expect(snapshot.zones[battlefield.id]?.cardIds).toEqual([]);
     expect(snapshot.players.p1?.deckLoaded).toBe(false);
+    expect(snapshot.players.p1?.libraryTopReveal).toBeUndefined();
   });
 });
 

@@ -141,7 +141,17 @@ export const createResetDeck =
           };
         }
 
-        return { cards: nextCards, zones: nextZones };
+        const nextPlayers = current.players[playerId]
+          ? {
+              ...current.players,
+              [playerId]: {
+                ...current.players[playerId],
+                libraryTopReveal: undefined,
+              },
+            }
+          : current.players;
+
+        return { cards: nextCards, zones: nextZones, players: nextPlayers };
       });
     }
 
