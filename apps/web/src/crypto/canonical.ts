@@ -4,9 +4,20 @@ import { utf8ToBytes } from "./bytes";
 
 const stripUndefined = (value: unknown): unknown => {
   if (Array.isArray(value)) {
-    return value
-      .map((entry) => stripUndefined(entry))
-      .filter((entry) => entry !== undefined);
+    const next = new Array<unknown>(value.length);
+    for (let i = 0; i < value.length; i += 1) {
+      if (!(i in value)) {
+        throw new Error("Sparse arrays are not supported in canonicalization");
+      }
+      const cleaned = stripUndefined(value[i]);
+      if (cleaned === undefined) {
+        throw new Error(
+          "Undefined values are not allowed in arrays for canonicalization",
+        );
+      }
+      next[i] = cleaned;
+    }
+    return next;
   }
 
   if (value && typeof value === "object") {

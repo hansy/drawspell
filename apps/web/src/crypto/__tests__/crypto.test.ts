@@ -25,6 +25,10 @@ describe("crypto utilities", () => {
     expect(result).toBe('{"a":2,"b":1,"nested":{"y":4,"z":3}}');
   });
 
+  it("rejects undefined array entries when canonicalizing", () => {
+    expect(() => canonicalizeJson([1, undefined, 2])).toThrow();
+  });
+
   it("hashes with SHA-256", () => {
     expect(sha256Hex("abc")).toBe(
       "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
