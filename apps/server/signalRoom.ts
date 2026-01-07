@@ -17,6 +17,7 @@ import {
   RATE_LIMIT_MAX_BYTES,
   RATE_LIMIT_MAX_MESSAGES,
   RATE_LIMIT_WINDOW_MS,
+  PLAYER_ID_REGEX,
   STORAGE_KEY_DOC,
   STORAGE_KEY_PLAYER_KEY_HASH,
   STORAGE_KEY_SPECTATOR_KEY_HASH,
@@ -294,7 +295,7 @@ export class SignalRoom extends DurableObject {
     const accessKey = params.get("accessKey");
 
     if (
-      !UUID_REGEX.test(userId) ||
+      !PLAYER_ID_REGEX.test(userId) ||
       !UUID_REGEX.test(clientKey) ||
       !Number.isFinite(sessionVersion) ||
       sessionVersion < 0

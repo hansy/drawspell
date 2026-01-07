@@ -17,6 +17,8 @@ export const STORAGE_KEY_SPECTATOR_KEY_HASH = "auth:spectator-key-hash";
 export const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+export const PLAYER_ID_REGEX = /^[0-9a-f]{32}$/i;
+
 export const DEFAULT_DEBUG_SIGNAL = false;
 
 export const resolveDebugSignal = (env?: { DEBUG_SIGNAL?: string }): boolean => {
