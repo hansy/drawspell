@@ -43,7 +43,7 @@ describe("buildTokenSearchUrl", () => {
     expect(parsed.pathname).toBe("/cards/search");
     expect(parsed.searchParams.get("unique")).toBe("cards");
     expect(parsed.searchParams.get("q")).toBe(
-      "(type:token OR type:emblem) (game:paper) soldier"
+      "(type:token OR type:emblem OR type:card) (game:paper) soldier"
     );
   });
 });
@@ -90,7 +90,7 @@ describe("createDebouncedTokenSearch", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const calledUrl = fetchMock.mock.calls[0][0] as string;
     expect(new URL(calledUrl).searchParams.get("q")).toBe(
-      "(type:token OR type:emblem) (game:paper) soldier"
+      "(type:token OR type:emblem OR type:card) (game:paper) soldier"
     );
   });
 

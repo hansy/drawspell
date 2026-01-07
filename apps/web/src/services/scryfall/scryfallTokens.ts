@@ -1,7 +1,8 @@
 import { ScryfallCard, ScryfallListResult } from "@/types/scryfall";
 import { isAbortError } from "@/lib/errors";
 
-export const TOKEN_SEARCH_PREFIX = "(type:token OR type:emblem) (game:paper)";
+export const TOKEN_SEARCH_PREFIX =
+  "(type:token OR type:emblem OR type:card) (game:paper)";
 export const MIN_TOKEN_SEARCH_CHARS = 3;
 export const DEFAULT_TOKEN_SEARCH_DEBOUNCE_MS = 300;
 
@@ -31,6 +32,7 @@ export const buildTokenSearchUrl = (
 ) => {
   const searchQuery = buildTokenSearchQuery(query.trim());
   const params = new URLSearchParams({ q: searchQuery, unique });
+
   return `https://api.scryfall.com/cards/search?${params.toString()}`;
 };
 
