@@ -4,6 +4,7 @@ import { ZONE, isCommanderZoneType } from "@/constants/zones";
 import { canMoveCard } from "@/rules/permissions";
 import { logPermission } from "@/rules/logger";
 import { emitLog } from "@/logging/logStore";
+import type { LogEventPayloadMap } from "@/logging/types";
 import { enforceZoneCounterRules } from "@/lib/counters";
 import { resetCardToFrontFace } from "@/lib/cardDisplay";
 import {
@@ -93,7 +94,7 @@ export const createMoveCardToBottom =
     });
 
     if (!sameBattlefield) {
-      const movePayload: Record<string, unknown> = {
+      const movePayload: LogEventPayloadMap["card.move"] = {
         actorId: actor,
         cardId,
         fromZoneId,

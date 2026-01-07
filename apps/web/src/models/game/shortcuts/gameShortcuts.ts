@@ -36,7 +36,7 @@ export type GameShortcutDefinition = {
 
 export const formatShortcutBinding = (binding: GameShortcutBinding) => {
   const key = binding.key.toLowerCase() === "escape" ? "Esc" : binding.key.toUpperCase();
-  return binding.shift ? `Shift+${key}` : key;
+  return binding.shift ? `Shift + ${key}` : key;
 };
 
 export const GAME_SHORTCUTS: GameShortcutDefinition[] = [
@@ -119,14 +119,14 @@ export const GAME_SHORTCUTS: GameShortcutDefinition[] = [
   },
   {
     id: "game.zoomIn",
-    binding: { key: "+" },
+    binding: { key: "+", shift: true },
     title: "Zoom In",
     description: "Zooms in on the battlefield.",
     requiresDeckLoaded: true,
   },
   {
     id: "game.zoomOut",
-    binding: { key: "-" },
+    binding: { key: "-", shift: true },
     title: "Zoom Out",
     description: "Zooms out from the battlefield.",
     requiresDeckLoaded: true,

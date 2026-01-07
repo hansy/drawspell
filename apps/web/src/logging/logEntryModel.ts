@@ -1,18 +1,24 @@
-import type { LogContext, LogEventDefinition, LogEventId, LogMessage } from "./types";
+import type {
+  LogContext,
+  LogEventDefinition,
+  LogEventId,
+  LogEventPayloadMap,
+  LogMessage,
+} from "./types";
 
 import { DEFAULT_AGGREGATE_WINDOW_MS } from "./eventRegistry/constants";
 
-export const buildLogEntry = (params: {
-  eventId: LogEventId;
-  def: LogEventDefinition<any>;
-  payload: any;
+export const buildLogEntry = <K extends LogEventId>(params: {
+  eventId: K;
+  def: LogEventDefinition<LogEventPayloadMap[K]>;
+  payload: LogEventPayloadMap[K];
   ctx: LogContext;
   aggregateKey?: string;
   existingId?: string;
   timestamp: number;
   sourceClientId?: number;
   createId: () => string;
-}): LogMessage => {
+}): LogMessage<K> => {
   const parts = params.def.format(params.payload, params.ctx);
 
   return {
@@ -28,28 +34,30 @@ export const buildLogEntry = (params: {
   };
 };
 
-export const computeAggregatedLogEntryUpdate = (params: {
-  eventId: LogEventId;
-  def: LogEventDefinition<any>;
-  payload: any;
+export const computeAggregatedLogEntryUpdate = <K extends LogEventId>(params: {
+  eventId: K;
+  def: LogEventDefinition<LogEventPayloadMap[K]>;
+  payload: LogEventPayloadMap[K];
   ctx: LogContext;
   aggregateKey?: string;
-  lastEntry?: LogMessage;
+  lastEntry?: LogMessage<K>;
   timestamp: number;
   sourceClientId?: number;
   createId: () => string;
-}): { kind: "append" | "replaceLast"; entry: LogMessage } => {
+}): { kind: "append" | "replaceLast"; entry: LogMessage<K> } => {
   const aggregate = params.def.aggregate;
   const canAggregate = Boolean(params.aggregateKey && aggregate);
 
+  const lastPayload = params.lastEntry?.payload;
   if (
     canAggregate &&
     params.lastEntry &&
-    params.lastEntry.aggregateKey === params.aggregateKey
+    params.lastEntry.aggregateKey === params.aggregateKey &&
+    lastPayload
   ) {
     const windowMs = aggregate?.windowMs ?? DEFAULT_AGGREGATE_WINDOW_MS;
     if (params.timestamp - params.lastEntry.ts <= windowMs) {
-      const mergedPayload = aggregate!.mergePayload(params.lastEntry.payload, params.payload);
+      const mergedPayload = aggregate!.mergePayload(lastPayload, params.payload);
       return {
         kind: "replaceLast",
         entry: buildLogEntry({
@@ -81,4 +89,3 @@ export const computeAggregatedLogEntryUpdate = (params: {
     }),
   };
 };
-

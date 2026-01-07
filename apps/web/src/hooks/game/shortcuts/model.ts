@@ -25,8 +25,13 @@ export const isTypingTarget = (target: EventTarget | null) => {
 
 export const matchesBinding = (binding: GameShortcutBinding, e: KeyboardEvent) => {
   const key = e.key.toLowerCase();
-  if (key !== binding.key.toLowerCase()) return false;
-  if (binding.key.toLowerCase() === "escape") return true;
+  const bindingKey = binding.key.toLowerCase();
+
+  if (key !== bindingKey) {
+    const isShiftedMinus = binding.shift && bindingKey === "-" && key === "_";
+    if (!isShiftedMinus) return false;
+  }
+  if (bindingKey === "escape") return true;
   return Boolean(binding.shift) === Boolean(e.shiftKey);
 };
 

@@ -84,16 +84,17 @@
 - [x] Extract ghost overlay and grid overlay into separate components to reduce re-render surface.
 
 ### Phase 3 - Menu and Scryfall workflows
-- Open context menus immediately and hydrate related parts asynchronously.
-- Replace the related parts TODO by calling useScryfallCard or cache utilities.
-- Add rate limiting / backoff to deck import fetch paths.
+- [x] Open context menus immediately and hydrate related parts asynchronously.
+- [x] Replace the related parts TODO by calling useScryfallCard or cache utilities.
+- [x] Add rate limiting / backoff to deck import fetch paths.
 
 ### Phase 4 - DRY, types, and cleanup
-- Split apps/web/src/types/index.ts into smaller domain modules.
-- Add typed log payloads and a log view model to remove payload as any.
-- Deduplicate player ordering and color resolution.
-- Improve useScryfallCards dependency tracking and dedupe input IDs.
-- Remove legacy constants and replace magic sizing values with shared constants.
+- [x] Split apps/web/src/types/index.ts into smaller domain modules.
+- [x] Add typed log payloads and a log view model to remove payload as any.
+- [x] Deduplicate player ordering and color resolution.
+- [x] Improve useScryfallCards dependency tracking and dedupe input IDs.
+- [x] Remove legacy constants and replace magic sizing values with shared constants.
+- [x] Recompute card preview positioning on resize and scroll.
 
 ## Suggested tests
 - Keyboard zoom should step once per key press and respect UI blocking.

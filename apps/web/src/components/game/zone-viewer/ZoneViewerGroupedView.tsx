@@ -3,6 +3,11 @@ import React from "react";
 import type { Card } from "@/types";
 
 import { cn } from "@/lib/utils";
+import {
+  ZONE_VIEWER_CARD_HEIGHT,
+  ZONE_VIEWER_CARD_OVERLAP,
+  ZONE_VIEWER_CARD_WIDTH,
+} from "@/lib/constants";
 import { CardView } from "../card/Card";
 
 export interface ZoneViewerGroupedViewProps {
@@ -24,9 +29,8 @@ export const ZoneViewerGroupedView: React.FC<ZoneViewerGroupedViewProps> = ({
     <div className="flex gap-8 h-full">
       {sortedKeys.map((key) => {
         const cardsInGroup = groupedCards[key] ?? [];
-        const STACK_OFFSET = 50;
-        const CARD_HEIGHT = 252; // Based on w-[180px] and aspect ratio
-        const OVERLAP = CARD_HEIGHT - STACK_OFFSET; // 202px
+        const CARD_HEIGHT = ZONE_VIEWER_CARD_HEIGHT;
+        const OVERLAP = ZONE_VIEWER_CARD_OVERLAP;
 
         return (
           <div key={key} className="shrink-0 w-[200px] flex flex-col">
@@ -43,11 +47,12 @@ export const ZoneViewerGroupedView: React.FC<ZoneViewerGroupedViewProps> = ({
                   <div
                     key={card.id}
                     className={cn(
-                      "w-[180px] mx-auto transition-all duration-200",
+                      "mx-auto transition-all duration-200",
                       !interactionsDisabled && "hover:z-[100] hover:scale-110 hover:!mb-4",
                       isPinned && "scale-110 shadow-xl"
                     )}
                     style={{
+                      width: `${ZONE_VIEWER_CARD_WIDTH}px`,
                       height: `${CARD_HEIGHT}px`,
                       marginBottom: isPinned ? "16px" : `-${OVERLAP}px`,
                       zIndex: isPinned ? 200 : index,

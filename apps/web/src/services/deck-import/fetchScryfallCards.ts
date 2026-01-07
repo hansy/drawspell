@@ -10,6 +10,22 @@ type ScryfallCollectionResponse = {
   warnings?: string[];
 };
 
+type Sleep = (ms: number) => Promise<void>;
+
+type FetchScryfallOptions = {
+  fetchImpl?: typeof fetch;
+  rateLimitMs?: number;
+  maxRetries?: number;
+  backoffMs?: number;
+  sleep?: Sleep;
+};
+
+const DEFAULT_RATE_LIMIT_MS = 100;
+const DEFAULT_BACKOFF_MS = 250;
+const DEFAULT_MAX_RETRIES = 2;
+
+const defaultSleep: Sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const normalizeQuantity = (value: number): number =>
   Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 
@@ -130,13 +146,13 @@ const mergeMissingCard = (missingMap: Map<string, ParsedCard>, card: ParsedCard)
 };
 
 const fetchCardByName = async (
-  fetcher: typeof fetch,
+  request: (url: string, init?: RequestInit) => Promise<Response>,
   name: string
 ): Promise<ScryfallCard | null> => {
   const tryMode = async (mode: "exact" | "fuzzy") => {
     const param = mode === "exact" ? "exact" : "fuzzy";
     try {
-      const response = await fetcher(
+      const response = await request(
         `https://api.scryfall.com/cards/named?${param}=${encodeURIComponent(name)}`
       );
       if (!response.ok) return null;
@@ -161,9 +177,57 @@ const chunkArray = <T,>(items: T[], size: number): T[][] => {
 
 export const fetchScryfallCards = async (
   parsedCards: ParsedCard[],
-  opts?: { fetchImpl?: typeof fetch }
+  opts?: FetchScryfallOptions
 ): Promise<FetchScryfallResult> => {
   const fetcher = opts?.fetchImpl ?? fetch;
+  const rateLimitMs = opts?.rateLimitMs ?? DEFAULT_RATE_LIMIT_MS;
+  const maxRetries = opts?.maxRetries ?? DEFAULT_MAX_RETRIES;
+  const backoffMs = opts?.backoffMs ?? DEFAULT_BACKOFF_MS;
+  const sleep = opts?.sleep ?? defaultSleep;
+  let requestCount = 0;
+
+  const getRetryDelayMs = (response: Response | null, attempt: number) => {
+    const retryAfter = response?.headers.get("Retry-After");
+    if (retryAfter) {
+      const asSeconds = Number(retryAfter);
+      if (Number.isFinite(asSeconds)) {
+        return Math.max(0, asSeconds * 1000);
+      }
+    }
+    return backoffMs * Math.pow(2, attempt);
+  };
+
+  const rateLimitedRequest = async (url: string, init?: RequestInit) => {
+    let attempt = 0;
+
+    while (true) {
+      if (rateLimitMs > 0 && requestCount > 0) {
+        await sleep(rateLimitMs);
+      }
+      requestCount += 1;
+
+      let response: Response;
+      try {
+        response = await fetcher(url, init);
+      } catch (error) {
+        if (attempt < maxRetries) {
+          await sleep(getRetryDelayMs(null, attempt));
+          attempt += 1;
+          continue;
+        }
+        throw error;
+      }
+
+      if (response.status === 429 && attempt < maxRetries) {
+        await sleep(getRetryDelayMs(response, attempt));
+        attempt += 1;
+        continue;
+      }
+
+      return response;
+    }
+  };
+
   const mergedRequests = mergeParsedCards(parsedCards);
   const identifiers: ScryfallIdentifier[] = mergedRequests.map((card) => {
     if (card.set && card.collectorNumber) {
@@ -186,13 +250,16 @@ export const fetchScryfallCards = async (
     const requestsChunk = requestChunks[chunkIndex] ?? [];
 
     try {
-      const response = await fetcher("https://api.scryfall.com/cards/collection", {
+      const response = await rateLimitedRequest(
+        "https://api.scryfall.com/cards/collection",
+        {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ identifiers: identifierChunk }),
-      });
+        }
+      );
 
       if (!response.ok) {
         warnings.push(
@@ -229,7 +296,7 @@ export const fetchScryfallCards = async (
 
   // Fallback: attempt exact/fuzzy lookup for each missing request by name
   for (const missingCard of Array.from(missingMap.values())) {
-    const resolved = await fetchCardByName(fetcher, missingCard.name);
+    const resolved = await fetchCardByName(rateLimitedRequest, missingCard.name);
     if (!resolved) continue;
 
     cardsToCache.push(resolved);

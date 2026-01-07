@@ -1,7 +1,7 @@
 import { buildPlayerPart } from "../helpers";
 import type { LogEventDefinition, LogEventId } from "@/logging/types";
 
-type DiceRollPayload = {
+export type DiceRollPayload = {
   actorId?: string;
   sides: number;
   count: number;

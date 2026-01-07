@@ -3,9 +3,9 @@ import type { LogEventDefinition, LogEventId } from "@/logging/types";
 
 import { DEFAULT_AGGREGATE_WINDOW_MS } from "./constants";
 
-type DrawPayload = { playerId: string; actorId?: string; count?: number };
-type DiscardPayload = { playerId: string; actorId?: string; count?: number };
-type ShufflePayload = { playerId: string; actorId?: string };
+export type DrawPayload = { playerId: string; actorId?: string; count?: number };
+export type DiscardPayload = { playerId: string; actorId?: string; count?: number };
+export type ShufflePayload = { playerId: string; actorId?: string };
 
 const formatDraw: LogEventDefinition<DrawPayload>["format"] = (payload, ctx) => {
   const player = buildPlayerPart(ctx, payload.playerId);

@@ -45,7 +45,7 @@ export const ShortcutsDrawer: React.FC<ShortcutsDrawerProps> = ({ isOpen, onClos
                     <div className="space-y-1">
                         {GAME_SHORTCUTS.map((shortcut) => {
                             const label = formatShortcutBinding(shortcut.binding);
-                            const keys = label.split('+');
+                            const keys = label.split(" + ");
 
                             return (
                                 <div key={shortcut.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-zinc-900/40 transition-colors group border border-transparent hover:border-zinc-800">

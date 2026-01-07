@@ -1,7 +1,7 @@
 import { buildCardPart, buildPlayerPart, getZoneLabel } from "../helpers";
 import type { LogEventDefinition, LogEventId } from "@/logging/types";
 
-type MovePayload = {
+export type MovePayload = {
   cardId: string;
   fromZoneId: string;
   toZoneId: string;
@@ -10,9 +10,10 @@ type MovePayload = {
   cardName?: string;
   fromZoneType?: string;
   toZoneType?: string;
+  faceDown?: boolean;
 };
 
-type TapPayload = {
+export type TapPayload = {
   cardId: string;
   zoneId: string;
   actorId?: string;
@@ -20,9 +21,9 @@ type TapPayload = {
   cardName?: string;
 };
 
-type UntapAllPayload = { playerId: string; actorId?: string };
+export type UntapAllPayload = { playerId: string; actorId?: string };
 
-type TransformPayload = {
+export type TransformPayload = {
   cardId: string;
   zoneId: string;
   actorId?: string;
@@ -30,7 +31,7 @@ type TransformPayload = {
   cardName?: string;
 };
 
-type DuplicatePayload = {
+export type DuplicatePayload = {
   sourceCardId: string;
   newCardId: string;
   zoneId: string;
@@ -38,9 +39,9 @@ type DuplicatePayload = {
   cardName?: string;
 };
 
-type RemoveCardPayload = { cardId: string; zoneId: string; actorId?: string; cardName?: string };
+export type RemoveCardPayload = { cardId: string; zoneId: string; actorId?: string; cardName?: string };
 
-type PTPayload = {
+export type PTPayload = {
   cardId: string;
   zoneId: string;
   actorId?: string;
@@ -51,7 +52,7 @@ type PTPayload = {
   cardName?: string;
 };
 
-type TokenCreatePayload = {
+export type TokenCreatePayload = {
   playerId: string;
   actorId?: string;
   tokenName: string;

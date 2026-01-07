@@ -5,6 +5,7 @@ import {
   isPlayerColor,
   type PlayerColor,
   PLAYER_COLOR_PALETTE,
+  resolveOrderedPlayerIds,
 } from "@/lib/playerColors";
 
 export type SeatPosition = "bottom-left" | "bottom-right" | "top-left" | "top-right";
@@ -22,19 +23,10 @@ export const usePlayerLayout = () => {
   const playerOrder = useGameStore((state) => state.playerOrder);
   const myPlayerId = useGameStore((state) => state.myPlayerId);
 
-  const seen = new Set<string>();
-  const orderedByShared = playerOrder
+  const orderedIds = resolveOrderedPlayerIds(players, playerOrder);
+  const sortedPlayers = orderedIds
     .map((id) => players[id])
-    .filter((player): player is NonNullable<typeof player> => {
-      if (!player) return false;
-      if (seen.has(player.id)) return false;
-      seen.add(player.id);
-      return true;
-    });
-  const fallback = Object.values(players)
-    .filter((p) => !seen.has(p.id))
-    .sort((a, b) => a.id.localeCompare(b.id));
-  const sortedPlayers = [...orderedByShared, ...fallback];
+    .filter((player): player is Player => Boolean(player));
   const myIndex = myPlayerId
     ? sortedPlayers.findIndex((p) => p.id === myPlayerId)
     : -1;

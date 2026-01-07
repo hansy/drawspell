@@ -16,7 +16,7 @@ import { CardPreviewView } from "./CardPreviewView";
 
 interface CardPreviewProps {
   card: CardType;
-  anchorRect: DOMRect;
+  anchorEl: HTMLElement;
   width?: number;
   locked?: boolean;
   onClose?: () => void;
@@ -27,7 +27,7 @@ const GAP = 18;
 
 export const CardPreview: React.FC<CardPreviewProps> = ({
   card,
-  anchorRect,
+  anchorEl,
   width = PREVIEW_WIDTH,
   locked,
   onClose,
@@ -61,7 +61,9 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     setOverrideFaceIndex(null);
   }, [card.id]);
 
-  useEffect(() => {
+  const calculatePosition = React.useCallback(() => {
+    if (!anchorEl.isConnected) return;
+    const anchorRect = anchorEl.getBoundingClientRect();
     const calculatedHeight = width * 1.4;
     const { top, left } = computeCardPreviewPosition({
       anchorRect,
@@ -73,12 +75,23 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     });
     setStyle({ top, left, opacity: 1 });
     setIsPositioned(true);
+  }, [anchorEl, width]);
 
-    // Optional: Re-calculate on scroll/resize
-    // window.addEventListener('resize', calculatePosition);
-    // window.addEventListener('scroll', calculatePosition);
-    // return () => { ... }
-  }, [anchorRect, width]);
+  useEffect(() => {
+    setIsPositioned(false);
+    calculatePosition();
+
+    window.addEventListener("resize", calculatePosition, { passive: true });
+    window.addEventListener("scroll", calculatePosition, {
+      passive: true,
+      capture: true,
+    });
+
+    return () => {
+      window.removeEventListener("resize", calculatePosition);
+      window.removeEventListener("scroll", calculatePosition, true);
+    };
+  }, [calculatePosition]);
 
   useEffect(() => {
     if (!locked || !onClose) return;

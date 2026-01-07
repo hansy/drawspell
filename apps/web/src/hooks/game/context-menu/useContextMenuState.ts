@@ -45,6 +45,13 @@ export const useContextMenuState = () => {
     setContextMenu(null);
   }, []);
 
+  const updateContextMenu = React.useCallback(
+    (updater: (current: NonNullable<ContextMenuState>) => ContextMenuState) => {
+      setContextMenu((current) => (current ? updater(current) : current));
+    },
+    []
+  );
+
   const openCountPrompt = React.useCallback((next: NonNullable<CountPromptState>) => {
     setCountPrompt(next);
   }, []);
@@ -65,6 +72,7 @@ export const useContextMenuState = () => {
     contextMenu,
     openContextMenu,
     closeContextMenu,
+    updateContextMenu,
     countPrompt,
     openCountPrompt,
     closeCountPrompt,
@@ -73,4 +81,3 @@ export const useContextMenuState = () => {
     closeTextPrompt,
   };
 };
-

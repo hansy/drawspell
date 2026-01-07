@@ -136,13 +136,13 @@ export const useCardController = (props: CardProps): CardController => {
         hoverTimeoutRef.current = null;
       }
 
-      const rect = e.currentTarget.getBoundingClientRect();
+      const target = e.currentTarget;
       if (policy.kind === "immediate") {
-        showPreview(card, rect);
+        showPreview(card, target);
         return;
       }
       hoverTimeoutRef.current = setTimeout(() => {
-        showPreview(card, rect);
+        showPreview(card, target);
         hoverTimeoutRef.current = null;
       }, policy.delayMs);
     },
@@ -189,8 +189,7 @@ export const useCardController = (props: CardProps): CardController => {
       lockPressTimeoutRef.current = setTimeout(() => {
         lockPressTimeoutRef.current = null;
         lockPressStartRef.current = null;
-        const rect = target.getBoundingClientRect();
-        toggleLock(card, rect);
+        toggleLock(card, target);
       }, PREVIEW_LOCK_LONG_PRESS_MS);
     },
     [zoneType, interactionsDisabled, card, toggleLock, faceDown, canPeek]

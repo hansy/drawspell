@@ -7,7 +7,7 @@
  * The data is cached in IndexedDB, so subsequent calls are instant.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ScryfallCard } from '@/types/scryfall';
 import { getCard, getCards } from '@/services/scryfall/scryfallCache';
 
@@ -80,9 +80,16 @@ export function useScryfallCards(
   const [data, setData] = useState<Map<string, ScryfallCard>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-
+  const idsKey = useMemo(() => {
+    const unique = Array.from(
+      new Set(scryfallIds.map((id) => id.trim()).filter(Boolean))
+    );
+    unique.sort();
+    return unique.join("|");
+  }, [scryfallIds.join("|")]);
   useEffect(() => {
-    if (!scryfallIds.length) {
+    const deduped = idsKey ? idsKey.split("|").filter(Boolean) : [];
+    if (!deduped.length) {
       setData(new Map());
       setIsLoading(false);
       setError(null);
@@ -96,7 +103,7 @@ export function useScryfallCards(
       setError(null);
 
       try {
-        const cards = await getCards(scryfallIds);
+        const cards = await getCards(deduped);
         if (!cancelled) {
           setData(cards);
           setIsLoading(false);
@@ -114,7 +121,7 @@ export function useScryfallCards(
     return () => {
       cancelled = true;
     };
-  }, [JSON.stringify(scryfallIds)]); // Use JSON.stringify for array comparison
+  }, [idsKey]);
 
   return { data, isLoading, error };
 }
@@ -132,4 +139,3 @@ export function useRelatedParts(scryfallId: string | undefined) {
 
   return { relatedParts, isLoading, error };
 }
-

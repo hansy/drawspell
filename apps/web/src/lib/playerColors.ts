@@ -41,3 +41,15 @@ export const computePlayerColors = (playerIds: string[]) => {
   return colors;
 };
 
+export const resolvePlayerColors = (
+  playersById: Record<string, { id: string; color?: string } | undefined>,
+  playerOrder: string[]
+): Record<string, string> => {
+  const orderedIds = resolveOrderedPlayerIds(playersById, playerOrder);
+  const canonical = computePlayerColors(orderedIds);
+  const colors: Record<string, string> = { ...canonical };
+  Object.entries(playersById).forEach(([id, player]) => {
+    if (player?.color) colors[id] = player.color;
+  });
+  return colors;
+};

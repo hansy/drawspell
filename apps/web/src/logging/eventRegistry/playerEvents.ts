@@ -3,7 +3,7 @@ import type { LogEventDefinition, LogEventId } from "@/logging/types";
 
 import { DEFAULT_AGGREGATE_WINDOW_MS } from "./constants";
 
-type LifePayload = {
+export type LifePayload = {
   playerId: string;
   actorId?: string;
   from: number;
@@ -11,7 +11,7 @@ type LifePayload = {
   delta?: number;
 };
 
-type CommanderTaxPayload = {
+export type CommanderTaxPayload = {
   playerId: string;
   actorId?: string;
   from: number;
@@ -61,4 +61,3 @@ export const playerEvents = {
     format: formatCommanderTax,
   },
 } satisfies Partial<Record<LogEventId, LogEventDefinition<any>>>;
-

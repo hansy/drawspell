@@ -1,7 +1,7 @@
 import { buildCardPart, buildPlayerPart } from "../helpers";
 import type { LogEventDefinition, LogEventId } from "@/logging/types";
 
-type CounterPayload = {
+export type CounterPayload = {
   cardId: string;
   zoneId: string;
   actorId?: string;
@@ -11,7 +11,7 @@ type CounterPayload = {
   cardName?: string;
 };
 
-type GlobalCounterPayload = { counterType: string; color?: string; actorId?: string };
+export type GlobalCounterPayload = { counterType: string; color?: string; actorId?: string };
 
 const formatCounterAdd: LogEventDefinition<CounterPayload>["format"] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
@@ -60,4 +60,3 @@ export const counterEvents = {
     format: formatGlobalCounterAdd,
   },
 } satisfies Partial<Record<LogEventId, LogEventDefinition<any>>>;
-

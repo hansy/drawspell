@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { computeVisibleCardName, formatTimeAgo, getBorderColorClass, isPublicZoneType } from "../logDrawerModel";
+import type { LogContext, LogMessage, LogMessagePart } from "@/logging/types";
+import {
+  computeVisibleCardName,
+  formatTimeAgo,
+  getBorderColorClass,
+  isPublicZoneType,
+  resolveLogCardContext,
+  resolveLogCardDisplayName,
+} from "../logDrawerModel";
 
 describe("logDrawerModel", () => {
   it("maps actor colors to border classes", () => {
@@ -54,5 +62,49 @@ describe("logDrawerModel", () => {
       })
     ).toBe("a card");
   });
-});
 
+  it("keeps face-down move entries redacted", () => {
+    const logContext: LogContext = {
+      players: {},
+      cards: {
+        c1: {
+          id: "c1",
+          name: "Lightning Bolt",
+          ownerId: "p1",
+          controllerId: "p1",
+          zoneId: "z2",
+          tapped: false,
+          faceDown: false,
+          position: { x: 0, y: 0 },
+          rotation: 0,
+          counters: [],
+        } as any,
+      },
+      zones: {
+        z1: { id: "z1", type: "hand", ownerId: "p1", cardIds: [] } as any,
+        z2: { id: "z2", type: "battlefield", ownerId: "p1", cardIds: ["c1"] } as any,
+      },
+    };
+
+    const entry: LogMessage = {
+      id: "log-1",
+      ts: 1,
+      eventId: "card.move",
+      visibility: "public",
+      parts: [],
+      payload: {
+        cardId: "c1",
+        fromZoneId: "z1",
+        toZoneId: "z2",
+        cardName: "a card",
+        faceDown: true,
+      },
+    };
+
+    const part: LogMessagePart = { kind: "card", cardId: "c1", text: "a card" };
+    const cardContext = resolveLogCardContext(entry, logContext);
+    const name = resolveLogCardDisplayName({ part, logContext, cardContext });
+
+    expect(name).toBe("a card");
+  });
+});

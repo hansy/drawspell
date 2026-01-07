@@ -6,10 +6,7 @@ import { useDragStore } from "@/store/dragStore";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
 import { useGameStore } from "@/store/gameStore";
 import { useSelectionStore } from "@/store/selectionStore";
-import {
-  computePlayerColors,
-  resolveOrderedPlayerIds,
-} from "@/lib/playerColors";
+import { resolvePlayerColors } from "@/lib/playerColors";
 import { emitLog } from "@/logging/logStore";
 import { useBoardScale } from "./useBoardScale";
 import { useGameContextMenu } from "../context-menu/useGameContextMenu";
@@ -226,15 +223,10 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     handleLeave,
   });
 
-  const playerColors = React.useMemo(() => {
-    const orderedIds = resolveOrderedPlayerIds(players, playerOrder);
-    const canonical = computePlayerColors(orderedIds);
-    const colors: Record<string, string> = { ...canonical };
-    Object.entries(players).forEach(([id, player]) => {
-      if (player?.color) colors[id] = player.color;
-    });
-    return colors;
-  }, [players, playerOrder]);
+  const playerColors = React.useMemo(
+    () => resolvePlayerColors(players, playerOrder),
+    [players, playerOrder]
+  );
 
   const scale = useBoardScale(layoutMode);
   useSelectionSync(myPlayerId);

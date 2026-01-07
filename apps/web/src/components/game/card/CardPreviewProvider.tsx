@@ -5,14 +5,14 @@ import { CardPreview } from "./CardPreview";
 
 type PreviewState = {
   card: CardType;
-  rect: DOMRect;
+  anchorEl: HTMLElement;
   locked: boolean;
 } | null;
 
 interface CardPreviewContextValue {
-  showPreview: (card: CardType, rect: DOMRect) => void;
+  showPreview: (card: CardType, anchorEl: HTMLElement) => void;
   hidePreview: () => void;
-  toggleLock: (card: CardType, rect: DOMRect) => void;
+  toggleLock: (card: CardType, anchorEl: HTMLElement) => void;
   unlockPreview: () => void;
   isLocked: boolean;
 }
@@ -27,10 +27,10 @@ export const CardPreviewProvider: React.FC<{ children: React.ReactNode }> = ({
   const [preview, setPreview] = React.useState<PreviewState>(null);
   const activeCardId = useDragStore((state) => state.activeCardId);
 
-  const showPreview = React.useCallback((card: CardType, rect: DOMRect) => {
+  const showPreview = React.useCallback((card: CardType, anchorEl: HTMLElement) => {
     setPreview((prev) => {
       if (prev?.locked) return prev;
-      return { card, rect, locked: false };
+      return { card, anchorEl, locked: false };
     });
   }, []);
 
@@ -41,14 +41,14 @@ export const CardPreviewProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   }, []);
 
-  const toggleLock = React.useCallback((card: CardType, rect: DOMRect) => {
+  const toggleLock = React.useCallback((card: CardType, anchorEl: HTMLElement) => {
     setPreview((prev) => {
       // If already locked on this card, unlock it
       if (prev?.locked && prev.card.id === card.id) {
         return null;
       }
       // Otherwise lock on this card
-      return { card, rect, locked: true };
+      return { card, anchorEl, locked: true };
     });
   }, []);
 
@@ -73,7 +73,7 @@ export const CardPreviewProvider: React.FC<{ children: React.ReactNode }> = ({
       {preview && (
         <CardPreview
           card={preview.card}
-          anchorRect={preview.rect}
+          anchorEl={preview.anchorEl}
           locked={preview.locked}
           onClose={unlockPreview}
         />

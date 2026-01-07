@@ -6,7 +6,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Card, Player, Zone } from "@/types";
 import { ZONE } from "@/constants/zones";
 import { useGameStore } from "@/store/gameStore";
+import { fetchBattlefieldRelatedParts } from "../relatedParts";
 import { useGameContextMenu } from "../useGameContextMenu";
+
+vi.mock("../relatedParts", async () => {
+  const actual = await vi.importActual<typeof import("../relatedParts")>("../relatedParts");
+  return { ...actual, fetchBattlefieldRelatedParts: vi.fn() };
+});
 
 type HookValue = ReturnType<typeof useGameContextMenu>;
 
@@ -46,6 +52,7 @@ const createCard = (id: string, zoneId: string, controllerId: string): Card => (
   controllerId,
   zoneId,
   name: "Test Card",
+  scryfallId: "scryfall-id",
   tapped: false,
   faceDown: false,
   position: { x: 0.1, y: 0.1 },
@@ -74,6 +81,7 @@ const Probe: React.FC<{ myPlayerId: string; onValue: (value: HookValue) => void 
 describe("useGameContextMenu", () => {
   beforeEach(() => {
     resetStore();
+    vi.mocked(fetchBattlefieldRelatedParts).mockResolvedValue(undefined);
   });
 
   it("opens battlefield context menu only when deck is loaded", async () => {
@@ -135,8 +143,8 @@ describe("useGameContextMenu", () => {
 
     await waitFor(() => expect(value).not.toBeNull());
 
-    await act(async () => {
-      await value!.handleCardContextMenu(createEvent(), card);
+    act(() => {
+      value!.handleCardContextMenu(createEvent(), card);
     });
 
     await waitFor(() => {
@@ -145,6 +153,43 @@ describe("useGameContextMenu", () => {
         .filter((item: any) => item.type === "action")
         .map((item: any) => item.label);
       expect(labels).toContain("Tap/Untap");
+    });
+  });
+
+  it("hydrates related parts after opening the card menu", async () => {
+    const battlefield = createZone("me-battlefield", "me", ZONE.BATTLEFIELD, ["c1"]);
+    const card = createCard("c1", battlefield.id, "me");
+    resetStore({
+      players: { me: createPlayer("me", true) } as any,
+      zones: { [battlefield.id]: battlefield } as any,
+      cards: { [card.id]: card } as any,
+    });
+
+    const relatedParts = [
+      {
+        id: "token-1",
+        name: "Goblin",
+        uri: "https://api.scryfall.com/cards/token-1",
+        component: "token",
+        object: "related_card",
+      },
+    ];
+    vi.mocked(fetchBattlefieldRelatedParts).mockResolvedValue(relatedParts as any);
+
+    let value: HookValue | null = null;
+    render(<Probe myPlayerId="me" onValue={(v) => { value = v; }} />);
+
+    await waitFor(() => expect(value).not.toBeNull());
+
+    act(() => {
+      value!.handleCardContextMenu(createEvent(), card);
+    });
+
+    await waitFor(() => {
+      const labels = (value!.contextMenu?.items ?? [])
+        .filter((item: any) => item.type === "action")
+        .map((item: any) => item.label);
+      expect(labels).toContain("Create Goblin token");
     });
   });
 });

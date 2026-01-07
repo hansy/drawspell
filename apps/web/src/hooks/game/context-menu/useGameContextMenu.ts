@@ -4,7 +4,7 @@ import { toast } from "sonner";
 
 import { useGameStore } from "@/store/gameStore";
 import { useSelectionStore } from "@/store/selectionStore";
-import type { Card, Player, ViewerRole, ZoneId } from "@/types";
+import type { Card, Player, ScryfallRelatedCard, ViewerRole, ZoneId } from "@/types";
 import { actionRegistry } from "@/models/game/context-menu/actionsRegistry";
 import { fetchScryfallCardByUri } from "@/services/scryfall/scryfallCard";
 import { getCard as getCachedCard } from "@/services/scryfall/scryfallCache";
@@ -31,6 +31,7 @@ export const useGameContextMenu = (
         contextMenu,
         openContextMenu,
         closeContextMenu,
+        updateContextMenu,
         countPrompt,
         openCountPrompt,
         closeCountPrompt,
@@ -57,8 +58,32 @@ export const useGameContextMenu = (
         [myPlayerId, viewerRole]
     );
 
+    const contextMenuRequestRef = React.useRef(0);
+
+    const buildCardMenuItems = React.useCallback(
+        (card: Card, relatedParts?: ScryfallRelatedCard[]) => {
+            const store = useGameStore.getState();
+            return actionRegistry.buildCardActions({
+                card,
+                zones: store.zones,
+                players: store.players,
+                myPlayerId,
+                viewerRole,
+                globalCounters: store.globalCounters,
+                relatedParts,
+                ...createCardActionAdapters({
+                    store,
+                    myPlayerId,
+                    createRelatedCard,
+                    openTextPrompt,
+                }),
+            });
+        },
+        [createRelatedCard, myPlayerId, openTextPrompt, viewerRole]
+    );
+
     // Builds and opens card-specific actions (tap, counters, move shortcuts).
-    const handleCardContextMenu = React.useCallback(async (e: React.MouseEvent, card: Card) => {
+    const handleCardContextMenu = React.useCallback((e: React.MouseEvent, card: Card) => {
         if (isSpectator) return;
         const store = useGameStore.getState();
         const zone = store.zones[card.zoneId];
@@ -71,32 +96,29 @@ export const useGameContextMenu = (
             useSelectionStore.getState().selectOnly(card.id, card.zoneId);
         }
 
+        const cardActions = buildCardMenuItems(card);
+        openContextMenu(e, cardActions, getDisplayName(card));
+
+        const requestId = ++contextMenuRequestRef.current;
+
         // Fetch full Scryfall data to get related parts (tokens, meld results, etc.)
         // This is needed because we only sync lite data over Yjs
-        const relatedParts = await fetchBattlefieldRelatedParts({
-            card,
-            zoneType: zone?.type,
-            fetchCardById: getCachedCard,
-        });
+        void (async () => {
+            const relatedParts = await fetchBattlefieldRelatedParts({
+                card,
+                zoneType: zone?.type,
+                fetchCardById: getCachedCard,
+            });
+            if (!relatedParts || relatedParts.length === 0) return;
+            if (contextMenuRequestRef.current !== requestId) return;
 
-        const cardActions = actionRegistry.buildCardActions({
-            card,
-            zones: store.zones,
-            players: store.players,
-            myPlayerId,
-            viewerRole,
-            globalCounters: store.globalCounters,
-            relatedParts,
-            ...createCardActionAdapters({
-                store,
-                myPlayerId,
-                createRelatedCard,
-                openTextPrompt,
-            }),
-        });
-
-        openContextMenu(e, cardActions, getDisplayName(card));
-    }, [createRelatedCard, isSpectator, myPlayerId, openContextMenu, openTextPrompt, seatHasDeckLoaded]);
+            const latest = useGameStore.getState().cards[card.id] ?? card;
+            updateContextMenu((current) => {
+                if (!current) return current;
+                return { ...current, items: buildCardMenuItems(latest, relatedParts) };
+            });
+        })();
+    }, [buildCardMenuItems, isSpectator, myPlayerId, openContextMenu, seatHasDeckLoaded, updateContextMenu]);
 
     // Builds and opens zone-specific actions (draw/shuffle/view).
     const handleZoneContextMenu = React.useCallback((e: React.MouseEvent, zoneId: ZoneId) => {
@@ -114,6 +136,7 @@ export const useGameContextMenu = (
             ...createZoneActionAdapters({ store, myPlayerId }),
         });
         if (items.length > 0) {
+            contextMenuRequestRef.current += 1;
             openContextMenu(e, items);
         }
     }, [isSpectator, myPlayerId, onViewZone, openContextMenu, openCountPrompt, seatHasDeckLoaded]);
@@ -149,6 +172,7 @@ export const useGameContextMenu = (
             });
 
             if (items.length > 0) {
+                contextMenuRequestRef.current += 1;
                 openContextMenu(e, items);
             }
         },
@@ -160,6 +184,7 @@ export const useGameContextMenu = (
             if (isSpectator) return;
             if (player.id !== myPlayerId) return;
 
+            contextMenuRequestRef.current += 1;
             openContextMenu(e, [
                 {
                     type: "action",

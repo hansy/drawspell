@@ -72,10 +72,10 @@ describe("useGameShortcuts zoom handling", () => {
     }));
   });
 
-  it("only applies one zoom step for + keydown", () => {
+  it("only applies one zoom step for Shift++ keydown", () => {
     render(<TestHarness />);
 
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "+" }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "+", shiftKey: true }));
 
     expect(useGameStore.getState().battlefieldViewScale.me).toBeCloseTo(0.95);
   });

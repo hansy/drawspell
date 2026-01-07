@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import type { LayoutMode } from "../player/usePlayerLayout";
+import { BOARD_BASE_HEIGHT, BOARD_BASE_WIDTH } from "@/lib/constants";
 
 export const useBoardScale = (layoutMode: LayoutMode) => {
   const [scale, setScale] = React.useState(1);
@@ -24,11 +25,8 @@ export const useBoardScale = (layoutMode: LayoutMode) => {
       // Base dimensions that "fit" the UI comfortably
       // Sidebar needs ~500px height (LifeBox + 3 Zones + Gaps)
       // Width needs ~900px for Sidebar + Battlefield
-      const BASE_WIDTH = 1000;
-      const BASE_HEIGHT = 600;
-
-      const scaleX = slotWidth / BASE_WIDTH;
-      const scaleY = slotHeight / BASE_HEIGHT;
+      const scaleX = slotWidth / BOARD_BASE_WIDTH;
+      const scaleY = slotHeight / BOARD_BASE_HEIGHT;
 
       // Calculate scale to fit the content
       // We cap at 1.0 to prevent the UI from becoming too large on big screens

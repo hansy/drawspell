@@ -17,7 +17,7 @@ const isRelatedCard = (value: unknown): value is ScryfallRelatedCard => {
 /**
  * Get related parts from a card. This requires full Scryfall data.
  * Returns empty array if only lite data is available.
- * TODO: Fetch full data on-demand using useScryfallCard hook
+ * Prefer passing preloaded related parts from cache when possible.
  */
 export const getRelatedParts = (card: Card): ScryfallRelatedCard[] => {
   const raw = (card as Card & { scryfall?: unknown }).scryfall;
@@ -28,4 +28,3 @@ export const getRelatedParts = (card: Card): ScryfallRelatedCard[] => {
     .filter(isRelatedCard)
     .filter((part) => part.component !== "combo_piece");
 };
-

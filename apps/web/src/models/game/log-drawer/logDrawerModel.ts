@@ -1,4 +1,99 @@
+import type { LogContext, LogEventId, LogMessage, LogMessagePart } from "@/logging/types";
+import { getCardDisplayName } from "@/logging/helpers";
+import type { Zone } from "@/types";
+
 const HIDDEN_ZONE_TYPES = new Set(["hand", "library"]);
+
+export type LogCardContext = {
+  fromZone?: Zone;
+  toZone?: Zone;
+  fromZoneType?: string;
+  toZoneType?: string;
+  cardName?: string;
+  forceHidden?: boolean;
+};
+
+const isLogEvent = <K extends LogEventId>(
+  entry: LogMessage,
+  eventId: K
+): entry is LogMessage<K> => entry.eventId === eventId;
+
+export const resolveLogCardContext = (
+  entry: LogMessage,
+  ctx: LogContext
+): LogCardContext => {
+  if (isLogEvent(entry, "card.move") && entry.payload) {
+    return {
+      fromZone: ctx.zones[entry.payload.fromZoneId],
+      toZone: ctx.zones[entry.payload.toZoneId],
+      fromZoneType: entry.payload.fromZoneType,
+      toZoneType: entry.payload.toZoneType,
+      cardName: entry.payload.cardName,
+      forceHidden: entry.payload.faceDown,
+    };
+  }
+
+  if (
+    (isLogEvent(entry, "card.tap") ||
+      isLogEvent(entry, "card.transform") ||
+      isLogEvent(entry, "card.duplicate") ||
+      isLogEvent(entry, "card.remove") ||
+      isLogEvent(entry, "card.pt") ||
+      isLogEvent(entry, "counter.add") ||
+      isLogEvent(entry, "counter.remove")) &&
+    entry.payload
+  ) {
+    const zone = ctx.zones[entry.payload.zoneId];
+    return {
+      fromZone: zone,
+      toZone: zone,
+      cardName: entry.payload.cardName,
+    };
+  }
+
+  return {};
+};
+
+export const resolveLogCardDisplayName = (params: {
+  part: LogMessagePart;
+  logContext: LogContext;
+  cardContext: LogCardContext;
+}): string => {
+  if (params.part.kind !== "card") return params.part.text;
+
+  if (params.cardContext.forceHidden) {
+    return params.cardContext.cardName ?? "a card";
+  }
+
+  if (params.part.cardId) {
+    const fromZone = params.cardContext.fromZone;
+    const toZone = params.cardContext.toZone;
+    const fallbackName = params.cardContext.cardName;
+
+    const computed = getCardDisplayName(
+      params.logContext,
+      params.part.cardId,
+      fromZone,
+      toZone,
+      fallbackName
+    );
+
+    const visibleName = computeVisibleCardName({
+      computedName: computed,
+      fallbackName,
+      fromZoneType: fromZone?.type ?? params.cardContext.fromZoneType,
+      toZoneType: toZone?.type ?? params.cardContext.toZoneType,
+    });
+
+    return visibleName || params.part.text;
+  }
+
+  if (params.cardContext.cardName) {
+    return params.cardContext.cardName;
+  }
+
+  return params.part.text;
+};
 
 export const getBorderColorClass = (color?: string) => {
   switch (color) {
@@ -46,4 +141,3 @@ export const computeVisibleCardName = (params: {
 
   return params.computedName;
 };
-

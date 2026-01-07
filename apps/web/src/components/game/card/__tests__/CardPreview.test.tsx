@@ -95,9 +95,14 @@ describe("CardPreview", () => {
       toJSON: () => ({}),
     } as DOMRect;
 
-    render(<CardPreview card={card} anchorRect={anchorRect} locked={false} />);
+    const anchorEl = document.createElement("div");
+    vi.spyOn(anchorEl, "getBoundingClientRect").mockReturnValue(anchorRect);
+    document.body.appendChild(anchorEl);
+
+    render(<CardPreview card={card} anchorEl={anchorEl} locked={false} />);
 
     expect(await screen.findByText("Test Card")).toBeTruthy();
+    anchorEl.remove();
   });
 
   it("treats hand zones based on zone type, not zone id naming", async () => {
@@ -126,10 +131,15 @@ describe("CardPreview", () => {
       toJSON: () => ({}),
     } as DOMRect;
 
-    render(<CardPreview card={card} anchorRect={anchorRect} locked={false} />);
+    const anchorEl = document.createElement("div");
+    vi.spyOn(anchorEl, "getBoundingClientRect").mockReturnValue(anchorRect);
+    document.body.appendChild(anchorEl);
+
+    render(<CardPreview card={card} anchorEl={anchorEl} locked={false} />);
 
     expect(await screen.findByText("Test Card")).toBeTruthy();
     expect(screen.queryByText("Hello")).toBeNull();
+    anchorEl.remove();
   });
 
   it("locks preview after a 400ms long press", () => {

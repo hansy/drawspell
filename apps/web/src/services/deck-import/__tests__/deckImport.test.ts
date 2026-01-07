@@ -283,6 +283,39 @@ describe('fetchScryfallCards', () => {
         expect(result.warnings[0]).toMatch(/503/);
     });
 
+    it('retries with backoff when rate limited', async () => {
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 429,
+                statusText: 'Too Many Requests',
+                headers: { get: (key: string) => (key === 'Retry-After' ? '1' : null) },
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: () => Promise.resolve({
+                    data: [{ ...baseScryfallCard }],
+                }),
+            });
+
+        const sleep = vi.fn().mockResolvedValue(undefined);
+
+        const parsed: ParsedCard[] = [{ quantity: 1, name: 'Lightning Bolt', set: 'lea', collectorNumber: '150', section: 'main' }];
+        const result = await fetchScryfallCards(parsed, {
+            fetchImpl: fetchMock as any,
+            rateLimitMs: 0,
+            maxRetries: 1,
+            backoffMs: 50,
+            sleep,
+        });
+
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(sleep).toHaveBeenCalledTimes(1);
+        expect(sleep).toHaveBeenCalledWith(1000);
+        expect(result.cards).toHaveLength(1);
+        expect(result.missing).toHaveLength(0);
+    });
+
     it('falls back to named lookup for split cards like Wear // Tear', async () => {
         const collectionResponse = {
             ok: true,

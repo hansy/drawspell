@@ -3,14 +3,24 @@ import * as Y from 'yjs';
 import { v4 as uuidv4 } from 'uuid';
 import { getYDocHandles } from '@/yjs/docManager';
 import { logEventRegistry } from './eventRegistry';
-import { LogContext, LogEventDefinition, LogEventId, LogMessage } from './types';
+import {
+  LogContext,
+  LogEventDefinition,
+  LogEventId,
+  LogEventPayloadMap,
+  LogMessage,
+} from './types';
 import { computeAggregatedLogEntryUpdate } from './logEntryModel';
 
 const MAX_LOG_ENTRIES = 200;
 
 interface LogStoreState {
   entries: LogMessage[];
-  emitLog: (eventId: LogEventId, payload: any, ctx: LogContext) => void;
+  emitLog: <K extends LogEventId>(
+    eventId: K,
+    payload: LogEventPayloadMap[K],
+    ctx: LogContext
+  ) => void;
   clear: () => void;
   setEntries: (entries: LogMessage[]) => void;
 }
@@ -28,10 +38,10 @@ const trimSharedLogs = (logs: Y.Array<any>) => {
   }
 };
 
-const writeSharedLog = (
-  eventId: LogEventId,
-  def: LogEventDefinition<any>,
-  payload: any,
+const writeSharedLog = <K extends LogEventId>(
+  eventId: K,
+  def: LogEventDefinition<LogEventPayloadMap[K]>,
+  payload: LogEventPayloadMap[K],
   ctx: LogContext,
   aggregateKey?: string,
 ): boolean => {
@@ -43,7 +53,7 @@ const writeSharedLog = (
   const now = Date.now();
   handles.doc.transact(() => {
     const lastValue = logs.length > 0 ? logs.get(logs.length - 1) : undefined;
-    const lastEntry = normalizeSharedEntry(lastValue);
+    const lastEntry = normalizeSharedEntry(lastValue) as LogMessage<K> | undefined;
 
     const update = computeAggregatedLogEntryUpdate({
       eventId,
@@ -51,7 +61,7 @@ const writeSharedLog = (
       payload,
       ctx,
       aggregateKey,
-      lastEntry: lastEntry ?? undefined,
+      lastEntry,
       timestamp: now,
       sourceClientId,
       createId: uuidv4,
@@ -90,10 +100,10 @@ export const useLogStore = create<LogStoreState>((set) => {
     return prevLast?.id === nextLast?.id && prevLast?.ts === nextLast?.ts;
   };
 
-  const appendLocal = (
-    def: LogEventDefinition<any>,
-    eventId: LogEventId,
-    payload: any,
+  const appendLocal = <K extends LogEventId>(
+    def: LogEventDefinition<LogEventPayloadMap[K]>,
+    eventId: K,
+    payload: LogEventPayloadMap[K],
     ctx: LogContext,
     aggregateKey?: string,
   ) => {
@@ -107,7 +117,7 @@ export const useLogStore = create<LogStoreState>((set) => {
         payload,
         ctx,
         aggregateKey,
-        lastEntry: entries[entries.length - 1],
+        lastEntry: entries[entries.length - 1] as LogMessage<K> | undefined,
         timestamp: now,
         createId: uuidv4,
       });
@@ -130,7 +140,9 @@ export const useLogStore = create<LogStoreState>((set) => {
     entries: [],
 
     emitLog: (eventId, payload, ctx) => {
-      const def = logEventRegistry[eventId];
+      const def = logEventRegistry[eventId] as LogEventDefinition<
+        LogEventPayloadMap[typeof eventId]
+      >;
       if (!def) return;
 
       const redactedPayload = def.redact ? def.redact(payload, ctx) : payload;
@@ -232,7 +244,11 @@ export const bindSharedLogStore = (logs: Y.Array<any> | null) => {
   }
 };
 
-export const emitLog = (eventId: LogEventId, payload: any, ctx: LogContext) =>
+export const emitLog = <K extends LogEventId>(
+  eventId: K,
+  payload: LogEventPayloadMap[K],
+  ctx: LogContext
+) =>
   useLogStore.getState().emitLog(eventId, payload, ctx);
 
 export const clearLogs = () => useLogStore.getState().clear();
