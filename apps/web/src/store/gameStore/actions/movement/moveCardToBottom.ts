@@ -171,8 +171,7 @@ export const createMoveCardToBottom =
           }
 
           if (toHidden) {
-            const shouldResetIdentity =
-              toZone.type === ZONE.LIBRARY && !fromHidden;
+            const shouldResetIdentity = !fromHidden;
             const nextCardId = shouldResetIdentity ? uuidv4() : cardId;
             const toOrder = [nextCardId, ...toZone.cardIds.filter((id) => id !== cardId)];
             const movingCard = {
@@ -187,6 +186,7 @@ export const createMoveCardToBottom =
               counters: enforceZoneCounterRules(card.counters, toZone),
               position: { x: 0, y: 0 },
               rotation: 0,
+              customText: undefined,
             };
             const toCards = toOrder
               .map((id) => (id === nextCardId ? movingCard : get().cards[id]))
@@ -250,6 +250,7 @@ export const createMoveCardToBottom =
               counters: nextCounters,
               faceDown: faceDownResolution.effectiveFaceDown,
               controllerId: controlWillChange ? nextControllerId : resetToFront.controllerId,
+              customText: leavingBattlefield ? undefined : resetToFront.customText,
             };
             const shouldHideIdentity =
               toZone.type === ZONE.BATTLEFIELD && faceDownResolution.effectiveFaceDown;
@@ -351,6 +352,10 @@ export const createMoveCardToBottom =
 
       yMoveCard(maps, cardId, toZoneId);
 
+      if (fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD) {
+        yPatchCard(maps, cardId, { customText: undefined });
+      }
+
       if (shouldMarkCommander) {
         yPatchCard(maps, cardId, { isCommander: true });
       }
@@ -408,6 +413,7 @@ export const createMoveCardToBottom =
         controllerId: controlWillChange ? nextControllerId : nextCard.controllerId,
         ...(revealPatch ?? {}),
         isCommander: nextCommanderFlag,
+        customText: leavingBattlefield ? undefined : nextCard.customText,
       };
 
       return {

@@ -173,8 +173,7 @@ export const createMoveCard =
           }
 
           if (toHidden) {
-            const shouldResetIdentity =
-              toZone.type === ZONE.LIBRARY && !fromHidden;
+            const shouldResetIdentity = !fromHidden;
             const nextCardId = shouldResetIdentity ? uuidv4() : cardId;
             const toOrder = [...toZone.cardIds.filter((id) => id !== cardId), nextCardId];
             const movingCard = {
@@ -189,6 +188,7 @@ export const createMoveCard =
               counters: enforceZoneCounterRules(card.counters, toZone),
               position: { x: 0, y: 0 },
               rotation: 0,
+              customText: undefined,
             };
             const toCards = toOrder
               .map((id) => (id === nextCardId ? movingCard : get().cards[id]))
@@ -253,6 +253,7 @@ export const createMoveCard =
               counters: nextCounters,
               faceDown: faceDownResolution.effectiveFaceDown,
               controllerId: controlWillChange ? nextControllerId : resetToFront.controllerId,
+              customText: leavingBattlefield ? undefined : resetToFront.customText,
             };
             const shouldHideIdentity =
               toZone.type === ZONE.BATTLEFIELD && faceDownResolution.effectiveFaceDown;
@@ -357,6 +358,10 @@ export const createMoveCard =
         groupCollision: opts?.groupCollision,
       });
 
+      if (fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD) {
+        yPatchCard(maps, cardId, { customText: undefined });
+      }
+
       if (shouldMarkCommander) {
         yPatchCard(maps, cardId, { isCommander: true });
       }
@@ -438,6 +443,7 @@ export const createMoveCard =
             ? nextControllerId
             : nextCard.controllerId,
           isCommander: nextCommanderFlag,
+          customText: leavingBattlefield ? undefined : nextCard.customText,
         };
         return {
           cards: cardsCopy,
@@ -463,6 +469,7 @@ export const createMoveCard =
         faceDown: localFaceDown,
         controllerId: controlWillChange ? nextControllerId : nextCard.controllerId,
         isCommander: nextCommanderFlag,
+        customText: leavingBattlefield ? undefined : nextCard.customText,
       };
 
       return {

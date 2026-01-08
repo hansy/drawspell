@@ -138,6 +138,42 @@ describe('gameStore move/tap interactions', () => {
     expect(moved.faceDown).toBe(false);
   });
 
+  it('clears custom text when moving off the battlefield', () => {
+    const battlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', ['cText']);
+    const hand = makeZone('hand-me', 'HAND', 'me', []);
+
+    const card = { ...makeCard('cText', battlefield.id, 'me', false), customText: 'Note' };
+
+    useGameStore.setState((state) => ({
+      zones: { ...state.zones, [battlefield.id]: battlefield, [hand.id]: hand },
+      cards: { ...state.cards, [card.id]: card },
+    }));
+
+    useGameStore.getState().moveCard(card.id, hand.id, undefined, 'me');
+
+    const moved = useGameStore.getState().cards[card.id];
+    expect(moved.zoneId).toBe(hand.id);
+    expect(moved.customText).toBeUndefined();
+  });
+
+  it('clears custom text when moving to the bottom of the library', () => {
+    const battlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', ['cTextBottom']);
+    const library = makeZone('lib-me', 'LIBRARY', 'me', []);
+
+    const card = { ...makeCard('cTextBottom', battlefield.id, 'me', false), customText: 'Reminder' };
+
+    useGameStore.setState((state) => ({
+      zones: { ...state.zones, [battlefield.id]: battlefield, [library.id]: library },
+      cards: { ...state.cards, [card.id]: card },
+    }));
+
+    useGameStore.getState().moveCardToBottom(card.id, library.id, 'me');
+
+    const moved = useGameStore.getState().cards[card.id];
+    expect(moved.zoneId).toBe(library.id);
+    expect(moved.customText).toBeUndefined();
+  });
+
   it('denies tapping a card that is not on the battlefield', () => {
     const hand = makeZone('hand-me', 'HAND', 'me', ['c2']);
     const card = makeCard('c2', hand.id, 'me', false);
