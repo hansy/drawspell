@@ -5,6 +5,7 @@ import { ZONE } from "@/constants/zones";
 import { bytesToBase64Url } from "@/crypto/base64url";
 import { generateEd25519KeyPair } from "@/crypto/ed25519";
 import { generateX25519KeyPair } from "@/crypto/x25519";
+import { deriveRoomSigningPublicKey } from "@/crypto/roomSig";
 
 import { appendCommand, deriveActorIdFromPublicKey } from "../commands";
 import { deriveOwnerAesKey, encryptJsonPayload, encryptPayloadForRecipient } from "../crypto";
@@ -655,6 +656,64 @@ describe("command log", () => {
     const stateWithInvalid = await replay(commands.length);
 
     expect(stateWithInvalid).toEqual(stateValid);
+  });
+
+  it("rejects commands with invalid room signatures for spectators", async () => {
+    const { publicKey, privateKey } = generateEd25519KeyPair();
+    const actorId = deriveActorIdFromPublicKey(publicKey);
+    const sessionId = "session-room-sig";
+    const playerKey = new Uint8Array(32).fill(9);
+
+    const doc = new Y.Doc();
+    const commands = doc.getArray<CommandEnvelope>("commands");
+
+    appendCommand({
+      commands,
+      sessionId,
+      playerKey,
+      signPrivateKey: privateKey,
+      envelope: {
+        v: 1,
+        id: "cmd-rs-1",
+        actorId,
+        seq: 1,
+        ts: 1,
+        type: "player.join",
+        payloadPublic: { playerId: actorId, name: "Player" },
+        pubKey: bytesToBase64Url(publicKey),
+      },
+    });
+
+    const original = commands.get(0) as CommandEnvelope;
+    commands.delete(0, 1);
+    commands.insert(0, [{ ...original, roomSig: "invalid" }]);
+
+    let state = createEmptyCommandLogState();
+    let meta = createCommandLogMeta();
+    const roomSigPublicKey = deriveRoomSigningPublicKey({
+      sessionId,
+      playerKey,
+    });
+    const ctx = {
+      sessionId,
+      viewerId: "spectator",
+      viewerRole: "spectator" as const,
+      playerKey: undefined,
+      roomSigPublicKey,
+      ownerAesKey: undefined,
+      spectatorAesKey: undefined,
+      recipientPrivateKey: undefined,
+    };
+
+    const result = await applyCommandLog({
+      state,
+      meta,
+      envelope: commands.get(0) as CommandEnvelope,
+      ctx,
+    });
+    state = result.state;
+
+    expect(state.players[actorId]).toBeUndefined();
   });
 
   it("applies commander tax updates in the commander zone for the owner", async () => {
