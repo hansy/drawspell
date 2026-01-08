@@ -1,4 +1,4 @@
-import type { GameState } from "@/types";
+import type { Card, GameState } from "@/types";
 
 import { enforceZoneCounterRules } from "@/lib/counters";
 import { resetCardToFrontFace } from "@/lib/cardDisplay";
@@ -13,6 +13,8 @@ import {
   sharedSnapshot,
 } from "@/yjs/yMutations";
 import type { Deps, GetState, SetState } from "./types";
+import { useCommandLog } from "@/lib/featureFlags";
+import { enqueueLocalCommand, getActiveCommandLog, buildHiddenZonePayloads } from "@/commandLog";
 
 const normalizeCount = (value: number) =>
   Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
@@ -68,6 +70,234 @@ export const createMulligan =
       drawCount > 0 ? Math.min(drawCount, libraryKeeps.length + ownedCount) : 0;
 
     let sharedDrawCount = 0;
+
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        const current = get();
+        const currentLibrary = getZoneByType(current.zones, playerId, ZONE.LIBRARY);
+        const currentHand = getZoneByType(current.zones, playerId, ZONE.HAND);
+        const currentCommander = getZoneByType(current.zones, playerId, ZONE.COMMANDER);
+        if (!currentLibrary || !currentHand) return;
+
+        const nextCards = { ...current.cards };
+        const nextZones = { ...current.zones };
+
+        const commanderOwned =
+          currentCommander?.cardIds.filter((id) => nextCards[id]?.ownerId === playerId) ?? [];
+        const commanderKeeps =
+          currentCommander?.cardIds.filter((id) => nextCards[id]?.ownerId !== playerId) ?? [];
+        const toCommander: string[] = [];
+
+        const localKeeps =
+          nextZones[currentLibrary.id]?.cardIds.filter((id) => {
+            const card = nextCards[id];
+            return card && card.ownerId !== playerId;
+          }) ?? [];
+        localKeeps.forEach((id) => {
+          const card = nextCards[id];
+          if (!card) return;
+          nextCards[id] = {
+            ...card,
+            knownToAll: false,
+            revealedToAll: false,
+            revealedTo: [],
+          };
+        });
+
+        const toLibrary: string[] = [];
+        const ownedCards = Object.values(current.cards).filter(
+          (card) => card.ownerId === playerId
+        );
+        const isCommanderZoneType = (type: string) =>
+          type === ZONE.COMMANDER || type === "command";
+        ownedCards.forEach((card) => {
+          const fromZone = nextZones[card.zoneId];
+          const inCommanderZone =
+            fromZone &&
+            fromZone.ownerId === playerId &&
+            isCommanderZoneType(fromZone.type);
+          if (inCommanderZone) return;
+          if (fromZone) {
+            nextZones[card.zoneId] = {
+              ...fromZone,
+              cardIds: fromZone.cardIds.filter((id) => id !== card.id),
+            };
+          }
+
+          if (card.isToken === true) {
+            Reflect.deleteProperty(nextCards, card.id);
+            return;
+          }
+
+          if (card.isCommander && currentCommander) {
+            const resetCard = resetCardToFrontFace(card);
+            nextCards[card.id] = {
+              ...resetCard,
+              zoneId: currentCommander.id,
+              tapped: false,
+              faceDown: false,
+              controllerId: card.ownerId,
+              knownToAll: true,
+              revealedToAll: false,
+              revealedTo: [],
+              position: { x: 0, y: 0 },
+              rotation: 0,
+              customText: undefined,
+              counters: enforceZoneCounterRules(resetCard.counters, currentCommander),
+              isCommander: true,
+            };
+            toCommander.push(card.id);
+            return;
+          }
+
+          const resetCard = resetCardToFrontFace(card);
+          nextCards[card.id] = {
+            ...resetCard,
+            zoneId: currentLibrary.id,
+            tapped: false,
+            faceDown: false,
+            controllerId: card.ownerId,
+            knownToAll: false,
+            revealedToAll: false,
+            revealedTo: [],
+            position: { x: 0, y: 0 },
+            rotation: 0,
+            customText: undefined,
+            counters: enforceZoneCounterRules(resetCard.counters, currentLibrary),
+          };
+          toLibrary.push(card.id);
+        });
+
+        const shuffled = [...localKeeps, ...toLibrary].sort(() => Math.random() - 0.5);
+        const drawIds = drawCount > 0 ? shuffled.slice(-drawCount) : [];
+        const remainingLibrary = shuffled.slice(0, shuffled.length - drawIds.length);
+        nextZones[currentLibrary.id] = {
+          ...nextZones[currentLibrary.id],
+          cardIds: remainingLibrary,
+        };
+        if (currentCommander) {
+          nextZones[currentCommander.id] = {
+            ...nextZones[currentCommander.id],
+            cardIds: [...commanderKeeps, ...commanderOwned, ...toCommander],
+          };
+        }
+
+        const handCards = drawIds
+          .map((id) => nextCards[id])
+          .filter((c): c is Card => Boolean(c))
+          .map((c) => ({
+            ...c,
+            zoneId: currentHand.id,
+            counters: enforceZoneCounterRules(c.counters, currentHand),
+          }));
+
+        const publicOwnedBefore = Object.values(current.cards).filter((card) => {
+          const zone = current.zones[card.zoneId];
+          if (!zone) return false;
+          const isHidden =
+            zone.type === ZONE.HAND ||
+            zone.type === ZONE.LIBRARY ||
+            zone.type === ZONE.SIDEBOARD;
+          return card.ownerId === playerId && !isHidden;
+        });
+
+        publicOwnedBefore.forEach((ownedCard) => {
+          enqueueLocalCommand({
+            sessionId: active.sessionId,
+            commands: active.commands,
+            type: "card.remove.public",
+            buildPayloads: () => ({ payloadPublic: { cardId: ownedCard.id } }),
+          });
+        });
+
+        const publicOwnedAfter = Object.values(nextCards).filter((card) => {
+          const zone = nextZones[card.zoneId];
+          if (!zone) return false;
+          const isHidden =
+            zone.type === ZONE.HAND ||
+            zone.type === ZONE.LIBRARY ||
+            zone.type === ZONE.SIDEBOARD;
+          return card.ownerId === playerId && !isHidden;
+        });
+
+        publicOwnedAfter.forEach((ownedCard) => {
+          enqueueLocalCommand({
+            sessionId: active.sessionId,
+            commands: active.commands,
+            type: "card.create.public",
+            buildPayloads: () => ({ payloadPublic: { card: ownedCard } }),
+          });
+        });
+
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "zone.set.hidden",
+          buildPayloads: async () => {
+            const payloads = await buildHiddenZonePayloads({
+              sessionId: active.sessionId,
+              ownerId: playerId,
+              zoneType: ZONE.LIBRARY,
+              cards: remainingLibrary
+                .map((id) => nextCards[id])
+                .filter((c): c is Card => Boolean(c)),
+              order: remainingLibrary,
+            });
+            return {
+              payloadPublic: payloads.payloadPublic,
+              payloadOwnerEnc: payloads.payloadOwnerEnc,
+              payloadSpectatorEnc: payloads.payloadSpectatorEnc,
+            };
+          },
+        });
+
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "zone.set.hidden",
+          buildPayloads: async () => {
+            const payloads = await buildHiddenZonePayloads({
+              sessionId: active.sessionId,
+              ownerId: playerId,
+              zoneType: ZONE.HAND,
+              cards: handCards,
+              order: handCards.map((card) => card.id),
+            });
+            return {
+              payloadPublic: payloads.payloadPublic,
+              payloadOwnerEnc: payloads.payloadOwnerEnc,
+              payloadSpectatorEnc: payloads.payloadSpectatorEnc,
+            };
+          },
+        });
+
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "library.topReveal.set",
+          buildPayloads: () => ({
+            payloadPublic: { ownerId: playerId, mode: null },
+          }),
+        });
+
+        logPermission({
+          action: "mulligan",
+          actorId: actor,
+          allowed: true,
+          details: { playerId },
+        });
+        emitLog("deck.reset", { actorId: actor, playerId }, buildLogContext());
+        if (drawIds.length > 0) {
+          emitLog(
+            "card.draw",
+            { actorId: actor, playerId, count: drawIds.length },
+            buildLogContext()
+          );
+        }
+        return;
+      }
+    }
 
     const sharedApplied = applyShared((maps) => {
       yResetDeck(maps, playerId);

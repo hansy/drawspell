@@ -17,6 +17,8 @@ import {
   addCounterToCard as yAddCounterToCard,
   removeCounterFromCard as yRemoveCounterFromCard,
 } from "@/yjs/yMutations";
+import { useCommandLog } from "@/lib/featureFlags";
+import { enqueueLocalCommand, getActiveCommandLog } from "@/commandLog";
 
 type SetState = StoreApi<GameState>["setState"];
 type GetState = StoreApi<GameState>["getState"];
@@ -46,6 +48,21 @@ export const createCounterActions = (
 
     const resolvedColor = resolveCounterColor(normalizedName, get().globalCounters);
     const normalizedColor = (color || resolvedColor).slice(0, 16);
+
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "global.counter.set",
+          buildPayloads: () => ({
+            payloadPublic: { key: normalizedName, value: normalizedColor },
+          }),
+        });
+        return;
+      }
+    }
 
     if (
       applyShared((maps) => {
@@ -97,6 +114,21 @@ export const createCounterActions = (
       newCounters.find((c) => c.type === counter.type)?.count ?? prevCount;
     const delta = nextCount - prevCount;
     if (delta <= 0) return;
+
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "card.update.public",
+          buildPayloads: () => ({
+            payloadPublic: { cardId, updates: { counters: newCounters } },
+          }),
+        });
+        return;
+      }
+    }
 
     if (applyShared((maps) => yAddCounterToCard(maps, cardId, counter))) return;
 
@@ -162,6 +194,21 @@ export const createCounterActions = (
     const nextCount = newCounters.find((c) => c.type === counterType)?.count ?? 0;
     const delta = nextCount - prevCount;
     if (delta === 0) return;
+
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "card.update.public",
+          buildPayloads: () => ({
+            payloadPublic: { cardId, updates: { counters: newCounters } },
+          }),
+        });
+        return;
+      }
+    }
 
     if (applyShared((maps) => yRemoveCounterFromCard(maps, cardId, counterType)))
       return;

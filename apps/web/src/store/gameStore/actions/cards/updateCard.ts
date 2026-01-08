@@ -9,6 +9,13 @@ import { patchCard as yPatchCard } from "@/yjs/yMutations";
 import { syncCommanderDecklistForPlayer } from "@/store/gameStore/actions/deck/commanderDecklist";
 import { buildUpdateCardPatch } from "../cardsModel";
 import type { Deps, GetState, SetState } from "./types";
+import { useCommandLog } from "@/lib/featureFlags";
+import { enqueueLocalCommand, getActiveCommandLog } from "@/commandLog";
+import { extractCardIdentity } from "@/commandLog/identity";
+import { encryptPayloadForRecipient, deriveSpectatorAesKey, encryptJsonPayload } from "@/commandLog/crypto";
+import { generateX25519KeyPair } from "@/crypto/x25519";
+import { getSessionAccessKeys } from "@/lib/sessionKeys";
+import { base64UrlToBytes } from "@/crypto/base64url";
 
 export const createUpdateCard =
   (
@@ -138,6 +145,77 @@ export const createUpdateCard =
       updates.faceDown === true &&
       cardBefore.faceDown === false &&
       zoneTypeBefore === ZONE.BATTLEFIELD;
+
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        const patch = cardBefore ? buildUpdateCardPatch(cardBefore, updates).patch : updates;
+        if (shouldMarkKnownAfterFaceUp) {
+          patch.knownToAll = true;
+        }
+        if (shouldHideAfterFaceDown) {
+          patch.knownToAll = false;
+          patch.revealedToAll = false;
+          patch.revealedTo = [];
+        }
+        if (shouldMarkKnownAfterFaceUp && cardBefore) {
+          Object.assign(patch, extractCardIdentity(cardBefore));
+        }
+
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "card.update.public",
+          buildPayloads: async () => {
+            let payloadRecipientsEnc: Record<string, any> | undefined;
+            let payloadSpectatorEnc: string | undefined;
+            if (shouldHideAfterFaceDown && cardBefore) {
+              const identity = extractCardIdentity(cardBefore);
+              const owner = get().players[cardBefore.ownerId];
+              if (owner?.encPubKey) {
+                const recipientPubKey = base64UrlToBytes(owner.encPubKey);
+                const ephemeral = generateX25519KeyPair();
+                payloadRecipientsEnc = {
+                  [cardBefore.ownerId]: await encryptPayloadForRecipient({
+                    payload: identity,
+                    recipientPubKey,
+                    ephemeralKeyPair: ephemeral,
+                    sessionId: active.sessionId,
+                  }),
+                };
+              }
+
+              const keys = getSessionAccessKeys(active.sessionId);
+              if (keys.spectatorKey) {
+                const spectatorKey = deriveSpectatorAesKey({
+                  spectatorKey: base64UrlToBytes(keys.spectatorKey),
+                  sessionId: active.sessionId,
+                });
+                payloadSpectatorEnc = await encryptJsonPayload(spectatorKey, identity);
+              }
+            }
+            return {
+              payloadPublic: { cardId: id, updates: patch },
+              payloadRecipientsEnc,
+              payloadSpectatorEnc,
+            };
+          },
+        });
+        if (shouldSyncCommander && cardBefore) {
+          syncCommanderDecklistForPlayer({
+            state: get(),
+            playerId: actor,
+            override: {
+              cardId: id,
+              isCommander: updates.isCommander === true,
+              name: cardBefore.name,
+              ownerId: cardBefore.ownerId,
+            },
+          });
+        }
+        return;
+      }
+    }
 
     const sharedApplied = applyShared((maps) => {
       if (!cardBefore) return;

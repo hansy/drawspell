@@ -8,6 +8,9 @@ import { logPermission } from "@/rules/logger";
 import { emitLog } from "@/logging/logStore";
 import { patchPlayer as yPatchPlayer, upsertPlayer as yUpsertPlayer } from "@/yjs/yMutations";
 import type { LogContext } from "@/logging/types";
+import { useCommandLog } from "@/lib/featureFlags";
+import { enqueueLocalCommand, getActiveCommandLog } from "@/commandLog";
+import { ZONE } from "@/constants/zones";
 
 type SetState = StoreApi<GameState>["setState"];
 type GetState = StoreApi<GameState>["getState"];
@@ -77,6 +80,76 @@ export const createPlayerActions = (
       );
     }
 
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        const hasLibraryTopReveal = Object.prototype.hasOwnProperty.call(
+          updates,
+          "libraryTopReveal",
+        );
+        const { libraryTopReveal, ...rest } = updates as typeof updates & {
+          libraryTopReveal?: string | null;
+        };
+
+        if (hasLibraryTopReveal) {
+          const state = get();
+          const libraryZone = Object.values(state.zones).find(
+            (zone) => zone.ownerId === id && zone.type === ZONE.LIBRARY,
+          );
+          const topId = libraryZone?.cardIds?.[libraryZone.cardIds.length - 1];
+          const topCard = topId ? state.cards[topId] : undefined;
+          enqueueLocalCommand({
+            sessionId: active.sessionId,
+            commands: active.commands,
+            type: "library.topReveal.set",
+            buildPayloads: () => ({
+              payloadPublic: {
+                ownerId: id,
+                mode:
+                  libraryTopReveal === "self" || libraryTopReveal === "all"
+                    ? libraryTopReveal
+                    : null,
+                cardId:
+                  libraryTopReveal === "all" && topCard ? topCard.id : undefined,
+                identity:
+                  libraryTopReveal === "all" && topCard
+                    ? {
+                        name: topCard.name,
+                        imageUrl: topCard.imageUrl,
+                        oracleText: topCard.oracleText,
+                        typeLine: topCard.typeLine,
+                        scryfallId: topCard.scryfallId,
+                        scryfall: topCard.scryfall,
+                        isToken: topCard.isToken,
+                        power: topCard.power,
+                        toughness: topCard.toughness,
+                        basePower: topCard.basePower,
+                        baseToughness: topCard.baseToughness,
+                        customText: topCard.customText,
+                        currentFaceIndex: topCard.currentFaceIndex,
+                        isCommander: topCard.isCommander,
+                        commanderTax: topCard.commanderTax,
+                      }
+                    : undefined,
+              },
+            }),
+          });
+        }
+
+        if (Object.keys(rest).length > 0) {
+          enqueueLocalCommand({
+            sessionId: active.sessionId,
+            commands: active.commands,
+            type: "player.update",
+            buildPayloads: () => ({
+              payloadPublic: { playerId: id, ...rest },
+            }),
+          });
+        }
+        return;
+      }
+    }
+
     if (
       applyShared((maps) => {
         yPatchPlayer(maps, id, updates);
@@ -121,6 +194,21 @@ export const createPlayerActions = (
     const from = player.commanderTax || 0;
     const to = Math.max(0, from + delta);
 
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "player.update",
+          buildPayloads: () => ({
+            payloadPublic: { playerId, commanderTax: to },
+          }),
+        });
+        return;
+      }
+    }
+
     if (
       applyShared((maps) => {
         yPatchPlayer(maps, playerId, { commanderTax: to });
@@ -154,6 +242,21 @@ export const createPlayerActions = (
 
   setDeckLoaded: (playerId, loaded, _isRemote) => {
     if (get().viewerRole === "spectator") return;
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "player.update",
+          buildPayloads: () => ({
+            payloadPublic: { playerId, deckLoaded: loaded },
+          }),
+        });
+        return;
+      }
+    }
+
     if (
       applyShared((maps) => {
         yPatchPlayer(maps, playerId, { deckLoaded: loaded });

@@ -12,6 +12,9 @@ import { useGameStore } from "@/store/gameStore";
 import { batchSharedMutations, getYDocHandles, getYProvider } from "@/yjs/docManager";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
 import { isMultiplayerProviderReady, planDeckImport } from "@/models/game/load-deck/loadDeckModel";
+import { useCommandLog } from "@/lib/featureFlags";
+import { enqueueLocalCommand, getActiveCommandLog, buildHiddenZonePayloads } from "@/commandLog";
+import { ZONE } from "@/constants/zones";
 
 export type LoadDeckControllerInput = {
   isOpen: boolean;
@@ -102,36 +105,115 @@ export const useLoadDeckController = ({
         });
       }
 
-      const missingZones = new Map<string, (typeof planned.chunks)[number][number]["zoneType"]>();
-      planned.chunks.forEach((chunk) => {
-        chunk.forEach(({ zoneId, zoneType }) => {
-          if (!zones[zoneId] && !missingZones.has(zoneId)) {
-            missingZones.set(zoneId, zoneType);
+      const active = useCommandLog ? getActiveCommandLog() : null;
+      if (useCommandLog && active) {
+        const flat = planned.chunks.flat();
+        const libraryCards: ReturnType<typeof createCardFromImport>[] = [];
+        const sideboardCards: ReturnType<typeof createCardFromImport>[] = [];
+        const commanderCards: ReturnType<typeof createCardFromImport>[] = [];
+
+        flat.forEach(({ cardData, zoneId, zoneType }) => {
+          const card = createCardFromImport(cardData, playerId, zoneId);
+          if (zoneType === ZONE.COMMANDER) {
+            commanderCards.push(card);
+          } else if (zoneType === ZONE.SIDEBOARD) {
+            sideboardCards.push(card);
+          } else {
+            libraryCards.push(card);
           }
         });
-      });
 
-      if (missingZones.size) {
-        batchSharedMutations(() => {
-          missingZones.forEach((zoneType, zoneId) => {
-            addZone({ id: zoneId, ownerId: playerId, type: zoneType, cardIds: [] });
+        if (libraryCards.length) {
+          const order = libraryCards.map((card) => card.id);
+          enqueueLocalCommand({
+            sessionId: active.sessionId,
+            commands: active.commands,
+            type: "zone.set.hidden",
+            buildPayloads: async () => {
+              const payloads = await buildHiddenZonePayloads({
+                sessionId: active.sessionId,
+                ownerId: playerId,
+                zoneType: ZONE.LIBRARY,
+                cards: libraryCards,
+                order,
+              });
+              return {
+                payloadPublic: payloads.payloadPublic,
+                payloadOwnerEnc: payloads.payloadOwnerEnc,
+                payloadSpectatorEnc: payloads.payloadSpectatorEnc,
+              };
+            },
+          });
+        }
+
+        if (sideboardCards.length) {
+          const order = sideboardCards.map((card) => card.id);
+          enqueueLocalCommand({
+            sessionId: active.sessionId,
+            commands: active.commands,
+            type: "zone.set.hidden",
+            buildPayloads: async () => {
+              const payloads = await buildHiddenZonePayloads({
+                sessionId: active.sessionId,
+                ownerId: playerId,
+                zoneType: ZONE.SIDEBOARD,
+                cards: sideboardCards,
+                order,
+              });
+              return {
+                payloadPublic: payloads.payloadPublic,
+                payloadOwnerEnc: payloads.payloadOwnerEnc,
+                payloadSpectatorEnc: payloads.payloadSpectatorEnc,
+              };
+            },
+          });
+        }
+
+        commanderCards.forEach((card) => {
+          enqueueLocalCommand({
+            sessionId: active.sessionId,
+            commands: active.commands,
+            type: "card.create.public",
+            buildPayloads: () => ({
+              payloadPublic: { card },
+            }),
           });
         });
-      }
 
-      planned.chunks.forEach((chunk) => {
-        batchSharedMutations(() => {
-          chunk.forEach(({ cardData, zoneId }) => {
-            const newCard = createCardFromImport(cardData, playerId, zoneId);
-            addCard(newCard);
-          });
-        });
-      });
-
-      batchSharedMutations(() => {
         setDeckLoaded(playerId, true);
         shuffleLibrary(playerId, playerId);
-      });
+      } else {
+        const missingZones = new Map<string, (typeof planned.chunks)[number][number]["zoneType"]>();
+        planned.chunks.forEach((chunk) => {
+          chunk.forEach(({ zoneId, zoneType }) => {
+            if (!zones[zoneId] && !missingZones.has(zoneId)) {
+              missingZones.set(zoneId, zoneType);
+            }
+          });
+        });
+
+        if (missingZones.size) {
+          batchSharedMutations(() => {
+            missingZones.forEach((zoneType, zoneId) => {
+              addZone({ id: zoneId, ownerId: playerId, type: zoneType, cardIds: [] });
+            });
+          });
+        }
+
+        planned.chunks.forEach((chunk) => {
+          batchSharedMutations(() => {
+            chunk.forEach(({ cardData, zoneId }) => {
+              const newCard = createCardFromImport(cardData, playerId, zoneId);
+              addCard(newCard);
+            });
+          });
+        });
+
+        batchSharedMutations(() => {
+          setDeckLoaded(playerId, true);
+          shuffleLibrary(playerId, playerId);
+        });
+      }
 
       toast.success("Deck successfully loaded");
       setLastImportedDeckText(importText);
@@ -151,6 +233,7 @@ export const useLoadDeckController = ({
     setDeckLoaded,
     setLastImportedDeckText,
     shuffleLibrary,
+    useCommandLog,
     viewerRole,
     zones,
   ]);

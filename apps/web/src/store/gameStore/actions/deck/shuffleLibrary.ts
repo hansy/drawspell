@@ -11,6 +11,8 @@ import {
   sharedSnapshot,
 } from "@/yjs/yMutations";
 import type { Deps, GetState, SetState } from "./types";
+import { useCommandLog } from "@/lib/featureFlags";
+import { enqueueLocalCommand, getActiveCommandLog, buildHiddenOrderPayloads, buildLibraryTopRevealPayload } from "@/commandLog";
 
 export const createShuffleLibrary =
   (
@@ -37,6 +39,51 @@ export const createShuffleLibrary =
         details: { playerId },
       });
       return;
+    }
+
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        const shuffledIds = [...libraryZone.cardIds].sort(() => Math.random() - 0.5);
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "library.shuffle",
+          buildPayloads: async () => {
+            const payloads = await buildHiddenOrderPayloads({
+              sessionId: active.sessionId,
+              ownerId: playerId,
+              zoneType: libraryZone.type,
+              order: shuffledIds,
+            });
+            return {
+              payloadPublic: payloads.payloadPublic,
+              payloadOwnerEnc: payloads.payloadOwnerEnc,
+            };
+          },
+        });
+        if (state.players[playerId]?.libraryTopReveal === "all") {
+          enqueueLocalCommand({
+            sessionId: active.sessionId,
+            commands: active.commands,
+            type: "library.topReveal.set",
+            buildPayloads: () =>
+              buildLibraryTopRevealPayload({
+                ownerId: playerId,
+                order: shuffledIds,
+                cardsById: state.cards,
+              }),
+          });
+        }
+        logPermission({
+          action: "shuffleLibrary",
+          actorId: actor,
+          allowed: true,
+          details: { playerId },
+        });
+        emitLog("library.shuffle", { actorId: actor, playerId }, buildLogContext());
+        return;
+      }
     }
 
     const sharedApplied = applyShared((maps) => {

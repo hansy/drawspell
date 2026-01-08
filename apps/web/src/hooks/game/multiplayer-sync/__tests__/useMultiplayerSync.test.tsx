@@ -1,5 +1,6 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { LocalPlayerInitResult } from "../ensureLocalPlayerInitialized";
 
 // Stub doc with only the APIs used inside the hook
 class MockDoc {
@@ -59,7 +60,13 @@ const docManagerMocks = vi.hoisted(() => ({
   getSessionAwareness: vi.fn(() => null),
   setSessionAwareness: vi.fn(),
 }));
-const ensureLocalPlayerInitialized = vi.hoisted(() => vi.fn(() => null));
+const ensureLocalPlayerInitialized = vi.hoisted(
+  () =>
+    vi.fn(() => null) as unknown as {
+      (...args: any[]): LocalPlayerInitResult;
+      mockReturnValueOnce: (value: LocalPlayerInitResult) => unknown;
+    },
+);
 const createFullSyncToStore = vi.hoisted(() => vi.fn(() => vi.fn()));
 const disposeSessionTransport = vi.hoisted(() => vi.fn());
 vi.mock("y-websocket", () => {
@@ -80,6 +87,7 @@ vi.mock("y-websocket", () => {
       this.callbacks.get(event)?.(payload);
     }
 
+    connect = vi.fn();
     disconnect = vi.fn();
     destroy = vi.fn();
   }
@@ -162,7 +170,7 @@ describe("useMultiplayerSync", () => {
   it("blocks joining when initialization reports a blocked state", async () => {
     ensureLocalPlayerInitialized.mockReturnValueOnce({
       status: "blocked",
-      reason: "room-full",
+      reason: "full",
     });
 
     const { result } = renderHook(() => useMultiplayerSync("session-123"));
@@ -194,7 +202,7 @@ describe("useMultiplayerSync", () => {
         })
       );
       expect(result.current.joinBlocked).toBe(true);
-      expect(result.current.joinBlockedReason).toBe("room-full");
+      expect(result.current.joinBlockedReason).toBe("full");
     });
   });
 

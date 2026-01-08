@@ -135,7 +135,17 @@ describe("mulligan shortcut (shared mode)", () => {
       openCountPrompt: (opts) => opts.onSubmit(7),
       handleViewZone: vi.fn(),
       handleLeave: vi.fn(),
-      actions: { drawOne, discard, shuffle, resetDeck, mulligan, unloadDeck, untapAll },
+      actions: {
+        drawOne,
+        discard,
+        shuffle,
+        resetDeck,
+        mulligan,
+        unloadDeck,
+        untapAll,
+        zoomIn: vi.fn(),
+        zoomOut: vi.fn(),
+      },
     });
 
     sync();

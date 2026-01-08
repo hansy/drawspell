@@ -4,6 +4,8 @@ import { logPermission } from "@/rules/logger";
 import { emitLog } from "@/logging/logStore";
 import { removeCard as yRemoveCard } from "@/yjs/yMutations";
 import type { Deps, GetState, SetState } from "./types";
+import { useCommandLog } from "@/lib/featureFlags";
+import { enqueueLocalCommand, getActiveCommandLog } from "@/commandLog";
 
 export const createRemoveCard =
   (
@@ -62,6 +64,21 @@ export const createRemoveCard =
       { actorId: actor, cardId, zoneId: zone.id, cardName: card.name },
       buildLogContext()
     );
+
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "card.remove.public",
+          buildPayloads: () => ({
+            payloadPublic: { cardId },
+          }),
+        });
+        return;
+      }
+    }
 
     if (applyShared((maps) => yRemoveCard(maps, cardId))) return;
 

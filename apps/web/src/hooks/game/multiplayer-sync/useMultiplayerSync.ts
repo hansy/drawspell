@@ -4,9 +4,10 @@
  * This keeps transport simple and reliable: one server relay, one provider.
  */
 import { useEffect, useRef, useState } from "react";
-import type { Awareness } from "y-protocols/awareness";
 import { useGameStore } from "@/store/gameStore";
 import { isApplyingRemoteUpdate } from "@/yjs/sync";
+import { useCommandLog } from "@/lib/featureFlags";
+import { createCommandLogSync } from "@/commandLog/sync";
 import { type LocalPlayerInitResult } from "./ensureLocalPlayerInitialized";
 import { type PeerCounts } from "./peerCount";
 import {
@@ -23,8 +24,6 @@ import { createAttemptJoin } from "./attemptJoin";
 
 export type SyncStatus = "connecting" | "connected";
 type JoinBlockedReason = NonNullable<LocalPlayerInitResult>["reason"] | null;
-
-const CLIENT_VERSION = "web-3-ws";
 
 export function useMultiplayerSync(sessionId: string) {
   const hasHydrated = useGameStore((state) => state.hasHydrated);
@@ -77,6 +76,7 @@ export function useMultiplayerSync(sessionId: string) {
       fullSyncToStore,
       doc,
       commands,
+      snapshots,
     } = resources;
     awarenessRef.current = awareness;
     localPlayerIdRef.current = ensuredPlayerId;
@@ -96,8 +96,27 @@ export function useMultiplayerSync(sessionId: string) {
     attemptJoinRef.current = attemptJoin;
 
     const SYNC_DEBOUNCE_MS = 50;
+    const commandLogSync =
+      useCommandLog && commands
+        ? createCommandLogSync({
+            sessionId,
+            commands,
+            snapshots,
+            getViewerRole: () => useGameStore.getState().viewerRole,
+            getViewerId: () => useGameStore.getState().myPlayerId,
+            setState: (next) => useGameStore.setState(next),
+          })
+        : null;
     const scheduleFullSync = () => {
-      scheduleDebouncedTimeout(fullSyncTimer, SYNC_DEBOUNCE_MS, fullSyncToStore);
+      if (commandLogSync) {
+        scheduleDebouncedTimeout(
+          fullSyncTimer,
+          SYNC_DEBOUNCE_MS,
+          () => commandLogSync.applyNewCommands(),
+        );
+      } else {
+        scheduleDebouncedTimeout(fullSyncTimer, SYNC_DEBOUNCE_MS, fullSyncToStore);
+      }
     };
 
     const handleDocUpdate = () => {
@@ -125,11 +144,22 @@ export function useMultiplayerSync(sessionId: string) {
 
     provider.on("sync", (isSynced: boolean) => {
       if (!isSynced) return;
-      scheduleDebouncedTimeout(postSyncFullSyncTimer, 50, fullSyncToStore);
+      if (commandLogSync) {
+        scheduleDebouncedTimeout(postSyncFullSyncTimer, 50, () => commandLogSync.fullSync());
+      } else {
+        scheduleDebouncedTimeout(postSyncFullSyncTimer, 50, fullSyncToStore);
+      }
       scheduleDebouncedTimeout(postSyncInitTimer, 60, attemptJoin);
     });
 
+    const connectTimer = setTimeout(() => {
+      try {
+        provider.connect();
+      } catch (_err) {}
+    }, 0);
+
     return () => {
+      clearTimeout(connectTimer);
       disposeAwareness();
       awarenessRef.current = null;
       localPlayerIdRef.current = null;

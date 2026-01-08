@@ -5,6 +5,8 @@ import { logPermission } from "@/rules/logger";
 import { emitLog } from "@/logging/logStore";
 import { patchCard as yPatchCard } from "@/yjs/yMutations";
 import type { Deps, GetState, SetState } from "./types";
+import { useCommandLog } from "@/lib/featureFlags";
+import { enqueueLocalCommand, getActiveCommandLog } from "@/commandLog";
 
 export const createTapCard =
   (
@@ -38,6 +40,21 @@ export const createTapCard =
       { actorId: actor, cardId, zoneId: card.zoneId, tapped: newTapped, cardName: card.name },
       buildLogContext()
     );
+
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "card.update.public",
+          buildPayloads: () => ({
+            payloadPublic: { cardId, updates: { tapped: newTapped } },
+          }),
+        });
+        return;
+      }
+    }
 
     if (applyShared((maps) => yPatchCard(maps, cardId, { tapped: newTapped }))) return;
 

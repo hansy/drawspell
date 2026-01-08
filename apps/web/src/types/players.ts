@@ -14,4 +14,6 @@ export interface Player {
   commanderTax: number;
   deckLoaded?: boolean;
   libraryTopReveal?: LibraryTopRevealMode;
+  signPubKey?: string;
+  encPubKey?: string;
 }

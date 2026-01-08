@@ -15,12 +15,15 @@ const getCrypto = (): Crypto => {
 const importAesKey = async (key: Uint8Array, usage: "encrypt" | "decrypt") => {
   return getCrypto().subtle.importKey(
     "raw",
-    key,
+    asBufferSource(key)!,
     { name: "AES-GCM" },
     false,
     [usage],
   );
 };
+
+const asBufferSource = (value?: Uint8Array): BufferSource | undefined =>
+  value ? (value as unknown as BufferSource) : undefined;
 
 export const aesGcmEncrypt = async (params: {
   key: Uint8Array;
@@ -34,14 +37,17 @@ export const aesGcmEncrypt = async (params: {
   }
 
   const cryptoKey = await importAesKey(params.key, "encrypt");
+  const algorithm: AesGcmParams = {
+    name: "AES-GCM",
+    iv: asBufferSource(nonce)!,
+  };
+  if (params.aad) {
+    algorithm.additionalData = asBufferSource(params.aad)!;
+  }
   const ciphertext = await getCrypto().subtle.encrypt(
-    {
-      name: "AES-GCM",
-      iv: nonce,
-      additionalData: params.aad,
-    },
+    algorithm,
     cryptoKey,
-    toBytes(params.plaintext),
+    asBufferSource(toBytes(params.plaintext))!,
   );
 
   return bytesToBase64Url(concatBytes(nonce, new Uint8Array(ciphertext)));
@@ -61,14 +67,17 @@ export const aesGcmDecrypt = async (params: {
   const ciphertext = data.slice(AES_GCM_NONCE_LENGTH);
   const cryptoKey = await importAesKey(params.key, "decrypt");
 
+  const algorithm: AesGcmParams = {
+    name: "AES-GCM",
+    iv: asBufferSource(nonce)!,
+  };
+  if (params.aad) {
+    algorithm.additionalData = asBufferSource(params.aad)!;
+  }
   const plaintext = await getCrypto().subtle.decrypt(
-    {
-      name: "AES-GCM",
-      iv: nonce,
-      additionalData: params.aad,
-    },
+    algorithm,
     cryptoKey,
-    ciphertext,
+    asBufferSource(ciphertext)!,
   );
 
   return new Uint8Array(plaintext);

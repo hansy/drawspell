@@ -1,7 +1,7 @@
-import type { Card, CardId } from "./cards";
+import type { Card } from "./cards";
 import type { Counter } from "./counters";
-import type { Player, PlayerId } from "./players";
-import type { ViewerRole, ZoneId } from "./ids";
+import type { Player } from "./players";
+import type { CardId, PlayerId, ViewerRole, ZoneId } from "./ids";
 import type { Zone } from "./zones";
 
 export interface GameState {

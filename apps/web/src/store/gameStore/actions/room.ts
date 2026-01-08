@@ -4,6 +4,8 @@ import type { GameState } from "@/types";
 import type { SharedMaps } from "@/yjs/yMutations";
 import { patchRoomMeta } from "@/yjs/yMutations";
 import { MAX_PLAYERS } from "@/lib/room";
+import { useCommandLog } from "@/lib/featureFlags";
+import { enqueueLocalCommand, getActiveCommandLog } from "@/commandLog";
 
 type SetState = StoreApi<GameState>["setState"];
 type GetState = StoreApi<GameState>["getState"];
@@ -28,12 +30,22 @@ export const createRoomActions = (
     const isFull = playerCount >= MAX_PLAYERS;
     if (!locked && isFull) return;
 
-    if (
-      applyShared((maps) => {
-        patchRoomMeta(maps, { locked });
-      })
-    )
-      return;
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "room.lock.set",
+          buildPayloads: () => ({ payloadPublic: { locked } }),
+        });
+        return;
+      }
+    }
+
+    if (applyShared((maps) => {
+      patchRoomMeta(maps, { locked });
+    })) return;
 
     set({ roomLockedByHost: locked });
   },

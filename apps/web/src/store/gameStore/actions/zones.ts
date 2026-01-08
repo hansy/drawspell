@@ -5,6 +5,8 @@ import type { SharedMaps } from "@/yjs/yMutations";
 
 import { logPermission } from "@/rules/logger";
 import { reorderZoneCards as yReorderZoneCards, upsertZone as yUpsertZone } from "@/yjs/yMutations";
+import { useCommandLog } from "@/lib/featureFlags";
+import { enqueueLocalCommand, getActiveCommandLog } from "@/commandLog";
 
 type SetState = StoreApi<GameState>["setState"];
 type GetState = StoreApi<GameState>["getState"];
@@ -64,6 +66,21 @@ export const createZoneActions = (
       orderedCardIds.every((id) => currentSet.has(id)) &&
       currentIds.every((id) => orderedCardIds.includes(id));
     if (!containsSameCards) return;
+
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "zone.reorder.public",
+          buildPayloads: () => ({
+            payloadPublic: { zoneId, cardIds: orderedCardIds },
+          }),
+        });
+        return;
+      }
+    }
 
     if (applyShared((maps) => yReorderZoneCards(maps, zoneId, orderedCardIds))) return;
 

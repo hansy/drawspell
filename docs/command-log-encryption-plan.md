@@ -11,11 +11,18 @@ This document captures the agreed design and implementation plan for hiding priv
 
 ## Progress (2026-01-07)
 
+- **Task 0 (Flag + compatibility)**: `useCommandLog` now wired into multiplayer sync with a legacy fallback and a one-time warning (`apps/web/src/hooks/game/multiplayer-sync/sessionResources.ts`).
 - **Task 1 (Crypto utilities)**: complete (`apps/web/src/crypto/*`).
 - **Task 2 (Identity + key storage)**: complete (`apps/web/src/lib/sessionIdentity.ts`, `apps/web/src/lib/sessionKeys.ts`).
-- **Task 0 (Flag + compatibility)**: `useCommandLog` now wired into multiplayer sync with a legacy fallback and a one-time warning (`apps/web/src/hooks/game/multiplayer-sync/sessionResources.ts`).
-- **Task 10 (Server gate)**: DO handshake now requires `role` + `accessKey`, with key hashes persisted per room and cleared on expiry (`apps/server/signalRoom.ts`, `apps/server/constants.ts`).
 - **Task 3 (Yjs command log scaffolding)**: complete (added `commands`/`snapshots` arrays, MAC/sign/validation/log hash helpers, and a minimal local append path for `player.join`).
+- **Task 4 (Reducer + replay)**: complete (`apps/web/src/commandLog/replay.ts`, `apps/web/src/commandLog/sync.ts`, `apps/web/src/hooks/game/multiplayer-sync/useMultiplayerSync.ts`).
+- **Task 5 (Public commands migration)**: complete (player updates, public card create/update/move, tap/untap, counters, tokens, and room/scale updates now emit commands with legacy fallback).
+- **Task 6 (Hidden zones + encryption)**: complete (hand/library/sideboard encrypted payloads; draw/shuffle/mulligan/reset/unload; face-down identity encryption).
+- **Task 7 (Selective reveals)**: complete (`card.reveal.set` with per-recipient encryption; `encPubKey` in `player.join`).
+- **Task 8 (Library top reveal)**: complete (`library.topReveal.set` + updates on library changes).
+- **Task 9 (Snapshots)**: complete (signed snapshots, validation, fast sync, pruning in `apps/web/src/commandLog/snapshots.ts` + `sync.ts`).
+- **Task 10 (Server gate)**: DO handshake now requires `role` + `accessKey`, with key hashes persisted per room and cleared on expiry (`apps/server/signalRoom.ts`, `apps/server/constants.ts`).
+- **Task 11 (Cleanup + tests)**: complete (command-log determinism / reveal / snapshot tests; legacy shared maps retained for fallback until flag flip).
 
 ## Goals
 
@@ -56,7 +63,7 @@ Stricter (chosen):
 - The server enforces `playerKey` for player connections.
 - The server enforces `spectatorKey` for spectator connections.
 - Spectators cannot connect without `spectatorKey`.
-  - Note: URL hash fragments (`#k`/`#s`) are not visible to the server. Clients must send the key in an initial auth message after connect, or move to query params if enforcing at handshake time.
+  - Note: URL hash fragments (`#k`/`#s`) are not visible to the server. Clients send the key as a query param (`accessKey`) during the initial WebSocket handshake.
 
 ## Identity
 
@@ -92,9 +99,9 @@ There are **no** shared state maps (players, cards, zones). All state is derived
   "payloadRecipientsEnc": {
     "playerId": { "epk": "base64url", "nonce": "base64url", "ct": "base64url" }
   },
-  "pubKey": "base64(ed25519 public key)",
-  "mac": "base64(hmac-sha256)",
-  "sig": "base64(ed25519 signature)"
+  "pubKey": "base64url(ed25519 public key)",
+  "mac": "base64url(hmac-sha256)",
+  "sig": "base64url(ed25519 signature)"
 }
 ```
 
@@ -127,7 +134,8 @@ Key formats:
 
 - `playerKey` and `spectatorKey`: 32 random bytes, base64url encoded.
 - `ownerKey`: 32 random bytes per player per session, base64url encoded.
-- `encPubKey`: X25519 public key, base64.
+- `signPubKey`: Ed25519 public key, base64url encoded.
+- `encPubKey`: X25519 public key, base64url encoded.
 
 Derivation (HKDF-SHA256 suggested):
 
@@ -275,9 +283,9 @@ Snapshot envelope:
   "publicState": { "...": "..." },
   "ownerEncByPlayer": { "playerId": "base64url(nonce||ct)" },
   "spectatorEnc": "base64url(nonce||ct)",
-  "pubKey": "base64(ed25519 public key)",
-  "mac": "base64(hmac-sha256)",
-  "sig": "base64(ed25519 signature)"
+  "pubKey": "base64url(ed25519 public key)",
+  "mac": "base64url(hmac-sha256)",
+  "sig": "base64url(ed25519 signature)"
 }
 ```
 
@@ -408,17 +416,18 @@ Snapshots are optional but recommended.
 
 ## Task Breakdown (Implementation Tickets)
 
+0) **Flag + compatibility** (complete): add `useCommandLog` feature flag wiring, keep legacy Yjs snapshot sync as fallback with a warning (`apps/web/src/hooks/game/multiplayer-sync/sessionResources.ts`).
 1) **Crypto utilities** (complete): add RFC 8785 canonical JSON encoding (use `canonicalize` or `json-canonicalize`), base64url helpers, SHA-256, HKDF, AES-GCM, Ed25519 + X25519 using `@noble/curves`, with unit tests (`apps/web/src/crypto/*`).
-2) **Identity + key storage** (complete): generate signing + encryption keypairs, derive `playerId = hash(signPubKey)`, store per-session in localStorage, parse `#k`/`#s` URL params, cache `playerKey`/`spectatorKey` (`apps/web/src/store/gameStore/actions/session.ts`, URL parsing helpers).
+2) **Identity + key storage** (complete): generate signing + encryption keypairs, derive `playerId = hash(signPubKey)`, store per-session in localStorage, parse `#k`/`#s` URL params, cache `playerKey`/`spectatorKey` (`apps/web/src/lib/sessionIdentity.ts`, `apps/web/src/lib/sessionKeys.ts`).
 3) **Yjs command log scaffolding** (complete): add `commands` + `snapshots` arrays to `apps/web/src/yjs/yDoc.ts`, create `appendCommand`, `validateCommand`, MAC/sign helpers, log hash chain (`apps/web/src/commandLog/*`).
-4) **Reducer + replay**: implement deterministic replay engine from command log to Zustand state, wire into `fullSyncToStore` / multiplayer sync path behind a feature flag.
-5) **Public commands migration**: move player join/update, public card create/update/move, tap/untap, counters, token creation, global counters into commands; stop direct Yjs mutations when flag on.
-6) **Hidden zones + encryption**: implement encrypted hand/library commands (`zone.set.hidden`, `library.shuffle`, `card.draw`, mulligan flows), and derive counts in public payloads; update UI selectors to use decrypted zones.
-7) **Selective reveals**: implement `card.reveal.set` with per-recipient encryption using X25519 and `payloadRecipientsEnc`; publish `encPubKey` in `player.join`; support revoke.
-8) **Library top reveal**: implement `library.topReveal.set` with `mode: self|all`, and only include identity when `mode === all`.
-9) **Snapshots**: signed snapshot emitter/validator, fast-load path, pruning policy.
-10) **Server gate** (complete): enforce `playerKey` for player connections and `spectatorKey` for spectator connections in `apps/server/signalRoom.ts`/`apps/server/worker.ts`.
-11) **Cleanup + tests**: remove legacy shared maps behind flag, add regression tests for permissions parity, signature/MAC validation, replay determinism, selective reveal, snapshot correctness.
+4) **Reducer + replay** (complete): deterministic replay engine and command log sync wired behind the flag (`apps/web/src/commandLog/replay.ts`, `apps/web/src/commandLog/sync.ts`, `apps/web/src/hooks/game/multiplayer-sync/useMultiplayerSync.ts`).
+5) **Public commands migration** (complete): player join/update, public card create/update/move, tap/untap, counters, token creation, global counters, room lock + battlefield scale now emit commands; legacy Yjs fallback remains for the flag-off path.
+6) **Hidden zones + encryption** (complete): encrypted hand/library/sideboard payloads, draw/shuffle/mulligan/reset/unload flows, face-down identity encryption in public commands.
+7) **Selective reveals** (complete): `card.reveal.set` with per-recipient X25519 + `payloadRecipientsEnc`, `encPubKey` in `player.join`, revoke supported via empty reveal.
+8) **Library top reveal** (complete): `library.topReveal.set` with `mode: self|all|null`, identity only in `all`, and updates on library mutations.
+9) **Snapshots** (complete): signed snapshot emitter/validator, fast sync, pruning to last 3 per actor.
+10) **Server gate** (complete): enforce `playerKey` for player connections and `spectatorKey` for spectator connections in `apps/server/signalRoom.ts` and `apps/server/constants.ts`.
+11) **Cleanup + tests** (complete): command log regression tests added (determinism, selective reveal, snapshot correctness); legacy shared maps retained for fallback until the flag is default.
 
 ## Decisions Already Made
 

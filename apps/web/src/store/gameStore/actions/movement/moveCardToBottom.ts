@@ -1,4 +1,4 @@
-import type { GameState } from "@/types";
+import type { Card, GameState } from "@/types";
 
 import { ZONE, isCommanderZoneType } from "@/constants/zones";
 import { canMoveCard } from "@/rules/permissions";
@@ -26,6 +26,14 @@ import {
   removeCardFromZones,
 } from "../movementState";
 import type { Deps, GetState, SetState } from "./types";
+import { useCommandLog } from "@/lib/featureFlags";
+import { enqueueLocalCommand, getActiveCommandLog, buildHiddenZonePayloads, buildLibraryTopRevealPayload } from "@/commandLog";
+import { v4 as uuidv4 } from "uuid";
+import { extractCardIdentity, stripCardIdentity } from "@/commandLog/identity";
+import { encryptPayloadForRecipient, deriveSpectatorAesKey, encryptJsonPayload } from "@/commandLog/crypto";
+import { generateX25519KeyPair } from "@/crypto/x25519";
+import { getSessionAccessKeys } from "@/lib/sessionKeys";
+import { base64UrlToBytes } from "@/crypto/base64url";
 
 export const createMoveCardToBottom =
   (
@@ -109,6 +117,228 @@ export const createMoveCardToBottom =
       };
       if (controlShift) movePayload.gainsControlBy = nextControllerId;
       emitLog("card.move", movePayload, buildLogContext());
+    }
+
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        const buildFaceDownPayloads = async (cardForPayload: Card) => {
+          const identity = extractCardIdentity(cardForPayload);
+          const payloadRecipientsEnc: Record<string, any> = {};
+          const owner = get().players[cardForPayload.ownerId];
+          if (owner?.encPubKey) {
+            const recipientPubKey = base64UrlToBytes(owner.encPubKey);
+            const ephemeral = generateX25519KeyPair();
+            payloadRecipientsEnc[cardForPayload.ownerId] = await encryptPayloadForRecipient({
+              payload: identity,
+              recipientPubKey,
+              ephemeralKeyPair: ephemeral,
+              sessionId: active.sessionId,
+            });
+          }
+
+          let payloadSpectatorEnc: string | undefined;
+          const keys = getSessionAccessKeys(active.sessionId);
+          if (keys.spectatorKey) {
+            const spectatorKey = deriveSpectatorAesKey({
+              spectatorKey: base64UrlToBytes(keys.spectatorKey),
+              sessionId: active.sessionId,
+            });
+            payloadSpectatorEnc = await encryptJsonPayload(spectatorKey, identity);
+          }
+
+          return {
+            payloadRecipientsEnc:
+              Object.keys(payloadRecipientsEnc).length > 0 ? payloadRecipientsEnc : undefined,
+            payloadSpectatorEnc,
+          };
+        };
+
+        const isHidden = (zoneType: string) =>
+          zoneType === ZONE.HAND || zoneType === ZONE.LIBRARY || zoneType === ZONE.SIDEBOARD;
+        const fromHidden = isHidden(fromZone.type);
+        const toHidden = isHidden(toZone.type);
+
+        if (fromHidden || toHidden) {
+          const queued: Array<{ zone: typeof fromZone; order: string[]; cards: Card[] }> = [];
+
+          if (fromHidden) {
+            const fromOrder = fromZone.cardIds.filter((id) => id !== cardId);
+            const fromCards = fromOrder
+              .map((id) => get().cards[id])
+              .filter((c): c is Card => Boolean(c));
+            queued.push({ zone: fromZone, order: fromOrder, cards: fromCards });
+          }
+
+          if (toHidden) {
+            const shouldResetIdentity =
+              toZone.type === ZONE.LIBRARY && !fromHidden;
+            const nextCardId = shouldResetIdentity ? uuidv4() : cardId;
+            const toOrder = [nextCardId, ...toZone.cardIds.filter((id) => id !== cardId)];
+            const movingCard = {
+              ...resetCardToFrontFace(card),
+              zoneId: toZone.id,
+              id: nextCardId,
+              controllerId: card.ownerId,
+              faceDown: false,
+              knownToAll: false,
+              revealedToAll: false,
+              revealedTo: [],
+              counters: enforceZoneCounterRules(card.counters, toZone),
+              position: { x: 0, y: 0 },
+              rotation: 0,
+            };
+            const toCards = toOrder
+              .map((id) => (id === nextCardId ? movingCard : get().cards[id]))
+              .filter((c): c is Card => Boolean(c));
+            queued.push({ zone: toZone, order: toOrder, cards: toCards });
+          }
+
+          for (const item of queued) {
+            enqueueLocalCommand({
+              sessionId: active.sessionId,
+              commands: active.commands,
+              type: "zone.set.hidden",
+              buildPayloads: async () => {
+                const payloads = await buildHiddenZonePayloads({
+                  sessionId: active.sessionId,
+                  ownerId: item.zone.ownerId,
+                  zoneType: item.zone.type,
+                  cards: item.cards,
+                  order: item.order,
+                });
+                return {
+                  payloadPublic: payloads.payloadPublic,
+                  payloadOwnerEnc: payloads.payloadOwnerEnc,
+                  payloadSpectatorEnc: payloads.payloadSpectatorEnc,
+                };
+              },
+            });
+          }
+
+          const libraryUpdate = queued.find((item) => item.zone.type === ZONE.LIBRARY);
+          if (
+            libraryUpdate &&
+            get().players[libraryUpdate.zone.ownerId]?.libraryTopReveal === "all"
+          ) {
+            const cardsById = Object.fromEntries(
+              libraryUpdate.cards.map((c) => [c.id, c]),
+            );
+            enqueueLocalCommand({
+              sessionId: active.sessionId,
+              commands: active.commands,
+              type: "library.topReveal.set",
+              buildPayloads: () =>
+                buildLibraryTopRevealPayload({
+                  ownerId: libraryUpdate.zone.ownerId,
+                  order: libraryUpdate.order,
+                  cardsById,
+                }),
+            });
+          }
+
+          if (!toHidden) {
+            const leavingBattlefield =
+              fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD;
+            const resetToFront = leavingBattlefield ? resetCardToFrontFace(card) : card;
+            const nextCounters = enforceZoneCounterRules(card.counters, toZone);
+            const publicCard = {
+              ...resetToFront,
+              ...(revealPatch ?? {}),
+              zoneId: toZoneId,
+              tapped: toZone.type === ZONE.BATTLEFIELD ? card.tapped : false,
+              counters: nextCounters,
+              faceDown: faceDownResolution.effectiveFaceDown,
+              controllerId: controlWillChange ? nextControllerId : resetToFront.controllerId,
+            };
+            const shouldHideIdentity =
+              toZone.type === ZONE.BATTLEFIELD && faceDownResolution.effectiveFaceDown;
+            enqueueLocalCommand({
+              sessionId: active.sessionId,
+              commands: active.commands,
+              type: "card.create.public",
+              buildPayloads: async () => {
+                let payloadRecipientsEnc: Record<string, any> | undefined;
+                let payloadSpectatorEnc: string | undefined;
+                if (shouldHideIdentity) {
+                  const payloads = await buildFaceDownPayloads(publicCard);
+                  payloadRecipientsEnc = payloads.payloadRecipientsEnc;
+                  payloadSpectatorEnc = payloads.payloadSpectatorEnc;
+                }
+                return {
+                  payloadPublic: {
+                    card: shouldHideIdentity ? stripCardIdentity(publicCard) : publicCard,
+                  },
+                  payloadRecipientsEnc,
+                  payloadSpectatorEnc,
+                };
+              },
+            });
+          }
+
+          if (!fromHidden) {
+            enqueueLocalCommand({
+              sessionId: active.sessionId,
+              commands: active.commands,
+              type: "card.remove.public",
+              buildPayloads: () => ({
+                payloadPublic: { cardId },
+              }),
+            });
+          }
+
+          return;
+        }
+
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "card.move.public",
+          buildPayloads: async () => {
+            const shouldHideIdentity =
+              toZone.type === ZONE.BATTLEFIELD && faceDownResolution.effectiveFaceDown;
+            let payloadRecipientsEnc: Record<string, any> | undefined;
+            let payloadSpectatorEnc: string | undefined;
+            if (shouldHideIdentity) {
+              const payloads = await buildFaceDownPayloads(card);
+              payloadRecipientsEnc = payloads.payloadRecipientsEnc;
+              payloadSpectatorEnc = payloads.payloadSpectatorEnc;
+            }
+            return {
+              payloadPublic: {
+                cardId,
+                fromZoneId,
+                toZoneId,
+                placement: "bottom",
+                faceDown: faceDownResolution.effectiveFaceDown,
+                controllerId: controlWillChange ? nextControllerId : undefined,
+              },
+              payloadRecipientsEnc,
+              payloadSpectatorEnc,
+            };
+          },
+        });
+        const shouldRevealIdentity =
+          card.faceDown === true &&
+          faceDownResolution.effectiveFaceDown === false;
+        if (shouldRevealIdentity) {
+          enqueueLocalCommand({
+            sessionId: active.sessionId,
+            commands: active.commands,
+            type: "card.update.public",
+            buildPayloads: () => ({
+              payloadPublic: {
+                cardId,
+                updates: {
+                  knownToAll: true,
+                  ...extractCardIdentity(card),
+                },
+              },
+            }),
+          });
+        }
+        return;
+      }
     }
 
     applyShared((maps) => {

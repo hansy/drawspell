@@ -8,6 +8,8 @@ import { isTransformableCard, syncCardStatsToFace } from "@/lib/cardDisplay";
 import { transformCard as yTransformCard } from "@/yjs/yMutations";
 import { computeTransformTargetIndex } from "../cardsModel";
 import type { Deps, GetState, SetState } from "./types";
+import { useCommandLog } from "@/lib/featureFlags";
+import { enqueueLocalCommand, getActiveCommandLog } from "@/commandLog";
 
 export const createTransformCard =
   (
@@ -52,6 +54,21 @@ export const createTransformCard =
       },
       buildLogContext()
     );
+
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "card.update.public",
+          buildPayloads: () => ({
+            payloadPublic: { cardId, updates: { currentFaceIndex: targetIndex } },
+          }),
+        });
+        return;
+      }
+    }
 
     if (applyShared((maps) => yTransformCard(maps, cardId, targetIndex))) return;
 

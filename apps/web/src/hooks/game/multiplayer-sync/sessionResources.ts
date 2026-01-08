@@ -4,13 +4,14 @@ import { WebsocketProvider } from "y-websocket";
 import { bindSharedLogStore } from "@/logging/logStore";
 import { getOrCreateClientKey } from "@/lib/clientKey";
 import { useCommandLog } from "@/lib/featureFlags";
+import { createSafeStorage } from "@/lib/safeStorage";
 import {
   getSessionKeyForRole,
   syncSessionAccessKeysFromLocation,
 } from "@/lib/sessionKeys";
 import { buildSignalingUrlFromEnv } from "@/lib/wsSignaling";
 import { useGameStore } from "@/store/gameStore";
-import type { CommandEnvelope } from "@/commandLog/types";
+import type { CommandEnvelope, SignedSnapshot } from "@/commandLog/types";
 import {
   acquireSession,
   cleanupStaleSessions,
@@ -35,6 +36,7 @@ export type SessionSetupResult = {
   ensuredPlayerId: string;
   fullSyncToStore: () => void;
   commands: Y.Array<CommandEnvelope>;
+  snapshots: Y.Array<SignedSnapshot>;
 };
 
 export type SessionSetupDeps = {
@@ -48,7 +50,8 @@ export function setupSessionResources({
   sessionId,
   statusSetter,
 }: SessionSetupDeps): SessionSetupResult | null {
-  const envUrl = import.meta.env.VITE_WEBSOCKET_SERVER;
+  const envUrl =
+    import.meta.env.VITE_WEBSOCKET_SERVER || "http://localhost:8787";
   const signalingUrl = buildSignalingUrlFromEnv(envUrl);
   if (!signalingUrl) {
     console.error("[signal] VITE_WEBSOCKET_SERVER is required");
@@ -70,6 +73,7 @@ export function setupSessionResources({
     battlefieldViewScale,
     logs,
     commands,
+    snapshots,
     meta,
   } = handles;
 
@@ -87,7 +91,8 @@ export function setupSessionResources({
   // Setup store
   const store = useGameStore.getState();
   const ensuredPlayerId = store.ensurePlayerIdForSession(sessionId);
-  const needsReset = store.sessionId !== sessionId || store.myPlayerId !== ensuredPlayerId;
+  const needsReset =
+    store.sessionId !== sessionId || store.myPlayerId !== ensuredPlayerId;
   if (needsReset) {
     store.resetSession(sessionId);
   } else {
@@ -104,13 +109,19 @@ export function setupSessionResources({
   }
   const viewerRole = useGameStore.getState().viewerRole;
   const accessKey = getSessionKeyForRole(keys, viewerRole);
-  const sessionVersion = useGameStore.getState().ensureSessionVersion(sessionId);
+  const sessionVersion = useGameStore
+    .getState()
+    .ensureSessionVersion(sessionId);
 
   bindSharedLogStore(logs);
 
   const awareness = new Awareness(doc);
+  const clientStorage =
+    typeof window !== "undefined" && window.sessionStorage
+      ? window.sessionStorage
+      : createSafeStorage();
   const clientKey = getOrCreateClientKey({
-    storage: typeof window !== "undefined" ? window.sessionStorage : undefined,
+    storage: clientStorage,
     randomUUID:
       typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
         ? crypto.randomUUID.bind(crypto)
@@ -130,7 +141,7 @@ export function setupSessionResources({
 
   const provider = new WebsocketProvider(signalingUrl, sessionId, doc, {
     awareness,
-    connect: true,
+    connect: false,
     params,
   });
 
@@ -155,7 +166,7 @@ export function setupSessionResources({
     ? () => {
         if (!warned) {
           console.warn(
-            "[command-log] useCommandLog is enabled; falling back to legacy Yjs snapshot sync until command log replay is wired.",
+            "[command-log] useCommandLog is enabled; falling back to legacy Yjs snapshot sync until command log replay is wired."
           );
           warned = true;
         }
@@ -173,12 +184,13 @@ export function setupSessionResources({
     ensuredPlayerId,
     fullSyncToStore,
     commands,
+    snapshots,
   };
 }
 
 export function teardownSessionResources(
   sessionId: string,
-  resources: Pick<SessionSetupResult, "awareness" | "provider">,
+  resources: Pick<SessionSetupResult, "awareness" | "provider">
 ) {
   bindSharedLogStore(null);
   setActiveSession(null);
@@ -190,7 +202,7 @@ export function teardownSessionResources(
       setSessionProvider,
       getSessionAwareness,
       setSessionAwareness,
-    },
+    }
   );
   releaseSession(sessionId);
   cleanupStaleSessions();

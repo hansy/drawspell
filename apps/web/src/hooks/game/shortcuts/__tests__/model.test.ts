@@ -87,6 +87,8 @@ describe("gameShortcuts/model", () => {
       mulligan: vi.fn(),
       unloadDeck: vi.fn(),
       untapAll: vi.fn(),
+      zoomIn: vi.fn(),
+      zoomOut: vi.fn(),
     };
 
     const base = {
@@ -138,6 +140,8 @@ describe("gameShortcuts/model", () => {
         mulligan: vi.fn(),
         unloadDeck: vi.fn(),
         untapAll: vi.fn(),
+        zoomIn: vi.fn(),
+        zoomOut: vi.fn(),
       },
     });
 

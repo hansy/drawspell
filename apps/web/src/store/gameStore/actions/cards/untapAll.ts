@@ -3,6 +3,8 @@ import type { GameState } from "@/types";
 import { emitLog } from "@/logging/logStore";
 import { patchCard as yPatchCard, sharedSnapshot } from "@/yjs/yMutations";
 import type { Deps, GetState, SetState } from "./types";
+import { useCommandLog } from "@/lib/featureFlags";
+import { enqueueLocalCommand, getActiveCommandLog } from "@/commandLog";
 
 export const createUntapAll =
   (
@@ -12,6 +14,22 @@ export const createUntapAll =
   ): GameState["untapAll"] =>
   (playerId, _isRemote) => {
     if (get().viewerRole === "spectator") return;
+    if (useCommandLog) {
+      const active = getActiveCommandLog();
+      if (active) {
+        enqueueLocalCommand({
+          sessionId: active.sessionId,
+          commands: active.commands,
+          type: "card.untapAll",
+          buildPayloads: () => ({
+            payloadPublic: { playerId },
+          }),
+        });
+        emitLog("card.untapAll", { actorId: playerId, playerId }, buildLogContext());
+        return;
+      }
+    }
+
     if (
       applyShared((maps) => {
         const snapshot = sharedSnapshot(maps);
