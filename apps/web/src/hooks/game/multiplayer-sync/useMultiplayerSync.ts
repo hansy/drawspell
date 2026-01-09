@@ -144,12 +144,19 @@ export function useMultiplayerSync(sessionId: string) {
 
     provider.on("sync", (isSynced: boolean) => {
       if (!isSynced) return;
-      if (commandLogSync) {
-        scheduleDebouncedTimeout(postSyncFullSyncTimer, 50, () => commandLogSync.fullSync());
-      } else {
-        scheduleDebouncedTimeout(postSyncFullSyncTimer, 50, fullSyncToStore);
-      }
-      scheduleDebouncedTimeout(postSyncInitTimer, 60, attemptJoin);
+      scheduleDebouncedTimeout(postSyncFullSyncTimer, 50, () => {
+        const finalizeJoin = () =>
+          scheduleDebouncedTimeout(postSyncInitTimer, 10, attemptJoin);
+        if (commandLogSync) {
+          commandLogSync
+            .fullSync()
+            .then(finalizeJoin)
+            .catch(finalizeJoin);
+          return;
+        }
+        fullSyncToStore();
+        finalizeJoin();
+      });
     });
 
     const connectTimer = setTimeout(() => {

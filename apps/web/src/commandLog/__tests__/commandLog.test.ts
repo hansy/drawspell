@@ -406,6 +406,63 @@ describe("command log", () => {
     expect(state.players[actorB]).toBeUndefined();
   });
 
+  it("preserves existing player color on rejoin", async () => {
+    const actorKeys = generateEd25519KeyPair();
+    const actorId = deriveActorIdFromPublicKey(actorKeys.publicKey);
+    const sessionId = "session-color";
+    const playerKey = new Uint8Array(32).fill(5);
+
+    const doc = new Y.Doc();
+    const commands = doc.getArray<CommandEnvelope>("commands");
+
+    appendCommand({
+      commands,
+      sessionId,
+      playerKey,
+      signPrivateKey: actorKeys.privateKey,
+      envelope: {
+        v: 1,
+        id: "cmd-c1",
+        actorId,
+        seq: 1,
+        ts: 1,
+        type: "player.join",
+        payloadPublic: { playerId: actorId, name: "First", color: "violet" },
+        pubKey: bytesToBase64Url(actorKeys.publicKey),
+      },
+    });
+
+    appendCommand({
+      commands,
+      sessionId,
+      playerKey,
+      signPrivateKey: actorKeys.privateKey,
+      envelope: {
+        v: 1,
+        id: "cmd-c2",
+        actorId,
+        seq: 2,
+        ts: 2,
+        type: "player.join",
+        payloadPublic: { playerId: actorId, name: "Second", color: "rose" },
+        pubKey: bytesToBase64Url(actorKeys.publicKey),
+      },
+    });
+
+    let state = createEmptyCommandLogState();
+    let meta = createCommandLogMeta();
+    const ctx = buildContext({ sessionId, viewerId: actorId, playerKey });
+    for (let i = 0; i < commands.length; i += 1) {
+      const envelope = commands.get(i) as CommandEnvelope;
+      const result = await applyCommandLog({ state, meta, envelope, ctx });
+      state = result.state;
+      meta = result.meta;
+    }
+
+    expect(state.players[actorId]?.name).toBe("Second");
+    expect(state.players[actorId]?.color).toBe("violet");
+  });
+
   it("ignores leave commands when actor does not match playerId", async () => {
     const actorAKeys = generateEd25519KeyPair();
     const actorBKeys = generateEd25519KeyPair();

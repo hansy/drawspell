@@ -837,7 +837,7 @@ const applyCommandInternal = async (params: {
         nextPlayers[data.playerId] = {
           ...existing,
           name: data.name ?? existing.name,
-          color: data.color ?? existing.color,
+          color: existing.color ?? data.color,
           signPubKey: data.signPubKey ?? existing.signPubKey,
           encPubKey: data.encPubKey ?? existing.encPubKey,
         };
