@@ -5,7 +5,11 @@ import { useGameStore } from "@/store/gameStore";
 import { ZONE } from "@/constants/zones";
 
 import { useCardPreview } from "@/components/game/card/CardPreviewProvider";
-import { canViewerSeeCardIdentity } from "@/lib/reveal";
+import {
+  canViewerSeeCardIdentity,
+  canViewerSeeLibraryCardByReveal,
+  canViewerSeeLibraryTopCard,
+} from "@/lib/reveal";
 import { getFlipRotation } from "@/lib/cardDisplay";
 import { useSelectionStore } from "@/store/selectionStore";
 import {
@@ -67,10 +71,10 @@ export const useCardController = (props: CardProps): CardController => {
     Boolean(disableInteractions) ||
     Boolean(propIsDragging) ||
     internalIsDragging;
-  const zoneType = useGameStore((state) => state.zones[card.zoneId]?.type);
-  const zoneOwnerId = useGameStore(
-    (state) => state.zones[card.zoneId]?.ownerId
-  );
+  const zone = useGameStore((state) => state.zones[card.zoneId]);
+  const zoneType = zone?.type;
+  const zoneOwnerId = zone?.ownerId;
+  const zoneCardIds = zone?.cardIds ?? [];
   const myPlayerId = useGameStore((state) => state.myPlayerId);
   const viewerRole = useGameStore((state) => state.viewerRole);
   const tapCard = useGameStore((state) => state.tapCard);
@@ -83,9 +87,25 @@ export const useCardController = (props: CardProps): CardController => {
   const toggleCardSelection = useSelectionStore((state) => state.toggleCard);
   const selectOnly = useSelectionStore((state) => state.selectOnly);
 
+  const isZoneTopCard =
+    zoneCardIds.length > 0 && zoneCardIds[zoneCardIds.length - 1] === card.id;
+  const libraryTopReveal = useGameStore(
+    (state) => state.players[zoneOwnerId ?? card.ownerId]?.libraryTopReveal
+  );
+  const canSeeLibraryTop =
+    zoneType === ZONE.LIBRARY &&
+    isZoneTopCard &&
+    (canViewerSeeLibraryCardByReveal(card, myPlayerId, viewerRole) ||
+      canViewerSeeLibraryTopCard({
+        viewerId: myPlayerId,
+        ownerId: zoneOwnerId ?? card.ownerId,
+        mode: libraryTopReveal,
+      }));
   const canPeek = React.useMemo(
-    () => canViewerSeeCardIdentity(card, zoneType, myPlayerId, viewerRole),
-    [card, zoneType, myPlayerId, viewerRole]
+    () =>
+      canViewerSeeCardIdentity(card, zoneType, myPlayerId, viewerRole) ||
+      Boolean(canSeeLibraryTop),
+    [card, zoneType, myPlayerId, viewerRole, canSeeLibraryTop]
   );
 
   const style = React.useMemo<React.CSSProperties>(
@@ -128,6 +148,8 @@ export const useCardController = (props: CardProps): CardController => {
         canPeek,
         faceDown,
         isDragging: interactionsDisabled,
+        isZoneTopCard,
+        allowLibraryTopPreview: canSeeLibraryTop,
       });
       if (policy.kind === "none") return;
 
@@ -146,7 +168,16 @@ export const useCardController = (props: CardProps): CardController => {
         hoverTimeoutRef.current = null;
       }, policy.delayMs);
     },
-    [interactionsDisabled, canPeek, card, faceDown, showPreview, zoneType]
+    [
+      interactionsDisabled,
+      canPeek,
+      card,
+      faceDown,
+      showPreview,
+      zoneType,
+      isZoneTopCard,
+      canSeeLibraryTop,
+    ]
   );
 
   const handleMouseLeave = React.useCallback(() => {
@@ -323,6 +354,7 @@ export const useCardController = (props: CardProps): CardController => {
       highlightColor,
       isSelected: propIsSelected,
       disableHoverAnimation,
+      showCommanderBadge: card.isCommander && zoneType === ZONE.BATTLEFIELD,
     },
     draggableProps: {
       ...listeners,
