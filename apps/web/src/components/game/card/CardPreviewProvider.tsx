@@ -69,8 +69,9 @@ export const CardPreviewProvider: React.FC<{ children: React.ReactNode }> = ({
       const card = useGameStore.getState().cards[cardId];
       if (!card) return;
       const resolvedAnchor =
-        anchorEl ??
-        (document.querySelector(`[data-card-id="${cardId}"]`) as HTMLElement | null);
+        anchorEl && anchorEl.isConnected
+          ? anchorEl
+          : (document.querySelector(`[data-card-id="${cardId}"]`) as HTMLElement | null);
       if (!resolvedAnchor) return;
       toggleLock(card, resolvedAnchor);
     });

@@ -127,10 +127,20 @@ export const useCardController = (props: CardProps): CardController => {
   const hoverTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const hoverLeaveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const lockPressTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
   const lockPressStartRef = React.useRef<{ x: number; y: number } | null>(null);
+
+  const clearHoverLeaveTimeout = React.useCallback(() => {
+    if (hoverLeaveTimeoutRef.current) {
+      clearTimeout(hoverLeaveTimeoutRef.current);
+      hoverLeaveTimeoutRef.current = null;
+    }
+  }, []);
 
   const clearLockPress = React.useCallback(() => {
     if (lockPressTimeoutRef.current) {
@@ -142,6 +152,7 @@ export const useCardController = (props: CardProps): CardController => {
 
   const handleMouseEnter = React.useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      clearHoverLeaveTimeout();
       if (interactionsDisabled) return;
       const policy = getCardHoverPreviewPolicy({
         zoneType,
@@ -169,6 +180,7 @@ export const useCardController = (props: CardProps): CardController => {
       }, policy.delayMs);
     },
     [
+      clearHoverLeaveTimeout,
       interactionsDisabled,
       canPeek,
       card,
@@ -180,13 +192,30 @@ export const useCardController = (props: CardProps): CardController => {
     ]
   );
 
-  const handleMouseLeave = React.useCallback(() => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
-    }
-    hidePreview();
-  }, [hidePreview]);
+  const handleMouseLeave = React.useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const { clientX, clientY } = e;
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = null;
+      }
+      clearHoverLeaveTimeout();
+      hoverLeaveTimeoutRef.current = setTimeout(() => {
+        hoverLeaveTimeoutRef.current = null;
+        if (typeof document !== "undefined") {
+          const element = document.elementFromPoint(clientX, clientY);
+          if (
+            element instanceof Element &&
+            element.closest(`[data-card-id="${card.id}"]`)
+          ) {
+            return;
+          }
+        }
+        hidePreview();
+      }, 50);
+    },
+    [clearHoverLeaveTimeout, hidePreview, card.id]
+  );
 
   const handleLockPressStart = React.useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -320,10 +349,11 @@ export const useCardController = (props: CardProps): CardController => {
       if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current);
       }
+      clearHoverLeaveTimeout();
       clearLockPress();
       hidePreview();
     };
-  }, [hidePreview, clearLockPress]);
+  }, [hidePreview, clearLockPress, clearHoverLeaveTimeout]);
 
   const disableHoverAnimation =
     shouldDisableHoverAnimation({
