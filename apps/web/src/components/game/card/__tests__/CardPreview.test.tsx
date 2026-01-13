@@ -142,6 +142,103 @@ describe("CardPreview", () => {
     anchorEl.remove();
   });
 
+  it("shows actual PT for face-down battlefield cards when viewer can peek", async () => {
+    const zoneId = "me-battlefield";
+    const cardId = "c1";
+    const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
+    const card: CardType = {
+      ...buildCard(cardId, "Test Card", zoneId),
+      faceDown: true,
+      faceDownMode: "morph",
+      power: "6",
+      toughness: "7",
+      basePower: "6",
+      baseToughness: "7",
+    };
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me") },
+      myPlayerId: "me",
+      viewerRole: "player",
+    }));
+
+    const anchorRect = {
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 100,
+      width: 100,
+      height: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect;
+
+    const anchorEl = document.createElement("div");
+    vi.spyOn(anchorEl, "getBoundingClientRect").mockReturnValue(anchorRect);
+    document.body.appendChild(anchorEl);
+
+    render(<CardPreview card={card} anchorEl={anchorEl} locked={false} />);
+
+    expect(await screen.findByText("Test Card")).toBeTruthy();
+    expect(screen.getByText("6")).toBeTruthy();
+    expect(screen.getByText("7")).toBeTruthy();
+    anchorEl.remove();
+  });
+
+  it("shows actual PT for face-down battlefield cards revealed to the viewer", async () => {
+    const zoneId = "opp-battlefield";
+    const cardId = "c1";
+    const zone = buildZone(zoneId, "BATTLEFIELD", "opp", [cardId]);
+    const card: CardType = {
+      ...buildCard(cardId, "Test Card", zoneId),
+      ownerId: "opp",
+      controllerId: "opp",
+      faceDown: true,
+      faceDownMode: "morph",
+      power: "6",
+      toughness: "7",
+      basePower: "6",
+      baseToughness: "7",
+      revealedTo: ["me"],
+    };
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me"), opp: buildPlayer("opp", "Opp") },
+      myPlayerId: "me",
+      viewerRole: "player",
+    }));
+
+    const anchorRect = {
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 100,
+      width: 100,
+      height: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect;
+
+    const anchorEl = document.createElement("div");
+    vi.spyOn(anchorEl, "getBoundingClientRect").mockReturnValue(anchorRect);
+    document.body.appendChild(anchorEl);
+
+    render(<CardPreview card={card} anchorEl={anchorEl} locked={false} />);
+
+    expect(await screen.findByText("Test Card")).toBeTruthy();
+    expect(screen.getByText("6")).toBeTruthy();
+    expect(screen.getByText("7")).toBeTruthy();
+    anchorEl.remove();
+  });
+
   it("locks preview after a 400ms long press", () => {
     vi.useFakeTimers();
 

@@ -81,6 +81,20 @@ describe("reveal", () => {
     ).toBe(false);
   });
 
+  it("allows revealed viewers to see face-down battlefield identity", () => {
+    const card = {
+      ownerId: "p1",
+      controllerId: "p1",
+      faceDown: true,
+      knownToAll: false,
+      revealedToAll: false,
+      revealedTo: ["p2"],
+    };
+
+    expect(canViewerSeeCardIdentity(card, ZONE.BATTLEFIELD, "p2")).toBe(true);
+    expect(canViewerSeeCardIdentity(card, ZONE.BATTLEFIELD, "p3")).toBe(false);
+  });
+
   it("lets spectators see all hands and revealed library cards", () => {
     const baseCard = {
       ownerId: "p1",

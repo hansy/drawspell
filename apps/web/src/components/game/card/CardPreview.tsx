@@ -22,6 +22,7 @@ import {
   FACE_DOWN_MORPH_STAT,
   shouldShowPowerToughness,
 } from "@/lib/cardDisplay";
+import { canViewerSeeCardIdentity } from "@/lib/reveal";
 import { CardPreviewView } from "./CardPreviewView";
 
 interface CardPreviewProps {
@@ -45,6 +46,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   const updateCard = useGameStore((state) => state.updateCard);
   const myPlayerId = useGameStore((state) => state.myPlayerId);
   const players = useGameStore((state) => state.players);
+  const viewerRole = useGameStore((state) => state.viewerRole);
 
   // Subscribe to the live card data to ensure we have the latest P/T and counters
   const liveCard = useGameStore((state) => state.cards[card.id]);
@@ -53,23 +55,25 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   const currentCard = liveCard || card;
   const zoneType = useGameStore((state) => state.zones[currentCard.zoneId]?.type);
   const faceDownOnBattlefield = zoneType === ZONE.BATTLEFIELD && currentCard.faceDown;
-  const morphFaceDown = isMorphFaceDown(currentCard, faceDownOnBattlefield);
-  const showPT = faceDownOnBattlefield
+  const canPeek = canViewerSeeCardIdentity(currentCard, zoneType, myPlayerId, viewerRole);
+  const maskFaceDown = faceDownOnBattlefield && !canPeek;
+  const morphFaceDown = isMorphFaceDown(currentCard, maskFaceDown);
+  const showPT = maskFaceDown
     ? morphFaceDown
     : shouldShowPowerToughness(currentCard);
-  const displayPower = faceDownOnBattlefield
+  const displayPower = maskFaceDown
     ? morphFaceDown
       ? getMorphDisplayStat(currentCard, "power")
       : undefined
     : getDisplayPower(currentCard);
-  const displayToughness = faceDownOnBattlefield
+  const displayToughness = maskFaceDown
     ? morphFaceDown
       ? getMorphDisplayStat(currentCard, "toughness")
       : undefined
     : getDisplayToughness(currentCard);
-  const ptBasePower = faceDownOnBattlefield && morphFaceDown ? FACE_DOWN_MORPH_STAT : currentCard.basePower;
+  const ptBasePower = maskFaceDown && morphFaceDown ? FACE_DOWN_MORPH_STAT : currentCard.basePower;
   const ptBaseToughness =
-    faceDownOnBattlefield && morphFaceDown ? FACE_DOWN_MORPH_STAT : currentCard.baseToughness;
+    maskFaceDown && morphFaceDown ? FACE_DOWN_MORPH_STAT : currentCard.baseToughness;
   const flipRotation = getFlipRotation(currentCard);
 
   // Local face override for previewing DFCs

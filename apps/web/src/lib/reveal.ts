@@ -61,6 +61,9 @@ export const canViewerSeeCardIdentity = (
   if (card.ownerId === viewerId) return true;
 
   if (zoneType === ZONE.BATTLEFIELD && card.faceDown) {
+    if (card.knownToAll) return true;
+    if (card.revealedToAll) return true;
+    if (card.revealedTo?.includes(viewerId)) return true;
     return canViewerPeekBattlefieldFaceDown(card, viewerId, viewerRole);
   }
 
