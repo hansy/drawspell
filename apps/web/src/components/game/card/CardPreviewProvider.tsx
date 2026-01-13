@@ -13,7 +13,7 @@ type PreviewState = {
 
 interface CardPreviewContextValue {
   showPreview: (card: CardType, anchorEl: HTMLElement) => void;
-  hidePreview: () => void;
+  hidePreview: (cardId?: string) => void;
   toggleLock: (card: CardType, anchorEl: HTMLElement) => void;
   unlockPreview: () => void;
   isLocked: boolean;
@@ -36,9 +36,10 @@ export const CardPreviewProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   }, []);
 
-  const hidePreview = React.useCallback(() => {
+  const hidePreview = React.useCallback((cardId?: string) => {
     setPreview((prev) => {
       if (prev?.locked) return prev;
+      if (cardId && prev?.card.id !== cardId) return prev;
       return null;
     });
   }, []);

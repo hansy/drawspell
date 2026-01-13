@@ -1,11 +1,18 @@
 import React, { useEffect, useState } from "react";
+import {
+  autoUpdate,
+  flip,
+  offset,
+  shift,
+  useFloating,
+  type Placement,
+} from "@floating-ui/react";
 import { Card as CardType } from "@/types";
 
 import { cn } from "@/lib/utils";
 import { ZONE } from "@/constants/zones";
 import { useGameStore } from "@/store/gameStore";
 import { getNextCardStatUpdate } from "@/lib/cardPT";
-import { computeCardPreviewPosition } from "@/lib/cardPreviewPosition";
 import {
   getDisplayPower,
   getDisplayToughness,
@@ -32,12 +39,6 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   locked,
   onClose,
 }) => {
-  const [style, setStyle] = useState<{
-    top: number;
-    left: number;
-    opacity: number;
-  }>({ top: 0, left: 0, opacity: 0 });
-  const [isPositioned, setIsPositioned] = useState(false);
   const updateCard = useGameStore((state) => state.updateCard);
   const myPlayerId = useGameStore((state) => state.myPlayerId);
   const players = useGameStore((state) => state.players);
@@ -56,51 +57,38 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   // Local face override for previewing DFCs
   const [overrideFaceIndex, setOverrideFaceIndex] = useState<number | null>(null);
 
+  const fallbackPlacements: Placement[] = ["bottom", "left", "right"];
+  const { refs, floatingStyles, update, x, y } = useFloating({
+    placement: "top",
+    strategy: "fixed",
+    middleware: [
+      offset(GAP),
+      flip({ fallbackPlacements, padding: GAP }),
+      shift({ padding: GAP }),
+    ],
+    whileElementsMounted: autoUpdate,
+  });
+
+  const resolveAnchor = React.useCallback(() => {
+    const resolvedAnchor =
+      anchorEl && anchorEl.isConnected
+        ? anchorEl
+        : (document.querySelector(`[data-card-id="${card.id}"]`) as HTMLElement | null);
+    refs.setReference(resolvedAnchor);
+    return resolvedAnchor;
+  }, [anchorEl, card.id, refs]);
+
   useEffect(() => {
     // Reset override if the card ID changes (new card shown)
     setOverrideFaceIndex(null);
   }, [card.id]);
 
-  const calculatePosition = React.useCallback(() => {
-    const resolvedAnchor =
-      anchorEl && anchorEl.isConnected
-        ? anchorEl
-        : (document.querySelector(`[data-card-id="${card.id}"]`) as HTMLElement | null);
-    if (!resolvedAnchor || !resolvedAnchor.isConnected) return;
-    const anchorRect = resolvedAnchor.getBoundingClientRect();
-    const calculatedHeight = width * 1.4;
-    const { top, left } = computeCardPreviewPosition({
-      anchorRect,
-      previewWidth: width,
-      previewHeight: calculatedHeight,
-      viewportWidth: window.innerWidth,
-      viewportHeight: window.innerHeight,
-      gapPx: GAP,
-    });
-    setStyle({ top, left, opacity: 1 });
-    setIsPositioned(true);
-  }, [anchorEl, card.id, width]);
-
   useEffect(() => {
-    setIsPositioned(false);
-    calculatePosition();
-
-    window.addEventListener("resize", calculatePosition, { passive: true });
-    window.addEventListener("scroll", calculatePosition, {
-      passive: true,
-      capture: true,
-    });
-
-    return () => {
-      window.removeEventListener("resize", calculatePosition);
-      window.removeEventListener("scroll", calculatePosition, true);
-    };
-  }, [calculatePosition]);
-
-  useEffect(() => {
-    calculatePosition();
+    const resolvedAnchor = resolveAnchor();
+    if (resolvedAnchor) update();
   }, [
-    calculatePosition,
+    update,
+    resolveAnchor,
     currentCard.zoneId,
     currentCard.position?.x,
     currentCard.position?.y,
@@ -129,8 +117,13 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     updateCard(currentCard.id, update);
   };
 
-  // Don't render until positioned to avoid jump
-  if (!isPositioned) return null;
+  const isPositioned = x != null && y != null;
+  const previewStyle = {
+    ...floatingStyles,
+    width,
+    opacity: isPositioned ? 1 : 0,
+    visibility: isPositioned ? "visible" : "hidden",
+  };
 
   const effectiveFaceIndex = overrideFaceIndex ?? currentCard.currentFaceIndex ?? 0;
 
@@ -189,10 +182,8 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
       previewCard={previewCard}
       locked={locked}
       onClose={onClose}
-      width={width}
-      top={style.top}
-      left={style.left}
-      opacity={style.opacity}
+      style={previewStyle}
+      ref={refs.setFloating}
       showControllerRevealIcon={showControllerRevealIcon}
       controllerRevealToAll={Boolean(currentCard.revealedToAll)}
       controllerRevealNames={controllerRevealNames}
