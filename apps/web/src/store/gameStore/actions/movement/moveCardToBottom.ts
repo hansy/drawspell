@@ -85,7 +85,9 @@ export const createMoveCardToBottom =
       fromZoneType: fromZone.type,
       toZoneType: toZone.type,
       currentFaceDown: card.faceDown,
+      currentFaceDownMode: card.faceDownMode,
       requestedFaceDown: undefined,
+      requestedFaceDownMode: undefined,
     });
     const revealPatch = computeRevealPatchAfterMove({
       fromZoneType: fromZone.type,
@@ -132,6 +134,13 @@ export const createMoveCardToBottom =
       if (faceDownResolution.patchFaceDown !== undefined) {
         yPatchCard(maps, cardId, { faceDown: faceDownResolution.patchFaceDown });
       }
+      if (faceDownResolution.patchFaceDownMode !== undefined) {
+        const nextMode =
+          faceDownResolution.patchFaceDownMode === null
+            ? undefined
+            : faceDownResolution.patchFaceDownMode;
+        yPatchCard(maps, cardId, { faceDownMode: nextMode });
+      }
 
       const snapshot = sharedSnapshot(maps);
       const toOrder = snapshot.zones[toZoneId]?.cardIds ?? [];
@@ -175,6 +184,7 @@ export const createMoveCardToBottom =
         tapped: nextTapped,
         counters: nextCounters,
         faceDown: faceDownResolution.effectiveFaceDown,
+        faceDownMode: faceDownResolution.effectiveFaceDownMode,
         controllerId: controlWillChange ? nextControllerId : nextCard.controllerId,
         ...(revealPatch ?? {}),
         isCommander: nextCommanderFlag,

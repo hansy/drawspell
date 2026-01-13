@@ -81,7 +81,9 @@ export const createMoveCard =
       fromZoneType: fromZone.type,
       toZoneType: toZone.type,
       currentFaceDown: card.faceDown,
+      currentFaceDownMode: card.faceDownMode,
       requestedFaceDown: opts?.faceDown,
+      requestedFaceDownMode: opts?.faceDownMode,
     });
     const revealPatch = computeRevealPatchAfterMove({
       fromZoneType: fromZone.type,
@@ -130,6 +132,13 @@ export const createMoveCard =
 
       if (faceDownResolution.patchFaceDown !== undefined) {
         yPatchCard(maps, cardId, { faceDown: faceDownResolution.patchFaceDown });
+      }
+      if (faceDownResolution.patchFaceDownMode !== undefined) {
+        const nextMode =
+          faceDownResolution.patchFaceDownMode === null
+            ? undefined
+            : faceDownResolution.patchFaceDownMode;
+        yPatchCard(maps, cardId, { faceDownMode: nextMode });
       }
 
       if (revealPatch) {
@@ -185,6 +194,7 @@ export const createMoveCard =
         }
       }
       const localFaceDown = faceDownResolution.effectiveFaceDown;
+      const localFaceDownMode = faceDownResolution.effectiveFaceDownMode;
 
       const nextCommanderFlag = shouldMarkCommander ? true : card.isCommander;
 
@@ -197,6 +207,7 @@ export const createMoveCard =
           tapped: nextTapped,
           counters: nextCounters,
           faceDown: localFaceDown,
+          faceDownMode: localFaceDownMode,
           controllerId: controlWillChange
             ? nextControllerId
             : nextCard.controllerId,
@@ -224,6 +235,7 @@ export const createMoveCard =
         tapped: nextTapped,
         counters: nextCounters,
         faceDown: localFaceDown,
+        faceDownMode: localFaceDownMode,
         controllerId: controlWillChange ? nextControllerId : nextCard.controllerId,
         isCommander: nextCommanderFlag,
       };
