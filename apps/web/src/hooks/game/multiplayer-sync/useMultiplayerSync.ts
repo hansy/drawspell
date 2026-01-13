@@ -4,7 +4,6 @@
  * This keeps transport simple and reliable: one server relay, one provider.
  */
 import { useEffect, useRef, useState } from "react";
-import type { Awareness } from "y-protocols/awareness";
 import { useGameStore } from "@/store/gameStore";
 import { isApplyingRemoteUpdate } from "@/yjs/sync";
 import { type LocalPlayerInitResult } from "./ensureLocalPlayerInitialized";
@@ -23,8 +22,6 @@ import { createAttemptJoin } from "./attemptJoin";
 
 export type SyncStatus = "connecting" | "connected";
 type JoinBlockedReason = NonNullable<LocalPlayerInitResult>["reason"] | null;
-
-const CLIENT_VERSION = "web-3-ws";
 
 export function useMultiplayerSync(sessionId: string) {
   const hasHydrated = useGameStore((state) => state.hasHydrated);

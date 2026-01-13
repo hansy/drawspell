@@ -1,19 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import type { LogContext, LogEventDefinition, LogMessage } from "../types";
+import type { LogContext, LogEventDefinition } from "../types";
+import type { DrawPayload } from "../eventRegistry/libraryEvents";
 
 import { buildLogEntry, computeAggregatedLogEntryUpdate } from "../logEntryModel";
 
 describe("logEntryModel", () => {
   const ctx: LogContext = { players: {}, cards: {}, zones: {} } as any;
 
-  const def: LogEventDefinition<{ value: number; actorId?: string }> = {
-    format: (payload) => [{ kind: "text", text: String(payload.value) }],
+  const def: LogEventDefinition<DrawPayload> = {
+    format: (payload) => [{ kind: "text", text: String(payload.count ?? 1) }],
     aggregate: {
       key: () => "k",
       mergePayload: (existing, incoming) => ({
         ...incoming,
-        value: existing.value + incoming.value,
+        count: (existing.count ?? 1) + (incoming.count ?? 1),
       }),
       windowMs: 2000,
     },
@@ -23,7 +24,7 @@ describe("logEntryModel", () => {
     const entry = buildLogEntry({
       eventId: "card.draw",
       def,
-      payload: { value: 2, actorId: "p1" },
+      payload: { playerId: "p1", count: 2, actorId: "p1" },
       ctx,
       aggregateKey: "k",
       timestamp: 123,
@@ -45,7 +46,7 @@ describe("logEntryModel", () => {
     const update = computeAggregatedLogEntryUpdate({
       eventId: "card.draw",
       def,
-      payload: { value: 1 },
+      payload: { playerId: "p1", count: 1 },
       ctx,
       aggregateKey: "k",
       lastEntry: undefined,
@@ -59,10 +60,10 @@ describe("logEntryModel", () => {
   });
 
   it("replaces the last entry when within the aggregation window", () => {
-    const last: LogMessage = buildLogEntry({
+    const last = buildLogEntry({
       eventId: "card.draw",
       def,
-      payload: { value: 1 },
+      payload: { playerId: "p1", count: 1 },
       ctx,
       aggregateKey: "k",
       existingId: "e1",
@@ -73,7 +74,7 @@ describe("logEntryModel", () => {
     const update = computeAggregatedLogEntryUpdate({
       eventId: "card.draw",
       def,
-      payload: { value: 2 },
+      payload: { playerId: "p1", count: 2 },
       ctx,
       aggregateKey: "k",
       lastEntry: last,
@@ -84,15 +85,15 @@ describe("logEntryModel", () => {
     expect(update.kind).toBe("replaceLast");
     expect(update.entry.id).toBe("e1");
     expect(update.entry.ts).toBe(1500);
-    expect(update.entry.payload.value).toBe(3);
+    expect(update.entry.payload?.count).toBe(3);
     expect(update.entry.parts.map((p) => p.text)).toEqual(["3"]);
   });
 
   it("appends a new entry when outside the aggregation window", () => {
-    const last: LogMessage = buildLogEntry({
+    const last = buildLogEntry({
       eventId: "card.draw",
       def,
-      payload: { value: 1 },
+      payload: { playerId: "p1", count: 1 },
       ctx,
       aggregateKey: "k",
       existingId: "e1",
@@ -103,7 +104,7 @@ describe("logEntryModel", () => {
     const update = computeAggregatedLogEntryUpdate({
       eventId: "card.draw",
       def,
-      payload: { value: 2 },
+      payload: { playerId: "p1", count: 2 },
       ctx,
       aggregateKey: "k",
       lastEntry: last,
@@ -113,15 +114,15 @@ describe("logEntryModel", () => {
 
     expect(update.kind).toBe("append");
     expect(update.entry.id).toBe("new1");
-    expect(update.entry.payload.value).toBe(2);
+    expect(update.entry.payload?.count).toBe(2);
     expect(update.entry.parts.map((p) => p.text)).toEqual(["2"]);
   });
 
   it("does not aggregate when the aggregate key is missing", () => {
-    const last: LogMessage = buildLogEntry({
+    const last = buildLogEntry({
       eventId: "card.draw",
       def,
-      payload: { value: 1 },
+      payload: { playerId: "p1", count: 1 },
       ctx,
       aggregateKey: "k",
       existingId: "e1",
@@ -132,7 +133,7 @@ describe("logEntryModel", () => {
     const update = computeAggregatedLogEntryUpdate({
       eventId: "card.draw",
       def,
-      payload: { value: 2 },
+      payload: { playerId: "p1", count: 2 },
       ctx,
       aggregateKey: undefined,
       lastEntry: last,
@@ -142,7 +143,6 @@ describe("logEntryModel", () => {
 
     expect(update.kind).toBe("append");
     expect(update.entry.id).toBe("new1");
-    expect(update.entry.payload.value).toBe(2);
+    expect(update.entry.payload?.count).toBe(2);
   });
 });
-
