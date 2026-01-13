@@ -13,10 +13,7 @@ interface CardPreviewViewProps {
   previewCard: CardType;
   locked?: boolean;
   onClose?: () => void;
-  width: number;
-  top: number;
-  left: number;
-  opacity: number;
+  style?: React.CSSProperties;
   showControllerRevealIcon: boolean;
   controllerRevealToAll: boolean;
   controllerRevealNames: string[];
@@ -32,40 +29,42 @@ interface CardPreviewViewProps {
   onPTDelta: (type: "power" | "toughness", delta: number) => void;
 }
 
-export const CardPreviewView: React.FC<CardPreviewViewProps> = ({
-  currentCard,
-  previewCard,
-  locked,
-  onClose,
-  width,
-  top,
-  left,
-  opacity,
-  showControllerRevealIcon,
-  controllerRevealToAll,
-  controllerRevealNames,
-  hasMultipleFaces,
-  onFlip,
-  flipRotation,
-  showAncillary,
-  isController,
-  customTextNode,
-  showPT,
-  displayPower,
-  displayToughness,
-  onPTDelta,
-}) => {
-  return (
-    <div
-      data-card-preview
-      className={cn(
-        "fixed z-[9999] rounded-xl shadow-2xl border-2 border-indigo-500/50 bg-zinc-900 transition-opacity duration-200 ease-out",
-        locked ? "pointer-events-auto" : "pointer-events-none",
-        CARD_ASPECT_CLASS
-      )}
-      style={{ top, left, width, opacity }}
-      onContextMenu={(e) => e.preventDefault()}
-    >
+export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewProps>(
+  (
+    {
+      currentCard,
+      previewCard,
+      locked,
+      onClose,
+      style,
+      showControllerRevealIcon,
+      controllerRevealToAll,
+      controllerRevealNames,
+      hasMultipleFaces,
+      onFlip,
+      flipRotation,
+      showAncillary,
+      isController,
+      customTextNode,
+      showPT,
+      displayPower,
+      displayToughness,
+      onPTDelta,
+    },
+    ref
+  ) => {
+    return (
+      <div
+        ref={ref}
+        data-card-preview
+        className={cn(
+          "fixed z-[9999] rounded-xl shadow-2xl border-2 border-indigo-500/50 bg-zinc-900 transition-opacity duration-200 ease-out",
+          locked ? "pointer-events-auto" : "pointer-events-none",
+          CARD_ASPECT_CLASS
+        )}
+        style={style}
+        onContextMenu={(e) => e.preventDefault()}
+      >
       {locked && onClose && (
         <div className="absolute -top-10 -right-16 flex items-center gap-2">
           {/* Revealed Icon - Only visible to controller */}
@@ -255,6 +254,9 @@ export const CardPreviewView: React.FC<CardPreviewViewProps> = ({
           </div>
         </div>
       )}
-    </div>
-  );
-};
+      </div>
+    );
+  }
+);
+
+CardPreviewView.displayName = "CardPreviewView";
