@@ -86,10 +86,13 @@ describe("ShareRoomDialog", () => {
   it("disables lock controls for non-hosts", () => {
     renderDialog({ isHost: false });
 
-    expect(screen.getByRole("button", { name: "Lock room" })).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "Allow spectators?" })
-    ).toBeDisabled();
+    const lockButton = screen.getByRole("button", { name: "Lock room" }) as HTMLButtonElement;
+    const spectatorsButton = screen.getByRole("button", {
+      name: "Allow spectators?",
+    }) as HTMLButtonElement;
+
+    expect(lockButton.disabled).toBe(true);
+    expect(spectatorsButton.disabled).toBe(true);
   });
 
   it("allows hosts to toggle the room lock", () => {

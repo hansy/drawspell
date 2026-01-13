@@ -118,7 +118,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   };
 
   const isPositioned = x != null && y != null;
-  const previewStyle = {
+  const previewStyle: React.CSSProperties = {
     ...floatingStyles,
     width,
     opacity: isPositioned ? 1 : 0,

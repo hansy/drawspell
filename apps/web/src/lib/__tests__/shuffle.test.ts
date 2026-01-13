@@ -29,7 +29,7 @@ describe("shuffle helper", () => {
     const counts: Record<Card, number> = { a: 0, b: 0, c: 0, d: 0 };
 
     for (let i = 0; i < runs; i += 1) {
-      const shuffled = shuffle(deck);
+      const shuffled = shuffle([...deck]);
       const top = shuffled[shuffled.length - 1] as Card;
       counts[top] += 1;
     }

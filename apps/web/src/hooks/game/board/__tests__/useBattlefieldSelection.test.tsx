@@ -116,7 +116,7 @@ const buildPointerEvent = (
     shiftKey: params.shiftKey ?? false,
     target,
     currentTarget: target,
-  }) as React.PointerEvent<HTMLDivElement>;
+  } as unknown as React.PointerEvent<HTMLDivElement>);
 
 describe("useBattlefieldSelection", () => {
   beforeEach(() => {

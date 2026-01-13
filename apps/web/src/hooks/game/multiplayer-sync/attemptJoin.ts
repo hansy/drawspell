@@ -4,7 +4,7 @@ import type { SharedMaps } from "@/yjs/yMutations";
 
 export type JoinStateSetter = (
   blocked: boolean,
-  reason: ReturnType<typeof ensureLocalPlayerInitialized>["reason"] | null,
+  reason: NonNullable<ReturnType<typeof ensureLocalPlayerInitialized>>["reason"] | null,
 ) => void;
 
 export function createAttemptJoin({

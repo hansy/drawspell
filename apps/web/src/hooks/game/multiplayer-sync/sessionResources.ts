@@ -94,8 +94,15 @@ export function setupSessionResources({
   bindSharedLogStore(logs);
 
   const awareness = new Awareness(doc);
+  const storage: Pick<Storage, "getItem" | "setItem"> =
+    typeof window !== "undefined"
+      ? window.sessionStorage
+      : {
+          getItem: () => null,
+          setItem: () => {},
+        };
   const clientKey = getOrCreateClientKey({
-    storage: typeof window !== "undefined" ? window.sessionStorage : undefined,
+    storage,
     randomUUID:
       typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
         ? crypto.randomUUID.bind(crypto)

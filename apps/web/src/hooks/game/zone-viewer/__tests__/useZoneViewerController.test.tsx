@@ -14,6 +14,7 @@ import type { Card, Zone } from "@/types";
 import { ZONE } from "@/constants/zones";
 import { useGameStore } from "@/store/gameStore";
 import { ensureLocalStorage } from "@/store/testUtils";
+import type { ContextMenuAction } from "@/models/game/context-menu/menu/types";
 
 import {
   useZoneViewerController,
@@ -154,10 +155,12 @@ describe("useZoneViewerController", () => {
     await waitFor(() => expect(latestController?.contextMenu).not.toBeNull());
     const menu = latestController!.contextMenu!;
     const moveMenu = menu.items.find(
-      (item) => item.type === "action" && item.label === "Move to Library ..."
+      (item): item is ContextMenuAction =>
+        item.type === "action" && item.label === "Move to Library ..."
     );
     const moveItem = moveMenu?.submenu?.find(
-      (item) => item.type === "action" && item.label === "Bottom"
+      (item): item is ContextMenuAction =>
+        item.type === "action" && item.label === "Bottom"
     );
     expect(moveItem && moveItem.type === "action").toBe(true);
 
@@ -228,10 +231,12 @@ describe("useZoneViewerController", () => {
     await waitFor(() => expect(latestController?.contextMenu).not.toBeNull());
     const menu = latestController!.contextMenu!;
     const moveMenu = menu.items.find(
-      (item) => item.type === "action" && item.label === "Move to Library ..."
+      (item): item is ContextMenuAction =>
+        item.type === "action" && item.label === "Move to Library ..."
     );
     const moveItem = moveMenu?.submenu?.find(
-      (item) => item.type === "action" && item.label === "Bottom"
+      (item): item is ContextMenuAction =>
+        item.type === "action" && item.label === "Bottom"
     );
     expect(moveItem && moveItem.type === "action").toBe(true);
 
@@ -304,10 +309,12 @@ describe("useZoneViewerController", () => {
     await waitFor(() => expect(latestController?.contextMenu).not.toBeNull());
     const menu = latestController!.contextMenu!;
     const moveMenu = menu.items.find(
-      (item) => item.type === "action" && item.label === "Move to Library ..."
+      (item): item is ContextMenuAction =>
+        item.type === "action" && item.label === "Move to Library ..."
     );
     const moveItem = moveMenu?.submenu?.find(
-      (item) => item.type === "action" && item.label === "Bottom"
+      (item): item is ContextMenuAction =>
+        item.type === "action" && item.label === "Bottom"
     );
     expect(moveItem && moveItem.type === "action").toBe(true);
 
@@ -380,10 +387,12 @@ describe("useZoneViewerController", () => {
     await waitFor(() => expect(latestController?.contextMenu).not.toBeNull());
     const menu = latestController!.contextMenu!;
     const moveMenu = menu.items.find(
-      (item) => item.type === "action" && item.label === "Move to Library ..."
+      (item): item is ContextMenuAction =>
+        item.type === "action" && item.label === "Move to Library ..."
     );
     const moveItem = moveMenu?.submenu?.find(
-      (item) => item.type === "action" && item.label === "Bottom"
+      (item): item is ContextMenuAction =>
+        item.type === "action" && item.label === "Bottom"
     );
     expect(moveItem && moveItem.type === "action").toBe(true);
 
