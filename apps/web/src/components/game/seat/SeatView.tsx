@@ -60,6 +60,8 @@ export const SeatView: React.FC<SeatViewProps> = ({
   zoomControlsDisabled,
   onLifeContextMenu,
 }) => {
+  const [handHeight, setHandHeight] = React.useState(160);
+
   const {
     isTop,
     isRight,
@@ -277,7 +279,12 @@ export const SeatView: React.FC<SeatViewProps> = ({
           )}
 
           {/* Bottom Bar (Hand + Commander) */}
-          <BottomBar isTop={isTop} isRight={isRight} className="h-40">
+          <BottomBar
+            isTop={isTop}
+            isRight={isRight}
+            height={handHeight}
+            onHeightChange={setHandHeight}
+          >
             {/* Commander Zone */}
             {commander && (
               <CommanderZone
