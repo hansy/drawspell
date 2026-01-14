@@ -8,6 +8,7 @@ import type {
   TransformPayload,
   UntapAllPayload,
 } from "./eventRegistry/cardEvents";
+import type { CoinFlipPayload } from "./eventRegistry/coinEvents";
 import type {
   CounterPayload,
   GlobalCounterPayload,
@@ -27,6 +28,7 @@ import type {
 export type LogEventPayloadMap = {
   "player.life": LifePayload;
   "player.commanderTax": CommanderTaxPayload;
+  "coin.flip": CoinFlipPayload;
   "dice.roll": DiceRollPayload;
   "card.draw": DrawPayload;
   "card.discard": DiscardPayload;

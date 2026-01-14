@@ -96,12 +96,17 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     closeTextPrompt,
     topCardRevealPrompt,
     closeTopCardRevealPrompt,
-  } = useGameContextMenu(viewerRole, myPlayerId, handleViewZone, () =>
-    setIsDiceRollerOpen(true)
+  } = useGameContextMenu(
+    viewerRole,
+    myPlayerId,
+    handleViewZone,
+    () => setIsCoinFlipperOpen(true),
+    () => setIsDiceRollerOpen(true)
   );
 
   const [isLoadDeckModalOpen, setIsLoadDeckModalOpen] = React.useState(false);
   const [isTokenModalOpen, setIsTokenModalOpen] = React.useState(false);
+  const [isCoinFlipperOpen, setIsCoinFlipperOpen] = React.useState(false);
   const [isDiceRollerOpen, setIsDiceRollerOpen] = React.useState(false);
   const [isLogOpen, setIsLogOpen] = React.useState(true);
   const [isShortcutsOpen, setIsShortcutsOpen] = React.useState(false);
@@ -146,6 +151,24 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     [isSpectator, myPlayerId]
   );
 
+  const handleFlipCoin = React.useCallback(
+    (params: { count: number }) => {
+      if (isSpectator) return;
+      const safeCount = Math.max(1, Math.floor(params.count));
+      const results = Array.from(
+        { length: safeCount },
+        () => (Math.random() < 0.5 ? "heads" : "tails") as "heads" | "tails"
+      );
+      const state = useGameStore.getState();
+      emitLog(
+        "coin.flip",
+        { actorId: myPlayerId, count: safeCount, results },
+        { players: state.players, cards: state.cards, zones: state.zones }
+      );
+    },
+    [isSpectator, myPlayerId]
+  );
+
   const handleRollDice = React.useCallback(
     (params: { sides: number; count: number }) => {
       if (isSpectator) return;
@@ -164,6 +187,11 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     },
     [isSpectator, myPlayerId]
   );
+
+  const handleOpenCoinFlipper = React.useCallback(() => {
+    if (isSpectator) return;
+    setIsCoinFlipperOpen(true);
+  }, [isSpectator]);
 
   const handleOpenDiceRoller = React.useCallback(() => {
     if (isSpectator) return;
@@ -212,6 +240,8 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     closeActiveModal: () => setActiveModal(null),
     tokenModalOpen: isTokenModalOpen,
     setTokenModalOpen: setIsTokenModalOpen,
+    coinFlipperOpen: isCoinFlipperOpen,
+    setCoinFlipperOpen: setIsCoinFlipperOpen,
     diceRollerOpen: isDiceRollerOpen,
     setDiceRollerOpen: setIsDiceRollerOpen,
     loadDeckModalOpen: isLoadDeckModalOpen,
@@ -308,6 +338,8 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     setIsLoadDeckModalOpen,
     isTokenModalOpen,
     setIsTokenModalOpen,
+    isCoinFlipperOpen,
+    setIsCoinFlipperOpen,
     isDiceRollerOpen,
     setIsDiceRollerOpen,
     isLogOpen,
@@ -326,7 +358,9 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     preferredUsername,
     handleUsernameSubmit,
     handleDrawCard,
+    handleFlipCoin,
     handleRollDice,
+    handleOpenCoinFlipper,
     handleLeave,
     shareLinks,
     isHost,
