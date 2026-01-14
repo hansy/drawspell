@@ -70,6 +70,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   handleZoneContextMenu,
   handleBattlefieldContextMenu,
   handleLifeContextMenu,
+  handleOpenCoinFlipper,
   handleOpenDiceRoller,
   closeContextMenu,
   countPrompt,
