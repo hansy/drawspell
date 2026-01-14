@@ -1,5 +1,12 @@
 import React from "react";
 import { cn } from "@/lib/utils";
+import {
+  HAND_DEFAULT_HEIGHT,
+  HAND_MAX_HEIGHT,
+  HAND_MIN_HEIGHT,
+  HAND_SNAP_RELEASE_PX,
+  HAND_SNAP_THRESHOLD_PX,
+} from "./handSizing";
 
 interface BottomBarProps {
   isTop: boolean;
@@ -10,49 +17,62 @@ interface BottomBarProps {
   onHeightChange?: (height: number) => void;
 }
 
-const MIN_HEIGHT = 120;
-const MAX_HEIGHT = 400;
-
 export const BottomBar: React.FC<BottomBarProps> = ({
   isTop,
   isRight,
   children,
   className,
-  height = 160,
+  height = HAND_DEFAULT_HEIGHT,
   onHeightChange,
 }) => {
   const [isDragging, setIsDragging] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const snapToDefaultRef = React.useRef(false);
+  const dragStartYRef = React.useRef<number | null>(null);
+  const dragStartHeightRef = React.useRef<number | null>(null);
 
   const handleMouseDown = React.useCallback((e: React.MouseEvent) => {
     e.preventDefault();
+    dragStartYRef.current = e.clientY;
+    dragStartHeightRef.current = height;
     setIsDragging(true);
-  }, []);
+  }, [height]);
 
   React.useEffect(() => {
     if (!isDragging || !onHeightChange) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-
-      const rect = containerRef.current.getBoundingClientRect();
-      let newHeight: number;
-
-      if (isTop) {
-        // For top position, dragging down increases height
-        newHeight = e.clientY - rect.top;
-      } else {
-        // For bottom position, dragging up increases height
-        newHeight = rect.bottom - e.clientY;
+      if (dragStartYRef.current === null || dragStartHeightRef.current === null) {
+        return;
       }
+      const delta = isTop
+        ? e.clientY - dragStartYRef.current
+        : dragStartYRef.current - e.clientY;
+      let newHeight = dragStartHeightRef.current + delta;
 
       // Clamp height between min and max
-      newHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, newHeight));
+      newHeight = Math.max(HAND_MIN_HEIGHT, Math.min(HAND_MAX_HEIGHT, newHeight));
+
+      // Sticky snap to default height to signal the reset point.
+      const snapDistance = Math.abs(newHeight - HAND_DEFAULT_HEIGHT);
+      if (snapToDefaultRef.current) {
+        if (snapDistance > HAND_SNAP_RELEASE_PX) {
+          snapToDefaultRef.current = false;
+        } else {
+          newHeight = HAND_DEFAULT_HEIGHT;
+        }
+      } else if (snapDistance <= HAND_SNAP_THRESHOLD_PX) {
+        snapToDefaultRef.current = true;
+        newHeight = HAND_DEFAULT_HEIGHT;
+      }
       onHeightChange(newHeight);
     };
 
     const handleMouseUp = () => {
       setIsDragging(false);
+      snapToDefaultRef.current = false;
+      dragStartYRef.current = null;
+      dragStartHeightRef.current = null;
     };
 
     document.addEventListener("mousemove", handleMouseMove);
@@ -61,6 +81,9 @@ export const BottomBar: React.FC<BottomBarProps> = ({
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
+      snapToDefaultRef.current = false;
+      dragStartYRef.current = null;
+      dragStartHeightRef.current = null;
     };
   }, [isDragging, isTop, onHeightChange]);
 

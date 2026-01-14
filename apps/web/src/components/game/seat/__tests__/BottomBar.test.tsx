@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import {
+  HAND_DEFAULT_HEIGHT,
+  HAND_MAX_HEIGHT,
+  HAND_MIN_HEIGHT,
+  HAND_SNAP_RELEASE_PX,
+  HAND_SNAP_THRESHOLD_PX,
+} from "../handSizing";
 import { BottomBar } from "../BottomBar";
 
 describe("BottomBar", () => {
@@ -34,7 +41,9 @@ describe("BottomBar", () => {
 
       const bottomBar = container.querySelector(".flex.w-full.shrink-0");
       expect(bottomBar).toBeTruthy();
-      expect((bottomBar as HTMLElement).style.height).toBe("160px");
+      expect((bottomBar as HTMLElement).style.height).toBe(
+        `${HAND_DEFAULT_HEIGHT}px`
+      );
     });
 
     it("applies custom height when specified", () => {
@@ -235,32 +244,18 @@ describe("BottomBar", () => {
         </BottomBar>
       );
 
-      const bottomBar = container.querySelector(".flex.w-full.shrink-0");
       const resizeHandle = container.querySelector(".absolute.left-0.right-0.z-30");
-
-      // Mock getBoundingClientRect to return a controlled position
-      vi.spyOn(bottomBar!, "getBoundingClientRect").mockReturnValue({
-        top: 0,
-        bottom: 160,
-        left: 0,
-        right: 100,
-        width: 100,
-        height: 160,
-        x: 0,
-        y: 0,
-        toJSON: () => ({}),
-      });
 
       // Start drag
       fireEvent.mouseDown(resizeHandle!, { clientY: 100 });
 
       // Try to drag to very small height (would be < 120)
-      fireEvent.mouseMove(document, { clientY: 155 });
+      fireEvent.mouseMove(document, { clientY: 1000 });
 
       // Should enforce minimum of 120
       const lastCall = onHeightChange.mock.calls[onHeightChange.mock.calls.length - 1];
       if (lastCall) {
-        expect(lastCall[0]).toBeGreaterThanOrEqual(120);
+        expect(lastCall[0]).toBeGreaterThanOrEqual(HAND_MIN_HEIGHT);
       }
 
       fireEvent.mouseUp(document);
@@ -278,32 +273,18 @@ describe("BottomBar", () => {
         </BottomBar>
       );
 
-      const bottomBar = container.querySelector(".flex.w-full.shrink-0");
       const resizeHandle = container.querySelector(".absolute.left-0.right-0.z-30");
-
-      // Mock getBoundingClientRect
-      vi.spyOn(bottomBar!, "getBoundingClientRect").mockReturnValue({
-        top: 0,
-        bottom: 160,
-        left: 0,
-        right: 100,
-        width: 100,
-        height: 160,
-        x: 0,
-        y: 0,
-        toJSON: () => ({}),
-      });
 
       // Start drag
       fireEvent.mouseDown(resizeHandle!, { clientY: 100 });
 
       // Try to drag to very large height (would be > 400)
-      fireEvent.mouseMove(document, { clientY: -500 });
+      fireEvent.mouseMove(document, { clientY: -1000 });
 
       // Should enforce maximum of 400
       const lastCall = onHeightChange.mock.calls[onHeightChange.mock.calls.length - 1];
       if (lastCall) {
-        expect(lastCall[0]).toBeLessThanOrEqual(400);
+        expect(lastCall[0]).toBeLessThanOrEqual(HAND_MAX_HEIGHT);
       }
 
       fireEvent.mouseUp(document);
@@ -351,6 +332,63 @@ describe("BottomBar", () => {
       expect(visualIndicator).toBeTruthy();
 
       // End dragging
+      fireEvent.mouseUp(document);
+    });
+  });
+
+  describe("Snap to Default", () => {
+    it("snaps to default height within the snap threshold", () => {
+      const { container } = render(
+        <BottomBar
+          isTop={true}
+          isRight={false}
+          height={HAND_DEFAULT_HEIGHT}
+          onHeightChange={onHeightChange}
+        >
+          <div>Content</div>
+        </BottomBar>
+      );
+
+      const resizeHandle = container.querySelector(".absolute.left-0.right-0.z-30");
+
+      fireEvent.mouseDown(resizeHandle!, { clientY: 100 });
+      fireEvent.mouseMove(document, {
+        clientY: 100 + (HAND_SNAP_THRESHOLD_PX - 1),
+      });
+
+      const lastCall = onHeightChange.mock.calls[onHeightChange.mock.calls.length - 1];
+      expect(lastCall?.[0]).toBe(HAND_DEFAULT_HEIGHT);
+
+      fireEvent.mouseUp(document);
+    });
+
+    it("releases snap after exceeding the release threshold", () => {
+      const { container } = render(
+        <BottomBar
+          isTop={true}
+          isRight={false}
+          height={HAND_DEFAULT_HEIGHT}
+          onHeightChange={onHeightChange}
+        >
+          <div>Content</div>
+        </BottomBar>
+      );
+
+      const resizeHandle = container.querySelector(".absolute.left-0.right-0.z-30");
+
+      fireEvent.mouseDown(resizeHandle!, { clientY: 100 });
+      fireEvent.mouseMove(document, {
+        clientY: 100 + (HAND_SNAP_THRESHOLD_PX - 1),
+      });
+      fireEvent.mouseMove(document, {
+        clientY: 100 + HAND_SNAP_RELEASE_PX + 5,
+      });
+
+      const lastCall = onHeightChange.mock.calls[onHeightChange.mock.calls.length - 1];
+      expect(lastCall?.[0]).toBe(
+        HAND_DEFAULT_HEIGHT + HAND_SNAP_RELEASE_PX + 5
+      );
+
       fireEvent.mouseUp(document);
     });
   });
