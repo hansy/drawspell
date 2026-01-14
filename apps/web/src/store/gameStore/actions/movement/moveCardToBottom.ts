@@ -85,8 +85,17 @@ export const createMoveCardToBottom =
       fromZoneType: fromZone.type,
       toZoneType: toZone.type,
       currentFaceDown: card.faceDown,
+      currentFaceDownMode: card.faceDownMode,
       requestedFaceDown: undefined,
+      requestedFaceDownMode: undefined,
     });
+    const leavingFaceDownBattlefield =
+      fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD && card.faceDown;
+    const enteringFaceDownBattlefield =
+      toZone.type === ZONE.BATTLEFIELD && faceDownResolution.effectiveFaceDown;
+    const toPublicZone = toZone.type !== ZONE.HAND && toZone.type !== ZONE.LIBRARY;
+    const shouldHideMoveName =
+      enteringFaceDownBattlefield || (leavingFaceDownBattlefield && !toPublicZone);
     const revealPatch = computeRevealPatchAfterMove({
       fromZoneType: fromZone.type,
       toZoneType: toZone.type,
@@ -99,13 +108,11 @@ export const createMoveCardToBottom =
         cardId,
         fromZoneId,
         toZoneId,
-        cardName:
-          toZone.type === ZONE.BATTLEFIELD && faceDownResolution.effectiveFaceDown
-            ? "a card"
-            : card.name,
+        cardName: shouldHideMoveName ? "a card" : card.name,
         fromZoneType: fromZone.type,
         toZoneType: toZone.type,
         faceDown: faceDownResolution.effectiveFaceDown,
+        forceHidden: shouldHideMoveName,
       };
       if (controlShift) movePayload.gainsControlBy = nextControllerId;
       emitLog("card.move", movePayload, buildLogContext());
@@ -131,6 +138,13 @@ export const createMoveCardToBottom =
 
       if (faceDownResolution.patchFaceDown !== undefined) {
         yPatchCard(maps, cardId, { faceDown: faceDownResolution.patchFaceDown });
+      }
+      if (faceDownResolution.patchFaceDownMode !== undefined) {
+        const nextMode =
+          faceDownResolution.patchFaceDownMode === null
+            ? undefined
+            : faceDownResolution.patchFaceDownMode;
+        yPatchCard(maps, cardId, { faceDownMode: nextMode });
       }
 
       const snapshot = sharedSnapshot(maps);
@@ -175,6 +189,7 @@ export const createMoveCardToBottom =
         tapped: nextTapped,
         counters: nextCounters,
         faceDown: faceDownResolution.effectiveFaceDown,
+        faceDownMode: faceDownResolution.effectiveFaceDownMode,
         controllerId: controlWillChange ? nextControllerId : nextCard.controllerId,
         ...(revealPatch ?? {}),
         isCommander: nextCommanderFlag,

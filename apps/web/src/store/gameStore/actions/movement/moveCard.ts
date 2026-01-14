@@ -81,8 +81,17 @@ export const createMoveCard =
       fromZoneType: fromZone.type,
       toZoneType: toZone.type,
       currentFaceDown: card.faceDown,
+      currentFaceDownMode: card.faceDownMode,
       requestedFaceDown: opts?.faceDown,
+      requestedFaceDownMode: opts?.faceDownMode,
     });
+    const leavingFaceDownBattlefield =
+      fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD && card.faceDown;
+    const enteringFaceDownBattlefield =
+      toZone.type === ZONE.BATTLEFIELD && faceDownResolution.effectiveFaceDown;
+    const toPublicZone = toZone.type !== ZONE.HAND && toZone.type !== ZONE.LIBRARY;
+    const shouldHideMoveName =
+      enteringFaceDownBattlefield || (leavingFaceDownBattlefield && !toPublicZone);
     const revealPatch = computeRevealPatchAfterMove({
       fromZoneType: fromZone.type,
       toZoneType: toZone.type,
@@ -95,13 +104,11 @@ export const createMoveCard =
         cardId,
         fromZoneId,
         toZoneId,
-        cardName:
-          toZone.type === ZONE.BATTLEFIELD && faceDownResolution.effectiveFaceDown
-            ? "a card"
-            : card.name,
+        cardName: shouldHideMoveName ? "a card" : card.name,
         fromZoneType: fromZone.type,
         toZoneType: toZone.type,
         faceDown: faceDownResolution.effectiveFaceDown,
+        forceHidden: shouldHideMoveName,
       };
       if (controlShift) movePayload.gainsControlBy = nextControllerId;
       emitLog("card.move", movePayload, buildLogContext());
@@ -130,6 +137,13 @@ export const createMoveCard =
 
       if (faceDownResolution.patchFaceDown !== undefined) {
         yPatchCard(maps, cardId, { faceDown: faceDownResolution.patchFaceDown });
+      }
+      if (faceDownResolution.patchFaceDownMode !== undefined) {
+        const nextMode =
+          faceDownResolution.patchFaceDownMode === null
+            ? undefined
+            : faceDownResolution.patchFaceDownMode;
+        yPatchCard(maps, cardId, { faceDownMode: nextMode });
       }
 
       if (revealPatch) {
@@ -185,6 +199,7 @@ export const createMoveCard =
         }
       }
       const localFaceDown = faceDownResolution.effectiveFaceDown;
+      const localFaceDownMode = faceDownResolution.effectiveFaceDownMode;
 
       const nextCommanderFlag = shouldMarkCommander ? true : card.isCommander;
 
@@ -197,6 +212,7 @@ export const createMoveCard =
           tapped: nextTapped,
           counters: nextCounters,
           faceDown: localFaceDown,
+          faceDownMode: localFaceDownMode,
           controllerId: controlWillChange
             ? nextControllerId
             : nextCard.controllerId,
@@ -224,6 +240,7 @@ export const createMoveCard =
         tapped: nextTapped,
         counters: nextCounters,
         faceDown: localFaceDown,
+        faceDownMode: localFaceDownMode,
         controllerId: controlWillChange ? nextControllerId : nextCard.controllerId,
         isCommander: nextCommanderFlag,
       };
