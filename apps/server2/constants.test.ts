@@ -25,7 +25,6 @@ describe("DEBUG_SIGNAL flag", () => {
 
   it("does not crash when process is undefined", () => {
     const originalProcess = (globalThis as Record<string, unknown>).process;
-    // @ts-expect-error - simulate Cloudflare worker environment
     delete (globalThis as Record<string, unknown>).process;
 
     expect(resolveDebugSignal()).toBe(false);

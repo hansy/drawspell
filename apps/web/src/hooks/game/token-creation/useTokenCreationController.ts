@@ -5,7 +5,6 @@ import { v4 as uuidv4 } from "uuid";
 import type { ScryfallCard } from "@/types/scryfall";
 
 import { ZONE } from "@/constants/zones";
-import { emitLog } from "@/logging/logStore";
 import { useGameStore } from "@/store/gameStore";
 import { createDebouncedTokenSearch } from "@/services/scryfall/scryfallTokens";
 import { cacheCards } from "@/services/scryfall/scryfallCache";
@@ -122,13 +121,6 @@ export const useTokenCreationController = ({
     });
 
     planned.forEach((card) => addCard(card));
-
-    const { players, cards, zones } = useGameStore.getState();
-    emitLog(
-      "card.tokenCreate",
-      { actorId: playerId, playerId, tokenName: selectedToken.name, count: quantity },
-      { players, cards, zones }
-    );
 
     toast.success(
       `Created ${quantity} ${selectedToken.name} token${quantity > 1 ? "s" : ""}`

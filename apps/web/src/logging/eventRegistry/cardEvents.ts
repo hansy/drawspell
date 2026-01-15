@@ -1,5 +1,6 @@
 import { buildCardPart, buildPlayerPart, getZoneLabel } from "../helpers";
 import type { LogEventDefinition, LogEventId } from "@/logging/types";
+import { DEFAULT_AGGREGATE_WINDOW_MS } from "./constants";
 
 export type MovePayload = {
   cardId: string;
@@ -199,5 +200,17 @@ export const cardEvents = {
   },
   "card.tokenCreate": {
     format: formatTokenCreate,
+    aggregate: {
+      key: (payload: TokenCreatePayload) => {
+        const name = payload.tokenName?.trim() || "Token";
+        return `token:${payload.playerId}:${name}`;
+      },
+      mergePayload: (existing: TokenCreatePayload, incoming: TokenCreatePayload) => {
+        const existingCount = existing.count ?? 1;
+        const incomingCount = incoming.count ?? 1;
+        return { ...incoming, count: existingCount + incomingCount };
+      },
+      windowMs: DEFAULT_AGGREGATE_WINDOW_MS,
+    },
   },
 } satisfies Partial<Record<LogEventId, LogEventDefinition<any>>>;

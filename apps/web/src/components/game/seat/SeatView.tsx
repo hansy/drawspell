@@ -86,19 +86,44 @@ export const SeatView: React.FC<SeatViewProps> = ({
     commander: commandCards,
     hand: handCards,
   } = model.cards;
-  const libraryTopCard = libraryCards[libraryCards.length - 1];
+  const libraryCount = player.libraryCount ?? library?.cardIds.length ?? 0;
+  const libraryPlaceholder = React.useMemo(
+    () =>
+      library
+        ? ({
+            id: `placeholder:library:${library.ownerId}`,
+            name: "Card",
+            ownerId: library.ownerId,
+            controllerId: library.ownerId,
+            zoneId: library.id,
+            tapped: false,
+            faceDown: false,
+            position: { x: 0.5, y: 0.5 },
+            rotation: 0,
+            counters: [],
+          } as CardType)
+        : null,
+    [library]
+  );
+  const libraryTopCard =
+    libraryCards.length > 0
+      ? libraryCards[libraryCards.length - 1]
+      : libraryCount > 0
+        ? libraryPlaceholder ?? undefined
+        : undefined;
   const canSeeLibraryTop =
-    Boolean(libraryTopCard) &&
-    (canViewerSeeLibraryCardByReveal(
-      libraryTopCard,
-      viewerPlayerId,
-      viewerRole
-    ) ||
-      canViewerSeeLibraryTopCard({
-        viewerId: viewerPlayerId,
-        ownerId: library?.ownerId ?? player.id,
-        mode: player.libraryTopReveal,
-      }));
+    libraryCards.length > 0 && libraryTopCard
+      ? canViewerSeeLibraryCardByReveal(
+          libraryTopCard,
+          viewerPlayerId,
+          viewerRole
+        ) ||
+        canViewerSeeLibraryTopCard({
+          viewerId: viewerPlayerId,
+          ownerId: library?.ownerId ?? player.id,
+          mode: player.libraryTopReveal,
+        })
+      : false;
   const libraryFaceDown = libraryTopCard ? !canSeeLibraryTop : true;
 
   return (
@@ -173,7 +198,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 zone={library}
                 card={libraryTopCard}
                 label={ZONE_LABEL.library}
-                count={library.cardIds.length}
+                count={libraryCount}
                 onContextMenu={onZoneContextMenu}
                 faceDown={libraryFaceDown}
                 showContextMenuCursor={player.deckLoaded}

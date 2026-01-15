@@ -30,16 +30,16 @@ Key outcomes:
 ---
 
 ## 1.1) Progress Tracker
-- [ ] PartyKit server scaffold + PartySocket client
-- [ ] Public schema changes (hand slots, library counts, reveal maps)
+- [x] PartyKit server scaffold + PartySocket client
+- [x] Public schema changes (hand slots, library counts, reveal maps)
 - [ ] Intent protocol + server validation
-- [ ] Optimistic prediction + reconciliation on client
-- [ ] Hidden state extraction (library/hand/face-down)
-- [ ] Private overlays (owner/spectator projections)
-- [ ] Server-emitted logs (client-stored)
+- [x] Optimistic prediction + reconciliation on client
+- [x] Hidden state extraction (library/hand/face-down)
+- [x] Private overlays (owner/spectator projections)
+- [x] Server-emitted logs (client-stored)
 - [ ] Reconnect/resume verification (public + overlays)
 - [ ] Permission enforcement + denial UX
-- [ ] Simplify/remove legacy client-authoritative paths
+- [x] Simplify/remove legacy client-authoritative paths
 - [ ] Migration tests (new behavior only) + perf checks
 
 ---
@@ -348,8 +348,8 @@ The server must:
 - Implement private overlays
 
 ### Phase 3: Logs
-- Remove shared Yjs logs
-- Server emits logs; clients store locally
+- [x] Remove shared Yjs logs
+- [x] Server emits logs; clients store locally
 
 ### Phase 4: Harden
 - Token gating

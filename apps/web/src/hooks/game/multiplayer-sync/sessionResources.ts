@@ -1,10 +1,25 @@
 import type * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
-import { WebsocketProvider } from "y-websocket";
-import { bindSharedLogStore } from "@/logging/logStore";
-import { getOrCreateClientKey } from "@/lib/clientKey";
-import { buildSignalingUrlFromEnv } from "@/lib/wsSignaling";
+import YPartyKitProvider from "y-partykit/provider";
+import { clearLogs, emitLog } from "@/logging/logStore";
+import { resolvePartyKitHost } from "@/lib/partyKitHost";
+import {
+  clearInviteTokenFromUrl,
+  clearRoomHostPending,
+  mergeRoomTokens,
+  readRoomTokensFromStorage,
+  resolveInviteTokenFromUrl,
+  writeRoomTokensToStorage,
+} from "@/lib/partyKitToken";
+import {
+  clearIntentTransport,
+  createIntentTransport,
+  setIntentTransport,
+  type IntentTransport,
+} from "@/partykit/intentTransport";
+import type { PrivateOverlayPayload, RoomTokensPayload } from "@/partykit/messages";
 import { useGameStore } from "@/store/gameStore";
+import { handleIntentAck } from "@/store/gameStore/dispatchIntent";
 import {
   acquireSession,
   cleanupStaleSessions,
@@ -14,16 +29,17 @@ import {
   setActiveSession,
   setSessionAwareness,
   setSessionProvider,
-  flushPendingMutations,
 } from "@/yjs/docManager";
 import { type SharedMaps } from "@/yjs/yMutations";
 import { createFullSyncToStore } from "./fullSyncToStore";
 import { disposeSessionTransport } from "./disposeSessionTransport";
 import type { SyncStatus } from "./useMultiplayerSync";
+import type { YSyncProvider } from "@/yjs/provider";
 
 export type SessionSetupResult = {
   awareness: Awareness;
-  provider: WebsocketProvider;
+  provider: YSyncProvider;
+  intentTransport: IntentTransport;
   doc: Y.Doc;
   sharedMaps: SharedMaps;
   ensuredPlayerId: string;
@@ -33,19 +49,24 @@ export type SessionSetupResult = {
 export type SessionSetupDeps = {
   sessionId: string;
   statusSetter: (next: SyncStatus) => void;
+  onAuthFailure?: (reason: string) => void;
 };
-
-const CLIENT_VERSION = "web-3-ws";
 
 export function setupSessionResources({
   sessionId,
   statusSetter,
+  onAuthFailure,
 }: SessionSetupDeps): SessionSetupResult | null {
-  const envUrl =
-    import.meta.env.VITE_WEBSOCKET_SERVER || "http://localhost:8787";
-  const signalingUrl = buildSignalingUrlFromEnv(envUrl);
-  if (!signalingUrl) {
-    console.error("[signal] VITE_WEBSOCKET_SERVER is required");
+  const envHost = resolvePartyKitHost(import.meta.env.VITE_WEBSOCKET_SERVER);
+  const defaultHost =
+    import.meta.env.DEV && typeof window !== "undefined"
+      ? "localhost:1999"
+      : typeof window !== "undefined"
+        ? window.location.host
+        : null;
+  const partyHost = envHost ?? defaultHost;
+  if (!partyHost) {
+    console.error("[party] VITE_WEBSOCKET_SERVER is required");
     return null;
   }
 
@@ -62,8 +83,10 @@ export function setupSessionResources({
     zoneCardOrders,
     globalCounters,
     battlefieldViewScale,
-    logs,
     meta,
+    handRevealsToAll,
+    libraryRevealsToAll,
+    faceDownRevealsToAll,
   } = handles;
 
   const sharedMaps: SharedMaps = {
@@ -75,6 +98,9 @@ export function setupSessionResources({
     globalCounters,
     battlefieldViewScale,
     meta,
+    handRevealsToAll,
+    libraryRevealsToAll,
+    faceDownRevealsToAll,
   };
 
   // Setup store
@@ -87,43 +113,138 @@ export function setupSessionResources({
   } else {
     useGameStore.setState((state) => ({ ...state, sessionId }));
   }
-  const sessionVersion = useGameStore
-    .getState()
-    .ensureSessionVersion(sessionId);
 
-  bindSharedLogStore(logs);
+  const storedTokens = readRoomTokensFromStorage(sessionId);
+  if (storedTokens) {
+    useGameStore.getState().setRoomTokens(storedTokens);
+    clearRoomHostPending(sessionId);
+  }
+  const inviteToken =
+    typeof window !== "undefined"
+      ? resolveInviteTokenFromUrl(window.location.href)
+      : {};
+  if (inviteToken.token) {
+    const currentTokens = useGameStore.getState().roomTokens;
+    const nextTokens = mergeRoomTokens(storedTokens ?? currentTokens, {
+      ...(inviteToken.role === "spectator"
+        ? { spectatorToken: inviteToken.token }
+        : { playerToken: inviteToken.token }),
+    });
+    if (nextTokens) {
+      useGameStore.getState().setRoomTokens(nextTokens);
+      writeRoomTokensToStorage(sessionId, nextTokens);
+    }
+  }
+  if (inviteToken.role) {
+    const currentRole = useGameStore.getState().viewerRole;
+    if (inviteToken.role !== currentRole) {
+      useGameStore.getState().setViewerRole(inviteToken.role);
+    }
+  }
+  if (inviteToken.token || inviteToken.role) {
+    clearInviteTokenFromUrl();
+  }
+
+  const intentViewerRole =
+    inviteToken.role ?? useGameStore.getState().viewerRole;
+  const fallbackToken =
+    intentViewerRole === "spectator"
+      ? useGameStore.getState().roomTokens?.spectatorToken
+      : useGameStore.getState().roomTokens?.playerToken;
+  const token = inviteToken.token ?? fallbackToken;
 
   const awareness = new Awareness(doc);
-  const storage: Pick<Storage, "getItem" | "setItem"> =
-    typeof window !== "undefined"
-      ? window.sessionStorage
-      : {
-          getItem: () => null,
-          setItem: () => {},
+  const provider: YSyncProvider = new YPartyKitProvider(
+    partyHost,
+    sessionId,
+    doc,
+    {
+      awareness,
+      connect: true,
+      params: async () => {
+        const state = useGameStore.getState();
+        const role = state.viewerRole;
+        const syncToken =
+          role === "spectator"
+            ? state.roomTokens?.spectatorToken
+            : state.roomTokens?.playerToken;
+        const tokenParam =
+          syncToken && role === "spectator"
+            ? { st: syncToken }
+            : syncToken
+              ? { gt: syncToken }
+              : {};
+        return {
+          role: "sync",
+          ...tokenParam,
+          ...(ensuredPlayerId ? { playerId: ensuredPlayerId } : {}),
+          ...(role ? { viewerRole: role } : {}),
         };
-  const clientKey = getOrCreateClientKey({
-    storage,
-    randomUUID:
-      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID.bind(crypto)
-        : undefined,
-  });
+      },
+    }
+  );
 
-  const provider = new WebsocketProvider(signalingUrl, sessionId, doc, {
-    awareness,
-    connect: true,
-    params: {
-      userId: ensuredPlayerId,
-      clientKey,
-      sessionVersion: String(sessionVersion),
-      clientVersion: CLIENT_VERSION,
+  if ("on" in provider && typeof provider.on === "function") {
+    const handleConnectionClose = (event: CloseEvent) => {
+      if (event?.code === 1008) {
+        try {
+          provider.disconnect();
+        } catch (_err) {}
+        onAuthFailure?.(event.reason || "policy");
+      }
+    };
+    provider.on("connection-close", handleConnectionClose);
+    provider.on("connection-error", handleConnectionClose as any);
+  }
+
+  const intentTransport = createIntentTransport({
+    host: partyHost,
+    room: sessionId,
+    token,
+    playerId: ensuredPlayerId,
+    viewerRole: intentViewerRole,
+    onMessage: (message) => {
+      if (message.type === "ack") {
+        handleIntentAck(message, useGameStore.setState);
+        return;
+      }
+      if (message.type === "roomTokens") {
+        const payload = message.payload as RoomTokensPayload;
+        useGameStore.getState().setRoomTokens(payload);
+        writeRoomTokensToStorage(
+          sessionId,
+          mergeRoomTokens(useGameStore.getState().roomTokens, payload)
+        );
+        clearRoomHostPending(sessionId);
+        return;
+      }
+      if (message.type === "privateOverlay") {
+        useGameStore
+          .getState()
+          .applyPrivateOverlay(message.payload as PrivateOverlayPayload);
+        return;
+      }
+      if (message.type === "logEvent") {
+        const { players, cards, zones } = useGameStore.getState();
+        emitLog(message.eventId as any, message.payload as any, {
+          players,
+          cards,
+          zones,
+        });
+      }
+    },
+    onClose: (event) => {
+      if (event.code === 1008) {
+        onAuthFailure?.(event.reason || "policy");
+      }
     },
   });
+  setIntentTransport(intentTransport);
 
   provider.on("status", ({ status: s }: any) => {
     if (s === "connected") {
+      clearLogs();
       statusSetter("connected");
-      flushPendingMutations();
     }
     if (s === "disconnected") {
       statusSetter("connecting");
@@ -137,11 +258,10 @@ export function setupSessionResources({
     useGameStore.setState(next);
   });
 
-  flushPendingMutations();
-
   return {
     awareness,
     provider,
+    intentTransport,
     doc,
     sharedMaps,
     ensuredPlayerId,
@@ -151,9 +271,8 @@ export function setupSessionResources({
 
 export function teardownSessionResources(
   sessionId: string,
-  resources: Pick<SessionSetupResult, "awareness" | "provider">
+  resources: Pick<SessionSetupResult, "awareness" | "provider" | "intentTransport">
 ) {
-  bindSharedLogStore(null);
   setActiveSession(null);
   disposeSessionTransport(
     sessionId,
@@ -167,4 +286,5 @@ export function teardownSessionResources(
   );
   releaseSession(sessionId);
   cleanupStaleSessions();
+  clearIntentTransport();
 }

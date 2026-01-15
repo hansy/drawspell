@@ -9,7 +9,7 @@ import {
   validateImportResult,
 } from "@/services/deck-import/deckImport";
 import { useGameStore } from "@/store/gameStore";
-import { batchSharedMutations, getYDocHandles, getYProvider } from "@/yjs/docManager";
+import { getYDocHandles, getYProvider } from "@/yjs/docManager";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
 import { isMultiplayerProviderReady, planDeckImport } from "@/models/game/load-deck/loadDeckModel";
 
@@ -112,26 +112,20 @@ export const useLoadDeckController = ({
       });
 
       if (missingZones.size) {
-        batchSharedMutations(() => {
-          missingZones.forEach((zoneType, zoneId) => {
-            addZone({ id: zoneId, ownerId: playerId, type: zoneType, cardIds: [] });
-          });
+        missingZones.forEach((zoneType, zoneId) => {
+          addZone({ id: zoneId, ownerId: playerId, type: zoneType, cardIds: [] });
         });
       }
 
       planned.chunks.forEach((chunk) => {
-        batchSharedMutations(() => {
-          chunk.forEach(({ cardData, zoneId }) => {
-            const newCard = createCardFromImport(cardData, playerId, zoneId);
-            addCard(newCard);
-          });
+        chunk.forEach(({ cardData, zoneId }) => {
+          const newCard = createCardFromImport(cardData, playerId, zoneId);
+          addCard(newCard);
         });
       });
 
-      batchSharedMutations(() => {
-        setDeckLoaded(playerId, true);
-        shuffleLibrary(playerId, playerId);
-      });
+      setDeckLoaded(playerId, true);
+      shuffleLibrary(playerId, playerId);
 
       toast.success("Deck successfully loaded");
       setLastImportedDeckText(importText);

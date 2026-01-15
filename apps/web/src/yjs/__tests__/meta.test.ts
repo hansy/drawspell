@@ -15,6 +15,9 @@ const createSharedMaps = (): SharedMaps => {
     globalCounters: doc.getMap("globalCounters"),
     battlefieldViewScale: doc.getMap("battlefieldViewScale"),
     meta: doc.getMap("meta"),
+    handRevealsToAll: doc.getMap("handRevealsToAll"),
+    libraryRevealsToAll: doc.getMap("libraryRevealsToAll"),
+    faceDownRevealsToAll: doc.getMap("faceDownRevealsToAll"),
   };
 };
 
