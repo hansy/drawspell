@@ -99,14 +99,18 @@ export class SignalRoom extends DurableObject {
           });
         } else {
           // State expired, clear it
-          await this.ctx.storage.delete(STORAGE_KEY_DOC);
-          await this.ctx.storage.delete(STORAGE_KEY_TIMESTAMP);
+          await this.clearStoredState();
           this.dbg("storage expired, cleared", { ageMs: age });
         }
       }
     } catch (err) {
       console.error("[signal] failed to restore from storage", err);
     }
+  }
+
+  private async clearStoredState() {
+    await this.ctx.storage.delete(STORAGE_KEY_DOC);
+    await this.ctx.storage.delete(STORAGE_KEY_TIMESTAMP);
   }
 
   private schedulePersist() {
@@ -191,8 +195,7 @@ export class SignalRoom extends DurableObject {
       }
       // Clear persisted state
       try {
-        await this.ctx.storage.delete(STORAGE_KEY_DOC);
-        await this.ctx.storage.delete(STORAGE_KEY_TIMESTAMP);
+        await this.clearStoredState();
         this.dbg("cleared storage on empty room timeout");
       } catch (err) {
         console.error("[signal] failed to clear storage", err);
@@ -202,19 +205,23 @@ export class SignalRoom extends DurableObject {
         clearTimeout(this.persistTimer);
         this.persistTimer = null;
       }
-      try {
-        this.doc.destroy();
-      } catch (_err) {}
-      this.doc = new Y.Doc();
-      this.awareness = new awarenessProtocol.Awareness(this.doc);
-      this.connClients.clear();
-      this.awarenessOwners.clear();
-      this.connMeta.clear();
-      this.userToConn.clear();
-      this.userToLastVersion.clear();
-      this.setupDocListeners();
+      this.resetInMemoryState();
       this.emptyTimer = null;
     }, EMPTY_ROOM_GRACE_MS) as unknown as number;
+  }
+
+  private resetInMemoryState() {
+    try {
+      this.doc.destroy();
+    } catch (_err) {}
+    this.doc = new Y.Doc();
+    this.awareness = new awarenessProtocol.Awareness(this.doc);
+    this.connClients.clear();
+    this.awarenessOwners.clear();
+    this.connMeta.clear();
+    this.userToConn.clear();
+    this.userToLastVersion.clear();
+    this.setupDocListeners();
   }
 
   private validateHandshake(
