@@ -19,36 +19,31 @@ import {
   RATE_LIMIT_WINDOW_MS,
   STORAGE_KEY_DOC,
   STORAGE_KEY_TIMESTAMP,
-  UUID_REGEX,
   resolveDebugSignal,
 } from "./constants";
+import { type HandshakeParams, isValidHandshake, parseHandshakeParams } from "./handshake";
+import { getRoomFromUrl, isValidRoomName } from "./request";
 
 type RoomName = string;
+type ConnectionMeta = HandshakeParams;
+type UserConnection = HandshakeParams & { ws: WebSocket };
+type ConnectionStats = {
+  tokens: number;
+  lastRefill: number;
+  windowStart: number;
+  bytes: number;
+  lastMessage: number;
+  heartbeat?: number;
+};
 
 // Durable Object implementing y-websocket style doc + awareness sync
 export class SignalRoom extends DurableObject {
   conns: Set<WebSocket>;
   connClients: Map<WebSocket, Set<number>>;
-  connMeta: Map<
-    WebSocket,
-    { userId: string; clientKey: string; sessionVersion: number }
-  >;
-  userToConn: Map<
-    string,
-    { ws: WebSocket; clientKey: string; sessionVersion: number }
-  >;
+  connMeta: Map<WebSocket, ConnectionMeta>;
+  userToConn: Map<string, UserConnection>;
   userToLastVersion: Map<string, number>;
-  connStats: Map<
-    WebSocket,
-    {
-      tokens: number;
-      lastRefill: number;
-      windowStart: number;
-      bytes: number;
-      lastMessage: number;
-      heartbeat?: number;
-    }
-  >;
+  connStats: Map<WebSocket, ConnectionStats>;
   awarenessOwners: Map<number, WebSocket>;
   doc: Y.Doc;
   awareness: awarenessProtocol.Awareness;
@@ -136,6 +131,16 @@ export class SignalRoom extends DurableObject {
     } catch (_err) {}
   }
 
+  private tryClose(ws: WebSocket, code?: number, reason?: string) {
+    try {
+      if (code === undefined) {
+        ws.close();
+      } else {
+        ws.close(code, reason);
+      }
+    } catch (_err) {}
+  }
+
   private setupDocListeners() {
     this.doc.on("update", (update) => {
       this.dbg("doc update bytes", update.byteLength, "conns", this.conns.size);
@@ -212,21 +217,225 @@ export class SignalRoom extends DurableObject {
     }, EMPTY_ROOM_GRACE_MS) as unknown as number;
   }
 
+  private validateHandshake(
+    room: RoomName,
+    ws: WebSocket,
+    params: URLSearchParams
+  ): ConnectionMeta | null {
+    const meta = parseHandshakeParams(params);
+
+    if (!isValidHandshake(meta)) {
+      this.dbg("reject handshake invalid", {
+        room,
+        userId: meta.userId,
+        clientKey: meta.clientKey,
+        sessionVersion: meta.sessionVersion,
+      });
+      this.tryClose(ws, 1008, "invalid handshake");
+      return null;
+    }
+
+    const { userId, clientKey, sessionVersion } = meta;
+    const lastVersion = this.userToLastVersion.get(userId);
+    if (lastVersion !== undefined && sessionVersion < lastVersion) {
+      this.dbg("reject stale session", {
+        room,
+        userId,
+        clientKey,
+        sessionVersion,
+        lastVersion,
+      });
+      this.tryClose(ws, 4090, "stale session");
+      return null;
+    }
+
+    const existing = this.userToConn.get(userId);
+    if (existing && existing.clientKey !== clientKey) {
+      this.dbg("reject duplicate user different key", {
+        room,
+        userId,
+        clientKey,
+        existing: existing.clientKey,
+      });
+      this.tryClose(ws, 4091, "user already connected");
+      return null;
+    }
+    if (existing && existing.clientKey === clientKey) {
+      this.dbg("close existing same key before replace", {
+        room,
+        userId,
+        clientKey,
+      });
+      this.tryClose(existing.ws, 4001, "replaced connection");
+    }
+
+    return meta;
+  }
+
+  private registerConnection(ws: WebSocket, meta: ConnectionMeta) {
+    const { userId, clientKey, sessionVersion } = meta;
+    this.conns.add(ws);
+    this.connClients.set(ws, new Set());
+    this.connMeta.set(ws, meta);
+    this.userToConn.set(userId, { ws, clientKey, sessionVersion });
+    this.userToLastVersion.set(userId, sessionVersion);
+    if (this.emptyTimer !== null) {
+      clearTimeout(this.emptyTimer);
+      this.emptyTimer = null;
+    }
+  }
+
+  private initConnectionStats(ws: WebSocket) {
+    const now = Date.now();
+    const stats: ConnectionStats = {
+      tokens: RATE_LIMIT_MAX_MESSAGES,
+      lastRefill: now,
+      windowStart: now,
+      bytes: 0,
+      lastMessage: now,
+      heartbeat: undefined,
+    };
+    const heartbeat = setInterval(() => {
+      const current = this.connStats.get(ws);
+      if (!current) return;
+      const idleFor = Date.now() - current.lastMessage;
+      if (idleFor > this.idleTimeoutMs) {
+        this.tryClose(ws, 1000, "idle timeout");
+        clearInterval(heartbeat);
+        this.connStats.delete(ws);
+      }
+    }, this.pingIntervalMs);
+    stats.heartbeat = heartbeat as unknown as number;
+    this.connStats.set(ws, stats);
+  }
+
+  private sendInitialSync(ws: WebSocket, userId: string) {
+    const encoder = encoding.createEncoder();
+    encoding.writeVarUint(encoder, messageSync);
+    syncProtocol.writeSyncStep1(encoder, this.doc);
+    const step1 = encoding.toUint8Array(encoder);
+    this.dbg("send sync step1 bytes", step1.byteLength, "to", userId);
+    ws.send(step1);
+  }
+
+  private sendAwarenessSnapshot(ws: WebSocket, userId: string) {
+    const awarenessStates = encoding.createEncoder();
+    encoding.writeVarUint(awarenessStates, messageAwareness);
+    encoding.writeVarUint8Array(
+      awarenessStates,
+      awarenessProtocol.encodeAwarenessUpdate(
+        this.awareness,
+        Array.from(this.awareness.getStates().keys())
+      )
+    );
+    const aware = encoding.toUint8Array(awarenessStates);
+    this.dbg("send awareness snapshot bytes", aware.byteLength, "to", userId);
+    ws.send(aware);
+  }
+
+  private handleMessage(ws: WebSocket, userId: string, evt: MessageEvent) {
+    const raw = evt.data;
+    const data =
+      raw instanceof ArrayBuffer
+        ? new Uint8Array(raw)
+        : typeof raw === "string"
+          ? new TextEncoder().encode(raw)
+          : new Uint8Array([]);
+    this.dbg("recv bytes", data.byteLength, "from", userId);
+    // console.log('[signal] msg', currentRoom, 'size', this.conns.size, 'type', typeof raw, 'len', raw instanceof ArrayBuffer ? raw.byteLength : (typeof raw === 'string' ? raw.length : 'n/a'));
+    const size = data.byteLength;
+    if (size > MAX_MESSAGE_BYTES) {
+      this.tryClose(ws, 1009, "message too large");
+      return;
+    }
+
+    if (!this.consumeRateLimit(ws, size)) {
+      return;
+    }
+
+    const decoder = decoding.createDecoder(data);
+    const encoder = encoding.createEncoder();
+    let messageType: number;
+    try {
+      messageType = decoding.readVarUint(decoder);
+    } catch (err) {
+      console.warn("[signal] failed to decode message type", err);
+      this.tryClose(ws, 1003, "decode error");
+      return;
+    }
+
+    switch (messageType) {
+      case messageSync: {
+        try {
+          encoding.writeVarUint(encoder, messageSync);
+          syncProtocol.readSyncMessage(decoder, encoder, this.doc, ws);
+        } catch (err) {
+          console.warn("[signal] sync decode failed", err);
+          this.tryClose(ws, 1003, "sync decode error");
+          return;
+        }
+        if (encoding.length(encoder) > 1) {
+          const resp = encoding.toUint8Array(encoder);
+          this.dbg("send sync response bytes", resp.byteLength, "to", userId);
+          try {
+            ws.send(resp);
+          } catch (_err) {
+            ws.close();
+          }
+        } else {
+          this.dbg("empty sync response", { to: userId });
+        }
+        break;
+      }
+      case messageAwareness: {
+        const update = decoding.readVarUint8Array(decoder);
+        if (!update || update.length === 0) {
+          break;
+        }
+        const clientIds = this.extractAwarenessClientIds(update);
+        if (clientIds.length === 0) break;
+        const set = this.connClients.get(ws);
+        for (const clientId of clientIds) {
+          const owner = this.awarenessOwners.get(clientId);
+          // Reclaim if owner socket is gone; otherwise block hijack.
+          if (owner && owner !== ws) {
+            const ownerStats = this.connStats.get(owner);
+            const idleFor = ownerStats
+              ? Date.now() - ownerStats.lastMessage
+              : Number.POSITIVE_INFINITY;
+            if (!this.conns.has(owner) || idleFor > this.idleTimeoutMs) {
+              this.awarenessOwners.set(clientId, ws);
+            } else {
+              return;
+            }
+          } else {
+            this.awarenessOwners.set(clientId, ws);
+          }
+          if (set) set.add(clientId);
+        }
+        try {
+          awarenessProtocol.applyAwarenessUpdate(this.awareness, update, ws);
+        } catch (err) {
+          console.error("[signal] awareness update failed", err);
+        }
+        break;
+      }
+      default:
+        console.warn("[signal] unknown message type", messageType);
+    }
+  }
+
   async fetch(request: Request): Promise<Response> {
     // Wait for storage restoration before handling any connections
     await this.stateRestorePromise;
 
     const { 0: client, 1: server } = new WebSocketPair();
     const url = new URL(request.url);
-    const pathname = url.pathname.replace(/\/+$/, "");
-    const roomFromPath = pathname.startsWith("/signal/")
-      ? pathname.slice("/signal/".length)
-      : null;
-    const room = roomFromPath || url.searchParams.get("room");
+    const room = getRoomFromUrl(url);
     if (!room) {
       return new Response("Missing room name", { status: 400 });
     }
-    if (!UUID_REGEX.test(room)) {
+    if (!isValidRoomName(room)) {
       return new Response("Invalid room name", { status: 400 });
     }
     this.handleConnection(server, room, url.searchParams);
@@ -246,58 +455,9 @@ export class SignalRoom extends DurableObject {
   }
 
   private handleConnection(ws: WebSocket, room: RoomName, params: URLSearchParams) {
-    const userId = params.get("userId") || "";
-    const clientKey = params.get("clientKey") || "";
-    const sessionVersionRaw = params.get("sessionVersion") || "";
-    const sessionVersion = Number.parseInt(sessionVersionRaw, 10);
-
-    if (
-      !UUID_REGEX.test(userId) ||
-      !UUID_REGEX.test(clientKey) ||
-      !Number.isFinite(sessionVersion) ||
-      sessionVersion < 0
-    ) {
-      this.dbg("reject handshake invalid", { room, userId, clientKey, sessionVersion });
-      try {
-        ws.close(1008, "invalid handshake");
-      } catch (_err) {}
-      return;
-    }
-
-    const lastVersion = this.userToLastVersion.get(userId);
-    if (lastVersion !== undefined && sessionVersion < lastVersion) {
-      this.dbg("reject stale session", {
-        room,
-        userId,
-        clientKey,
-        sessionVersion,
-        lastVersion,
-      });
-      try {
-        ws.close(4090, "stale session");
-      } catch (_err) {}
-      return;
-    }
-
-    const existing = this.userToConn.get(userId);
-    if (existing && existing.clientKey !== clientKey) {
-      this.dbg("reject duplicate user different key", {
-        room,
-        userId,
-        clientKey,
-        existing: existing.clientKey,
-      });
-      try {
-        ws.close(4091, "user already connected");
-      } catch (_err) {}
-      return;
-    }
-    if (existing && existing.clientKey === clientKey) {
-      this.dbg("close existing same key before replace", { room, userId, clientKey });
-      try {
-        existing.ws.close(4001, "replaced connection");
-      } catch (_err) {}
-    }
+    const meta = this.validateHandshake(room, ws, params);
+    if (!meta) return;
+    const { userId, clientKey, sessionVersion } = meta;
 
     ws.accept();
     let closed = false;
@@ -305,41 +465,11 @@ export class SignalRoom extends DurableObject {
     const _roomNameForLog: RoomName = room;
     void _roomNameForLog;
 
-    this.conns.add(ws);
-    this.connClients.set(ws, new Set());
-    this.connMeta.set(ws, { userId, clientKey, sessionVersion });
-    this.userToConn.set(userId, { ws, clientKey, sessionVersion });
-    this.userToLastVersion.set(userId, sessionVersion);
-    if (this.emptyTimer !== null) {
-      clearTimeout(this.emptyTimer);
-      this.emptyTimer = null;
-    }
+    this.registerConnection(ws, meta);
     const snapPlayers = this.doc.getMap("players").size;
     const snapZones = this.doc.getMap("zones").size;
     const snapCards = this.doc.getMap("cards").size;
-    const now = Date.now();
-    const stats = {
-      tokens: RATE_LIMIT_MAX_MESSAGES,
-      lastRefill: now,
-      windowStart: now,
-      bytes: 0,
-      lastMessage: now,
-      heartbeat: undefined as number | undefined,
-    };
-    const heartbeat = setInterval(() => {
-      const current = this.connStats.get(ws);
-      if (!current) return;
-      const idleFor = Date.now() - current.lastMessage;
-      if (idleFor > this.idleTimeoutMs) {
-        try {
-          ws.close(1000, "idle timeout");
-        } catch (_err) {}
-        clearInterval(heartbeat);
-        this.connStats.delete(ws);
-      }
-    }, this.pingIntervalMs);
-    stats.heartbeat = heartbeat as unknown as number;
-    this.connStats.set(ws, stats);
+    this.initConnectionStats(ws);
     // console.log('[signal] joined room', currentRoom, 'size', this.conns.size);
     const stateSize = Y.encodeStateAsUpdate(this.doc).byteLength;
     this.dbg("accepted", {
@@ -398,124 +528,11 @@ export class SignalRoom extends DurableObject {
 
     ws.addEventListener("message", (evt) => {
       if (closed) return;
-      const raw = evt.data;
-      const data =
-        raw instanceof ArrayBuffer
-          ? new Uint8Array(raw)
-          : typeof raw === "string"
-            ? new TextEncoder().encode(raw)
-            : new Uint8Array([]);
-      this.dbg("recv bytes", data.byteLength, "from", userId);
-      // console.log('[signal] msg', currentRoom, 'size', this.conns.size, 'type', typeof raw, 'len', raw instanceof ArrayBuffer ? raw.byteLength : (typeof raw === 'string' ? raw.length : 'n/a'));
-      const size = data.byteLength;
-      if (size > MAX_MESSAGE_BYTES) {
-        try {
-          ws.close(1009, "message too large");
-        } catch (_err) {}
-        return;
-      }
-
-      if (!this.consumeRateLimit(ws, size)) {
-        return;
-      }
-
-      const decoder = decoding.createDecoder(data);
-      const encoder = encoding.createEncoder();
-      let messageType: number;
-      try {
-        messageType = decoding.readVarUint(decoder);
-      } catch (err) {
-        console.warn("[signal] failed to decode message type", err);
-        try {
-          ws.close(1003, "decode error");
-        } catch (_err) {}
-        return;
-      }
-
-      switch (messageType) {
-        case messageSync: {
-          try {
-            encoding.writeVarUint(encoder, messageSync);
-            syncProtocol.readSyncMessage(decoder, encoder, this.doc, ws);
-          } catch (err) {
-            console.warn("[signal] sync decode failed", err);
-            try {
-              ws.close(1003, "sync decode error");
-            } catch (_err) {}
-            return;
-          }
-          if (encoding.length(encoder) > 1) {
-            const resp = encoding.toUint8Array(encoder);
-            this.dbg("send sync response bytes", resp.byteLength, "to", userId);
-            try {
-              ws.send(resp);
-            } catch (_err) {
-              ws.close();
-            }
-          } else {
-            this.dbg("empty sync response", { to: userId });
-          }
-          break;
-        }
-        case messageAwareness: {
-          const update = decoding.readVarUint8Array(decoder);
-          if (!update || update.length === 0) {
-            break;
-          }
-          const clientIds = this.extractAwarenessClientIds(update);
-          if (clientIds.length === 0) break;
-          const set = this.connClients.get(ws);
-          for (const clientId of clientIds) {
-            const owner = this.awarenessOwners.get(clientId);
-            // Reclaim if owner socket is gone; otherwise block hijack.
-            if (owner && owner !== ws) {
-              const ownerStats = this.connStats.get(owner);
-              const idleFor = ownerStats
-                ? Date.now() - ownerStats.lastMessage
-                : Number.POSITIVE_INFINITY;
-              if (!this.conns.has(owner) || idleFor > this.idleTimeoutMs) {
-                this.awarenessOwners.set(clientId, ws);
-              } else {
-                return;
-              }
-            } else {
-              this.awarenessOwners.set(clientId, ws);
-            }
-            if (set) set.add(clientId);
-          }
-          try {
-            awarenessProtocol.applyAwarenessUpdate(this.awareness, update, ws);
-          } catch (err) {
-            console.error("[signal] awareness update failed", err);
-          }
-          break;
-        }
-        default:
-          console.warn("[signal] unknown message type", messageType);
-      }
+      this.handleMessage(ws, userId, evt);
     });
 
-    // Initial sync step 1
-    const encoder = encoding.createEncoder();
-    encoding.writeVarUint(encoder, messageSync);
-    syncProtocol.writeSyncStep1(encoder, this.doc);
-    const step1 = encoding.toUint8Array(encoder);
-    this.dbg("send sync step1 bytes", step1.byteLength, "to", userId);
-    ws.send(step1);
-
-    // Send current awareness states
-    const awarenessStates = encoding.createEncoder();
-    encoding.writeVarUint(awarenessStates, messageAwareness);
-    encoding.writeVarUint8Array(
-      awarenessStates,
-      awarenessProtocol.encodeAwarenessUpdate(
-        this.awareness,
-        Array.from(this.awareness.getStates().keys())
-      )
-    );
-    const aware = encoding.toUint8Array(awarenessStates);
-    this.dbg("send awareness snapshot bytes", aware.byteLength, "to", userId);
-    ws.send(aware);
+    this.sendInitialSync(ws, userId);
+    this.sendAwarenessSnapshot(ws, userId);
   }
 
   private consumeRateLimit(ws: WebSocket, size: number) {
@@ -532,9 +549,7 @@ export class SignalRoom extends DurableObject {
     stats.lastRefill = now;
 
     if (stats.tokens < 1) {
-      try {
-        ws.close(1013, "rate limited");
-      } catch (_err) {}
+      this.tryClose(ws, 1013, "rate limited");
       return false;
     }
     stats.tokens -= 1;
@@ -544,9 +559,7 @@ export class SignalRoom extends DurableObject {
       stats.bytes = 0;
     }
     if (stats.bytes + size > RATE_LIMIT_MAX_BYTES) {
-      try {
-        ws.close(1009, "rate limited");
-      } catch (_err) {}
+      this.tryClose(ws, 1009, "rate limited");
       return false;
     }
     stats.bytes += size;
@@ -575,4 +588,3 @@ export class SignalRoom extends DurableObject {
     return ids;
   }
 }
-
