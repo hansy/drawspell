@@ -135,9 +135,7 @@ export const createSessionActions = (
       get().forgetSessionIdentity(sessionId);
       writeRoomTokensToStorage(sessionId, null);
       clearRoomHostPending(sessionId);
-      if (useClientPrefsStore.getState().lastSessionId === sessionId) {
-        useClientPrefsStore.getState().clearLastSessionId();
-      }
+      useClientPrefsStore.getState().clearLastSessionId();
     }
 
     get().resetSession();

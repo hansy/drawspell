@@ -1784,6 +1784,17 @@ export const buildOverlayForViewer = (params: {
     });
   });
 
+  Object.entries(params.hidden.libraryOrder).forEach(([ownerId, order]) => {
+    if (viewerRole === "spectator") return;
+    if (!viewerId || viewerId !== ownerId) return;
+    const libraryZoneId = libraryZoneIds[ownerId];
+    if (!libraryZoneId) return;
+    if (zoneCardOrders[libraryZoneId]) return;
+    const topCardId = order.length ? order[order.length - 1] : null;
+    if (!topCardId) return;
+    zoneCardOrders[libraryZoneId] = [topCardId];
+  });
+
   Object.values(snapshot.cards).forEach((card) => {
     if (!card.faceDown || card.zoneId === undefined) return;
     const reveal = params.hidden.faceDownReveals[card.id];
@@ -2097,11 +2108,9 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
         return { ok: true };
       }
       case "player.leave": {
-        const playerId = typeof payload.playerId === "string" ? payload.playerId : null;
+        const requestedPlayerId = typeof payload.playerId === "string" ? payload.playerId : null;
+        const playerId = requestedPlayerId && requestedPlayerId === actorId ? requestedPlayerId : actorId;
         if (!playerId) return { ok: false, error: "invalid player" };
-        if (playerId !== actorId) {
-          return { ok: false, error: "actor mismatch" };
-        }
 
         const snapshot = buildSnapshot(maps);
         const nextPlayers = { ...snapshot.players };
@@ -2279,11 +2288,6 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
         if (!counterType || !color) return { ok: false, error: "invalid counter" };
         if (!maps.globalCounters.get(counterType)) {
           maps.globalCounters.set(counterType, color);
-          pushLogEvent("counter.global.add", {
-            counterType,
-            color,
-            actorId,
-          });
         }
         return { ok: true };
       }
@@ -2951,6 +2955,22 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
         });
         return { ok: true };
       }
+      case "coin.flip": {
+        const count = typeof payload.count === "number" ? payload.count : null;
+        const results = Array.isArray(payload.results)
+          ? payload.results.filter((value) => value === "heads" || value === "tails")
+          : null;
+        const safeCount = typeof count === "number" && Number.isFinite(count) ? Math.floor(count) : 0;
+        if (!safeCount || !results || results.length === 0) {
+          return { ok: false, error: "invalid coin flip" };
+        }
+        pushLogEvent("coin.flip", {
+          actorId,
+          count: safeCount,
+          results,
+        });
+        return { ok: true };
+      }
       case "dice.roll": {
         const sides = typeof payload.sides === "number" ? payload.sides : null;
         const count = typeof payload.count === "number" ? payload.count : null;
@@ -3144,6 +3164,7 @@ const applyCardMove = (
       cardId,
       fromZoneId: fromZone.id,
       toZoneId,
+      placement,
       cardName: shouldHideMoveName ? "a card" : faceDownIdentityForLog?.name ?? card.name,
       fromZoneType: fromZone.type,
       toZoneType: toZone.type,

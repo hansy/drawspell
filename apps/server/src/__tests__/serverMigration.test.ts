@@ -969,7 +969,7 @@ describe("server migration behavior", () => {
     expect(doc.getMap("battlefieldViewScale").get("p1")).toBe(1);
   });
 
-  it("adds global counters once and logs creation", () => {
+  it("adds global counters once without logging creation", () => {
     const doc = createDoc();
     const hidden = createEmptyHiddenState();
 
@@ -988,7 +988,7 @@ describe("server migration behavior", () => {
     );
     expect(added.ok).toBe(true);
     if (added.ok) {
-      expect(added.logEvents.map((event) => event.eventId)).toEqual(["counter.global.add"]);
+      expect(added.logEvents).toHaveLength(0);
     }
     expect(doc.getMap("globalCounters").get("energy")).toBe("#00ff00");
 
@@ -1602,10 +1602,45 @@ describe("server migration behavior", () => {
       expect(denied.error).toBe("Hidden zone");
     }
 
-    const validRoll = applyIntentToDoc(
+    const validFlip = applyIntentToDoc(
       doc,
       {
         id: "intent-57",
+        type: "coin.flip",
+        payload: {
+          actorId: "p1",
+          count: 2,
+          results: ["heads", "tails"],
+        },
+      },
+      hidden
+    );
+    expect(validFlip.ok).toBe(true);
+    if (validFlip.ok) {
+      expect(validFlip.logEvents.map((event) => event.eventId)).toEqual(["coin.flip"]);
+    }
+
+    const invalidFlip = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-58",
+        type: "coin.flip",
+        payload: {
+          actorId: "p1",
+          count: 2,
+        },
+      },
+      hidden
+    );
+    expect(invalidFlip.ok).toBe(false);
+    if (!invalidFlip.ok) {
+      expect(invalidFlip.error).toBe("invalid coin flip");
+    }
+
+    const validRoll = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-59",
         type: "dice.roll",
         payload: {
           actorId: "p1",
@@ -1624,7 +1659,7 @@ describe("server migration behavior", () => {
     const invalidRoll = applyIntentToDoc(
       doc,
       {
-        id: "intent-58",
+        id: "intent-60",
         type: "dice.roll",
         payload: {
           actorId: "p1",
@@ -1679,7 +1714,7 @@ describe("server migration behavior", () => {
     const player = doc.getMap("players").get("p1") as Player;
     expect(player.name).toBe("New Name");
 
-    const leaveDenied = applyIntentToDoc(
+    const leaveFallback = applyIntentToDoc(
       doc,
       {
         id: "intent-61",
@@ -1691,10 +1726,10 @@ describe("server migration behavior", () => {
       },
       createEmptyHiddenState()
     );
-    expect(leaveDenied.ok).toBe(false);
-    if (!leaveDenied.ok) {
-      expect(leaveDenied.error).toBe("actor mismatch");
-    }
+    expect(leaveFallback.ok).toBe(true);
+    const remainingPlayers = doc.getMap("players");
+    expect(remainingPlayers.get("p1")).toBeTruthy();
+    expect(remainingPlayers.get("p2")).toBeUndefined();
   });
 
   it("keeps existing zones when re-adding with the same owner/type", () => {
