@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev --config wrangler.jsonc",
+    "build": "wrangler build --config wrangler.jsonc",
     "deploy": "wrangler deploy --config wrangler.jsonc",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
