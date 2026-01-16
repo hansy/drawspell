@@ -49,7 +49,7 @@ import {
   writeZone,
 } from "../yjsStore";
 import { canAddCard, canModifyCardState, canMoveCard, canRemoveToken, canTapCard, canUpdatePlayer, canViewHiddenZone } from "../permissions";
-import type { ApplyResult, HiddenState, InnerApplyResult, Intent, LogEvent, Maps } from "../types";
+import type { ApplyResult, HiddenState, InnerApplyResult, Intent, LogEvent } from "../types";
 import { applyCardMove } from "../movement";
 import { applyMulligan, applyResetDeck, applyUnloadDeck } from "../deck";
 import { shuffle } from "../random";
@@ -75,7 +75,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
     raw: unknown
   ): { card: Card; zoneId: string } | { error: string } => {
     if (!actorId) return { error: "missing actor" };
-    const card = isRecord(raw) ? (raw as Card) : null;
+    const card = isRecord(raw) ? (raw as unknown as Card) : null;
     if (!card || typeof card.id !== "string") return { error: "invalid card" };
     const normalized = normalizeCardForAdd(card);
     const zone = readZone(maps, normalized.zoneId);
@@ -152,7 +152,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
     if (!actorId) return { ok: false, error: "missing actor" };
     switch (intent.type) {
       case "player.join": {
-        const player = isRecord(payload.player) ? (payload.player as Player) : null;
+        const player = isRecord(payload.player) ? (payload.player as unknown as Player) : null;
         if (!player || typeof player.id !== "string") {
           return { ok: false, error: "invalid player" };
         }
@@ -311,7 +311,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
         return { ok: true };
       }
       case "zone.add": {
-        const zone = isRecord(payload.zone) ? (payload.zone as Zone) : null;
+        const zone = isRecord(payload.zone) ? (payload.zone as unknown as Zone) : null;
         if (!zone || typeof zone.id !== "string") return { ok: false, error: "invalid zone" };
         const existing = readZone(maps, zone.id);
         if (existing) {
@@ -331,7 +331,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           ...zone,
           cardIds:
             zone.type === ZONE.HAND ? nextCardIds : isHiddenZoneType(zone.type) ? [] : nextCardIds,
-        } as Zone;
+        } as unknown as Zone;
         writeZone(maps, normalized);
         if (isHiddenZoneType(zone.type)) {
           if (zone.type === ZONE.HAND && !hidden.handOrder[zone.ownerId]) {
@@ -519,7 +519,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
         maps.cards.forEach((value, key) => {
           const raw = readRecord(value);
           if (!raw) return;
-          const card = raw as Card;
+        const card = raw as unknown as Card;
           if (card.controllerId === playerId && card.tapped) {
             maps.cards.set(String(key), { ...card, tapped: false });
           }

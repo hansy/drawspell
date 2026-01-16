@@ -1,6 +1,7 @@
 import type { CardIdentity } from "../../../web/src/types/cards";
 
 import { LEGACY_COMMAND_ZONE, ZONE } from "./constants";
+import type { Zone } from "../../../web/src/types/zones";
 import { enforceZoneCounterRules, mergeCardIdentity, resetCardToFrontFace } from "./cards";
 import { clearFaceDownStateForCard, syncLibraryRevealsToAllForPlayer, updatePlayerCounts } from "./hiddenState";
 import { placeCardId, removeFromArray } from "./lists";
@@ -61,7 +62,8 @@ const applyDeckRebuild = (
     if (card.ownerId !== playerId) return;
     const fromZone = snapshot.zones[card.zoneId];
     if (!fromZone) return;
-    const inCommanderZone = fromZone.type === ZONE.COMMANDER || fromZone.type === LEGACY_COMMAND_ZONE;
+    const fromZoneType = fromZone.type as Zone["type"] | typeof LEGACY_COMMAND_ZONE;
+    const inCommanderZone = fromZoneType === ZONE.COMMANDER || fromZoneType === LEGACY_COMMAND_ZONE;
     const inSideboard = fromZone.type === ZONE.SIDEBOARD;
     const resolvedCard = card.faceDown
       ? mergeCardIdentity(card, hidden.faceDownBattlefield[card.id])

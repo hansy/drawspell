@@ -60,7 +60,7 @@ export const syncZoneOrder = (maps: Maps, zoneId: string, ids: string[]) => {
 export const readZone = (maps: Maps, zoneId: string): Zone | null => {
   const raw = readRecord(maps.zones.get(zoneId));
   if (!raw) return null;
-  const zone = raw as Zone;
+  const zone = raw as unknown as Zone;
   const cardIds = readZoneCardIds(maps, zoneId, zone);
   return { ...zone, id: zoneId, cardIds };
 };
@@ -68,13 +68,13 @@ export const readZone = (maps: Maps, zoneId: string): Zone | null => {
 export const readCard = (maps: Maps, cardId: string): Card | null => {
   const raw = readRecord(maps.cards.get(cardId));
   if (!raw) return null;
-  return { ...(raw as Card), id: cardId };
+  return { ...(raw as unknown as Card), id: cardId };
 };
 
 export const readPlayer = (maps: Maps, playerId: string): Player | null => {
   const raw = readRecord(maps.players.get(playerId));
   if (!raw) return null;
-  return { ...(raw as Player), id: playerId };
+  return { ...(raw as unknown as Player), id: playerId };
 };
 
 export const writeZone = (maps: Maps, zone: Zone) => {
@@ -106,21 +106,21 @@ export const buildSnapshot = (maps: Maps): Snapshot => {
   maps.players.forEach((value, key) => {
     const raw = readRecord(value);
     if (!raw) return;
-    players[String(key)] = { ...(raw as Player), id: String(key) };
+    players[String(key)] = { ...(raw as unknown as Player), id: String(key) };
   });
 
   maps.zones.forEach((value, key) => {
     const raw = readRecord(value);
     if (!raw) return;
     const zoneId = String(key);
-    const zone = raw as Zone;
+    const zone = raw as unknown as Zone;
     zones[zoneId] = { ...zone, id: zoneId, cardIds: readZoneCardIds(maps, zoneId, zone) };
   });
 
   maps.cards.forEach((value, key) => {
     const raw = readRecord(value);
     if (!raw) return;
-    cards[String(key)] = { ...(raw as Card), id: String(key) };
+    cards[String(key)] = { ...(raw as unknown as Card), id: String(key) };
   });
 
   maps.globalCounters.forEach((value, key) => {
@@ -155,7 +155,7 @@ export const applyRecordToMap = (map: Y.Map<unknown>, next: Record<string, unkno
   });
 };
 
-export const clearYMap = (map: Y.Map<unknown>) => {
+export const clearYMap = <T>(map: Y.Map<T>) => {
   map.forEach((_value, key) => {
     map.delete(key);
   });

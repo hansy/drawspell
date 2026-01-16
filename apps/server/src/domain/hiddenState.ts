@@ -186,16 +186,16 @@ export const syncLibraryRevealsToAllForPlayer = (
   }
 
   let resolvedLibraryZoneId = libraryZoneId;
-  if (!resolvedLibraryZoneId) {
-    maps.zones.forEach((value, key) => {
-      const raw = readRecord(value);
-      if (!raw) return;
-      const zone = raw as Zone;
-      if (zone.ownerId === playerId && zone.type === ZONE.LIBRARY) {
-        resolvedLibraryZoneId = String(key);
-      }
-    });
-  }
+    if (!resolvedLibraryZoneId) {
+      maps.zones.forEach((value, key) => {
+        const raw = readRecord(value);
+        if (!raw) return;
+        const zone = raw as unknown as Zone;
+        if (zone.ownerId === playerId && zone.type === ZONE.LIBRARY) {
+          resolvedLibraryZoneId = String(key);
+        }
+      });
+    }
 
   maps.libraryRevealsToAll.forEach((value, key) => {
     const cardId = String(key);
