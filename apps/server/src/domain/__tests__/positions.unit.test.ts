@@ -18,11 +18,11 @@ const keyFor = (position: { x: number; y: number }) =>
   `${position.x.toFixed(4)}:${position.y.toFixed(4)}`;
 
 describe("server positions", () => {
-  it("should clamp normalized positions within bounds", () => {
-    const result = normalizeMovePosition({ x: 1.5, y: -0.25 }, { x: 0.2, y: 0.2 });
+  it("should clamp negative normalized positions within bounds", () => {
+    const result = normalizeMovePosition({ x: -0.25, y: 0.4 }, { x: 0.2, y: 0.2 });
 
-    expect(result.x).toBe(1);
-    expect(result.y).toBe(0);
+    expect(result.x).toBe(0);
+    expect(result.y).toBe(0.4);
   });
 
   it("should migrate legacy pixel positions when values exceed 1", () => {
