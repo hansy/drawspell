@@ -222,6 +222,7 @@ describe("server migration behavior", () => {
     expect(spectatorOverlay.cards.map((card) => card.id)).toEqual(["fd1"]);
   });
 
+
   it("denies moving cards from another player's hidden zone", () => {
     const doc = createDoc();
     seedPlayers(doc, [createPlayer("p1"), createPlayer("p2")]);
