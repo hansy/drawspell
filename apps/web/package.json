@@ -39,7 +39,7 @@
     "uuid": "^13.0.0",
     "partysocket": "^1.1.5",
     "vite-tsconfig-paths": "^5.1.4",
-    "y-partykit": "^0.0.33",
+    "y-partyserver": "^1.0.0",
     "yjs": "^13.6.27",
     "zustand": "^5.0.8"
   },

@@ -1,6 +1,6 @@
 import type * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
-import YPartyKitProvider from "y-partykit/provider";
+import YPartyServerProvider from "y-partyserver/provider";
 import { toast } from "sonner";
 import { clearLogs, emitLog } from "@/logging/logStore";
 import { ZONE } from "@/constants/zones";
@@ -19,6 +19,7 @@ import {
   setIntentTransport,
   type IntentTransport,
 } from "@/partykit/intentTransport";
+import { PARTY_NAME } from "@/partykit/config";
 import type { PrivateOverlayPayload, RoomTokensPayload } from "@/partykit/messages";
 import { useGameStore } from "@/store/gameStore";
 import { handleIntentAck } from "@/store/gameStore/dispatchIntent";
@@ -62,7 +63,7 @@ export function setupSessionResources({
   const envHost = resolvePartyKitHost(import.meta.env.VITE_WEBSOCKET_SERVER);
   const defaultHost =
     import.meta.env.DEV && typeof window !== "undefined"
-      ? "localhost:1999"
+      ? "localhost:8787"
       : typeof window !== "undefined"
         ? window.location.host
         : null;
@@ -156,11 +157,12 @@ export function setupSessionResources({
   const token = inviteToken.token ?? fallbackToken;
 
   const awareness = new Awareness(doc);
-  const provider: YSyncProvider = new YPartyKitProvider(
+  const provider: YSyncProvider = new YPartyServerProvider(
     partyHost,
     sessionId,
     doc,
     {
+      party: PARTY_NAME,
       awareness,
       connect: true,
       params: async () => {

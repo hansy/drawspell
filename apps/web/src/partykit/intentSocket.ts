@@ -1,6 +1,7 @@
 import PartySocket from "partysocket";
 
 import type { PartyMessage } from "./messages";
+import { PARTY_NAME } from "./config";
 
 export type IntentSocketOptions = {
   host: string;
@@ -28,6 +29,7 @@ export const createIntentSocket = ({
   const socket = new PartySocket({
     host,
     room,
+    party: PARTY_NAME,
     query: {
       role: "intent",
       ...tokenParam,

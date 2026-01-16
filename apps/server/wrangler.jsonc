@@ -1,0 +1,19 @@
+{
+  "name": "mtg-server",
+  "main": "src/server.ts",
+  "compatibility_date": "2025-12-17",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "rooms",
+        "class_name": "Room",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["Room"],
+    },
+  ],
+}

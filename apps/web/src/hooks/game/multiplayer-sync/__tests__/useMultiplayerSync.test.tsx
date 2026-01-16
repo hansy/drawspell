@@ -77,7 +77,7 @@ const intentTransportMocks = vi.hoisted(() => ({
   clearIntentTransport: vi.fn(),
 }));
 const logStoreMocks = vi.hoisted(() => ({ emitLog: vi.fn(), clearLogs: vi.fn() }));
-vi.mock("y-partykit/provider", () => {
+vi.mock("y-partyserver/provider", () => {
   class MockPartyKitProvider {
     callbacks = new Map<string, (payload: any) => void>();
     awareness: any;

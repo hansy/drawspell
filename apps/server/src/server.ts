@@ -1,5 +1,6 @@
-import type * as Party from "partykit/server";
-import { onConnect, unstable_getYDoc } from "y-partykit";
+import { DurableObjectNamespace } from "cloudflare:workers";
+import { routePartykitRequest, type Connection, type ConnectionContext } from "partyserver";
+import { YServer } from "y-partyserver";
 import * as Y from "yjs";
 
 import type { Card } from "../../web/src/types/cards";
@@ -25,32 +26,65 @@ export { applyIntentToDoc } from "./domain/intents/applyIntentToDoc";
 export { buildOverlayForViewer } from "./domain/overlay";
 export { createEmptyHiddenState } from "./domain/hiddenState";
 
-const INTENT_ROLE = "intent";
-
-const YJS_OPTIONS = {
-  persist: { mode: "snapshot" as const },
-  readOnly: true,
+export type Env = {
+  rooms: DurableObjectNamespace;
 };
 
-export default class MtgPartyServer implements Party.Server {
-  private intentConnections = new Set<Party.Connection>();
+const INTENT_ROLE = "intent";
+const Y_DOC_STORAGE_KEY = "yjs:doc";
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    return (await routePartykitRequest(request, env)) ?? new Response("Not Found", { status: 404 });
+  },
+};
+
+export class Room extends YServer<Env> {
+  private intentConnections = new Set<Connection>();
   private hiddenState: HiddenState | null = null;
   private roomTokens: RoomTokens | null = null;
   private libraryViews = new Map<string, { playerId: string; count?: number }>();
   private overlaySummaries = new Map<string, { cardCount: number; cardsWithArt: number }>();
 
-  constructor(public party: Party.Room) {}
+  async onLoad() {
+    const stored = await this.ctx.storage.get<ArrayBuffer>(Y_DOC_STORAGE_KEY);
+    if (!stored) return;
+    try {
+      Y.applyUpdate(this.document, new Uint8Array(stored));
+    } catch (err: any) {
+      console.error("[party] failed to load yjs state", {
+        room: this.name,
+        error: err?.message ?? String(err),
+      });
+    }
+  }
+
+  async onSave() {
+    try {
+      const update = Y.encodeStateAsUpdate(this.document);
+      await this.ctx.storage.put(Y_DOC_STORAGE_KEY, update.buffer);
+    } catch (err: any) {
+      console.error("[party] failed to save yjs state", {
+        room: this.name,
+        error: err?.message ?? String(err),
+      });
+    }
+  }
+
+  isReadOnly(): boolean {
+    return true;
+  }
 
   private async ensureHiddenState(doc: Y.Doc) {
     if (this.hiddenState) return this.hiddenState;
-    const storedMeta = await this.party.storage.get<HiddenStateMeta>(HIDDEN_STATE_META_KEY);
+    const storedMeta = await this.ctx.storage.get<HiddenStateMeta>(HIDDEN_STATE_META_KEY);
     if (storedMeta) {
       const cards: Record<string, Card> = {};
       const chunkKeys = Array.isArray(storedMeta.cardChunkKeys)
         ? storedMeta.cardChunkKeys
         : [];
       for (const key of chunkKeys) {
-        const chunk = await this.party.storage.get<Record<string, Card>>(key);
+        const chunk = await this.ctx.storage.get<Record<string, Card>>(key);
         if (chunk && isRecord(chunk)) {
           Object.assign(cards, chunk as Record<string, Card>);
         }
@@ -60,7 +94,7 @@ export default class MtgPartyServer implements Party.Server {
       return this.hiddenState;
     }
 
-    const stored = await this.party.storage.get<HiddenState>(HIDDEN_STATE_KEY);
+    const stored = await this.ctx.storage.get<HiddenState>(HIDDEN_STATE_KEY);
     if (stored) {
       this.hiddenState = normalizeHiddenState(stored);
       return this.hiddenState;
@@ -82,15 +116,15 @@ export default class MtgPartyServer implements Party.Server {
 
     for (let index = 0; index < chunks.length; index += 1) {
       const key = chunkKeys[index];
-      await this.party.storage.put(key, chunks[index]);
+      await this.ctx.storage.put(key, chunks[index]);
     }
 
-    const prevMeta = await this.party.storage.get<HiddenStateMeta>(HIDDEN_STATE_META_KEY);
+    const prevMeta = await this.ctx.storage.get<HiddenStateMeta>(HIDDEN_STATE_META_KEY);
     if (prevMeta?.cardChunkKeys?.length) {
       for (const key of prevMeta.cardChunkKeys) {
         if (!chunkKeys.includes(key)) {
           try {
-            await this.party.storage.delete(key);
+            await this.ctx.storage.delete(key);
           } catch (_err) {}
         }
       }
@@ -100,16 +134,16 @@ export default class MtgPartyServer implements Party.Server {
       ...rest,
       cardChunkKeys: chunkKeys,
     };
-    await this.party.storage.put(HIDDEN_STATE_META_KEY, nextMeta);
+    await this.ctx.storage.put(HIDDEN_STATE_META_KEY, nextMeta);
 
     try {
-      await this.party.storage.delete(HIDDEN_STATE_KEY);
+      await this.ctx.storage.delete(HIDDEN_STATE_KEY);
     } catch (_err) {}
   }
 
   private async loadRoomTokens(): Promise<RoomTokens | null> {
     if (this.roomTokens) return this.roomTokens;
-    const stored = await this.party.storage.get<RoomTokens>(ROOM_TOKENS_KEY);
+    const stored = await this.ctx.storage.get<RoomTokens>(ROOM_TOKENS_KEY);
     if (
       stored &&
       typeof stored.playerToken === "string" &&
@@ -129,15 +163,11 @@ export default class MtgPartyServer implements Party.Server {
       spectatorToken: crypto.randomUUID(),
     };
     this.roomTokens = generated;
-    await this.party.storage.put(ROOM_TOKENS_KEY, generated);
+    await this.ctx.storage.put(ROOM_TOKENS_KEY, generated);
     return generated;
   }
 
-  private sendRoomTokens(
-    conn: Party.Connection,
-    tokens: RoomTokens,
-    viewerRole: "player" | "spectator"
-  ) {
+  private sendRoomTokens(conn: Connection, tokens: RoomTokens, viewerRole: "player" | "spectator") {
     const payload =
       viewerRole === "player"
         ? tokens
@@ -147,19 +177,19 @@ export default class MtgPartyServer implements Party.Server {
     } catch (_err) {}
   }
 
-  onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
-    const url = new URL(conn.uri ?? ctx.request.url);
+  onConnect(conn: Connection, ctx: ConnectionContext) {
+    const url = new URL(ctx.request.url);
     const role = url.searchParams.get("role");
     if (role === INTENT_ROLE) {
-      void this.bindIntentConnection(conn);
+      void this.bindIntentConnection(conn, url);
       return;
     }
-    void this.bindSyncConnection(conn, url);
+    void this.bindSyncConnection(conn, url, ctx);
   }
 
-  private async bindIntentConnection(conn: Party.Connection) {
+  private async bindIntentConnection(conn: Connection, url: URL) {
     this.intentConnections.add(conn);
-    const state = parseIntentConnectionState(conn);
+    const state = parseConnectionParams(url);
     const rejectConnection = (reason: string) => {
       this.intentConnections.delete(conn);
       this.libraryViews.delete(conn.id);
@@ -168,7 +198,7 @@ export default class MtgPartyServer implements Party.Server {
         conn.close(1008, reason);
       } catch (_err) {}
       console.warn("[party] intent connection rejected", {
-        room: this.party.id,
+        room: this.name,
         reason,
         connId: conn.id,
         playerId: state.playerId,
@@ -222,7 +252,7 @@ export default class MtgPartyServer implements Party.Server {
       token: providedToken ?? activeTokens?.playerToken,
     });
     console.info("[party] intent connection established", {
-      room: this.party.id,
+      room: this.name,
       connId: conn.id,
       playerId: resolvedPlayerId,
       viewerRole: resolvedRole,
@@ -240,7 +270,7 @@ export default class MtgPartyServer implements Party.Server {
       this.libraryViews.delete(conn.id);
       this.overlaySummaries.delete(conn.id);
       console.warn("[party] intent connection closed", {
-        room: this.party.id,
+        room: this.name,
         connId: conn.id,
         playerId: resolvedPlayerId,
         viewerRole: resolvedRole,
@@ -266,7 +296,7 @@ export default class MtgPartyServer implements Party.Server {
     });
   }
 
-  private async bindSyncConnection(conn: Party.Connection, url: URL) {
+  private async bindSyncConnection(conn: Connection, url: URL, ctx: ConnectionContext) {
     const state = parseConnectionParams(url);
     const storedTokens = await this.loadRoomTokens();
     const providedToken = state.token;
@@ -290,7 +320,7 @@ export default class MtgPartyServer implements Party.Server {
         rejectConnection("missing player");
         return;
       }
-      return onConnect(conn, this.party, YJS_OPTIONS);
+      return super.onConnect(conn, ctx);
     }
 
     const activeTokens = storedTokens ?? (await this.ensureRoomTokens());
@@ -302,10 +332,10 @@ export default class MtgPartyServer implements Party.Server {
       return;
     }
 
-    return onConnect(conn, this.party, YJS_OPTIONS);
+    return super.onConnect(conn, ctx);
   }
 
-  private async handleIntent(conn: Party.Connection, intent: Intent) {
+  private async handleIntent(conn: Connection, intent: Intent) {
     let ok = false;
     let error: string | undefined;
     let logEvents: { eventId: string; payload: Record<string, unknown> }[] = [];
@@ -349,7 +379,7 @@ export default class MtgPartyServer implements Party.Server {
       normalizedIntent.type === "card.add.batch"
     ) {
       console.info("[party] intent received", {
-        room: this.party.id,
+        room: this.name,
         connId: conn.id,
         intentId: normalizedIntent.id,
         type: normalizedIntent.type,
@@ -358,7 +388,7 @@ export default class MtgPartyServer implements Party.Server {
     }
 
     try {
-      const doc = await unstable_getYDoc(this.party, YJS_OPTIONS);
+      const doc = this.document;
       const hidden = await this.ensureHiddenState(doc);
       const result = applyIntentToDoc(doc, normalizedIntent, hidden);
       ok = result.ok;
@@ -384,7 +414,7 @@ export default class MtgPartyServer implements Party.Server {
       normalizedIntent.type === "card.add.batch"
     ) {
       console.info("[party] intent ack", {
-        room: this.party.id,
+        room: this.name,
         connId: conn.id,
         intentId: normalizedIntent.id,
         type: normalizedIntent.type,
@@ -402,7 +432,7 @@ export default class MtgPartyServer implements Party.Server {
       normalizedIntent.type === "card.add.batch"
     ) {
       console.info("[party] intent result", {
-        room: this.party.id,
+        room: this.name,
         connId: conn.id,
         intentId: normalizedIntent.id,
         type: normalizedIntent.type,
@@ -433,7 +463,7 @@ export default class MtgPartyServer implements Party.Server {
           hiddenSize = null;
         }
         console.error("[party] hidden state persist failed", {
-          room: this.party.id,
+          room: this.name,
           connId: conn.id,
           error: err?.message ?? String(err),
           hiddenSize,
@@ -446,7 +476,7 @@ export default class MtgPartyServer implements Party.Server {
         this.broadcastLogEvents(logEvents);
       } catch (err: any) {
         console.error("[party] log events broadcast failed", {
-          room: this.party.id,
+          room: this.name,
           connId: conn.id,
           error: err?.message ?? String(err),
           eventIds: logEvents.map((event) => event.eventId),
@@ -462,7 +492,7 @@ export default class MtgPartyServer implements Party.Server {
   private broadcastLogEvents(logEvents: { eventId: string; payload: Record<string, unknown> }[]) {
     if (logEvents.length === 0) return;
     console.info("[party] log events broadcast", {
-      room: this.party.id,
+      room: this.name,
       eventIds: logEvents.map((event) => event.eventId),
       connectionCount: this.intentConnections.size,
     });
@@ -478,12 +508,11 @@ export default class MtgPartyServer implements Party.Server {
     }
   }
 
-  private async sendOverlayForConnection(conn: Party.Connection, maps?: ReturnType<typeof getMaps>, hidden?: HiddenState) {
+  private async sendOverlayForConnection(conn: Connection, maps?: ReturnType<typeof getMaps>, hidden?: HiddenState) {
     try {
-      const doc = maps ? null : await unstable_getYDoc(this.party, YJS_OPTIONS);
-      const activeMaps = maps ?? (doc ? getMaps(doc) : null);
+      const activeMaps = maps ?? getMaps(this.document);
       if (!activeMaps) return;
-      const activeHidden = hidden ?? (doc ? await this.ensureHiddenState(doc) : null);
+      const activeHidden = hidden ?? (await this.ensureHiddenState(this.document));
       if (!activeHidden) return;
       const state = (conn.state ?? {}) as IntentConnectionState;
       const viewerRole = state.viewerRole ?? "player";
@@ -513,7 +542,7 @@ export default class MtgPartyServer implements Party.Server {
         (viewerHandCount > 0 && cardCount === 0);
       if (changed) {
         console.info("[party] overlay summary", {
-          room: this.party.id,
+          room: this.name,
           connId: conn.id,
           viewerRole,
           viewerId,
@@ -531,18 +560,17 @@ export default class MtgPartyServer implements Party.Server {
   private async broadcastOverlays() {
     if (this.intentConnections.size === 0) return;
     console.info("[party] overlay broadcast", {
-      room: this.party.id,
+      room: this.name,
       connectionCount: this.intentConnections.size,
     });
-    const doc = await unstable_getYDoc(this.party, YJS_OPTIONS);
-    const maps = getMaps(doc);
-    const hidden = await this.ensureHiddenState(doc);
+    const maps = getMaps(this.document);
+    const hidden = await this.ensureHiddenState(this.document);
     for (const connection of this.intentConnections) {
       await this.sendOverlayForConnection(connection, maps, hidden);
     }
   }
 
-  private async handleLibraryViewIntent(conn: Party.Connection, intent: Intent) {
+  private async handleLibraryViewIntent(conn: Connection, intent: Intent) {
     const state = (conn.state ?? {}) as IntentConnectionState;
     if (state.viewerRole === "spectator") return;
     const viewerId = state.playerId;
@@ -574,13 +602,4 @@ const parseConnectionParams = (url: URL): IntentConnectionState => {
   if (spectatorToken) viewerRole = "spectator";
   if (playerToken) viewerRole = "player";
   return { playerId, viewerRole, token };
-};
-
-const parseIntentConnectionState = (conn: Party.Connection): IntentConnectionState => {
-  try {
-    const url = new URL(conn.uri);
-    return parseConnectionParams(url);
-  } catch (_err) {
-    return {};
-  }
 };

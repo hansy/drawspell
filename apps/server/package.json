@@ -3,17 +3,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "partykit dev",
-    "deploy": "partykit deploy",
+    "dev": "wrangler dev --config wrangler.jsonc",
+    "deploy": "wrangler deploy --config wrangler.jsonc",
     "test": "vitest run"
   },
   "dependencies": {
-    "partykit": "^0.0.115",
-    "y-partykit": "^0.0.33",
+    "partyserver": "^0.1.0",
+    "y-partyserver": "^1.0.0",
     "yjs": "^13.6.27"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251202.0",
     "typescript": "^5.7.2",
-    "vitest": "^3.0.5"
+    "vitest": "^3.0.5",
+    "wrangler": "^3.100.0"
   }
 }

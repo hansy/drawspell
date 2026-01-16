@@ -3,7 +3,7 @@
 This repository now uses Bun workspaces with three apps:
 
 - `apps/web`: TanStack React Start frontend (Cloudflare SSR).
-- `apps/server`: PartyKit server (authoritative sync + intents).
+- `apps/server`: PartyServer (wrangler + Durable Object for authoritative sync + intents).
 - `apps/server2`: Cloudflare Durable Object WebSocket worker (legacy transport).
 
 ## Usage
@@ -13,7 +13,7 @@ From the repo root:
 ```bash
 bun install
 bun run dev           # web app
-bun run dev:server    # PartyKit server
+bun run dev:server    # PartyServer (wrangler dev, defaults to localhost:8787)
 bun run dev:server2   # websocket worker (legacy)
 ```
 
