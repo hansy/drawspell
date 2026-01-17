@@ -8,17 +8,26 @@ import {
   setAuthoritativeState,
 } from "../gameStore/dispatchIntent";
 import { sendIntent } from "@/partykit/intentTransport";
+import { toast } from "sonner";
 
 vi.mock("@/partykit/intentTransport", () => ({
   sendIntent: vi.fn(),
 }));
+vi.mock("sonner", () => ({
+  toast: {
+    warning: vi.fn(),
+  },
+}));
 
 const sendIntentMock = vi.mocked(sendIntent);
+const warningToastMock = vi.mocked(toast.warning);
 
 describe("dispatchIntent", () => {
   beforeEach(() => {
     resetIntentState();
     sendIntentMock.mockClear();
+    sendIntentMock.mockReturnValue(true);
+    warningToastMock.mockClear();
   });
 
   it("sends intent and applies local update", () => {
@@ -76,5 +85,27 @@ describe("dispatchIntent", () => {
 
     const reconciled = applyPendingIntents(baseState);
     expect(setState).toHaveBeenCalledWith(reconciled);
+  });
+
+  it("drops local updates when intent send fails", () => {
+    sendIntentMock.mockReturnValue(false);
+    const setState = vi.fn();
+    const dispatchIntent = createIntentDispatcher(setState);
+    const applyLocal = vi.fn((state: any) => ({ ...state, updated: true }));
+
+    const intentId = dispatchIntent({
+      type: "card.tap",
+      payload: { cardId: "c1" },
+      applyLocal,
+    });
+
+    expect(intentId).toBeNull();
+    expect(sendIntentMock).toHaveBeenCalled();
+    expect(setState).not.toHaveBeenCalled();
+    expect(warningToastMock).toHaveBeenCalled();
+
+    const baseState = { updated: false } as any;
+    const reconciled = applyPendingIntents(baseState);
+    expect(reconciled).toEqual(baseState);
   });
 });

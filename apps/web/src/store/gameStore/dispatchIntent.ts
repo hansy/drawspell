@@ -1,5 +1,6 @@
 import type { StoreApi } from "zustand";
 import { v4 as uuidv4 } from "uuid";
+import { toast } from "sonner";
 
 import type { GameState } from "@/types";
 import type { Intent, IntentAck } from "@/partykit/messages";
@@ -23,6 +24,16 @@ type PendingIntent = {
 const pendingIntents: PendingIntent[] = [];
 let lastAuthoritativeState: GameState | null = null;
 let lastPublicState: GameState | null = null;
+let lastDropToastAt = 0;
+
+const DROP_TOAST_COOLDOWN_MS = 2000;
+
+const warnIntentDropped = () => {
+  const now = Date.now();
+  if (now - lastDropToastAt < DROP_TOAST_COOLDOWN_MS) return;
+  lastDropToastAt = now;
+  toast.warning("Reconnecting to multiplayer, please wait a moment then try again.");
+};
 
 const applyLocalPatch = (
   state: GameState,
@@ -55,6 +66,7 @@ export const resetIntentState = () => {
   pendingIntents.splice(0, pendingIntents.length);
   lastAuthoritativeState = null;
   lastPublicState = null;
+  lastDropToastAt = 0;
 };
 
 export const handleIntentAck = (
@@ -95,7 +107,11 @@ export const createIntentDispatcher = (
         type,
         payload,
       };
-      sendIntent(intent);
+      const sent = sendIntent(intent);
+      if (sent === false) {
+        warnIntentDropped();
+        return null;
+      }
     }
 
     pendingIntents.push({ id: intentId, applyLocal });
