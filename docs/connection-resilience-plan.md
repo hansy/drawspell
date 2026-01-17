@@ -13,24 +13,24 @@
 ## Phases and Tasks
 
 ### Phase 1: Worker boundary guard (log noise)
-- [ ] Wrap `routePartykitRequest()` in `apps/server/src/server.ts` with try/catch.
-- [ ] Suppress only the "Network connection lost" error on WebSocket upgrades.
-- [ ] Preserve existing behavior for all other errors.
-- [ ] Validation: run server typecheck/tests.
+- [x] Wrap `routePartykitRequest()` in `apps/server/src/server.ts` with try/catch.
+- [x] Suppress only the "Network connection lost" error on WebSocket upgrades.
+- [x] Preserve existing behavior for all other errors.
+- [x] Validation: run server typecheck/tests.
 
 ### Phase 2: Intent transport hardening
-- [ ] Add PartySocket socket options (disable auto-reconnect, disable enqueue).
-- [ ] Prevent intent sends when the socket is not open.
-- [ ] Ensure intent reconnect uses fresh tokens/role.
-- [ ] Validation: run web typecheck/tests.
+- [x] Add PartySocket socket options (disable auto-reconnect, disable enqueue).
+- [x] Prevent intent sends when the socket is not open.
+- [x] Ensure intent reconnect uses fresh tokens/role.
+- [x] Validation: run web typecheck/tests.
 
 ### Phase 3: Connection supervisor + backoff
-- [ ] Introduce a shared backoff utility (full jitter + room-reset cooldown).
-- [ ] Add offline/hidden gating (pause reconnect, teardown transports).
-- [ ] Tear down both transports on any close and schedule reconnect via backoff.
-- [ ] Reset backoff after a stable connection window.
-- [ ] Add targeted tests for backoff and hook behavior.
-- [ ] Validation: run full test + typecheck.
+- [x] Introduce a shared backoff utility (full jitter + room-reset cooldown).
+- [x] Add offline/hidden gating (pause reconnect, teardown transports).
+- [x] Tear down both transports on any close and schedule reconnect via backoff.
+- [x] Reset backoff after a stable connection window.
+- [x] Add targeted tests for backoff and hook behavior.
+- [x] Validation: run full test + typecheck.
 
 ## Connection State Machine (Client)
 
