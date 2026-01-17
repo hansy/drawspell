@@ -412,4 +412,102 @@ describe("useZoneViewerController", () => {
       expect(ids).toEqual([]);
     });
   });
+
+  it("waits for the full top-X order before showing cards", async () => {
+    const library = buildZone({
+      id: "lib-me",
+      type: ZONE.LIBRARY,
+      ownerId: "me",
+      cardIds: ["c3"],
+    });
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [library.id]: library },
+      players: {
+        me: {
+          id: "me",
+          name: "Me",
+          life: 40,
+          counters: [],
+          commanderDamage: {},
+          commanderTax: 0,
+          deckLoaded: true,
+          libraryCount: 3,
+        },
+      },
+      cards: {
+        c1: buildCard("c1", "Card1", library.id),
+        c2: buildCard("c2", "Card2", library.id),
+        c3: buildCard("c3", "Card3", library.id),
+      },
+    }));
+
+    render(<Harness zoneId={library.id} count={3} />);
+
+    await waitFor(() => expect(latestController).not.toBeNull());
+    expect(latestController?.displayCards).toHaveLength(0);
+
+    act(() => {
+      useGameStore.setState((state) => ({
+        ...state,
+        zones: {
+          ...state.zones,
+          [library.id]: {
+            ...state.zones[library.id],
+            cardIds: ["c1", "c2", "c3"],
+          },
+        },
+      }));
+    });
+
+    await waitFor(() =>
+      expect(latestController?.displayCards.map((card) => card.id)).toEqual([
+        "c1",
+        "c2",
+        "c3",
+      ])
+    );
+  });
+
+  it("does not freeze empty when libraryCount is zero but cards are present", async () => {
+    const library = buildZone({
+      id: "lib-me",
+      type: ZONE.LIBRARY,
+      ownerId: "me",
+      cardIds: ["c1", "c2", "c3"],
+    });
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [library.id]: library },
+      players: {
+        me: {
+          id: "me",
+          name: "Me",
+          life: 40,
+          counters: [],
+          commanderDamage: {},
+          commanderTax: 0,
+          deckLoaded: true,
+          libraryCount: 0,
+        },
+      },
+      cards: {
+        c1: buildCard("c1", "Card1", library.id),
+        c2: buildCard("c2", "Card2", library.id),
+        c3: buildCard("c3", "Card3", library.id),
+      },
+    }));
+
+    render(<Harness zoneId={library.id} count={2} />);
+
+    await waitFor(() => expect(latestController).not.toBeNull());
+    await waitFor(() =>
+      expect(latestController?.displayCards.map((card) => card.id)).toEqual([
+        "c2",
+        "c3",
+      ])
+    );
+  });
 });
