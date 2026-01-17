@@ -3,6 +3,7 @@ export type BackoffReason = "close" | "room-reset" | "resume";
 export type BackoffConfig = {
   baseMs: number;
   maxMs: number;
+  maxAttempts: number;
   roomResetMinMs: number;
   roomResetMaxMs: number;
   stableResetMs: number;
@@ -11,9 +12,20 @@ export type BackoffConfig = {
 export const DEFAULT_BACKOFF_CONFIG: BackoffConfig = {
   baseMs: 1000,
   maxMs: 30000,
+  maxAttempts: 10, // Stop trying after 10 failed attempts (~5 min total with backoff)
   roomResetMinMs: 5000,
   roomResetMaxMs: 15000,
   stableResetMs: 10000,
+};
+
+/**
+ * Check if reconnection should be abandoned after too many attempts.
+ */
+export const shouldAbandonReconnect = (
+  attempt: number,
+  config: BackoffConfig = DEFAULT_BACKOFF_CONFIG
+): boolean => {
+  return attempt >= config.maxAttempts;
 };
 
 export const computeBackoffDelay = (

@@ -5,6 +5,23 @@ import { createGameYDoc, type YDocHandles } from "../yDoc";
 import { docManagerState } from "./state";
 
 /**
+ * Fully disconnect and destroy a provider, preventing reconnection.
+ */
+function disposeProvider(provider: YSyncProvider | null): void {
+  if (!provider) return;
+  try {
+    provider.disconnect();
+    // y-partyserver uses shouldConnect to control auto-reconnect
+    if ("shouldConnect" in provider) {
+      (provider as any).shouldConnect = false;
+    }
+    provider.destroy();
+  } catch (_err) {
+    // Provider may already be destroyed
+  }
+}
+
+/**
  * Get or create a Y.Doc for a session.
  * Ref-counted - call releaseSession when done.
  */
@@ -12,10 +29,8 @@ export function acquireSession(sessionId: string): YDocHandles {
   let session = docManagerState.sessions.get(sessionId);
 
   if (!session) {
-    const handles = createGameYDoc();
-
     session = {
-      handles,
+      handles: createGameYDoc(),
       provider: null,
       awareness: null,
       refCount: 0,
@@ -32,7 +47,8 @@ export function acquireSession(sessionId: string): YDocHandles {
 }
 
 /**
- * Release a session reference. When refCount hits 0, schedule cleanup.
+ * Release a session reference. When refCount hits 0, disconnect transports.
+ * The session stays in memory to handle React StrictMode double-mount.
  */
 export function releaseSession(sessionId: string): void {
   const session = docManagerState.sessions.get(sessionId);
@@ -41,17 +57,10 @@ export function releaseSession(sessionId: string): void {
   session.refCount = Math.max(0, session.refCount - 1);
 
   if (session.refCount === 0) {
-    // Disconnect network transports when no active consumers remain.
-    try {
-      session.provider?.disconnect();
-      session.provider?.destroy();
-    } catch (_err) {}
+    disposeProvider(session.provider);
     session.provider = null;
     session.awareness = null;
   }
-
-  // Don't immediately destroy - allow for React double-mount.
-  // The session will be cleaned up by cleanupStaleSessions if truly unused.
 }
 
 /**
@@ -66,10 +75,7 @@ export function setSessionProvider(
 
   // Disconnect old provider if replacing
   if (session.provider && session.provider !== provider) {
-    try {
-      session.provider.disconnect();
-      session.provider.destroy();
-    } catch (_err) {}
+    disposeProvider(session.provider);
   }
 
   session.provider = provider;
@@ -129,20 +135,19 @@ export function getActiveSessionId(): string | null {
 }
 
 /**
- * Destroy a session completely.
+ * Destroy a session completely, including its Y.Doc.
  */
 export function destroySession(sessionId: string): void {
   const session = docManagerState.sessions.get(sessionId);
   if (!session) return;
 
-  try {
-    session.provider?.disconnect();
-    session.provider?.destroy();
-  } catch (_err) {}
+  disposeProvider(session.provider);
 
   try {
     session.handles.doc.destroy();
-  } catch (_err) {}
+  } catch (_err) {
+    // Doc may already be destroyed
+  }
 
   docManagerState.sessions.delete(sessionId);
 

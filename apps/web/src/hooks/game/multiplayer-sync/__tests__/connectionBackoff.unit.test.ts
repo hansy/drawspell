@@ -3,6 +3,7 @@ import {
   DEFAULT_BACKOFF_CONFIG,
   computeBackoffDelay,
   isRoomResetClose,
+  shouldAbandonReconnect,
 } from "../connectionBackoff";
 
 describe("computeBackoffDelay", () => {
@@ -38,5 +39,17 @@ describe("isRoomResetClose", () => {
 
   it("ignores other closes", () => {
     expect(isRoomResetClose({ code: 1006, reason: "abnormal" })).toBe(false);
+  });
+});
+
+describe("shouldAbandonReconnect", () => {
+  it("returns false when under max attempts", () => {
+    expect(shouldAbandonReconnect(0)).toBe(false);
+    expect(shouldAbandonReconnect(9)).toBe(false);
+  });
+
+  it("returns true when at or over max attempts", () => {
+    expect(shouldAbandonReconnect(10)).toBe(true);
+    expect(shouldAbandonReconnect(100)).toBe(true);
   });
 });

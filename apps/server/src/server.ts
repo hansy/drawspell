@@ -24,7 +24,10 @@ import type {
   Snapshot,
 } from "./domain/types";
 import { applyIntentToDoc } from "./domain/intents/applyIntentToDoc";
-import { buildOverlayForViewer, buildOverlayZoneLookup } from "./domain/overlay";
+import {
+  buildOverlayForViewer,
+  buildOverlayZoneLookup,
+} from "./domain/overlay";
 import {
   chunkHiddenCards,
   createEmptyHiddenState,
@@ -68,7 +71,10 @@ const isNetworkConnectionLost = (error: unknown) => {
       : typeof error === "object" && "message" in error
         ? String((error as { message?: unknown }).message)
         : "";
-  return message.trim().replace(/\.$/, "").toLowerCase() === "network connection lost";
+  return (
+    message.trim().replace(/\.$/, "").toLowerCase() ===
+    "network connection lost"
+  );
 };
 
 export default {
@@ -109,8 +115,10 @@ export class Room extends YServer<Env> {
   private teardownInProgress = false;
   private hiddenStatePersistTimer: number | null = null;
   private hiddenStatePersistInFlight: Promise<void> | null = null;
-  private hiddenStatePersistQueued: { resetGeneration: number; connId?: string | null } | null =
-    null;
+  private hiddenStatePersistQueued: {
+    resetGeneration: number;
+    connId?: string | null;
+  } | null = null;
   private lastHiddenStateCleanupAt = 0;
   private lastPerfMetricsAt = 0;
   private perfMetricsEnabledFlag = false;
@@ -266,7 +274,8 @@ export class Room extends YServer<Env> {
   ) {
     if (!this.shouldPersistHiddenState(expectedResetGeneration)) return;
     const now = Date.now();
-    if (now - this.lastHiddenStateCleanupAt < HIDDEN_STATE_CLEANUP_INTERVAL_MS) return;
+    if (now - this.lastHiddenStateCleanupAt < HIDDEN_STATE_CLEANUP_INTERVAL_MS)
+      return;
     this.lastHiddenStateCleanupAt = now;
     if (!Array.isArray(meta.cardChunkKeys)) return;
 
@@ -276,7 +285,11 @@ export class Room extends YServer<Env> {
       >;
       delete?: (key: string) => Promise<void>;
     };
-    if (typeof storage.list !== "function" || typeof storage.delete !== "function") return;
+    if (
+      typeof storage.list !== "function" ||
+      typeof storage.delete !== "function"
+    )
+      return;
 
     let listed: Map<string, unknown> | Iterable<[string, unknown]> | string[];
     try {
@@ -422,7 +435,10 @@ export class Room extends YServer<Env> {
       const queued = this.hiddenStatePersistQueued;
       this.hiddenStatePersistQueued = null;
       if (queued && this.shouldPersistHiddenState(queued.resetGeneration)) {
-        this.enqueueHiddenStatePersist(queued.resetGeneration, queued.connId ?? null);
+        this.enqueueHiddenStatePersist(
+          queued.resetGeneration,
+          queued.connId ?? null
+        );
       }
     });
   }
@@ -1080,7 +1096,12 @@ export class Room extends YServer<Env> {
     const zoneLookup = buildOverlayZoneLookup(snapshot);
     const overlayCache = new Map<
       string,
-      { message: string; cardCount: number; cardsWithArt: number; viewerHandCount: number }
+      {
+        message: string;
+        cardCount: number;
+        cardsWithArt: number;
+        viewerHandCount: number;
+      }
     >();
     for (const connection of this.intentConnections) {
       const state = (connection.state ?? {}) as IntentConnectionState;
@@ -1128,7 +1149,12 @@ export class Room extends YServer<Env> {
     viewerRole: "player" | "spectator";
     viewerId?: string;
     libraryView?: { playerId: string; count?: number };
-  }): { message: string; cardCount: number; cardsWithArt: number; viewerHandCount: number } {
+  }): {
+    message: string;
+    cardCount: number;
+    cardsWithArt: number;
+    viewerHandCount: number;
+  } {
     const overlay = buildOverlayForViewer({
       snapshot: params.snapshot,
       zoneLookup: params.zoneLookup,

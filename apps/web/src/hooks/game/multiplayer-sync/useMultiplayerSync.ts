@@ -30,6 +30,7 @@ import {
   DEFAULT_BACKOFF_CONFIG,
   computeBackoffDelay,
   isRoomResetClose,
+  shouldAbandonReconnect,
   type BackoffReason,
 } from "./connectionBackoff";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
@@ -63,7 +64,7 @@ export function useMultiplayerSync(sessionId: string) {
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stableResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempt = useRef(0);
-  const lastConnectEpoch = useRef(0);
+  const lastConnectEpoch = useRef(-1);
   const pausedRef = useRef(false);
   const stoppedRef = useRef(false);
   const connectionGeneration = useRef(0);
@@ -100,6 +101,12 @@ export function useMultiplayerSync(sessionId: string) {
     if (reconnectTimer.current) return;
     if (resetAttempt) {
       reconnectAttempt.current = 0;
+    }
+    // Stop trying after too many failed attempts to avoid infinite loops
+    if (shouldAbandonReconnect(reconnectAttempt.current)) {
+      console.warn("[multiplayer] Abandoning reconnection after too many attempts");
+      setStatus("connecting"); // Stay in connecting state but stop retrying
+      return;
     }
     const delay = computeBackoffDelay(
       reconnectAttempt.current,
@@ -188,7 +195,9 @@ export function useMultiplayerSync(sessionId: string) {
     if (typeof window === "undefined") return;
     if (!hasHydrated) return;
     if (isPaused) return;
-    if (connectEpoch === lastConnectEpoch.current) return;
+    // Skip if we've already processed this epoch AND we have active resources.
+    // If resources were torn down (e.g. by StrictMode cleanup), we need to reconnect.
+    if (connectEpoch === lastConnectEpoch.current && resourcesRef.current) return;
 
     setJoinBlocked(false);
     setJoinBlockedReason(null);
