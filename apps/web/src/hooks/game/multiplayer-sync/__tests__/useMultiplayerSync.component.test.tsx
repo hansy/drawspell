@@ -1,5 +1,5 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LocalPlayerInitResult } from "../ensureLocalPlayerInitialized";
 
 // Stub doc with only the APIs used inside the hook
@@ -188,9 +188,12 @@ vi.mock("../disposeSessionTransport", () => ({ disposeSessionTransport }));
 import { useMultiplayerSync } from "../useMultiplayerSync";
 
 describe("useMultiplayerSync", () => {
+  let randomSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     providerInstances.length = 0;
     vi.clearAllMocks();
+    randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     logStoreMocks.emitLog.mockClear();
     Object.assign(mockGameState, {
       hasHydrated: true,
@@ -198,6 +201,10 @@ describe("useMultiplayerSync", () => {
       sessionId: null as string | null,
       myPlayerId: null as string | null,
     });
+  });
+
+  afterEach(() => {
+    randomSpy.mockRestore();
   });
 
   it("blocks joining when initialization reports a blocked state", async () => {
@@ -295,5 +302,23 @@ describe("useMultiplayerSync", () => {
         zones: expect.any(Object),
       })
     );
+  });
+
+  it("reconnects when the intent socket closes", async () => {
+    renderHook(() => useMultiplayerSync("session-909"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalledTimes(1);
+    });
+
+    const [{ onClose }] = intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+
+    act(() => {
+      onClose({ code: 1006, reason: "abnormal" });
+    });
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalledTimes(2);
+    });
   });
 });

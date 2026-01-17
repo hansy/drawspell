@@ -60,12 +60,32 @@ export { applyIntentToDoc } from "./domain/intents/applyIntentToDoc";
 export { buildOverlayForViewer } from "./domain/overlay";
 export { createEmptyHiddenState } from "./domain/hiddenState";
 
+const isNetworkConnectionLost = (error: unknown) => {
+  if (!error) return false;
+  const message =
+    typeof error === "string"
+      ? error
+      : typeof error === "object" && "message" in error
+        ? String((error as { message?: unknown }).message)
+        : "";
+  return message.trim().replace(/\.$/, "").toLowerCase() === "network connection lost";
+};
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    return (
-      (await routePartykitRequest(request, env)) ??
-      new Response("Not Found", { status: 404 })
-    );
+    try {
+      return (
+        (await routePartykitRequest(request, env)) ??
+        new Response("Not Found", { status: 404 })
+      );
+    } catch (error) {
+      const isWsUpgrade =
+        request.headers.get("Upgrade")?.toLowerCase() === "websocket";
+      if (isWsUpgrade && isNetworkConnectionLost(error)) {
+        return new Response("Client Closed", { status: 499 });
+      }
+      throw error;
+    }
   },
 };
 
