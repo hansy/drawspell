@@ -224,6 +224,9 @@ export function setupSessionResources({
     token,
     playerId: ensuredPlayerId,
     viewerRole: intentViewerRole,
+    socketOptions: {
+      maxEnqueuedMessages: 0,
+    },
     onMessage: (message) => {
       if (message.type === "ack") {
         const error = handleIntentAck(message, useGameStore.setState);

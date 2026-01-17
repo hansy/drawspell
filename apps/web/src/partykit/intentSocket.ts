@@ -12,6 +12,18 @@ export type IntentSocketOptions = {
   onMessage?: (message: PartyMessage) => void;
   onOpen?: () => void;
   onClose?: (event: CloseEvent) => void;
+  socketOptions?: {
+    maxReconnectionDelay?: number;
+    minReconnectionDelay?: number;
+    reconnectionDelayGrowFactor?: number;
+    minUptime?: number;
+    connectionTimeout?: number;
+    maxRetries?: number;
+    maxEnqueuedMessages?: number;
+    startClosed?: boolean;
+    debug?: boolean;
+    debugLogger?: (...args: unknown[]) => void;
+  };
 };
 
 export const createIntentSocket = ({
@@ -23,6 +35,7 @@ export const createIntentSocket = ({
   onMessage,
   onOpen,
   onClose,
+  socketOptions,
 }: IntentSocketOptions) => {
   const tokenParam =
     token && viewerRole === "spectator" ? { st: token } : token ? { gt: token } : {};
@@ -36,6 +49,7 @@ export const createIntentSocket = ({
       ...(playerId ? { playerId } : {}),
       ...(viewerRole ? { viewerRole } : {}),
     },
+    ...(socketOptions ?? {}),
   });
 
   if (onOpen) socket.onopen = () => onOpen();
