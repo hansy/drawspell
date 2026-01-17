@@ -22,3 +22,7 @@ Other helpful scripts:
 - `bun run deploy:server` – deploy the PartyServer worker
 
 Vite env vars now live in `apps/web/.env`. `VITE_WEBSOCKET_SERVER` is recommended for non-dev builds.
+
+## Performance
+
+See `docs/performance-report.md` for the latest benchmarks, load scripts, and measurement notes.
