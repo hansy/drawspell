@@ -212,6 +212,7 @@ export class Room extends YServer<Env> {
       HIDDEN_STATE_META_KEY
     );
 
+    if (!this.shouldPersistHiddenState(expectedResetGeneration)) return;
     const nextMeta: HiddenStateMeta = {
       ...rest,
       cardChunkKeys: chunkKeys,
