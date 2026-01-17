@@ -45,6 +45,7 @@ vi.mock("../domain/intents/applyIntentToDoc", () => ({
   })),
 }));
 
+import { HIDDEN_STATE_META_KEY } from "../domain/constants";
 import { Room, createEmptyHiddenState } from "../server";
 
 beforeEach(() => {
@@ -142,6 +143,47 @@ describe("server lifecycle guards", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("skips hidden-state meta write if reset happens after meta fetch", async () => {
+    const store = new Map<string, unknown>();
+    const prevMetaGate = createDeferred<unknown>();
+    const storage = {
+      get: vi.fn(async (key: string) => {
+        if (key === HIDDEN_STATE_META_KEY) {
+          return prevMetaGate.promise;
+        }
+        return store.get(key);
+      }),
+      put: vi.fn(async (key: string, value: unknown) => {
+        store.set(key, value);
+      }),
+      delete: vi.fn(async (key: string) => {
+        store.delete(key);
+      }),
+      list: vi.fn(async () => store.entries()),
+    };
+    const state = {
+      id: { name: "room-test" },
+      storage,
+    } as any;
+    const server = new Room(state, { rooms: {} as any });
+    (server as any).hiddenState = createEmptyHiddenState();
+
+    const expectedResetGeneration = (server as any).resetGeneration;
+    const persistPromise = (server as any).persistHiddenState(expectedResetGeneration);
+
+    for (let i = 0; i < 3 && storage.get.mock.calls.length === 0; i += 1) {
+      await Promise.resolve();
+    }
+    expect(storage.get).toHaveBeenCalledWith(HIDDEN_STATE_META_KEY);
+
+    (server as any).resetGeneration += 1;
+    prevMetaGate.resolve(null);
+
+    await persistPromise;
+
+    expect(storage.put).not.toHaveBeenCalled();
   });
 
   it("debounces hidden-state persistence across rapid intents", async () => {
