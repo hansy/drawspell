@@ -19,6 +19,7 @@ import type { SidenavController } from "@/hooks/game/sidenav/useSidenavControlle
 interface NavIconProps {
   icon: React.ReactNode;
   label: string;
+  tooltip?: string;
   onClick?: () => void;
   className?: string;
   disabled?: boolean;
@@ -27,6 +28,7 @@ interface NavIconProps {
 const NavIcon: React.FC<NavIconProps> = ({
   icon,
   label,
+  tooltip,
   onClick,
   className,
   disabled = false,
@@ -43,7 +45,7 @@ const NavIcon: React.FC<NavIconProps> = ({
   >
     {icon}
     <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 bg-zinc-900 text-xs text-zinc-300 rounded border border-zinc-800 opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
-      {label}
+      {tooltip ?? label}
     </div>
   </button>
 );
@@ -85,6 +87,9 @@ export const SidenavView: React.FC<SidenavController> = ({
     }
     return parts.join(", ");
   }, [peerCounts.players, peerCounts.spectators]);
+  const shareTooltip = shareLinksReady
+    ? "Share room"
+    : "Loading auth tokens for sharing";
 
   return (
     <>
@@ -137,6 +142,7 @@ export const SidenavView: React.FC<SidenavController> = ({
           <NavIcon
             icon={<Share2 size={20} />}
             label="Share room"
+            tooltip={shareTooltip}
             onClick={onOpenShareDialog}
             className="hover:text-indigo-400"
             disabled={!shareLinksReady}
