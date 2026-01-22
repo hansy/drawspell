@@ -20,6 +20,7 @@ const EVENT_IDS = [
   "card.move",
   "card.tap",
   "card.untapAll",
+  "card.faceUp",
   "card.transform",
   "card.duplicate",
   "card.remove",
