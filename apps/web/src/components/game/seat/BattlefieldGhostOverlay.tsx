@@ -34,9 +34,9 @@ export const BattlefieldGhostOverlay = React.memo(
     return (
       <>
         {ghostCards.map(({ card, position, tapped }) => {
-          const transform = tapped
-            ? `scale(${viewScale}) rotate(90deg)`
-            : `scale(${viewScale})`;
+          const rotation = card.rotation ? ` rotate(${card.rotation}deg)` : "";
+          const tappedRotation = tapped ? " rotate(90deg)" : "";
+          const transform = `scale(${viewScale})${rotation}${tappedRotation}`;
           const highlightColor =
             card.ownerId !== zoneOwnerId ? playerColors[card.ownerId] : undefined;
           const flipRotation = getFlipRotation(card);

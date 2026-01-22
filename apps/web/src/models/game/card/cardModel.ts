@@ -14,6 +14,7 @@ export const computeCardContainerStyle = (params: {
   propStyle?: React.CSSProperties;
   scale?: number;
   tapped?: boolean;
+  rotation?: number;
   isDragging?: boolean;
 }): React.CSSProperties => {
   const { transform: propTransform, ...restPropStyle } = params.propStyle || {};
@@ -21,12 +22,14 @@ export const computeCardContainerStyle = (params: {
   if (typeof propTransform === "string") transformParts.push(propTransform);
   if (params.scale && params.scale !== 1)
     transformParts.push(`scale(${params.scale})`);
+  if (params.rotation) transformParts.push(`rotate(${params.rotation}deg)`);
   if (params.tapped) transformParts.push("rotate(90deg)");
 
   return {
     ...restPropStyle,
     transform: transformParts.length ? transformParts.join(" ") : undefined,
     transformOrigin: "center center",
+    transition: params.isDragging ? "none" : "transform 200ms ease-out",
     opacity: params.isDragging ? 0 : 1,
   };
 };

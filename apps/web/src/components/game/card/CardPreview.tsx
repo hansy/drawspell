@@ -74,7 +74,6 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   const ptBasePower = maskFaceDown && morphFaceDown ? FACE_DOWN_MORPH_STAT : currentCard.basePower;
   const ptBaseToughness =
     maskFaceDown && morphFaceDown ? FACE_DOWN_MORPH_STAT : currentCard.baseToughness;
-  const flipRotation = getFlipRotation(currentCard);
 
   // Local face override for previewing DFCs
   const [overrideFaceIndex, setOverrideFaceIndex] = useState<number | null>(null);
@@ -151,6 +150,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
 
   // Construct the card to show (forcing the face index)
   const previewCard = { ...currentCard, currentFaceIndex: effectiveFaceIndex };
+  const flipRotation = getFlipRotation(previewCard);
 
   const hasMultipleFaces = (currentCard.scryfall?.card_faces?.length ?? 0) > 1;
 
