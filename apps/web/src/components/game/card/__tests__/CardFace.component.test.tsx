@@ -75,4 +75,27 @@ describe("CardFace", () => {
 
     expect(screen.queryAllByText("1")).toHaveLength(2);
   });
+
+  it("preserves PT overrides on the active face during transform flips", () => {
+    const zone = buildZone("bf-me", "BATTLEFIELD", "me");
+    const card = {
+      ...buildTransformCard(zone.id),
+      power: "9",
+      toughness: "8",
+      basePower: "3",
+      baseToughness: "2",
+    };
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { ...state.zones, [zone.id]: zone },
+      cards: { ...state.cards, [card.id]: card },
+      players: { me: buildPlayer("me", "Me") },
+    }));
+
+    render(<CardFace card={card} />);
+
+    expect(screen.getByText("9")).toBeTruthy();
+    expect(screen.getByText("8")).toBeTruthy();
+  });
 });
