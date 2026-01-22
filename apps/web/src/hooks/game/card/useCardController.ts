@@ -113,9 +113,10 @@ export const useCardController = (props: CardProps): CardController => {
         propStyle,
         scale,
         tapped: card.tapped,
+        rotation: card.rotation,
         isDragging,
       }),
-    [propStyle, scale, card.tapped, isDragging]
+    [propStyle, scale, card.tapped, card.rotation, isDragging]
   );
 
   const imageTransform = React.useMemo(() => {

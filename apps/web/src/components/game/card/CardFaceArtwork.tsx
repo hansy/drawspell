@@ -23,7 +23,10 @@ export const CardFaceArtwork: React.FC<{
         loading="lazy"
         decoding="async"
         draggable={false}
-        className={cn("w-full h-full object-cover rounded pointer-events-none", imageClassName)}
+        className={cn(
+          "w-full h-full object-cover rounded pointer-events-none transition-transform duration-300 ease-out",
+          imageClassName
+        )}
         style={
           imageTransform
             ? { transform: imageTransform, transformOrigin: "center center" }
