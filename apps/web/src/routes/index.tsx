@@ -1,23 +1,25 @@
-import { useEffect, useState } from 'react';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { createRoomId } from '@/lib/roomId';
+import { useEffect, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createRoomId } from "@/lib/roomId";
 import {
   clearRoomHostPending,
   isRoomHostPending,
   markRoomAsHostPending,
   readRoomTokensFromStorage,
   writeRoomTokensToStorage,
-} from '@/lib/partyKitToken';
-import { clearIntentTransport } from '@/partykit/intentTransport';
-import { destroyAllSessions } from '@/yjs/docManager';
-import { useClientPrefsStore } from '@/store/clientPrefsStore';
-import { useGameStore } from '@/store/gameStore';
+} from "@/lib/partyKitToken";
+import { clearIntentTransport } from "@/partykit/intentTransport";
+import { destroyAllSessions } from "@/yjs/docManager";
+import { useClientPrefsStore } from "@/store/clientPrefsStore";
+import { useGameStore } from "@/store/gameStore";
 
 const LandingPage = () => {
   const navigate = useNavigate();
   const hasHydrated = useClientPrefsStore((state) => state.hasHydrated);
   const lastSessionId = useClientPrefsStore((state) => state.lastSessionId);
-  const clearLastSessionId = useClientPrefsStore((state) => state.clearLastSessionId);
+  const clearLastSessionId = useClientPrefsStore(
+    (state) => state.clearLastSessionId,
+  );
   const [resumeSessionId, setResumeSessionId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,8 +36,8 @@ const LandingPage = () => {
     const storedTokens = readRoomTokensFromStorage(lastSessionId);
     const canResume = Boolean(
       storedTokens?.playerToken ||
-        storedTokens?.spectatorToken ||
-        isRoomHostPending(lastSessionId)
+      storedTokens?.spectatorToken ||
+      isRoomHostPending(lastSessionId),
     );
     if (canResume) {
       setResumeSessionId(lastSessionId);
@@ -48,12 +50,15 @@ const LandingPage = () => {
   const handleCreateGame = () => {
     const sessionId = createRoomId();
     markRoomAsHostPending(sessionId);
-    navigate({ to: '/game/$sessionId', params: { sessionId } });
+    navigate({ to: "/game/$sessionId", params: { sessionId } });
   };
 
   const handleReconnect = () => {
     if (!resumeSessionId) return;
-    navigate({ to: '/game/$sessionId', params: { sessionId: resumeSessionId } });
+    navigate({
+      to: "/game/$sessionId",
+      params: { sessionId: resumeSessionId },
+    });
   };
 
   const handleLeave = () => {
@@ -73,13 +78,17 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-zinc-100">
       <div className="max-w-xl w-full px-8 py-12 rounded-2xl border border-zinc-800 bg-zinc-900/60 shadow-lg">
-        <h1 className="text-3xl font-semibold tracking-tight mb-4">Drawspell</h1>
+        <h1 className="text-3xl font-semibold tracking-tight mb-4">
+          Drawspell
+        </h1>
         <p className="text-zinc-300 mb-8">
-          Start a multiplayer table and share the link so others can join. State is synced in realtime.
+          Start a multiplayer table and share the link so others can join.
         </p>
         {resumeSessionId ? (
           <div className="mb-8 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
-            <h2 className="text-lg font-semibold text-zinc-100">You're already in a game</h2>
+            <h2 className="text-lg font-semibold text-zinc-100">
+              You're already in a game
+            </h2>
             <p className="text-sm text-zinc-300 mt-1">
               Reconnect to your last session or leave it to stop syncing.
             </p>
@@ -112,12 +121,15 @@ const LandingPage = () => {
   );
 };
 
-export const Route = createFileRoute('/')({
+export const Route = createFileRoute("/")({
   component: LandingPage,
   head: () => ({
     meta: [
       { title: "Drawspell" },
-      { name: "description", content: "Multiplayer tabletop for cards." },
+      {
+        name: "description",
+        content: "Online card tabletop simulator. No accounts. No login.",
+      },
     ],
   }),
 });

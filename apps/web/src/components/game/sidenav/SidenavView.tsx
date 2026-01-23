@@ -41,7 +41,7 @@ const NavIcon: React.FC<NavIconProps> = ({
     disabled={disabled}
     className={cn(
       "relative group p-3 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400",
-      className
+      className,
     )}
   >
     {icon}
@@ -73,14 +73,14 @@ export const SidenavView: React.FC<SidenavController> = ({
     const parts: string[] = [];
     if (peerCounts.players > 0) {
       parts.push(
-        `${peerCounts.players} ${peerCounts.players === 1 ? "player" : "players"}`
+        `${peerCounts.players} ${peerCounts.players === 1 ? "player" : "players"}`,
       );
     }
     if (peerCounts.spectators > 0) {
       parts.push(
         `${peerCounts.spectators} ${
           peerCounts.spectators === 1 ? "spectator" : "spectators"
-        }`
+        }`,
       );
     }
     if (parts.length === 0) {
@@ -119,7 +119,7 @@ export const SidenavView: React.FC<SidenavController> = ({
             src={drawspellLogo}
             alt=""
             aria-hidden="true"
-            className="w-5 h-5"
+            className="w-6 h-6"
           />
         </button>
 
@@ -191,7 +191,7 @@ export const SidenavView: React.FC<SidenavController> = ({
               onClick={onToggleLog}
               className={cn(
                 "hover:text-amber-400",
-                isLogOpen && "text-amber-400 bg-amber-500/10"
+                isLogOpen && "text-amber-400 bg-amber-500/10",
               )}
             />
 
@@ -239,13 +239,13 @@ export const SidenavView: React.FC<SidenavController> = ({
               onClick={onToggleLog}
               className={cn(
                 "hover:text-amber-400",
-              isLogOpen && "text-amber-400 bg-amber-500/10"
-            )}
-          />
+                isLogOpen && "text-amber-400 bg-amber-500/10",
+              )}
+            />
 
-          <div className="flex-1" />
+            <div className="flex-1" />
 
-          {menu}
+            {menu}
           </>
         )}
       </div>

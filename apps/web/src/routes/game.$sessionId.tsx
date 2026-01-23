@@ -1,14 +1,14 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { MultiplayerBoard } from '@/components/game/board/MultiplayerBoard';
-import { UsernamePromptScreen } from '@/components/username/UsernamePromptScreen';
-import { useClientPrefsStore } from '@/store/clientPrefsStore';
+import { createFileRoute } from "@tanstack/react-router";
+import { MultiplayerBoard } from "@/components/game/board/MultiplayerBoard";
+import { UsernamePromptScreen } from "@/components/username/UsernamePromptScreen";
+import { useClientPrefsStore } from "@/store/clientPrefsStore";
 
-export const Route = createFileRoute('/game/$sessionId')({
+export const Route = createFileRoute("/game/$sessionId")({
   component: GameRoute,
   head: () => ({
     meta: [
       { title: "Drawspell Game" },
-      { name: "description", content: "Live multiplayer tabletop." },
+      { name: "description", content: "Game in session" },
     ],
   }),
 });
