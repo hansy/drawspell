@@ -264,6 +264,12 @@ export class Room extends YServer<Env> {
   private intentLogMeta: IntentLogMeta | null = null;
   private snapshotMeta: SnapshotMeta | null = null;
   private intentLogWritePromise: Promise<void> = Promise.resolve();
+  private intentLogWritePending = false;
+  private snapshotBarrier: Promise<void> | null = null;
+  private snapshotBarrierResolve: (() => void) | null = null;
+  private inflightIntentCount = 0;
+  private inflightIntentIdle: Promise<void> | null = null;
+  private inflightIntentIdleResolve: (() => void) | null = null;
   private lastHiddenStateCleanupAt = 0;
   private lastPerfMetricsAt = 0;
   private perfMetricsEnabledFlag = false;
@@ -298,6 +304,46 @@ export class Room extends YServer<Env> {
       }
       this.yjsUpdateCount += 1;
     });
+  }
+
+  private createSnapshotBarrier() {
+    let resolve!: () => void;
+    this.snapshotBarrier = new Promise<void>((res) => {
+      resolve = res;
+    });
+    this.snapshotBarrierResolve = resolve;
+    return () => {
+      if (this.snapshotBarrierResolve) {
+        this.snapshotBarrierResolve();
+      }
+      this.snapshotBarrier = null;
+      this.snapshotBarrierResolve = null;
+    };
+  }
+
+  private beginIntentHandling() {
+    this.inflightIntentCount += 1;
+    let finished = false;
+    return () => {
+      if (finished) return;
+      finished = true;
+      this.inflightIntentCount = Math.max(0, this.inflightIntentCount - 1);
+      if (this.inflightIntentCount === 0 && this.inflightIntentIdleResolve) {
+        this.inflightIntentIdleResolve();
+        this.inflightIntentIdle = null;
+        this.inflightIntentIdleResolve = null;
+      }
+    };
+  }
+
+  private async waitForIntentIdle() {
+    if (this.inflightIntentCount === 0) return;
+    if (!this.inflightIntentIdle) {
+      this.inflightIntentIdle = new Promise<void>((resolve) => {
+        this.inflightIntentIdleResolve = resolve;
+      });
+    }
+    await this.inflightIntentIdle;
   }
 
   private async restoreFromSnapshotAndLog() {
@@ -507,84 +553,102 @@ export class Room extends YServer<Env> {
   private async persistHiddenState(expectedResetGeneration?: number) {
     if (!this.hiddenState) return;
     if (!this.shouldPersistHiddenState(expectedResetGeneration)) return;
-    const previousSnapshot = this.snapshotMeta;
-    const intentLogMeta = await this.ensureIntentLogMeta(this.snapshotMeta ?? undefined);
-    const lastIntentIndex = Math.max(
-      intentLogMeta.snapshotIndex,
-      intentLogMeta.nextIndex - 1
-    );
-    const snapshotId = crypto.randomUUID();
-    const createdAt = Date.now();
-
+    if (this.snapshotBarrier) {
+      await this.snapshotBarrier;
+    }
+    const releaseSnapshotBarrier = this.createSnapshotBarrier();
     try {
-      const update = Y.encodeStateAsUpdate(this.document);
-      await this.ctx.storage.put(Y_DOC_STORAGE_KEY, update.buffer);
-    } catch (err: any) {
-      console.error("[party] failed to save yjs snapshot", {
-        room: this.name,
-        error: err?.message ?? String(err),
-      });
-    }
-
-    if (!this.shouldPersistHiddenState(expectedResetGeneration)) return;
-    const { cards, ...rest } = this.hiddenState;
-    const chunks = chunkHiddenCards(cards);
-    const chunkKeys = chunks.map(
-      (_chunk, index) => `${SNAPSHOT_HIDDEN_PREFIX}${snapshotId}:${index}`
-    );
-
-    for (let index = 0; index < chunks.length; index += 1) {
+      if (this.inflightIntentCount > 0) {
+        await this.waitForIntentIdle();
+      }
+      if (this.intentLogWritePending) {
+        await this.intentLogWritePromise;
+      }
       if (!this.shouldPersistHiddenState(expectedResetGeneration)) return;
-      const key = chunkKeys[index];
-      await this.ctx.storage.put(key, chunks[index]);
-    }
 
-    if (!this.shouldPersistHiddenState(expectedResetGeneration)) return;
-    const hiddenMeta: HiddenStateMeta = {
-      ...rest,
-      cardChunkKeys: chunkKeys,
-    };
-    const nextSnapshotMeta: SnapshotMeta = {
-      id: snapshotId,
-      createdAt,
-      lastIntentIndex,
-      hiddenStateMeta: hiddenMeta,
-    };
-    if (!this.shouldPersistHiddenState(expectedResetGeneration)) return;
-    await this.ctx.storage.put(SNAPSHOT_META_KEY, nextSnapshotMeta);
-    if (!this.shouldPersistHiddenState(expectedResetGeneration)) {
-      await this.cleanupSnapshotWrite(nextSnapshotMeta);
-      return;
-    }
-    this.snapshotMeta = nextSnapshotMeta;
-
-    if (!this.shouldPersistHiddenState(expectedResetGeneration)) {
-      await this.cleanupSnapshotWrite(nextSnapshotMeta);
-      return;
-    }
-    const previousLogStart = intentLogMeta.logStartIndex;
-    intentLogMeta.snapshotIndex = lastIntentIndex;
-    intentLogMeta.lastSnapshotAt = createdAt;
-    intentLogMeta.logStartIndex = Math.max(
-      intentLogMeta.logStartIndex,
-      lastIntentIndex + 1
-    );
-    if (intentLogMeta.nextIndex < intentLogMeta.logStartIndex) {
-      intentLogMeta.nextIndex = intentLogMeta.logStartIndex;
-    }
-    this.intentLogMeta = intentLogMeta;
-    await this.ctx.storage.put(INTENT_LOG_META_KEY, intentLogMeta);
-
-    if (intentLogMeta.logStartIndex > previousLogStart) {
-      await this.pruneIntentLogEntries(
-        previousLogStart,
-        intentLogMeta.logStartIndex - 1,
-        expectedResetGeneration
+      const previousSnapshot = this.snapshotMeta;
+      const intentLogMeta = await this.ensureIntentLogMeta(
+        this.snapshotMeta ?? undefined
       );
-    }
+      const lastIntentIndex = Math.max(
+        intentLogMeta.snapshotIndex,
+        intentLogMeta.nextIndex - 1
+      );
+      const snapshotId = crypto.randomUUID();
+      const createdAt = Date.now();
 
-    await this.cleanupPreviousSnapshot(previousSnapshot, expectedResetGeneration);
-    await this.cleanupLegacyHiddenStateStorage(expectedResetGeneration);
+      try {
+        const update = Y.encodeStateAsUpdate(this.document);
+        await this.ctx.storage.put(Y_DOC_STORAGE_KEY, update.buffer);
+      } catch (err: any) {
+        console.error("[party] failed to save yjs snapshot", {
+          room: this.name,
+          error: err?.message ?? String(err),
+        });
+      }
+
+      if (!this.shouldPersistHiddenState(expectedResetGeneration)) return;
+      const { cards, ...rest } = this.hiddenState;
+      const chunks = chunkHiddenCards(cards);
+      const chunkKeys = chunks.map(
+        (_chunk, index) => `${SNAPSHOT_HIDDEN_PREFIX}${snapshotId}:${index}`
+      );
+
+      for (let index = 0; index < chunks.length; index += 1) {
+        if (!this.shouldPersistHiddenState(expectedResetGeneration)) return;
+        const key = chunkKeys[index];
+        await this.ctx.storage.put(key, chunks[index]);
+      }
+
+      if (!this.shouldPersistHiddenState(expectedResetGeneration)) return;
+      const hiddenMeta: HiddenStateMeta = {
+        ...rest,
+        cardChunkKeys: chunkKeys,
+      };
+      const nextSnapshotMeta: SnapshotMeta = {
+        id: snapshotId,
+        createdAt,
+        lastIntentIndex,
+        hiddenStateMeta: hiddenMeta,
+      };
+      if (!this.shouldPersistHiddenState(expectedResetGeneration)) return;
+      await this.ctx.storage.put(SNAPSHOT_META_KEY, nextSnapshotMeta);
+      if (!this.shouldPersistHiddenState(expectedResetGeneration)) {
+        await this.cleanupSnapshotWrite(nextSnapshotMeta);
+        return;
+      }
+      this.snapshotMeta = nextSnapshotMeta;
+
+      if (!this.shouldPersistHiddenState(expectedResetGeneration)) {
+        await this.cleanupSnapshotWrite(nextSnapshotMeta);
+        return;
+      }
+      const previousLogStart = intentLogMeta.logStartIndex;
+      intentLogMeta.snapshotIndex = lastIntentIndex;
+      intentLogMeta.lastSnapshotAt = createdAt;
+      intentLogMeta.logStartIndex = Math.max(
+        intentLogMeta.logStartIndex,
+        lastIntentIndex + 1
+      );
+      if (intentLogMeta.nextIndex < intentLogMeta.logStartIndex) {
+        intentLogMeta.nextIndex = intentLogMeta.logStartIndex;
+      }
+      this.intentLogMeta = intentLogMeta;
+      await this.ctx.storage.put(INTENT_LOG_META_KEY, intentLogMeta);
+
+      if (intentLogMeta.logStartIndex > previousLogStart) {
+        await this.pruneIntentLogEntries(
+          previousLogStart,
+          intentLogMeta.logStartIndex - 1,
+          expectedResetGeneration
+        );
+      }
+
+      await this.cleanupPreviousSnapshot(previousSnapshot, expectedResetGeneration);
+      await this.cleanupLegacyHiddenStateStorage(expectedResetGeneration);
+    } finally {
+      releaseSnapshotBarrier();
+    }
   }
 
   private async maybeCleanupHiddenStateChunks(
@@ -922,7 +986,8 @@ export class Room extends YServer<Env> {
     connId?: string
   ) {
     let wrote = false;
-    this.intentLogWritePromise = this.intentLogWritePromise
+    this.intentLogWritePending = true;
+    const writePromise = this.intentLogWritePromise
       .then(async () => {
         if (!this.shouldPersistHiddenState(expectedResetGeneration)) return;
         const meta = await this.ensureIntentLogMeta(this.snapshotMeta ?? undefined);
@@ -947,7 +1012,13 @@ export class Room extends YServer<Env> {
           connId: connId ?? undefined,
           error: err?.message ?? String(err),
         });
+      })
+      .finally(() => {
+        if (this.intentLogWritePromise === writePromise) {
+          this.intentLogWritePending = false;
+        }
       });
+    this.intentLogWritePromise = writePromise;
     await this.intentLogWritePromise;
     return wrote;
   }
@@ -1621,107 +1692,115 @@ export class Room extends YServer<Env> {
   }
 
   private async handleIntent(conn: Connection, intent: Intent) {
-    let ok = false;
-    let error: string | undefined;
-    let logEvents: { eventId: string; payload: Record<string, unknown> }[] = [];
-    let hiddenChanged = false;
-    let intentImpact: IntentImpact | undefined;
-    this.intentCountSinceMetrics += 1;
-    const resetGeneration = this.resetGeneration;
-    const state = (conn.state ?? {}) as IntentConnectionState;
-    const sendAck = (intentId: string, success: boolean, message?: string) => {
-      const ack = {
-        type: "ack",
-        intentId,
-        ok: success,
-        ...(message ? { error: message } : null),
-      };
-      try {
-        conn.send(JSON.stringify(ack));
-      } catch (_err) {}
-    };
-
-    if (state.viewerRole === "spectator") {
-      sendAck(intent.id, false, "spectators cannot send intents");
-      return;
+    if (this.snapshotBarrier) {
+      await this.snapshotBarrier;
     }
-    if (!state.playerId) {
-      sendAck(intent.id, false, "missing player");
-      return;
-    }
-
-    const payload = isRecord(intent.payload) ? { ...intent.payload } : {};
-    if (
-      typeof payload.actorId === "string" &&
-      payload.actorId !== state.playerId
-    ) {
-      sendAck(intent.id, false, "actor mismatch");
-      return;
-    }
-    payload.actorId = state.playerId;
-    const normalizedIntent = { ...intent, payload };
-
+    const finishIntent = this.beginIntentHandling();
     try {
-      const applyStart = nowMs();
-      const doc = this.document;
-      const hidden = await this.ensureHiddenState(doc);
-      const result = applyIntentToDoc(doc, normalizedIntent, hidden);
-      const applyDuration = nowMs() - applyStart;
-      sampleMetric(this.intentApplySamples, applyDuration);
-      ok = result.ok;
-      if (result.ok) {
-        logEvents = result.logEvents;
-        hiddenChanged = Boolean(result.hiddenChanged);
-        intentImpact = result.impact;
-      } else {
-        error = result.error;
+      let ok = false;
+      let error: string | undefined;
+      let logEvents: { eventId: string; payload: Record<string, unknown> }[] = [];
+      let hiddenChanged = false;
+      let intentImpact: IntentImpact | undefined;
+      this.intentCountSinceMetrics += 1;
+      const resetGeneration = this.resetGeneration;
+      const state = (conn.state ?? {}) as IntentConnectionState;
+      const sendAck = (intentId: string, success: boolean, message?: string) => {
+        const ack = {
+          type: "ack",
+          intentId,
+          ok: success,
+          ...(message ? { error: message } : null),
+        };
+        try {
+          conn.send(JSON.stringify(ack));
+        } catch (_err) {}
+      };
+
+      if (state.viewerRole === "spectator") {
+        sendAck(intent.id, false, "spectators cannot send intents");
+        return;
       }
-    } catch (err: any) {
-      ok = false;
-      error = err?.message ?? "intent handler failed";
-    }
-
-    sendAck(intent.id, ok, error);
-
-    const shouldLogIntent =
-      ok && this.shouldLogIntent(hiddenChanged, intentImpact);
-    if (shouldLogIntent) {
-      const logged = await this.appendIntentLog(
-        normalizedIntent,
-        resetGeneration,
-        conn.id
-      );
-      if (!logged) {
-        this.enqueueHiddenStatePersist(resetGeneration, conn.id);
+      if (!state.playerId) {
+        sendAck(intent.id, false, "missing player");
+        return;
       }
-      this.scheduleHiddenStatePersist(resetGeneration, conn.id);
-    }
 
-    if (ok && hiddenChanged) {
-      await this.broadcastOverlays(intentImpact);
-    }
+      const payload = isRecord(intent.payload) ? { ...intent.payload } : {};
+      if (
+        typeof payload.actorId === "string" &&
+        payload.actorId !== state.playerId
+      ) {
+        sendAck(intent.id, false, "actor mismatch");
+        return;
+      }
+      payload.actorId = state.playerId;
+      const normalizedIntent = { ...intent, payload };
 
-    if (ok && logEvents.length > 0) {
       try {
-        this.broadcastLogEvents(logEvents);
+        const applyStart = nowMs();
+        const doc = this.document;
+        const hidden = await this.ensureHiddenState(doc);
+        const result = applyIntentToDoc(doc, normalizedIntent, hidden);
+        const applyDuration = nowMs() - applyStart;
+        sampleMetric(this.intentApplySamples, applyDuration);
+        ok = result.ok;
+        if (result.ok) {
+          logEvents = result.logEvents;
+          hiddenChanged = Boolean(result.hiddenChanged);
+          intentImpact = result.impact;
+        } else {
+          error = result.error;
+        }
       } catch (err: any) {
-        console.error("[party] log events broadcast failed", {
-          room: this.name,
-          connId: conn.id,
-          error: err?.message ?? String(err),
-          eventIds: logEvents.map((event) => event.eventId),
-        });
+        ok = false;
+        error = err?.message ?? "intent handler failed";
       }
-    }
 
-    if (ok) {
-      if (normalizedIntent.type === "library.view") {
-        await this.handleLibraryViewIntent(conn, normalizedIntent);
-      } else if (normalizedIntent.type === "library.view.close") {
-        await this.handleLibraryViewCloseIntent(conn, normalizedIntent);
-      } else if (normalizedIntent.type === "library.view.ping") {
-        this.handleLibraryViewPingIntent(conn, normalizedIntent);
+      sendAck(intent.id, ok, error);
+
+      const shouldLogIntent =
+        ok && this.shouldLogIntent(hiddenChanged, intentImpact);
+      if (shouldLogIntent) {
+        const logged = await this.appendIntentLog(
+          normalizedIntent,
+          resetGeneration,
+          conn.id
+        );
+        if (!logged) {
+          this.enqueueHiddenStatePersist(resetGeneration, conn.id);
+        }
+        this.scheduleHiddenStatePersist(resetGeneration, conn.id);
       }
+
+      if (ok && hiddenChanged) {
+        await this.broadcastOverlays(intentImpact);
+      }
+
+      if (ok && logEvents.length > 0) {
+        try {
+          this.broadcastLogEvents(logEvents);
+        } catch (err: any) {
+          console.error("[party] log events broadcast failed", {
+            room: this.name,
+            connId: conn.id,
+            error: err?.message ?? String(err),
+            eventIds: logEvents.map((event) => event.eventId),
+          });
+        }
+      }
+
+      if (ok) {
+        if (normalizedIntent.type === "library.view") {
+          await this.handleLibraryViewIntent(conn, normalizedIntent);
+        } else if (normalizedIntent.type === "library.view.close") {
+          await this.handleLibraryViewCloseIntent(conn, normalizedIntent);
+        } else if (normalizedIntent.type === "library.view.ping") {
+          this.handleLibraryViewPingIntent(conn, normalizedIntent);
+        }
+      }
+    } finally {
+      finishIntent();
     }
   }
 

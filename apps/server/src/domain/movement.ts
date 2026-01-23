@@ -118,6 +118,7 @@ export const applyCardMove = (
     ownerId?: string;
     zoneId?: string;
     reveal?: HiddenReveal;
+    prevReveal?: HiddenReveal;
   }) => void
 ): { ok: true } | { ok: false; error: string } => {
   const cardId = typeof payload.cardId === "string" ? payload.cardId : null;

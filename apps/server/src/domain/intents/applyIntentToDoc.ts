@@ -90,22 +90,27 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
     ownerId?: string;
     zoneId?: string;
     reveal?: HiddenReveal;
+    prevReveal?: HiddenReveal;
   }) => {
     hiddenChanged = true;
     const hasScope = Boolean(
-      impact?.ownerId || impact?.zoneId || impact?.reveal
+      impact?.ownerId || impact?.zoneId || impact?.reveal || impact?.prevReveal
     );
     if (!hasScope) {
       changedRevealAll = true;
     }
     if (impact?.ownerId) changedOwners.add(impact.ownerId);
     if (impact?.zoneId) changedZones.add(impact.zoneId);
-    const reveal = impact?.reveal;
-    if (reveal?.toAll) changedRevealAll = true;
-    if (Array.isArray(reveal?.toPlayers)) {
-      reveal.toPlayers.forEach((playerId) => {
-        if (typeof playerId === "string") changedRevealPlayers.add(playerId);
-      });
+    const revealScopes = [impact?.reveal, impact?.prevReveal].filter(
+      Boolean
+    ) as HiddenReveal[];
+    for (const reveal of revealScopes) {
+      if (reveal?.toAll) changedRevealAll = true;
+      if (Array.isArray(reveal?.toPlayers)) {
+        reveal.toPlayers.forEach((playerId) => {
+          if (typeof playerId === "string") changedRevealPlayers.add(playerId);
+        });
+      }
     }
   };
   const readActorId = (value: unknown) => (typeof value === "string" ? value : undefined);
@@ -257,8 +262,10 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           Object.prototype.hasOwnProperty.call(updates, "libraryTopReveal") &&
           updates.libraryTopReveal !== current.libraryTopReveal
         ) {
-          const enabled = Boolean(updates.libraryTopReveal);
-          const mode = enabled ? updates.libraryTopReveal : current.libraryTopReveal;
+          const previousMode = current.libraryTopReveal;
+          const nextMode = updates.libraryTopReveal;
+          const enabled = Boolean(nextMode);
+          const mode = enabled ? nextMode : previousMode;
           if (typeof mode === "string") {
             pushLogEvent("library.topReveal", {
               actorId,
@@ -269,9 +276,12 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           }
           writePlayer(maps, { ...current, ...updates, id: playerId });
           syncLibraryRevealsToAllForPlayer(maps, hidden, playerId);
+          const prevReveal = previousMode === "all" ? { toAll: true } : undefined;
+          const nextReveal = nextMode === "all" ? { toAll: true } : undefined;
           markHiddenChanged({
             ownerId: playerId,
-            ...(mode === "all" ? { reveal: { toAll: true } } : null),
+            ...(nextReveal ? { reveal: nextReveal } : null),
+            ...(prevReveal ? { prevReveal } : null),
           });
           return { ok: true };
         }
@@ -846,6 +856,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           if (publicCard.controllerId !== actorId) {
             return { ok: false, error: "Only controller may reveal this card" };
           }
+          const prevReveal = hidden.faceDownReveals[cardId];
           const patch = buildRevealPatch(publicCard, reveal, { excludeId: actorId });
           if (!reveal) {
             Reflect.deleteProperty(hidden.faceDownReveals, cardId);
@@ -853,7 +864,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
             markHiddenChanged({
               ownerId: publicCard.controllerId,
               zoneId: publicCard.zoneId,
-              reveal: { toAll: true },
+              ...(prevReveal ? { prevReveal } : null),
             });
             return { ok: true };
           }
@@ -877,6 +888,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
             ownerId: publicCard.controllerId,
             zoneId: publicCard.zoneId,
             reveal: revealState,
+            ...(prevReveal ? { prevReveal } : null),
           });
           return { ok: true };
         }
@@ -888,6 +900,12 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
         if (zone.type !== ZONE.HAND && zone.type !== ZONE.LIBRARY) {
           return { ok: true };
         }
+        const prevReveal =
+          zone.type === ZONE.HAND
+            ? hidden.handReveals[cardId]
+            : zone.type === ZONE.LIBRARY
+              ? hidden.libraryReveals[cardId]
+              : undefined;
         const patch = buildRevealPatch(hiddenCard, reveal);
         if (!reveal) {
           if (zone.type === ZONE.HAND) {
@@ -901,7 +919,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           markHiddenChanged({
             ownerId: hiddenCard.ownerId,
             zoneId: zone.id,
-            reveal: { toAll: true },
+            ...(prevReveal ? { prevReveal } : null),
           });
           return { ok: true };
         }
@@ -936,6 +954,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           ownerId: hiddenCard.ownerId,
           zoneId: zone.id,
           reveal: revealState,
+          ...(prevReveal ? { prevReveal } : null),
         });
         return { ok: true };
       }
