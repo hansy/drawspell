@@ -49,11 +49,26 @@ import {
   writeZone,
 } from "../yjsStore";
 import { canAddCard, canModifyCardState, canMoveCard, canRemoveToken, canTapCard, canUpdatePlayer, canViewHiddenZone } from "../permissions";
-import type { ApplyResult, HiddenState, InnerApplyResult, Intent, LogEvent } from "../types";
+import type {
+  ApplyResult,
+  HiddenReveal,
+  HiddenState,
+  InnerApplyResult,
+  Intent,
+  LogEvent,
+} from "../types";
 import { applyCardMove } from "../movement";
 import { applyMulligan, applyResetDeck, applyUnloadDeck } from "../deck";
 import { shuffle } from "../random";
 import { findZoneByTypeInMaps } from "../zones";
+
+const PUBLIC_DOC_NOOP_INTENTS = new Set([
+  "library.view",
+  "library.view.close",
+  "library.view.ping",
+  "coin.flip",
+  "dice.roll",
+]);
 
 export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState): ApplyResult => {
   if (!intent || typeof intent.type !== "string") {
@@ -63,11 +78,35 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
   const maps = getMaps(doc);
   const logEvents: LogEvent[] = [];
   let hiddenChanged = false;
+  const changedOwners = new Set<string>();
+  const changedZones = new Set<string>();
+  const changedRevealPlayers = new Set<string>();
+  let changedRevealAll = false;
+  let changedPublicDoc = false;
   const pushLogEvent = (eventId: string, logPayload: Record<string, unknown>) => {
     logEvents.push({ eventId, payload: logPayload });
   };
-  const markHiddenChanged = () => {
+  const markHiddenChanged = (impact?: {
+    ownerId?: string;
+    zoneId?: string;
+    reveal?: HiddenReveal;
+  }) => {
     hiddenChanged = true;
+    const hasScope = Boolean(
+      impact?.ownerId || impact?.zoneId || impact?.reveal
+    );
+    if (!hasScope) {
+      changedRevealAll = true;
+    }
+    if (impact?.ownerId) changedOwners.add(impact.ownerId);
+    if (impact?.zoneId) changedZones.add(impact.zoneId);
+    const reveal = impact?.reveal;
+    if (reveal?.toAll) changedRevealAll = true;
+    if (Array.isArray(reveal?.toPlayers)) {
+      reveal.toPlayers.forEach((playerId) => {
+        if (typeof playerId === "string") changedRevealPlayers.add(playerId);
+      });
+    }
   };
   const readActorId = (value: unknown) => (typeof value === "string" ? value : undefined);
   const actorId = readActorId(payload.actorId);
@@ -114,7 +153,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
         );
       }
       updatePlayerCounts(maps, hidden, zone.ownerId);
-      markHiddenChanged();
+      markHiddenChanged({ ownerId: zone.ownerId, zoneId: zone.id });
       return { ok: true };
     }
     const enteringFaceDownBattlefield = zone?.type === ZONE.BATTLEFIELD && nextCard.faceDown;
@@ -135,7 +174,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
       hidden.faceDownBattlefield[nextCard.id] = buildCardIdentity(nextCard);
       hidden.faceDownReveals[nextCard.id] = {};
       maps.faceDownRevealsToAll.delete(nextCard.id);
-      markHiddenChanged();
+      markHiddenChanged({ ownerId: nextCard.controllerId, zoneId: zone?.id });
     }
     if (nextCard.isToken) {
       pushLogEvent("card.tokenCreate", {
@@ -185,7 +224,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
         }
         if (initializedHidden) {
           updatePlayerCounts(maps, hidden, player.id);
-          markHiddenChanged();
+          markHiddenChanged({ ownerId: player.id });
         }
         const currentHost = maps.meta.get("hostId");
         if (typeof currentHost !== "string" || !maps.players.get(currentHost)) {
@@ -230,7 +269,10 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           }
           writePlayer(maps, { ...current, ...updates, id: playerId });
           syncLibraryRevealsToAllForPlayer(maps, hidden, playerId);
-          markHiddenChanged();
+          markHiddenChanged({
+            ownerId: playerId,
+            ...(mode === "all" ? { reveal: { toAll: true } } : null),
+          });
           return { ok: true };
         }
         writePlayer(maps, { ...current, ...updates, id: playerId });
@@ -307,7 +349,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
             maps.faceDownRevealsToAll.delete(id);
           }
         });
-        markHiddenChanged();
+        markHiddenChanged({ ownerId: playerId, reveal: { toAll: true } });
         return { ok: true };
       }
       case "zone.add": {
@@ -344,7 +386,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
             hidden.sideboardOrder[zone.ownerId] = [];
           }
           updatePlayerCounts(maps, hidden, zone.ownerId);
-          markHiddenChanged();
+          markHiddenChanged({ ownerId: zone.ownerId, zoneId: zone.id });
         }
         return { ok: true };
       }
@@ -373,20 +415,25 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           hidden.handOrder[zone.ownerId] = orderedCardIds;
           writeZone(maps, { ...zone, cardIds: orderedCardIds });
           updatePlayerCounts(maps, hidden, zone.ownerId);
-          markHiddenChanged();
+          markHiddenChanged({ ownerId: zone.ownerId, zoneId: zone.id });
           return { ok: true };
         }
         if (zone.type === ZONE.LIBRARY) {
           hidden.libraryOrder[zone.ownerId] = orderedCardIds;
           updatePlayerCounts(maps, hidden, zone.ownerId);
           syncLibraryRevealsToAllForPlayer(maps, hidden, zone.ownerId, zone.id);
-          markHiddenChanged();
+          const player = readPlayer(maps, zone.ownerId);
+          markHiddenChanged({
+            ownerId: zone.ownerId,
+            zoneId: zone.id,
+            ...(player?.libraryTopReveal === "all" ? { reveal: { toAll: true } } : null),
+          });
           return { ok: true };
         }
         if (zone.type === ZONE.SIDEBOARD) {
           hidden.sideboardOrder[zone.ownerId] = orderedCardIds;
           updatePlayerCounts(maps, hidden, zone.ownerId);
-          markHiddenChanged();
+          markHiddenChanged({ ownerId: zone.ownerId, zoneId: zone.id });
           return { ok: true };
         }
         writeZone(maps, { ...zone, cardIds: orderedCardIds });
@@ -571,7 +618,9 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           const hadFaceDown =
             Boolean(hidden.faceDownBattlefield[cardId]) || Boolean(hidden.faceDownReveals[cardId]);
           clearFaceDownStateForCard(maps, hidden, cardId);
-          if (hadFaceDown) markHiddenChanged();
+          if (hadFaceDown) {
+            markHiddenChanged({ ownerId: card.controllerId, zoneId: card.zoneId });
+          }
           return { ok: true };
         }
         const hiddenCard = hidden.cards[cardId];
@@ -610,7 +659,11 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           zoneId: hiddenCard.zoneId,
           cardName: "a card",
         });
-        markHiddenChanged();
+        markHiddenChanged({
+          ownerId: hiddenCard.ownerId,
+          zoneId: hiddenZone.id,
+          reveal: { toAll: true },
+        });
         return { ok: true };
       }
       case "card.update": {
@@ -686,7 +739,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
             hidden.faceDownBattlefield[card.id] = buildCardIdentity(nextCard);
             hidden.faceDownReveals[card.id] = {};
             maps.faceDownRevealsToAll.delete(card.id);
-            markHiddenChanged();
+            markHiddenChanged({ ownerId: nextCard.controllerId, zoneId: card.zoneId });
             publicCard = stripCardIdentity({
               ...nextCard,
               knownToAll: false,
@@ -698,7 +751,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
             Reflect.deleteProperty(hidden.faceDownBattlefield, card.id);
             Reflect.deleteProperty(hidden.faceDownReveals, card.id);
             maps.faceDownRevealsToAll.delete(card.id);
-            markHiddenChanged();
+            markHiddenChanged({ ownerId: card.controllerId, zoneId: card.zoneId });
             publicCard = mergeCardIdentity(nextCard, identity);
           } else if (nextCard.faceDown) {
             publicCard = stripCardIdentity(nextCard);
@@ -767,7 +820,7 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
         const nextCard = syncCardStatsToFace(cardForTransform, targetIndex);
         if (card.faceDown) {
           hidden.faceDownBattlefield[card.id] = buildCardIdentity(nextCard);
-          markHiddenChanged();
+          markHiddenChanged({ ownerId: card.controllerId, zoneId: card.zoneId });
           writeCard(maps, stripCardIdentity(nextCard));
         } else {
           writeCard(maps, nextCard);
@@ -797,7 +850,11 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           if (!reveal) {
             Reflect.deleteProperty(hidden.faceDownReveals, cardId);
             maps.faceDownRevealsToAll.delete(cardId);
-            markHiddenChanged();
+            markHiddenChanged({
+              ownerId: publicCard.controllerId,
+              zoneId: publicCard.zoneId,
+              reveal: { toAll: true },
+            });
             return { ok: true };
           }
           const toPlayers = patch.revealedTo ?? [];
@@ -816,7 +873,11 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           } else {
             maps.faceDownRevealsToAll.delete(cardId);
           }
-          markHiddenChanged();
+          markHiddenChanged({
+            ownerId: publicCard.controllerId,
+            zoneId: publicCard.zoneId,
+            reveal: revealState,
+          });
           return { ok: true };
         }
         if (hiddenCard.ownerId !== actorId) {
@@ -837,7 +898,11 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
             maps.libraryRevealsToAll.delete(cardId);
             syncLibraryRevealsToAllForPlayer(maps, hidden, zone.ownerId, zone.id);
           }
-          markHiddenChanged();
+          markHiddenChanged({
+            ownerId: hiddenCard.ownerId,
+            zoneId: zone.id,
+            reveal: { toAll: true },
+          });
           return { ok: true };
         }
         const toPlayers = patch.revealedTo ?? [];
@@ -867,7 +932,11 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           }
           syncLibraryRevealsToAllForPlayer(maps, hidden, zone.ownerId, zone.id);
         }
-        markHiddenChanged();
+        markHiddenChanged({
+          ownerId: hiddenCard.ownerId,
+          zoneId: zone.id,
+          reveal: revealState,
+        });
         return { ok: true };
       }
       case "card.duplicate": {
@@ -1010,7 +1079,12 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
         });
         updatePlayerCounts(maps, hidden, playerId);
         syncLibraryRevealsToAllForPlayer(maps, hidden, playerId);
-        markHiddenChanged();
+        const player = readPlayer(maps, playerId);
+        markHiddenChanged({
+          ownerId: playerId,
+          zoneId: libraryZone.id,
+          ...(player?.libraryTopReveal === "all" ? { reveal: { toAll: true } } : null),
+        });
         pushLogEvent("library.shuffle", {
           actorId,
           playerId,
@@ -1027,7 +1101,12 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           return { ok: false, error: permission.reason ?? "not permitted" };
         }
         applyResetDeck(maps, hidden, playerId);
-        markHiddenChanged();
+        const player = readPlayer(maps, playerId);
+        markHiddenChanged({
+          ownerId: playerId,
+          zoneId: libraryZone.id,
+          ...(player?.libraryTopReveal === "all" ? { reveal: { toAll: true } } : null),
+        });
         pushLogEvent("deck.reset", {
           actorId,
           playerId,
@@ -1044,7 +1123,12 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           return { ok: false, error: permission.reason ?? "not permitted" };
         }
         applyUnloadDeck(maps, hidden, playerId);
-        markHiddenChanged();
+        const player = readPlayer(maps, playerId);
+        markHiddenChanged({
+          ownerId: playerId,
+          zoneId: libraryZone.id,
+          ...(player?.libraryTopReveal === "all" ? { reveal: { toAll: true } } : null),
+        });
         pushLogEvent("deck.unload", {
           actorId,
           playerId,
@@ -1062,7 +1146,12 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           return { ok: false, error: permission.reason ?? "not permitted" };
         }
         const mulliganDrawCount = applyMulligan(maps, hidden, playerId, count);
-        markHiddenChanged();
+        const player = readPlayer(maps, playerId);
+        markHiddenChanged({
+          ownerId: playerId,
+          zoneId: libraryZone.id,
+          ...(player?.libraryTopReveal === "all" ? { reveal: { toAll: true } } : null),
+        });
         pushLogEvent("deck.reset", {
           actorId,
           playerId,
@@ -1102,6 +1191,18 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
           playerId,
           ...(count !== undefined ? { count } : {}),
         });
+        return { ok: true };
+      }
+      case "library.view.close":
+      case "library.view.ping": {
+        const playerId = typeof payload.playerId === "string" ? payload.playerId : null;
+        if (!playerId) return { ok: false, error: "invalid player" };
+        const libraryZone = findZoneByTypeInMaps(maps, playerId, ZONE.LIBRARY);
+        if (!libraryZone) return { ok: false, error: "zone not found" };
+        const permission = canViewHiddenZone(actorId, libraryZone);
+        if (!permission.allowed) {
+          return { ok: false, error: permission.reason ?? "not permitted" };
+        }
         return { ok: true };
       }
       case "coin.flip": {
@@ -1147,7 +1248,24 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
       result = apply();
     });
     if (result.ok) {
-      return { ok: true, logEvents, ...(hiddenChanged ? { hiddenChanged: true } : null) };
+      if (!changedPublicDoc) {
+        changedPublicDoc = !PUBLIC_DOC_NOOP_INTENTS.has(intent.type);
+      }
+      const impact = {
+        changedOwners: Array.from(changedOwners),
+        changedZones: Array.from(changedZones),
+        changedRevealScopes: {
+          toAll: changedRevealAll,
+          toPlayers: Array.from(changedRevealPlayers),
+        },
+        changedPublicDoc,
+      };
+      return {
+        ok: true,
+        logEvents,
+        ...(hiddenChanged ? { hiddenChanged: true } : null),
+        impact,
+      };
     }
     return result;
   } catch (err: any) {
