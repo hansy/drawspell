@@ -77,10 +77,13 @@ export function setupSessionResources({
     console.log("import.meta.env.DEV", import.meta.env.DEV);
   }
   const partyHost = isDev ? (envHost ?? "localhost:8787") : hardcodedProdHost;
+
   if (!partyHost) {
     console.error("[party] VITE_WEBSOCKET_SERVER is required");
     return null;
   }
+
+  console.log("partyHost", partyHost);
 
   cleanupStaleSessions();
   const handles = acquireSession(sessionId);
