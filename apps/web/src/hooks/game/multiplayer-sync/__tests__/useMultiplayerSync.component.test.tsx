@@ -79,6 +79,12 @@ const intentTransportMocks = vi.hoisted(() => ({
   createIntentTransport: vi.fn(() => ({ sendIntent: vi.fn(), close: vi.fn() })),
   setIntentTransport: vi.fn(),
   clearIntentTransport: vi.fn(),
+  getIntentConnectionMeta: vi.fn(() => ({
+    isOpen: false,
+    everConnected: true,
+    lastOpenAt: null,
+    lastCloseAt: 0,
+  })),
 }));
 const logStoreMocks = vi.hoisted(() => ({ emitLog: vi.fn(), clearLogs: vi.fn() }));
 vi.mock("y-partyserver/provider", () => {
