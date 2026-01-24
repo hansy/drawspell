@@ -89,12 +89,12 @@ export const createScryfallCache = ({
         if (storeHit) return storeHit;
       }
 
-      const card = await fetchCardById(fetchFn, scryfallId);
-      if (card) {
-        await writeToCache(card, { awaitStore: true });
+      const cardResult = await fetchCardById(fetchFn, scryfallId);
+      if (cardResult.ok) {
+        await writeToCache(cardResult.data, { awaitStore: true });
+        return cardResult.data;
       }
-
-      return card;
+      return null;
     })();
 
     pendingFetches.set(scryfallId, promise);
@@ -136,10 +136,12 @@ export const createScryfallCache = ({
 
     if (toFetch.length > 0) {
       const fetched = await fetchCardCollection(fetchFn, toFetch, { rateLimitMs, sleep });
-      for (const [id, card] of fetched.entries()) {
-        results.set(id, card);
-        // Store async (best-effort), don't block the batch.
-        void writeToCache(card, { awaitStore: false });
+      if (fetched.ok) {
+        for (const [id, card] of fetched.data.cards.entries()) {
+          results.set(id, card);
+          // Store async (best-effort), don't block the batch.
+          void writeToCache(card, { awaitStore: false });
+        }
       }
     }
 
