@@ -68,7 +68,7 @@ export function setupSessionResources({
   onIntentOpen,
   onIntentClose,
 }: SessionSetupDeps): SessionSetupResult | null {
-  const partyHost = import.meta.env.VITE_WEBSOCKET_SERVER;
+  const partyHost = import.meta.env.VITE_WEBSOCKET_SERVER as string;
   console.log("[party] Connecting to:", partyHost);
 
   cleanupStaleSessions();
