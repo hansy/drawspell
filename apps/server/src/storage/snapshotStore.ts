@@ -61,10 +61,15 @@ export class SnapshotStore {
 
   async loadCommittedMeta(logContext?: { room: string; connId?: string | null }) {
     const pending = await this.storage.get<SnapshotMeta>(this.snapshotPendingMetaKey);
+    const committed = (await this.storage.get<SnapshotMeta>(this.snapshotMetaKey)) ?? null;
     if (pending) {
-      await this.cleanupPendingSnapshot(pending, logContext);
+      if (committed?.id && pending.id === committed.id) {
+        await this.cleanupPendingMetaKey(logContext);
+      } else {
+        await this.cleanupPendingSnapshot(pending, logContext);
+      }
     }
-    return (await this.storage.get<SnapshotMeta>(this.snapshotMetaKey)) ?? null;
+    return committed;
   }
 
   async writeSnapshot(params: SnapshotWriteParams): Promise<SnapshotMeta | null> {
@@ -156,12 +161,18 @@ export class SnapshotStore {
     meta: SnapshotMeta,
     logContext?: { room: string; connId?: string | null }
   ) {
+    await this.cleanupPendingMetaKey(logContext);
+    await this.cleanupHiddenChunks(meta, logContext);
+  }
+
+  private async cleanupPendingMetaKey(
+    logContext?: { room: string; connId?: string | null }
+  ) {
     try {
       await this.storage.delete(this.snapshotPendingMetaKey);
     } catch (error) {
       logError("[party] failed to delete pending snapshot meta", error, logContext);
     }
-    await this.cleanupHiddenChunks(meta, logContext);
   }
 
   private async cleanupSnapshotMetaKey() {
