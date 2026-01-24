@@ -70,11 +70,12 @@ export function setupSessionResources({
   onIntentClose,
 }: SessionSetupDeps): SessionSetupResult | null {
   const envHost = resolvePartyKitHost(import.meta.env.VITE_WEBSOCKET_SERVER);
+  const hardcodedProdHost = "drawspell-server.service-fff.workers.dev";
   const defaultHost =
     import.meta.env.DEV && typeof window !== "undefined"
       ? "localhost:8787"
       : typeof window !== "undefined"
-        ? window.location.host
+        ? hardcodedProdHost
         : null;
   const partyHost = envHost ?? defaultHost;
   if (!partyHost) {
