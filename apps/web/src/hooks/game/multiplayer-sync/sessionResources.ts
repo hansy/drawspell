@@ -3,7 +3,6 @@ import { Awareness } from "y-protocols/awareness";
 import YPartyServerProvider from "y-partyserver/provider";
 import { toast } from "sonner";
 import { clearLogs, emitLog } from "@/logging/logStore";
-import { resolvePartyKitHost } from "@/lib/partyKitHost";
 import {
   clearInviteTokenFromUrl,
   clearRoomHostPending,
@@ -69,22 +68,9 @@ export function setupSessionResources({
   onIntentOpen,
   onIntentClose,
 }: SessionSetupDeps): SessionSetupResult | null {
-  const envHost = resolvePartyKitHost(import.meta.env.VITE_WEBSOCKET_SERVER);
-  const hardcodedProdHost = "drawspell-server.service-fff.workers.dev";
-  const isDev = import.meta.env.DEV;
-  if (isDev) {
-    console.log("envHost", envHost);
-    console.log("import.meta.env.DEV", import.meta.env.DEV);
-  }
-  const partyHost = isDev ? (envHost ?? "localhost:8787") : hardcodedProdHost;
-
-  if (!partyHost) {
-    console.error("[party] VITE_WEBSOCKET_SERVER is required");
-    return null;
-  }
+  const partyHost = "drawspell-server.service-fff.workers.dev";
 
   console.log("partyHost", partyHost);
-
   cleanupStaleSessions();
   const handles = acquireSession(sessionId);
   setActiveSession(sessionId);
