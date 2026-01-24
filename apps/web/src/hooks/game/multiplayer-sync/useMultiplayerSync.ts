@@ -75,7 +75,6 @@ export function useMultiplayerSync(sessionId: string) {
   const stoppedRef = useRef(false);
   const connectionGeneration = useRef(0);
   const intentClosedAtRef = useRef<number | null>(null);
-  const providerStatusRef = useRef<"connected" | "disconnected">("disconnected");
   const attemptJoinRef = useRef<(() => void) | null>(null);
   const resourcesRef = useRef<SessionSetupResult | null>(null);
   const pendingIntentJoinRef = useRef(false);
@@ -87,10 +86,6 @@ export function useMultiplayerSync(sessionId: string) {
     if (!CONNECTION_LOGS_ENABLED) return;
     const { players, cards, zones } = useGameStore.getState();
     emitLog(eventId, payload, { players, cards, zones });
-  };
-
-  const resetProviderStatus = () => {
-    providerStatusRef.current = "disconnected";
   };
 
   const resetIntentCloseTracking = () => {
@@ -214,7 +209,6 @@ export function useMultiplayerSync(sessionId: string) {
         resourcesRef.current = null;
         connectionGeneration.current += 1;
       }
-      resetProviderStatus();
       resetIntentCloseTracking();
       setStatus("connecting");
       return;
@@ -277,7 +271,6 @@ export function useMultiplayerSync(sessionId: string) {
         resourcesRef.current = null;
         connectionGeneration.current += 1;
       }
-      resetProviderStatus();
       resetIntentCloseTracking();
       setJoinBlocked(true);
       setJoinBlockedReason("invite");
@@ -287,7 +280,6 @@ export function useMultiplayerSync(sessionId: string) {
       return;
     }
 
-    resetProviderStatus();
     lastConnectEpoch.current = connectEpoch;
 
     const nextGeneration = connectionGeneration.current + 1;
@@ -315,14 +307,12 @@ export function useMultiplayerSync(sessionId: string) {
         });
         resourcesRef.current = null;
       }
-      resetProviderStatus();
       resetIntentCloseTracking();
       connectionGeneration.current += 1;
     };
 
     const maybeTriggerIntentFallback = () => {
       if (!shouldHandleDisconnect()) return;
-      if (providerStatusRef.current !== "disconnected") return;
       if (intentClosedAtRef.current === null) return;
       const elapsed = Date.now() - intentClosedAtRef.current;
       if (elapsed < INTENT_DISCONNECT_GRACE_MS) return;
@@ -380,7 +370,6 @@ export function useMultiplayerSync(sessionId: string) {
           resourcesRef.current = null;
           connectionGeneration.current += 1;
         }
-        resetProviderStatus();
         resetIntentCloseTracking();
       },
     });
@@ -441,12 +430,10 @@ export function useMultiplayerSync(sessionId: string) {
     provider.on("status", ({ status: s }: any) => {
       if (connectionGeneration.current !== nextGeneration) return;
       if (s === "connected") {
-        providerStatusRef.current = "connected";
         pushLocalAwareness();
         dispatchConnectionEvent({ type: "connected" });
       }
       if (s === "disconnected") {
-        providerStatusRef.current = "disconnected";
         dispatchConnectionEvent({ type: "status-disconnected" });
         maybeTriggerIntentFallback();
       }
@@ -470,7 +457,6 @@ export function useMultiplayerSync(sessionId: string) {
       disposeAwareness();
       awarenessRef.current = null;
       localPlayerIdRef.current = null;
-      resetProviderStatus();
       resetIntentCloseTracking();
 
       awareness.off("change", handleAwarenessChange);

@@ -352,7 +352,7 @@ describe("useMultiplayerSync", () => {
     expect(intentTransportMocks.createIntentTransport).toHaveBeenCalledTimes(1);
   });
 
-  it("reconnects if intent stays closed while provider is disconnected", async () => {
+  it("reconnects if intent stays closed past the grace period", async () => {
     renderHook(() => useMultiplayerSync("session-910"));
 
     await waitFor(() => {
