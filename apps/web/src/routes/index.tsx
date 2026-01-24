@@ -75,6 +75,8 @@ const LandingPage = () => {
     setResumeSessionId(null);
   };
 
+  console.log(process.env.VITE_WEBSOCKET_SERVER);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-zinc-100">
       <div className="max-w-xl w-full px-8 py-12 rounded-2xl border border-zinc-800 bg-zinc-900/60 shadow-lg">
