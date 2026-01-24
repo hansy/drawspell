@@ -52,9 +52,14 @@ const LandingPage = () => {
   const handleCreateGame = () => {
     if (isCreating) return;
     setIsCreating(true);
-    const sessionId = createRoomId();
-    markRoomAsHostPending(sessionId);
-    navigate({ to: "/game/$sessionId", params: { sessionId } });
+    try {
+      const sessionId = createRoomId();
+      markRoomAsHostPending(sessionId);
+      navigate({ to: "/game/$sessionId", params: { sessionId } });
+    } catch (error) {
+      setIsCreating(false);
+      throw error;
+    }
   };
 
   const handleReconnect = () => {

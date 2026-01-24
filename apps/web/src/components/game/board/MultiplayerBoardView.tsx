@@ -109,8 +109,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   shareLinksReady,
 }) => {
   const suppressSingleOverlay = isGroupDragging && !showGroupDragOverlay;
-  const showConnectingOverlay =
-    syncStatus === "connecting" && Object.keys(players).length === 0;
+  const showConnectingOverlay = syncStatus === "connecting";
 
   return (
     <CardPreviewProvider>
