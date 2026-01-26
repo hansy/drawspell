@@ -8,6 +8,8 @@ import { useGameStore } from "@/store/gameStore";
 import {
   clearRoomHostPending,
   isRoomHostPending,
+  isRoomUnavailable,
+  markRoomUnavailable,
   readRoomTokensFromStorage,
   resolveInviteTokenFromUrl,
   writeRoomTokensToStorage,
@@ -40,6 +42,7 @@ export type SyncStatus = "connecting" | "connected";
 type JoinBlockedReason =
   | NonNullable<LocalPlayerInitResult>["reason"]
   | "invite"
+  | "room-unavailable"
   | null;
 
 const CONNECTION_LOGS_ENABLED = false;
@@ -49,6 +52,9 @@ export function useMultiplayerSync(sessionId: string) {
   const hasHydrated = useGameStore((state) => state.hasHydrated);
   const viewerRole = useGameStore((state) => state.viewerRole);
   const roomTokens = useGameStore((state) => state.roomTokens);
+  const [roomUnavailable, setRoomUnavailable] = useState(() =>
+    sessionId ? isRoomUnavailable(sessionId) : false
+  );
   const [status, setStatus] = useState<SyncStatus>("connecting");
   const [peerCounts, setPeerCounts] = useState<PeerCounts>(() => ({
     total: 1,
@@ -74,6 +80,7 @@ export function useMultiplayerSync(sessionId: string) {
   const pausedRef = useRef(false);
   const stoppedRef = useRef(false);
   const connectionGeneration = useRef(0);
+  const roomUnavailableRef = useRef(roomUnavailable);
   const intentClosedAtRef = useRef<number | null>(null);
   const attemptJoinRef = useRef<(() => void) | null>(null);
   const resourcesRef = useRef<SessionSetupResult | null>(null);
@@ -86,6 +93,40 @@ export function useMultiplayerSync(sessionId: string) {
     if (!CONNECTION_LOGS_ENABLED) return;
     const { players, cards, zones } = useGameStore.getState();
     emitLog(eventId, payload, { players, cards, zones });
+  };
+
+  const applyRoomUnavailable = () => {
+    if (!sessionId) return;
+    if (!roomUnavailableRef.current) {
+      markRoomUnavailable(sessionId);
+      roomUnavailableRef.current = true;
+    }
+    setRoomUnavailable(true);
+    setJoinBlocked(true);
+    setJoinBlockedReason("room-unavailable");
+    setStatus("connecting");
+    dispatchConnectionEventRef.current({ type: "reset" });
+
+    const activeResources = resourcesRef.current;
+    if (activeResources) {
+      teardownSessionResources(sessionId, {
+        awareness: activeResources.awareness,
+        provider: activeResources.provider,
+        intentTransport: activeResources.intentTransport,
+      });
+      resourcesRef.current = null;
+      connectionGeneration.current += 1;
+    }
+
+    resetIntentCloseTracking();
+
+    const store = useGameStore.getState();
+    store.setRoomTokens(null);
+    writeRoomTokensToStorage(sessionId, null);
+    clearRoomHostPending(sessionId);
+    if (useClientPrefsStore.getState().lastSessionId === sessionId) {
+      clearLastSessionId();
+    }
   };
 
   const resetIntentCloseTracking = () => {
@@ -160,6 +201,17 @@ export function useMultiplayerSync(sessionId: string) {
   };
 
   dispatchConnectionEventRef.current = dispatchConnectionEvent;
+
+  useEffect(() => {
+    roomUnavailableRef.current = roomUnavailable;
+  }, [roomUnavailable]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    const unavailable = isRoomUnavailable(sessionId);
+    roomUnavailableRef.current = unavailable;
+    setRoomUnavailable(unavailable);
+  }, [sessionId]);
 
   useEffect(() => {
     attemptJoinRef.current?.();
@@ -242,6 +294,10 @@ export function useMultiplayerSync(sessionId: string) {
     if (typeof window === "undefined") return;
     if (!hasHydrated) return;
     if (isPaused) return;
+    if (roomUnavailableRef.current || isRoomUnavailable(sessionId)) {
+      applyRoomUnavailable();
+      return;
+    }
     // Skip if we've already processed this epoch AND we have active resources.
     // If resources were torn down (e.g. by StrictMode cleanup), we need to reconnect.
     if (connectEpoch === lastConnectEpoch.current && resourcesRef.current) return;
@@ -292,10 +348,14 @@ export function useMultiplayerSync(sessionId: string) {
     const handleDisconnect = (event?: { code?: number; reason?: string } | null) => {
       if (!shouldHandleDisconnect()) return;
       if (event?.code === 1008) return;
+      if (isRoomResetClose(event)) {
+        applyRoomUnavailable();
+        return;
+      }
       setStatus("connecting");
       dispatchConnectionEvent({
         type: "disconnected",
-        reason: isRoomResetClose(event) ? "room-reset" : "close",
+        reason: "close",
       });
 
       const activeResources = resourcesRef.current;
@@ -348,6 +408,12 @@ export function useMultiplayerSync(sessionId: string) {
       onAuthFailure: (reason) => {
         if (authFailureHandled.current) return;
         authFailureHandled.current = true;
+        emitConnectionLog("connection.authFailure", { reason });
+        const normalizedReason = (reason ?? "").trim().toLowerCase();
+        if (normalizedReason === "invalid token") {
+          applyRoomUnavailable();
+          return;
+        }
         dispatchConnectionEvent({ type: "reset" });
         const store = useGameStore.getState();
         store.setRoomTokens(null);
@@ -358,7 +424,6 @@ export function useMultiplayerSync(sessionId: string) {
         }
         setJoinBlocked(true);
         setJoinBlockedReason("invite");
-        emitConnectionLog("connection.authFailure", { reason });
 
         const activeResources = resourcesRef.current;
         if (activeResources) {

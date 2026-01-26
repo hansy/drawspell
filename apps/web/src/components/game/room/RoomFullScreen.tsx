@@ -7,6 +7,7 @@ type RoomFullScreenProps = {
   onSpectate?: () => void;
   title?: string;
   description?: string;
+  leaveLabel?: string;
 };
 
 export const RoomFullScreen: React.FC<RoomFullScreenProps> = ({
@@ -14,6 +15,7 @@ export const RoomFullScreen: React.FC<RoomFullScreenProps> = ({
   onSpectate,
   title = "Room is full",
   description = "This room is locked or already has the maximum number of players.",
+  leaveLabel = "Back to home",
 }) => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-zinc-100">
@@ -22,7 +24,7 @@ export const RoomFullScreen: React.FC<RoomFullScreenProps> = ({
         <p className="text-zinc-300 mb-8">{description}</p>
         <div className="flex flex-col gap-3">
           <Button onClick={onLeave} className="w-full">
-            Back to home
+            {leaveLabel}
           </Button>
           {onSpectate && (
             <Button variant="secondary" onClick={onSpectate} className="w-full">

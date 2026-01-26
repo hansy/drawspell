@@ -10,7 +10,8 @@ import { ZONE } from "@/constants/zones";
 import { useScryfallCards } from "@/hooks/scryfall/useScryfallCard";
 import { v4 as uuidv4 } from "uuid";
 import { sendIntent } from "@/partykit/intentTransport";
-import { readRoomTokensFromStorage } from "@/lib/partyKitToken";
+import { markRoomAsHostPending, readRoomTokensFromStorage } from "@/lib/partyKitToken";
+import { createRoomId } from "@/lib/roomId";
 import { useBoardScale } from "./useBoardScale";
 import { useGameContextMenu } from "../context-menu/useGameContextMenu";
 import { useGameDnD } from "../dnd/useGameDnD";
@@ -157,6 +158,13 @@ const sendLogIntent = React.useCallback(
   const handleLeave = React.useCallback(() => {
     useGameStore.getState().leaveGame();
     navigate({ to: "/" });
+  }, [navigate]);
+
+  const handleCreateNewGame = React.useCallback(() => {
+    useGameStore.getState().leaveGame();
+    const sessionId = createRoomId();
+    markRoomAsHostPending(sessionId);
+    navigate({ to: "/game/$sessionId", params: { sessionId } });
   }, [navigate]);
 
   const isSpectator = viewerRole === "spectator";
@@ -468,6 +476,7 @@ const sendLogIntent = React.useCallback(
     handleRollDice,
     handleOpenCoinFlipper,
     handleLeave,
+    handleCreateNewGame,
     shareLinks,
     shareLinksReady,
     isHost,

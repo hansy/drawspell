@@ -171,6 +171,8 @@ vi.mock("@/lib/partyKitToken", () => ({
   clearInviteTokenFromUrl: vi.fn(),
   clearRoomHostPending: vi.fn(),
   isRoomHostPending: vi.fn(() => true),
+  isRoomUnavailable: vi.fn(() => false),
+  markRoomUnavailable: vi.fn(),
   mergeRoomTokens: (base: any, update: any) => ({ ...(base ?? {}), ...(update ?? {}) }),
   readRoomTokensFromStorage: vi.fn(() => null),
   resolveInviteTokenFromUrl: vi.fn(() => ({})),

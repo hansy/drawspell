@@ -114,6 +114,7 @@ vi.mock("@/partykit/intentTransport", () => ({
 }));
 
 vi.mock("@/lib/partyKitToken", () => ({
+  markRoomAsHostPending: vi.fn(),
   readRoomTokensFromStorage: mockReadRoomTokensFromStorage,
 }));
 
