@@ -68,8 +68,8 @@ export function setupSessionResources({
   onIntentOpen,
   onIntentClose,
 }: SessionSetupDeps): SessionSetupResult | null {
-  const partyHost = import.meta.env.VITE_WEBSOCKET_SERVER as string;
-  console.log("[party] Connecting to:", partyHost);
+  const partyHost =
+    (import.meta.env.VITE_WEBSOCKET_SERVER as string) || "localhost:8787";
 
   cleanupStaleSessions();
   const handles = acquireSession(sessionId);

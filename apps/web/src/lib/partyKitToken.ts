@@ -9,6 +9,7 @@ export type ResolvedInviteToken = {
 
 const TOKEN_STORAGE_PREFIX = "drawspell:roomTokens:";
 const PENDING_HOST_PREFIX = "drawspell:pendingHost:";
+const ROOM_UNAVAILABLE_PREFIX = "drawspell:roomUnavailable:";
 const storage = createSafeStorage();
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -50,6 +51,8 @@ export const clearInviteTokenFromUrl = (href?: string) => {
 
 const tokenKey = (sessionId: string) => `${TOKEN_STORAGE_PREFIX}${sessionId}`;
 const pendingHostKey = (sessionId: string) => `${PENDING_HOST_PREFIX}${sessionId}`;
+const roomUnavailableKey = (sessionId: string) =>
+  `${ROOM_UNAVAILABLE_PREFIX}${sessionId}`;
 
 export const readRoomTokensFromStorage = (
   sessionId: string
@@ -106,6 +109,29 @@ export const clearRoomHostPending = (sessionId: string) => {
   if (!sessionId) return;
   try {
     storage.removeItem(pendingHostKey(sessionId));
+  } catch (_err) {}
+};
+
+export const markRoomUnavailable = (sessionId: string) => {
+  if (!sessionId) return;
+  try {
+    storage.setItem(roomUnavailableKey(sessionId), "1");
+  } catch (_err) {}
+};
+
+export const isRoomUnavailable = (sessionId: string): boolean => {
+  if (!sessionId) return false;
+  try {
+    return storage.getItem(roomUnavailableKey(sessionId)) === "1";
+  } catch (_err) {
+    return false;
+  }
+};
+
+export const clearRoomUnavailable = (sessionId: string) => {
+  if (!sessionId) return;
+  try {
+    storage.removeItem(roomUnavailableKey(sessionId));
   } catch (_err) {}
 };
 

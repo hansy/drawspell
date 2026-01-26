@@ -44,6 +44,8 @@ const mockPrefsState = vi.hoisted(() => ({
 
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => vi.fn(),
+  useRouterState: ({ select }: any) =>
+    select ? select({ location: { search: "" } }) : { location: { search: "" } },
 }));
 
 vi.mock("@/store/gameStore", () => {
@@ -114,7 +116,15 @@ vi.mock("@/partykit/intentTransport", () => ({
 }));
 
 vi.mock("@/lib/partyKitToken", () => ({
+  clearRoomHostPending: vi.fn(),
+  clearRoomUnavailable: vi.fn(),
+  isRoomHostPending: vi.fn(() => false),
+  isRoomUnavailable: vi.fn(() => false),
+  markRoomUnavailable: vi.fn(),
+  markRoomAsHostPending: vi.fn(),
   readRoomTokensFromStorage: mockReadRoomTokensFromStorage,
+  resolveInviteTokenFromUrl: vi.fn(() => ({})),
+  writeRoomTokensToStorage: vi.fn(),
 }));
 
 vi.mock("../useBoardScale", () => ({

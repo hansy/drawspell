@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 
 import { useDragStore } from "@/store/dragStore";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
@@ -10,7 +10,8 @@ import { ZONE } from "@/constants/zones";
 import { useScryfallCards } from "@/hooks/scryfall/useScryfallCard";
 import { v4 as uuidv4 } from "uuid";
 import { sendIntent } from "@/partykit/intentTransport";
-import { readRoomTokensFromStorage } from "@/lib/partyKitToken";
+import { markRoomAsHostPending, readRoomTokensFromStorage } from "@/lib/partyKitToken";
+import { createRoomId } from "@/lib/roomId";
 import { useBoardScale } from "./useBoardScale";
 import { useGameContextMenu } from "../context-menu/useGameContextMenu";
 import { useGameDnD } from "../dnd/useGameDnD";
@@ -84,8 +85,11 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const { slots, layoutMode, myPlayerId } = usePlayerLayout();
   const gridClass = React.useMemo(() => getGridClass(layoutMode), [layoutMode]);
 
+  const locationSearch = useRouterState({
+    select: (state) => state.location.search,
+  }) as string;
   const { status: syncStatus, peerCounts, joinBlocked, joinBlockedReason } =
-    useMultiplayerSync(sessionId);
+    useMultiplayerSync(sessionId, locationSearch);
 
   const [zoneViewerState, setZoneViewerState] = React.useState<{
     isOpen: boolean;
@@ -157,6 +161,13 @@ const sendLogIntent = React.useCallback(
   const handleLeave = React.useCallback(() => {
     useGameStore.getState().leaveGame();
     navigate({ to: "/" });
+  }, [navigate]);
+
+  const handleCreateNewGame = React.useCallback(() => {
+    useGameStore.getState().leaveGame();
+    const sessionId = createRoomId();
+    markRoomAsHostPending(sessionId);
+    navigate({ to: "/game/$sessionId", params: { sessionId } });
   }, [navigate]);
 
   const isSpectator = viewerRole === "spectator";
@@ -468,6 +479,7 @@ const sendLogIntent = React.useCallback(
     handleRollDice,
     handleOpenCoinFlipper,
     handleLeave,
+    handleCreateNewGame,
     shareLinks,
     shareLinksReady,
     isHost,

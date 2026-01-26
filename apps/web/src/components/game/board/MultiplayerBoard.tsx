@@ -19,9 +19,20 @@ export const MultiplayerBoard: FC<MultiplayerBoardProps> = ({ sessionId }) => {
     roomOverCapacity,
     ...viewProps
   } = controller;
+  const { handleCreateNewGame } = controller;
   const isSpectator = viewerRole === "spectator";
   const canSpectate =
     joinBlockedReason === "full" || joinBlockedReason === "locked";
+  if (joinBlockedReason === "room-unavailable") {
+    return (
+      <RoomFullScreen
+        title="Game no longer available"
+        description="This game has ended and the room was closed."
+        onLeave={handleCreateNewGame}
+        leaveLabel="Create new game"
+      />
+    );
+  }
   if (roomOverCapacity) {
     return (
       <RoomFullScreen
@@ -36,7 +47,7 @@ export const MultiplayerBoard: FC<MultiplayerBoardProps> = ({ sessionId }) => {
       return (
         <RoomFullScreen
           title="Game in session"
-          description="Use need to be invited to join this game."
+          description="You need to be invited to join this game."
           onLeave={viewProps.handleLeave}
         />
       );

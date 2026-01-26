@@ -170,7 +170,10 @@ vi.mock("sonner", () => ({
 vi.mock("@/lib/partyKitToken", () => ({
   clearInviteTokenFromUrl: vi.fn(),
   clearRoomHostPending: vi.fn(),
+  clearRoomUnavailable: vi.fn(),
   isRoomHostPending: vi.fn(() => true),
+  isRoomUnavailable: vi.fn(() => false),
+  markRoomUnavailable: vi.fn(),
   mergeRoomTokens: (base: any, update: any) => ({ ...(base ?? {}), ...(update ?? {}) }),
   readRoomTokensFromStorage: vi.fn(() => null),
   resolveInviteTokenFromUrl: vi.fn(() => ({})),
@@ -195,7 +198,13 @@ vi.mock("../fullSyncToStore", () => ({ createFullSyncToStore }));
 
 vi.mock("../disposeSessionTransport", () => ({ disposeSessionTransport }));
 
-import { resolveInviteTokenFromUrl } from "@/lib/partyKitToken";
+import {
+  clearRoomUnavailable,
+  isRoomHostPending,
+  isRoomUnavailable,
+  markRoomUnavailable,
+  resolveInviteTokenFromUrl,
+} from "@/lib/partyKitToken";
 import { useMultiplayerSync } from "../useMultiplayerSync";
 
 describe("useMultiplayerSync", () => {
@@ -308,6 +317,91 @@ describe("useMultiplayerSync", () => {
     await waitFor(() => {
       expect(mockGameState.setViewerRole).toHaveBeenCalledWith("player");
       expect(mockGameState.viewerRole).toBe("player");
+    });
+  });
+
+  it("clears room unavailable when a fresh invite token is present", async () => {
+    vi.mocked(isRoomUnavailable).mockReturnValueOnce(true).mockReturnValueOnce(true);
+    vi.mocked(isRoomHostPending).mockReturnValueOnce(false);
+    vi.mocked(resolveInviteTokenFromUrl)
+      .mockReturnValueOnce({
+        token: "player-token",
+        role: "player",
+      })
+      .mockReturnValueOnce({
+        token: "player-token",
+        role: "player",
+      });
+
+    renderHook(() => useMultiplayerSync("session-available"));
+
+    await waitFor(() => {
+      expect(clearRoomUnavailable).toHaveBeenCalledWith("session-available");
+      expect(docManagerMocks.setSessionProvider).toHaveBeenCalledWith(
+        "session-available",
+        expect.any(Object)
+      );
+    });
+  });
+
+  it("clears room unavailable when host pending is set", async () => {
+    vi.mocked(isRoomUnavailable).mockReturnValueOnce(true).mockReturnValueOnce(true);
+    vi.mocked(isRoomHostPending).mockReturnValueOnce(true);
+
+    renderHook(() => useMultiplayerSync("session-host"));
+
+    await waitFor(() => {
+      expect(clearRoomUnavailable).toHaveBeenCalledWith("session-host");
+      expect(docManagerMocks.setSessionProvider).toHaveBeenCalledWith(
+        "session-host",
+        expect.any(Object)
+      );
+    });
+  });
+
+  it("rechecks invites when the location key changes", async () => {
+    vi.mocked(isRoomUnavailable).mockReturnValueOnce(true).mockReturnValueOnce(true);
+    vi.mocked(isRoomHostPending).mockReturnValueOnce(false).mockReturnValueOnce(false);
+    vi.mocked(resolveInviteTokenFromUrl)
+      .mockReturnValueOnce({})
+      .mockReturnValueOnce({
+        token: "player-token",
+        role: "player",
+      });
+
+    const { rerender, result } = renderHook(
+      ({ locationKey }) => useMultiplayerSync("session-location", locationKey),
+      { initialProps: { locationKey: "?stale=1" } }
+    );
+
+    await waitFor(() => {
+      expect(result.current.joinBlockedReason).toBe("room-unavailable");
+    });
+
+    rerender({ locationKey: "?gt=player-token" });
+
+    await waitFor(() => {
+      expect(clearRoomUnavailable).toHaveBeenCalledWith("session-location");
+    });
+  });
+
+  it("treats invalid token as invite-required", async () => {
+    const { result } = renderHook(() => useMultiplayerSync("session-invalid"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+
+    const [{ onClose }] = intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+
+    act(() => {
+      onClose({ code: 1008, reason: "invalid token" });
+    });
+
+    await waitFor(() => {
+      expect(markRoomUnavailable).not.toHaveBeenCalled();
+      expect(result.current.joinBlocked).toBe(true);
+      expect(result.current.joinBlockedReason).toBe("invite");
     });
   });
 
