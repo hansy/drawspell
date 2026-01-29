@@ -72,7 +72,6 @@ const SERVER_ALLOWED_HOSTS = new Set([
   "ws.drawspell.space",
   "localhost:8787",
 ]);
-const JOIN_TOKEN_REQUIRED = true;
 const PERF_METRICS_ENABLED = false;
 const PERF_METRICS_ALLOW_PARAM = false;
 const JOIN_TOKEN_MAX_SKEW_MS = 30_000;
@@ -126,11 +125,27 @@ const isOriginAllowed = (origin: string | null, allowed: Set<string>) => {
   return allowed.has(normalized);
 };
 
-const isHostAllowed = (hostHeader: string | null, allowed: Set<string>) => {
+const isDefaultPortForProtocol = (port: number, protocol: string) => {
+  if (protocol === "https:" || protocol === "wss:") return port === 443;
+  if (protocol === "http:" || protocol === "ws:") return port === 80;
+  return false;
+};
+
+const isHostAllowed = (
+  hostHeader: string | null,
+  url: URL,
+  allowed: Set<string>
+) => {
   if (!hostHeader) return false;
   const host = hostHeader.split(",")[0]?.trim().toLowerCase();
   if (!host) return false;
-  return allowed.has(host);
+  if (allowed.has(host)) return true;
+  const [hostname, portRaw] = host.split(":");
+  if (!hostname || !portRaw) return false;
+  if (!allowed.has(hostname)) return false;
+  const port = Number(portRaw);
+  if (!Number.isFinite(port)) return false;
+  return isDefaultPortForProtocol(port, url.protocol);
 };
 
 const getPartyRequestInfo = (url: URL) => {
@@ -177,8 +192,6 @@ const isNetworkConnectionLost = (error: unknown) => {
   );
 };
 
-const shouldEnforceJoinToken = () => JOIN_TOKEN_REQUIRED;
-
 const validatePartyHandshake = async (
   request: Request,
   env: Env,
@@ -191,10 +204,9 @@ const validatePartyHandshake = async (
     return new Response("Origin not allowed", { status: 403 });
   }
   const host = request.headers.get("Host") ?? url.host;
-  if (!isHostAllowed(host, SERVER_ALLOWED_HOSTS)) {
+  if (!isHostAllowed(host, url, SERVER_ALLOWED_HOSTS)) {
     return new Response("Host not allowed", { status: 403 });
   }
-  if (!shouldEnforceJoinToken()) return null;
   const joinToken = url.searchParams.get("jt");
   if (!joinToken) {
     return new Response("Missing join token", { status: 403 });

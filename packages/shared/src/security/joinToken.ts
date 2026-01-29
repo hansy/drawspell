@@ -42,6 +42,17 @@ const fromBase64Url = (value: string): Uint8Array | null => {
   return fromBase64(normalized + padding);
 };
 
+const toArrayBufferView = (
+  bytes: Uint8Array
+): Uint8Array<ArrayBuffer> => {
+  if (bytes.buffer instanceof ArrayBuffer) {
+    return bytes as Uint8Array<ArrayBuffer>;
+  }
+  const copy = new Uint8Array(bytes.length);
+  copy.set(bytes);
+  return copy;
+};
+
 const importHmacKey = async (secret: string) => {
   const secretBytes = textEncoder.encode(secret);
   return crypto.subtle.importKey(
@@ -92,12 +103,14 @@ export const verifyJoinToken = async (
     return { ok: false, reason: "invalid token encoding" };
   }
 
+  const payloadView = toArrayBufferView(payloadBytes);
+  const signatureView = toArrayBufferView(signatureBytes);
   const key = await importHmacKey(secret);
   const verified = await crypto.subtle.verify(
     "HMAC",
     key,
-    signatureBytes,
-    payloadBytes
+    signatureView,
+    payloadView
   );
   if (!verified) {
     return { ok: false, reason: "invalid token signature" };

@@ -48,6 +48,5 @@ export const isRoomResetClose = (
 ) => {
   if (!event) return false;
   const reason = (event.reason ?? "").trim().replace(/\.$/, "").toLowerCase();
-  if (reason === "room reset") return true;
-  return event.code === 1013 && reason === "room reset";
+  return reason === "room reset";
 };

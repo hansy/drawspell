@@ -16,6 +16,8 @@ const CLIENT_ALLOWED_ORIGINS = new Set([
 ]);
 const JOIN_TOKEN_TTL_MS = 5 * 60_000;
 
+const joinTokenValidator = (input: JoinTokenRequest) => input;
+
 const normalizeOrigin = (value: string) => {
   try {
     return new URL(value).origin;
@@ -31,15 +33,17 @@ const isOriginAllowed = (origin: string | null, allowed: Set<string>) => {
   return allowed.has(normalized);
 };
 
-export const getJoinToken = createServerFn({ method: "POST" }).handler(
-  async ({ data, request }): Promise<JoinTokenResponse> => {
-    const payload = data as JoinTokenRequest | undefined;
+export const getJoinToken = createServerFn({ method: "POST" })
+  .inputValidator(joinTokenValidator)
+  .handler(async (ctx): Promise<JoinTokenResponse> => {
+    const payload = ctx.data;
     const roomId = payload?.roomId?.trim();
     if (!roomId) {
       throw new Error("missing room");
     }
 
     const env = typeof process !== "undefined" ? process.env : {};
+    const request = (ctx as { request?: Request }).request;
     const origin = request?.headers?.get("Origin") ?? null;
     if (!isOriginAllowed(origin, CLIENT_ALLOWED_ORIGINS)) {
       throw new Error("origin not allowed");
@@ -52,5 +56,4 @@ export const getJoinToken = createServerFn({ method: "POST" }).handler(
     const exp = Date.now() + JOIN_TOKEN_TTL_MS;
     const token = await createJoinToken({ roomId, exp }, secret);
     return { token, exp };
-  }
-);
+  });

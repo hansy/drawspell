@@ -29,8 +29,9 @@ bun run deploy
 
 ## Configuration
 - `VITE_SERVER_HOST`: optional override for the PartyServer host (host or full URL). If unset, the client defaults to `localhost:8787`.
+- `JOIN_TOKEN_SECRET`: required for issuing join tokens. Must match the secret used by `apps/server`.
 - Cloudflare env values for deploy live in `wrangler.jsonc`.
-- `.env*` files are loaded by Vite from this directory if you create them (none are checked in). If more env vars are added later, search for `import.meta.env`.
+- `.env*` files are loaded by Vite from the repo root (see `vite.config.ts`). If more env vars are added later, search for `import.meta.env`.
 
 ## Key files
 - [src/routes/index.tsx](src/routes/index.tsx)
