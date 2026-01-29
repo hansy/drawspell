@@ -10,12 +10,12 @@
   "env": {
     "development": {
       "vars": {
-        "VITE_WEBSOCKET_SERVER": "localhost:8787",
+        "VITE_SERVER_HOST": "localhost:8787",
       },
     },
     "production": {
       "vars": {
-        "VITE_WEBSOCKET_SERVER": "drawspell-server.service-fff.workers.dev",
+        "VITE_SERVER_HOST": "ws.drawspell.space",
       },
     },
   },

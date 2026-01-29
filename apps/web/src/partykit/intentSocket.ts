@@ -10,6 +10,7 @@ export type IntentSocketOptions = {
   tokenRole?: "player" | "spectator";
   playerId?: string;
   viewerRole?: "player" | "spectator";
+  joinToken?: string;
   onMessage?: (message: PartyMessage) => void;
   onOpen?: () => void;
   onClose?: (event: CloseEvent) => void;
@@ -34,6 +35,7 @@ export const createIntentSocket = ({
   playerId,
   viewerRole,
   tokenRole,
+  joinToken,
   onMessage,
   onOpen,
   onClose,
@@ -56,6 +58,7 @@ export const createIntentSocket = ({
     query: {
       role: "intent",
       ...tokenParam,
+      ...(joinToken ? { jt: joinToken } : {}),
       ...(playerId ? { playerId } : {}),
       ...(viewerRole ? { viewerRole } : {}),
     },

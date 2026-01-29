@@ -28,7 +28,7 @@ bun run deploy
 ```
 
 ## Configuration
-- `VITE_WEBSOCKET_SERVER`: optional override for the PartyServer host (host or full URL). In dev, the client falls back to `localhost:8787` when unset. See `src/hooks/game/multiplayer-sync/sessionResources.ts` and `src/lib/partyKitHost.ts`.
+- `VITE_SERVER_HOST`: optional override for the PartyServer host (host or full URL). If unset, the client defaults to `localhost:8787`.
 - Cloudflare env values for deploy live in `wrangler.jsonc`.
 - `.env*` files are loaded by Vite from this directory if you create them (none are checked in). If more env vars are added later, search for `import.meta.env`.
 
