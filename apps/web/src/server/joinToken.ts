@@ -33,6 +33,20 @@ const isOriginAllowed = (origin: string | null, allowed: Set<string>) => {
   return allowed.has(normalized);
 };
 
+type ServerEnv = {
+  JOIN_TOKEN_SECRET?: string;
+};
+
+const resolveServerEnv = (ctx: {
+  context?: { env?: ServerEnv };
+}): ServerEnv => {
+  if (ctx.context?.env) return ctx.context.env;
+  if (typeof process !== "undefined") {
+    return process.env as ServerEnv;
+  }
+  return {};
+};
+
 export const getJoinToken = createServerFn({ method: "POST" })
   .inputValidator(joinTokenValidator)
   .handler(async (ctx): Promise<JoinTokenResponse> => {
@@ -42,7 +56,7 @@ export const getJoinToken = createServerFn({ method: "POST" })
       throw new Error("missing room");
     }
 
-    const env = typeof process !== "undefined" ? process.env : {};
+    const env = resolveServerEnv(ctx);
     const request = (ctx as { request?: Request }).request;
     const origin = request?.headers?.get("Origin") ?? null;
     if (!isOriginAllowed(origin, CLIENT_ALLOWED_ORIGINS)) {
