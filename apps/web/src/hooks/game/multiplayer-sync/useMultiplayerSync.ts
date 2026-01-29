@@ -148,7 +148,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
     }
   };
 
-  const clearConnectAttemptTimer = (reason?: string) => {
+  const clearConnectAttemptTimer = () => {
     if (connectAttemptTimer.current) {
       clearTimeout(connectAttemptTimer.current);
       connectAttemptTimer.current = null;
@@ -470,7 +470,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
           applyRoomUnavailable();
           return;
         }
-        clearConnectAttemptTimer("disconnect");
+        clearConnectAttemptTimer();
         setStatus("connecting");
         dispatchConnectionEvent({
           type: "disconnected",
@@ -627,6 +627,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       provider.on("status", ({ status: s }: any) => {
         if (connectionGeneration.current !== nextGeneration) return;
         if (s === "connected") {
+          clearConnectAttemptTimer();
           pushLocalAwareness();
           dispatchConnectionEvent({ type: "connected" });
         }
@@ -666,7 +667,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         awarenessRef.current = null;
         localPlayerIdRef.current = null;
         resetIntentCloseTracking();
-        clearConnectAttemptTimer("cleanup");
+        clearConnectAttemptTimer();
 
         awareness.off("change", handleAwarenessChange);
         doc.off("update", handleDocUpdate);

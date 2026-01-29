@@ -1324,6 +1324,8 @@ export class Room extends YServer<Env> {
         : null,
     };
 
+    console.info("[party] perf metrics", metrics);
+
     this.intentApplySamples = [];
     this.overlayService.resetMetrics();
     this.intentCountSinceMetrics = 0;
