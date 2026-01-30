@@ -1557,6 +1557,7 @@ export class Room extends YServer<Env> {
     let resolvedRole: "player" | "spectator" | undefined;
     let resolvedPlayerId: string | undefined;
     let resolvedUserId: string | undefined;
+    let resolvedAnalyticsUserId: string | undefined;
     conn.addEventListener("close", () => {
       connectionClosed = true;
       this.intentConnections.delete(conn);
@@ -1568,8 +1569,8 @@ export class Room extends YServer<Env> {
       this.overlayService.removeConnection(conn.id);
       if (!connectionRegistered) return;
       this.unregisterConnection(conn);
-      if (resolvedUserId) {
-        this.roomAnalytics?.onUserLeave(resolvedUserId);
+      if (resolvedAnalyticsUserId) {
+        this.roomAnalytics?.onUserLeave(resolvedAnalyticsUserId);
       }
       console.warn("[party] intent connection closed", {
         room: this.name,
@@ -1609,6 +1610,11 @@ export class Room extends YServer<Env> {
       const trimmed = state.userId.trim();
       resolvedUserId = trimmed.length ? trimmed : undefined;
     }
+    resolvedAnalyticsUserId =
+      resolvedUserId ??
+      (resolvedRole === "player" && resolvedPlayerId
+        ? `player:${resolvedPlayerId}`
+        : undefined);
 
     if (connectionClosed) return;
     this.capturePerfMetricsFlag(url);
@@ -1623,8 +1629,8 @@ export class Room extends YServer<Env> {
     if (resolvedRole === "player") {
       this.roomAnalytics?.onPlayerJoin();
     }
-    if (resolvedUserId) {
-      this.roomAnalytics?.onUserJoin(resolvedUserId, resolvedRole);
+    if (resolvedAnalyticsUserId) {
+      this.roomAnalytics?.onUserJoin(resolvedAnalyticsUserId, resolvedRole);
     }
     console.info("[party] intent connection established", {
       room: this.name,
