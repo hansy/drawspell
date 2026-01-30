@@ -8,8 +8,11 @@ const resolvePostHogHost = (env: PostHogEnv) =>
 export const createPostHogClient = (env: Env) => {
   const posthogEnv = env as PostHogEnv;
   const apiKey = posthogEnv.POSTHOG_API_KEY ?? "";
-  if (!apiKey) return null;
   const host = resolvePostHogHost(posthogEnv);
+  if (!apiKey || !host) {
+    return null;
+  }
+
   return new PostHog(apiKey, {
     host,
     flushAt: 1, // Send events immediately in edge environment

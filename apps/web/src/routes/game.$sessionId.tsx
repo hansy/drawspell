@@ -7,8 +7,12 @@ export const Route = createFileRoute("/game/$sessionId")({
   component: GameRoute,
   head: () => ({
     meta: [
-      { title: "Drawspell Game" },
+      { title: "Game | Drawspell" },
       { name: "description", content: "Game in session" },
+      {
+        name: "og:image",
+        content: "https://drawspell.space/og-image.png",
+      },
     ],
   }),
 });
