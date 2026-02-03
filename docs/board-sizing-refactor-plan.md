@@ -12,6 +12,7 @@ Sizing Refactor Plan (lg+ Only)
 
 3. Decisions (Locked In)
 - Breakpoint: lg and above only (min-width 1024px).
+- lg detection: JS matchMedia("(min-width: 1024px)") as the source of truth; CSS @media uses the same breakpoint for any variable overrides.
 - Bottom bar height baseline: 22% of seat height (user-resizable retained).
 - Battlefield vertical fit target: 4 card heights.
 - Side area width: based on card height (cards are landscape in side areas).
@@ -50,11 +51,15 @@ Sizing Refactor Plan (lg+ Only)
   - baseCardWidth = baseCardHeight * 2/3
   - landscapeCardWidth = baseCardHeight
   - landscapeCardHeight = baseCardHeight * 2/3
+  - previewWidth = clamp(baseCardWidth * 1.6, 200, 400)
+  - previewHeight = previewWidth / (2/3)
   - sideZoneWidth = landscapeCardWidth + (zonePadPx * 2)
   - sideZoneHeight = landscapeCardHeight + (zonePadPx * 2)
   - sideAreaWidth = sideZoneWidth + (sideAreaPadPx * 2)
   - cmdrStackOffset = baseCardHeight * 0.3
   - modalMainWidth = previewWidth + (modalPadPx * 2)
+  - modalMaxWidth = min(90vw, modalMainWidth)
+  - modalMaxHeight = min(90vh, previewHeight + (modalPadPx * 2))
 
 6. Sizing Tokens (CSS variables)
 - Global or seat-scoped variables (lg+ only):
@@ -134,11 +139,16 @@ Sizing Refactor Plan (lg+ Only)
 Status legend: not-started | in-progress | blocked | done
 
 Epic E-01: Sizing Discovery and Spec
-- T-001 (not-started): Inventory all sizing points and px usages across board, zones, previews, overlays, and modals.
+- T-001 (done): Inventory all sizing points and px usages across board, zones, previews, overlays, and modals.
   - Files: `apps/web/src/components/game/**`, `apps/web/src/components/username/**`, `apps/web/src/components/landing/**`, `apps/web/src/lib/constants.ts`, `apps/web/src/hooks/game/**`
   - Output: a checklist of fixed sizes and where they are used.
-- T-002 (not-started): Finalize sizing formulas and clamp ranges for hand height, card height, preview sizes, modal max sizes.
-- T-003 (not-started): Decide device class detection for lg (CSS media vs JS, Tailwind breakpoint value).
+- T-002 (done): Finalize sizing formulas and clamp ranges for hand height, card height, preview sizes, modal max sizes.
+- T-003 (done): Decide device class detection for lg (CSS media vs JS, Tailwind breakpoint value).
+
+Epic E-01 Outputs
+- T-001 inventory summary: base card/board constants in `packages/shared/src/constants/geometry.ts` and `apps/web/src/lib/constants.ts`; board shell and overlays in `apps/web/src/components/game/board/MultiplayerBoardView.tsx`; seat/sidebar/hand/commander in `apps/web/src/components/game/seat/SeatView.tsx`, `apps/web/src/components/game/seat/handSizing.ts`, `apps/web/src/components/game/seat/SideZone.tsx`, `apps/web/src/components/game/seat/CommanderZoneView.tsx`, `apps/web/src/components/game/seat/BottomBar.tsx`, `apps/web/src/components/game/seat/Hand.tsx`, `apps/web/src/components/game/player/LifeBoxView.tsx`; battlefield overlays in `apps/web/src/components/game/seat/BattlefieldGridOverlay.tsx` and `apps/web/src/components/game/seat/BattlefieldGhostOverlay.tsx`; card/face overlays in `apps/web/src/components/game/card/**`; preview sizing in `apps/web/src/components/game/card/CardPreview.tsx` and `apps/web/src/components/game/card/CardPreviewView.tsx`; modals/dialogs in `apps/web/src/components/game/**` (zone viewer, token creation, load deck, share room, add counter, coin/dice, prompts, opponent reveals, shortcuts); sidenav/log in `apps/web/src/components/game/sidenav/SidenavView.tsx` and `apps/web/src/components/game/log-drawer/LogDrawerView.tsx`; username + landing in `apps/web/src/components/username/**` and `apps/web/src/components/landing/**`.
+- T-002 formulas/clamps: previewWidth clamp finalized to 200-400px using K=1.6; modal max sizes bounded by 90vw/90vh; hand height clamp remains 15%-40% of seat height; base card height remains unclamped (battlefieldHeight / 4).
+- T-003 lg detection: JS matchMedia("(min-width: 1024px)") aligned with Tailwind lg.
 
 Epic E-02: Sizing Foundation
 - T-010 (not-started): Implement a seat sizing hook (ResizeObserver) that computes seat sizes and derived variables.
