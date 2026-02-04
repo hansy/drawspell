@@ -15,7 +15,8 @@ export const getCardWidth = (height: number) => height * CARD_ASPECT_RATIO;
 export const CARD_HEIGHT_CLASS = 'h-[120px]';
 export const CARD_ASPECT_CLASS = 'aspect-[2/3]';
 export const ZONE_BASE_CLASSES = `${CARD_HEIGHT_CLASS} ${CARD_ASPECT_CLASS}`;
-export const ZONE_SIDEWAYS_CLASSES = `w-[120px] aspect-[3/2]`;
+export const ZONE_SIDEWAYS_CLASSES =
+  "w-[120px] aspect-[3/2] lg:w-[var(--sidezone-w)] lg:h-[var(--sidezone-h)] lg:aspect-auto";
 
 // Layout baselines
 export const BOARD_BASE_WIDTH = LEGACY_BATTLEFIELD_WIDTH;

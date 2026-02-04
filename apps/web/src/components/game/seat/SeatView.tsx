@@ -14,8 +14,18 @@ import { CommanderZone } from "./CommanderZone";
 import { Hand } from "./Hand";
 import { SideZone } from "./SideZone";
 import type { SeatModel } from "@/models/game/seat/seatModel";
-import { HAND_BASE_CARD_SCALE, HAND_DEFAULT_HEIGHT } from "./handSizing";
-import { useSeatSizing } from "@/hooks/game/seat/useSeatSizing";
+import {
+  HAND_BASE_CARD_SCALE,
+  HAND_DEFAULT_HEIGHT,
+  HAND_MAX_HEIGHT,
+  HAND_MIN_HEIGHT,
+} from "./handSizing";
+import {
+  SEAT_BOTTOM_BAR_PCT,
+  SEAT_HAND_MAX_PCT,
+  SEAT_HAND_MIN_PCT,
+  useSeatSizing,
+} from "@/hooks/game/seat/useSeatSizing";
 
 interface SeatViewProps {
   player: Player;
@@ -64,12 +74,44 @@ export const SeatView: React.FC<SeatViewProps> = ({
 }) => {
   const [handHeight, setHandHeight] = React.useState(HAND_DEFAULT_HEIGHT);
   const [hasHandOverride, setHasHandOverride] = React.useState(false);
-  const { ref: seatRef, cssVars } = useSeatSizing({
+  const { ref: seatRef, cssVars, sizing, isLg } = useSeatSizing({
     handHeightOverridePx: hasHandOverride ? handHeight : undefined,
   });
+  const clamp = React.useCallback(
+    (value: number, min: number, max: number) =>
+      Math.min(max, Math.max(min, value)),
+    []
+  );
+  const seatHeightPx = sizing?.seatHeightPx;
+  const handMinHeightPx = React.useMemo(
+    () =>
+      isLg && seatHeightPx
+        ? seatHeightPx * SEAT_HAND_MIN_PCT
+        : HAND_MIN_HEIGHT,
+    [isLg, seatHeightPx]
+  );
+  const handMaxHeightPx = React.useMemo(
+    () =>
+      isLg && seatHeightPx
+        ? seatHeightPx * SEAT_HAND_MAX_PCT
+        : HAND_MAX_HEIGHT,
+    [isLg, seatHeightPx]
+  );
+  const handDefaultHeightPx = React.useMemo(
+    () =>
+      isLg && seatHeightPx
+        ? clamp(
+            seatHeightPx * SEAT_BOTTOM_BAR_PCT,
+            handMinHeightPx,
+            handMaxHeightPx
+          )
+        : HAND_DEFAULT_HEIGHT,
+    [clamp, handMaxHeightPx, handMinHeightPx, isLg, seatHeightPx]
+  );
+  const effectiveHandHeight = isLg && sizing ? sizing.handHeightPx : handHeight;
   const handCardScale = React.useMemo(
-    () => HAND_BASE_CARD_SCALE * (handHeight / HAND_DEFAULT_HEIGHT),
-    [handHeight]
+    () => HAND_BASE_CARD_SCALE * (effectiveHandHeight / HAND_DEFAULT_HEIGHT),
+    [effectiveHandHeight]
   );
   const handleHandHeightChange = React.useCallback((height: number) => {
     setHasHandOverride(true);
@@ -177,7 +219,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
         {/* Sidebar */}
         <div
           className={cn(
-            "w-40 bg-zinc-900/50 flex flex-col px-4 shrink-0 z-10 items-center border-zinc-800/50 h-full justify-between",
+            "w-40 bg-zinc-900/50 flex flex-col px-4 shrink-0 z-10 items-center border-zinc-800/50 h-full justify-between lg:w-[var(--sidebar-w)] lg:px-[var(--sidearea-pad)]",
             isRight ? "border-l" : "border-r",
             isTop ? "pb-6" : "pt-6"
           )}
@@ -329,7 +371,10 @@ export const SeatView: React.FC<SeatViewProps> = ({
           <BottomBar
             isTop={isTop}
             isRight={isRight}
-            height={handHeight}
+            height={effectiveHandHeight}
+            defaultHeight={handDefaultHeightPx}
+            minHeight={handMinHeightPx}
+            maxHeight={handMaxHeightPx}
             onHeightChange={isMe ? handleHandHeightChange : undefined}
           >
             {/* Commander Zone */}

@@ -27,7 +27,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
   return (
     <div
       className={cn(
-        "w-32 h-24 flex flex-col items-center justify-center p-2 bg-zinc-800/30 rounded-lg border-2 border-zinc-700 shadow-lg backdrop-blur-sm relative",
+        "w-32 h-24 flex flex-col items-center justify-center p-2 bg-zinc-800/30 rounded-lg border-2 border-zinc-700 shadow-lg backdrop-blur-sm relative lg:w-[calc(var(--card-w)*1.15)] lg:h-[calc(var(--card-h)*0.75)] lg:p-[calc(var(--card-h)*0.08)]",
         isMe && "border-indigo-500/50 ring-1 ring-indigo-500/20",
         className
       )}
@@ -40,7 +40,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
               type="button"
               onClick={onEditUsername}
               className={cn(
-                "bg-zinc-900 px-2 text-md font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full shadow-sm",
+                "bg-zinc-900 px-2 text-md font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full shadow-sm lg:text-[clamp(14px,calc(var(--card-h)*0.12),18px)]",
                 "cursor-pointer hover:text-zinc-200 hover:border-zinc-500 transition-colors"
               )}
             >
@@ -48,7 +48,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
             </button>
           </Tooltip>
         ) : (
-          <div className="bg-zinc-900 px-2 text-md font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full shadow-sm">
+          <div className="bg-zinc-900 px-2 text-md font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full shadow-sm lg:text-[clamp(14px,calc(var(--card-h)*0.12),18px)]">
             {player.name || (isMe ? "Me" : "")}
           </div>
         )}
@@ -64,7 +64,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
               onClick={() => handleLifeChange(-1)}
               disabled={isAtMinLife}
               className={cn(
-                "w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100",
+                "w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 lg:w-[clamp(28px,calc(var(--card-h)*0.18),36px)] lg:h-[clamp(28px,calc(var(--card-h)*0.18),36px)]",
                 isAtMinLife
                   ? "cursor-not-allowed text-zinc-500 group-hover:opacity-50"
                   : "hover:bg-red-900/50"
@@ -77,7 +77,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
           )}
 
           <div
-            className="text-4xl font-bold font-mono text-center leading-none select-none"
+            className="text-4xl font-bold font-mono text-center leading-none select-none lg:text-[clamp(28px,calc(var(--card-h)*0.32),48px)]"
             onContextMenu={canEditLife ? onContextMenu : undefined}
           >
             {player.life}
@@ -90,7 +90,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
               onClick={() => handleLifeChange(1)}
               disabled={isAtMaxLife}
               className={cn(
-                "w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100",
+                "w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 lg:w-[clamp(28px,calc(var(--card-h)*0.18),36px)] lg:h-[clamp(28px,calc(var(--card-h)*0.18),36px)]",
                 isAtMaxLife
                   ? "cursor-not-allowed text-zinc-500 group-hover:opacity-50"
                   : "hover:bg-green-900/50"
@@ -117,7 +117,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
             )}
           >
             {/* Label straddling top border */}
-            <div className="absolute left-1/2 -translate-x-1/2 bg-zinc-900 px-2 text-xs font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full z-10 -top-2.5 shadow-sm">
+            <div className="absolute left-1/2 -translate-x-1/2 bg-zinc-900 px-2 text-xs font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full z-10 -top-2.5 shadow-sm lg:text-[clamp(14px,calc(var(--card-h)*0.12),16px)]">
               CMDR DMG
             </div>
 
@@ -146,8 +146,8 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
                 )}
 
                 <span
-                  className={cn(
-                    "text-xl font-mono font-bold w-8 text-center",
+                    className={cn(
+                    "text-xl font-mono font-bold w-8 text-center lg:text-[clamp(16px,calc(var(--card-h)*0.2),24px)]",
                     color === "rose" && "text-rose-500/70",
                     color === "violet" && "text-violet-500/70",
                     color === "sky" && "text-sky-500/70",
