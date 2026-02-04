@@ -15,6 +15,7 @@ type BattlefieldGhostOverlayProps = {
   ghostCards: GhostCardView[];
   viewScale: number;
   baseCardHeight?: number;
+  baseCardWidth?: number;
   zoneOwnerId: string;
   playerColors: Record<string, string>;
   selectedCardIds: string[];
@@ -25,13 +26,14 @@ export const BattlefieldGhostOverlay = React.memo(
     ghostCards,
     viewScale,
     baseCardHeight,
+    baseCardWidth,
     zoneOwnerId,
     playerColors,
     selectedCardIds,
   }: BattlefieldGhostOverlayProps) => {
     if (ghostCards.length === 0) return null;
     const resolvedBaseHeight = baseCardHeight ?? BASE_CARD_HEIGHT;
-    const baseWidth = resolvedBaseHeight * CARD_ASPECT_RATIO;
+    const baseWidth = baseCardWidth ?? resolvedBaseHeight * CARD_ASPECT_RATIO;
     const baseHeight = resolvedBaseHeight;
 
     return (

@@ -33,6 +33,7 @@ describe('resolveBattlefieldCollisionPosition', () => {
   it('accepts a custom grid step size', () => {
     const stepY = getNormalizedGridSteps({
       baseCardHeight: 160,
+      baseCardWidth: 120,
       zoneHeight: 640,
     }).stepY;
     const position = resolveBattlefieldCollisionPosition({

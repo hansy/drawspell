@@ -42,6 +42,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   players,
   libraryRevealsToAll,
   battlefieldViewScale,
+  battlefieldGridSizing,
   playerColors,
   gridClass,
   scale,
@@ -113,6 +114,12 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   const showConnectingOverlay = syncStatus === "connecting";
   const activeCard = activeCardId ? cards[activeCardId] : null;
   const activeZone = activeCard ? zones[activeCard.zoneId] : undefined;
+  const activeOwnerId =
+    activeZone?.ownerId ?? activeCard?.ownerId ?? undefined;
+  const activeSizing = activeOwnerId
+    ? battlefieldGridSizing[activeOwnerId]
+    : undefined;
+  const activeBaseCardHeight = activeSizing?.baseCardHeightPx;
   const activeViewScale =
     activeZone?.type === ZONE.BATTLEFIELD
       ? (battlefieldViewScale[activeZone.ownerId] ?? 1)
@@ -120,6 +127,10 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   const [dragBaseScale, setDragBaseScale] = React.useState(1);
 
   React.useLayoutEffect(() => {
+    if (activeBaseCardHeight && Number.isFinite(activeBaseCardHeight)) {
+      setDragBaseScale(activeBaseCardHeight / BASE_CARD_HEIGHT);
+      return;
+    }
     if (!activeCardId || typeof document === "undefined") {
       setDragBaseScale(1);
       return;
@@ -134,7 +145,13 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
     const effectiveCardScale = activeCardScale || activeViewScale || 1;
     const denom = BASE_CARD_HEIGHT * scale * effectiveCardScale;
     setDragBaseScale(denom > 0 ? maxDim / denom : 1);
-  }, [activeCardId, activeCardScale, activeViewScale, scale]);
+  }, [
+    activeBaseCardHeight,
+    activeCardId,
+    activeCardScale,
+    activeViewScale,
+    scale,
+  ]);
 
   return (
     <CardPreviewProvider>

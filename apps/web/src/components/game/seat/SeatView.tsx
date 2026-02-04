@@ -109,6 +109,8 @@ export const SeatView: React.FC<SeatViewProps> = ({
     [clamp, handMaxHeightPx, handMinHeightPx, isLg, seatHeightPx]
   );
   const effectiveHandHeight = isLg && sizing ? sizing.handHeightPx : handHeight;
+  const baseCardHeightPx = sizing?.baseCardHeightPx;
+  const baseCardWidthPx = sizing?.baseCardWidthPx;
   const handCardScale = React.useMemo(
     () => HAND_BASE_CARD_SCALE * (effectiveHandHeight / HAND_DEFAULT_HEIGHT),
     [effectiveHandHeight]
@@ -359,7 +361,8 @@ export const SeatView: React.FC<SeatViewProps> = ({
               mirrorBattlefieldY={mirrorBattlefieldY}
               scale={scale}
               viewScale={battlefieldScale}
-              baseCardHeight={sizing?.baseCardHeightPx}
+              baseCardHeight={baseCardHeightPx}
+              baseCardWidth={baseCardWidthPx}
               onCardContextMenu={onCardContextMenu}
               onContextMenu={isMe ? onBattlefieldContextMenu : undefined}
               showContextMenuCursor={Boolean(player.deckLoaded && isMe)}
@@ -404,7 +407,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 onCardContextMenu={onCardContextMenu}
                 scale={scale}
                 cardScale={handCardScale}
-                baseCardHeight={sizing?.baseCardHeightPx}
+                baseCardHeight={baseCardHeightPx}
               />
             )}
           </BottomBar>

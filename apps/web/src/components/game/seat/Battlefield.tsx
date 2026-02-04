@@ -27,6 +27,7 @@ interface BattlefieldProps {
     scale?: number;
     viewScale?: number;
     baseCardHeight?: number;
+    baseCardWidth?: number;
     onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
     onContextMenu?: (e: React.MouseEvent) => void;
     showContextMenuCursor?: boolean;
@@ -44,6 +45,7 @@ const BattlefieldCard = React.memo<{
     mirrorBattlefieldY: boolean;
     viewScale: number;
     baseCardHeight?: number;
+    baseCardWidth?: number;
     onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
     playerColors: Record<string, string>;
     zoneOwnerId: string;
@@ -59,6 +61,7 @@ const BattlefieldCard = React.memo<{
         mirrorBattlefieldY,
         viewScale,
         baseCardHeight,
+        baseCardWidth,
         onCardContextMenu,
         playerColors,
         zoneOwnerId,
@@ -74,6 +77,7 @@ const BattlefieldCard = React.memo<{
             mirrorBattlefieldY,
             playerColors,
             baseCardHeight,
+            baseCardWidth,
         });
         const spectatorDragDisabled = viewerRole === "spectator";
         const isSelected = useSelectionStore((state) =>
@@ -122,6 +126,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     scale = 1,
     viewScale = 1,
     baseCardHeight,
+    baseCardWidth,
     onCardContextMenu,
     onContextMenu,
     showContextMenuCursor,
@@ -138,6 +143,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
         viewScale,
         isTapped: Boolean(activeCard?.tapped),
         baseCardHeight,
+        baseCardWidth,
     });
     const gridStepX = cardWidth / 2;
     const gridStepY = cardHeight / 4;
@@ -156,7 +162,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     const selectedCardIds = useSelectionStore((state) => state.selectedCardIds);
     const selectionZoneId = useSelectionStore((state) => state.selectionZoneId);
     const resolvedBaseHeight = baseCardHeight ?? BASE_CARD_HEIGHT;
-    const resolvedBaseWidth = resolvedBaseHeight * CARD_ASPECT_RATIO;
+    const resolvedBaseWidth = baseCardWidth ?? resolvedBaseHeight * CARD_ASPECT_RATIO;
 
     React.useEffect(() => {
         if (!zoneSize.height) {
@@ -201,6 +207,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
         scale,
         viewScale,
         baseCardHeight,
+        baseCardWidth,
         mirrorBattlefieldY,
         zoneNodeRef,
         isSelectionEnabled,
@@ -241,6 +248,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                 scale={scale}
                 cardScale={viewScale}
                 cardBaseHeight={baseCardHeight}
+                cardBaseWidth={baseCardWidth}
                 mirrorY={mirrorBattlefieldY}
                 onContextMenu={onContextMenu}
                 innerRef={setZoneRef}
@@ -272,6 +280,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                         mirrorBattlefieldY={mirrorBattlefieldY}
                         viewScale={viewScale}
                         baseCardHeight={baseCardHeight}
+                        baseCardWidth={baseCardWidth}
                         onCardContextMenu={onCardContextMenu}
                         playerColors={playerColors}
                         zoneOwnerId={zone.ownerId}
@@ -287,14 +296,15 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                         }
                     />
                 ))}
-                <BattlefieldGhostOverlay
-                    ghostCards={ghostCardsForZone}
-                    viewScale={viewScale}
-                    baseCardHeight={baseCardHeight}
-                    zoneOwnerId={zone.ownerId}
-                    playerColors={playerColors}
-                    selectedCardIds={selectedCardIds}
-                />
+                    <BattlefieldGhostOverlay
+                        ghostCards={ghostCardsForZone}
+                        viewScale={viewScale}
+                        baseCardHeight={baseCardHeight}
+                        baseCardWidth={baseCardWidth}
+                        zoneOwnerId={zone.ownerId}
+                        playerColors={playerColors}
+                        selectedCardIds={selectedCardIds}
+                    />
             </Zone>
 
             {/* Placeholder Text */}

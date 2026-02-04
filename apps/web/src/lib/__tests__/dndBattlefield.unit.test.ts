@@ -28,7 +28,7 @@ describe('dndBattlefield', () => {
       expect(result.snappedCanonical.y).toBeCloseTo(90 / 400);
     });
 
-    it('respects custom base card height for snapping', () => {
+    it('respects custom base card dimensions for snapping', () => {
       const result = computeBattlefieldPlacement({
         centerScreen: { x: 100, y: 100 },
         overRect: {
@@ -44,11 +44,12 @@ describe('dndBattlefield', () => {
         mirrorY: false,
         isTapped: false,
         baseCardHeight: 160,
+        baseCardWidth: 120,
       });
 
-      expect(result.ghostPosition.x).toBeCloseTo(106.6667, 3);
+      expect(result.ghostPosition.x).toBeCloseTo(120, 3);
       expect(result.ghostPosition.y).toBeCloseTo(120, 3);
-      expect(result.snappedCanonical.x).toBeCloseTo(106.6667 / 600, 3);
+      expect(result.snappedCanonical.x).toBeCloseTo(120 / 600, 3);
       expect(result.snappedCanonical.y).toBeCloseTo(120 / 400, 3);
     });
 

@@ -55,6 +55,9 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const battlefieldViewScale = useGameStore(
     (state) => state.battlefieldViewScale
   );
+  const battlefieldGridSizing = useGameStore(
+    (state) => state.battlefieldGridSizing
+  );
   const viewerRole = useGameStore((state) => state.viewerRole);
   const setViewerRole = useGameStore((state) => state.setViewerRole);
   const roomHostId = useGameStore((state) => state.roomHostId);
@@ -422,6 +425,7 @@ const sendLogIntent = React.useCallback(
     players,
     libraryRevealsToAll,
     battlefieldViewScale,
+    battlefieldGridSizing,
     playerColors,
     gridClass,
     scale,

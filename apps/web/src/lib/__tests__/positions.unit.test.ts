@@ -54,9 +54,12 @@ describe('positions', () => {
     expect(resolved.y).toBeCloseTo(0.5 + GRID_STEP_Y, 6);
   });
 
-  it('computes card pixel size with a custom base height', () => {
-    const { cardWidth, cardHeight } = getCardPixelSize({ baseCardHeight: 160 });
+  it('computes card pixel size with a custom base height and width', () => {
+    const { cardWidth, cardHeight } = getCardPixelSize({
+      baseCardHeight: 160,
+      baseCardWidth: 120,
+    });
     expect(cardHeight).toBeCloseTo(160, 6);
-    expect(cardWidth).toBeCloseTo(160 * CARD_ASPECT_RATIO, 6);
+    expect(cardWidth).toBeCloseTo(120, 6);
   });
 });

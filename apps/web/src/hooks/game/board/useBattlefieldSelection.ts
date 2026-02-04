@@ -33,6 +33,7 @@ type UseBattlefieldSelectionArgs = {
   scale: number;
   viewScale: number;
   baseCardHeight?: number;
+  baseCardWidth?: number;
   mirrorBattlefieldY: boolean;
   zoneNodeRef: React.RefObject<HTMLDivElement | null>;
   isSelectionEnabled: boolean;
@@ -45,6 +46,7 @@ export const useBattlefieldSelection = ({
   scale,
   viewScale,
   baseCardHeight,
+  baseCardWidth,
   mirrorBattlefieldY,
   zoneNodeRef,
   isSelectionEnabled,
@@ -78,6 +80,7 @@ export const useBattlefieldSelection = ({
         viewScale,
         isTapped: card.tapped,
         baseCardHeight,
+        baseCardWidth,
       });
       const left = center.x - cardWidth / 2;
       const top = center.y - cardHeight / 2;
@@ -95,6 +98,7 @@ export const useBattlefieldSelection = ({
     mirrorBattlefieldY,
     viewScale,
     baseCardHeight,
+    baseCardWidth,
     zoneSize.height,
     zoneSize.width,
   ]);
