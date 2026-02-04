@@ -28,6 +28,30 @@ describe('dndBattlefield', () => {
       expect(result.snappedCanonical.y).toBeCloseTo(90 / 400);
     });
 
+    it('respects custom base card height for snapping', () => {
+      const result = computeBattlefieldPlacement({
+        centerScreen: { x: 100, y: 100 },
+        overRect: {
+          left: 0,
+          top: 0,
+          right: 600,
+          bottom: 400,
+          width: 600,
+          height: 400,
+        },
+        zoneScale: 1,
+        viewScale: 1,
+        mirrorY: false,
+        isTapped: false,
+        baseCardHeight: 160,
+      });
+
+      expect(result.ghostPosition.x).toBeCloseTo(106.6667, 3);
+      expect(result.ghostPosition.y).toBeCloseTo(120, 3);
+      expect(result.snappedCanonical.x).toBeCloseTo(106.6667 / 600, 3);
+      expect(result.snappedCanonical.y).toBeCloseTo(120 / 400, 3);
+    });
+
     it('clamps near the edges so the card stays within bounds', () => {
       const result = computeBattlefieldPlacement({
         centerScreen: { x: 5, y: 5 },

@@ -359,6 +359,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               mirrorBattlefieldY={mirrorBattlefieldY}
               scale={scale}
               viewScale={battlefieldScale}
+              baseCardHeight={sizing?.baseCardHeightPx}
               onCardContextMenu={onCardContextMenu}
               onContextMenu={isMe ? onBattlefieldContextMenu : undefined}
               showContextMenuCursor={Boolean(player.deckLoaded && isMe)}
@@ -403,6 +404,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 onCardContextMenu={onCardContextMenu}
                 scale={scale}
                 cardScale={handCardScale}
+                baseCardHeight={sizing?.baseCardHeightPx}
               />
             )}
           </BottomBar>

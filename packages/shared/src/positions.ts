@@ -43,12 +43,18 @@ export const normalizeMovePosition = (
   return clampNormalizedPosition(normalizedInput ?? fallback);
 };
 
-export const getCardPixelSize = (params?: { viewScale?: number; isTapped?: boolean }) => {
+export const getCardPixelSize = (params?: {
+  viewScale?: number;
+  isTapped?: boolean;
+  baseCardHeight?: number;
+  baseCardWidth?: number;
+}) => {
   const viewScale = params?.viewScale ?? 1;
   const isTapped = params?.isTapped ?? false;
-  const baseWidth = BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;
-  const cardWidth = (isTapped ? BASE_CARD_HEIGHT : baseWidth) * viewScale;
-  const cardHeight = (isTapped ? baseWidth : BASE_CARD_HEIGHT) * viewScale;
+  const baseCardHeight = params?.baseCardHeight ?? BASE_CARD_HEIGHT;
+  const baseCardWidth = params?.baseCardWidth ?? baseCardHeight * CARD_ASPECT_RATIO;
+  const cardWidth = (isTapped ? baseCardHeight : baseCardWidth) * viewScale;
+  const cardHeight = (isTapped ? baseCardWidth : baseCardHeight) * viewScale;
   return { cardWidth, cardHeight };
 };
 
@@ -56,9 +62,15 @@ export const getNormalizedGridSteps = (params?: {
   isTapped?: boolean;
   zoneWidth?: number;
   zoneHeight?: number;
+  viewScale?: number;
+  baseCardHeight?: number;
+  baseCardWidth?: number;
 }) => {
   const { cardWidth, cardHeight } = getCardPixelSize({
     isTapped: params?.isTapped,
+    viewScale: params?.viewScale,
+    baseCardHeight: params?.baseCardHeight,
+    baseCardWidth: params?.baseCardWidth,
   });
   const zoneWidth = params?.zoneWidth ?? LEGACY_BATTLEFIELD_WIDTH;
   const zoneHeight = params?.zoneHeight ?? LEGACY_BATTLEFIELD_HEIGHT;

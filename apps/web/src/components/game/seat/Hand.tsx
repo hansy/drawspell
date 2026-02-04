@@ -26,6 +26,7 @@ interface HandProps {
   className?: string;
   scale?: number;
   cardScale?: number;
+  baseCardHeight?: number;
 }
 
 const SortableCard = React.memo(({
@@ -36,6 +37,7 @@ const SortableCard = React.memo(({
   viewerRole,
   onCardContextMenu,
   cardScale,
+  baseCardHeight,
 }: {
   card: CardType;
   isTop: boolean;
@@ -44,6 +46,7 @@ const SortableCard = React.memo(({
   viewerRole?: ViewerRole;
   onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
   cardScale: number;
+  baseCardHeight?: number;
 }) => {
   const {
     attributes,
@@ -64,14 +67,15 @@ const SortableCard = React.memo(({
   });
 
   const style = React.useMemo(() => {
-    const cardWidth = BASE_CARD_HEIGHT * CARD_ASPECT_RATIO * cardScale;
+    const resolvedBaseHeight = baseCardHeight ?? BASE_CARD_HEIGHT;
+    const cardWidth = resolvedBaseHeight * CARD_ASPECT_RATIO * cardScale;
     const overlapWidth = cardWidth * HAND_CARD_OVERLAP_RATIO;
     return {
       transform: CSS.Transform.toString(transform),
       transition,
       ["--hand-card-max-width" as string]: `${overlapWidth}px`,
     } as React.CSSProperties;
-  }, [transform, transition, cardScale]);
+  }, [transform, transition, cardScale, baseCardHeight]);
 
   const handleContextMenu = React.useCallback((e: React.MouseEvent) => {
     onCardContextMenu?.(e, card);
@@ -123,6 +127,7 @@ const HandInner: React.FC<HandProps> = ({
   className,
   scale = 1,
   cardScale = 1.5,
+  baseCardHeight,
 }) => {
   // Memoize card IDs array for SortableContext
   const cardIds = React.useMemo(() => cards.map((c) => c.id), [cards]);
@@ -182,6 +187,7 @@ const HandInner: React.FC<HandProps> = ({
                 viewerRole={viewerRole}
                 onCardContextMenu={onCardContextMenu}
                 cardScale={cardScale}
+                baseCardHeight={baseCardHeight}
               />
             ))}
           </div>

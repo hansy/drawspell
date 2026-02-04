@@ -171,6 +171,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
             rect: over.rect,
             scale: over.data.current?.scale,
             cardScale: over.data.current?.cardScale,
+            cardBaseHeight: over.data.current?.cardBaseHeight,
+            cardBaseWidth: over.data.current?.cardBaseWidth,
             mirrorY: Boolean(over.data.current?.mirrorY),
           }
         : null,
@@ -237,6 +239,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
 
     const mirrorY = Boolean(over.data.current?.mirrorY);
     const viewScale = over.data.current?.cardScale ?? 1;
+    const baseCardHeight = over.data.current?.cardBaseHeight;
+    const baseCardWidth = over.data.current?.cardBaseWidth;
 
     const activeStart = group.startPositions[group.activeCardId];
     if (!activeStart) {
@@ -271,6 +275,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         const { cardWidth, cardHeight } = getEffectiveCardSize({
           viewScale,
           isTapped: card.tapped,
+          baseCardHeight,
+          baseCardWidth,
         });
         const snapped = snapNormalizedWithZone(
           candidate,
@@ -331,6 +337,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         overRect: over.rect,
         overScale: over.data.current?.scale,
         overCardScale: over.data.current?.cardScale,
+        overCardBaseHeight: over.data.current?.cardBaseHeight,
+        overCardBaseWidth: over.data.current?.cardBaseWidth,
         mirrorY: Boolean(over.data.current?.mirrorY),
         activeTapped: Boolean(active.data.current?.tapped),
       });

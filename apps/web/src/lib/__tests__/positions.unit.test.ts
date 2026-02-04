@@ -8,6 +8,7 @@ import {
   LEGACY_BATTLEFIELD_HEIGHT,
   LEGACY_BATTLEFIELD_WIDTH,
   clampNormalizedPosition,
+  getCardPixelSize,
   findAvailablePositionNormalized,
   normalizeMovePosition,
   positionsRoughlyEqual,
@@ -51,5 +52,11 @@ describe('positions', () => {
     const resolved = findAvailablePositionNormalized(start, zoneCardIds, cards);
     expect(resolved.x).toBeCloseTo(0.5 + GRID_STEP_X, 6);
     expect(resolved.y).toBeCloseTo(0.5 + GRID_STEP_Y, 6);
+  });
+
+  it('computes card pixel size with a custom base height', () => {
+    const { cardWidth, cardHeight } = getCardPixelSize({ baseCardHeight: 160 });
+    expect(cardHeight).toBeCloseTo(160, 6);
+    expect(cardWidth).toBeCloseTo(160 * CARD_ASPECT_RATIO, 6);
   });
 });

@@ -110,6 +110,29 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
 }) => {
   const suppressSingleOverlay = isGroupDragging && !showGroupDragOverlay;
   const showConnectingOverlay = syncStatus === "connecting";
+  const activeCard = activeCardId ? cards[activeCardId] : null;
+  const activeZone = activeCard ? zones[activeCard.zoneId] : undefined;
+  const activeViewScale =
+    activeZone?.type === ZONE.BATTLEFIELD
+      ? (battlefieldViewScale[activeZone.ownerId] ?? 1)
+      : 1;
+  const [dragBaseScale, setDragBaseScale] = React.useState(1);
+
+  React.useLayoutEffect(() => {
+    if (!activeCardId || typeof document === "undefined") {
+      setDragBaseScale(1);
+      return;
+    }
+    const node = document.querySelector(`[data-card-id="${activeCardId}"]`);
+    if (!(node instanceof HTMLElement)) {
+      setDragBaseScale(1);
+      return;
+    }
+    const rect = node.getBoundingClientRect();
+    const maxDim = Math.max(rect.width, rect.height);
+    const denom = BASE_CARD_HEIGHT * scale * (activeViewScale || 1);
+    setDragBaseScale(denom > 0 ? maxDim / denom : 1);
+  }, [activeCardId, activeViewScale, scale]);
 
   return (
     <CardPreviewProvider>
@@ -315,6 +338,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                     ? (battlefieldViewScale[overlayZone.ownerId] ?? 1)
                     : 1;
                 const targetScale = overCardScale || viewScale;
+                const overlayScale = scale * targetScale * dragBaseScale;
                 const offset = 10;
                 const overlayCards = groupDragCardIds
                   .map((id) => cards[id])
@@ -337,7 +361,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                 return (
                   <div
                     style={{
-                      transform: `scale(${scale * targetScale})`,
+                      transform: `scale(${overlayScale})`,
                       transformOrigin: "top left",
                     }}
                   >
@@ -394,6 +418,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                       ? (battlefieldViewScale[overlayZone.ownerId] ?? 1)
                       : 1;
                   const targetScale = overCardScale || viewScale;
+                  const overlayScale = scale * targetScale * dragBaseScale;
                   const overlayFaceDown =
                     overlayZone?.type === ZONE.LIBRARY
                       ? true
@@ -406,7 +431,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                   return (
                     <div
                       style={{
-                        transform: `scale(${scale * targetScale})`,
+                        transform: `scale(${overlayScale})`,
                         transformOrigin: "top left",
                       }}
                     >
