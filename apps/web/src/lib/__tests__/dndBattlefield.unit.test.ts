@@ -74,7 +74,7 @@ describe('dndBattlefield', () => {
       expect(result.ghostPosition.y).toBeGreaterThanOrEqual(result.cardHeight / 2);
     });
 
-    it('keeps canonical snapping independent of view scale', () => {
+    it('keeps canonical snapping independent of view scale with custom base size', () => {
       const result = computeBattlefieldPlacement({
         centerScreen: { x: 100, y: 100 },
         overRect: {
@@ -89,12 +89,14 @@ describe('dndBattlefield', () => {
         viewScale: 0.5,
         mirrorY: false,
         isTapped: false,
+        baseCardHeight: 160,
+        baseCardWidth: 120,
       });
 
       expect(result.snappedCanonical.x).toBeCloseTo(120 / 600);
-      expect(result.snappedCanonical.y).toBeCloseTo(90 / 400);
-      expect(result.ghostPosition.x).toBeCloseTo(100);
-      expect(result.ghostPosition.y).toBeCloseTo(105);
+      expect(result.snappedCanonical.y).toBeCloseTo(120 / 400);
+      expect(result.ghostPosition.x).toBeCloseTo(90);
+      expect(result.ghostPosition.y).toBeCloseTo(100);
     });
 
     it('returns a canonical snapped position while mirroring ghost rendering for the viewer', () => {

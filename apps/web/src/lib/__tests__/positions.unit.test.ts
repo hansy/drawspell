@@ -8,6 +8,7 @@ import {
   LEGACY_BATTLEFIELD_HEIGHT,
   LEGACY_BATTLEFIELD_WIDTH,
   clampNormalizedPosition,
+  getNormalizedGridSteps,
   getCardPixelSize,
   findAvailablePositionNormalized,
   normalizeMovePosition,
@@ -61,5 +62,17 @@ describe('positions', () => {
     });
     expect(cardHeight).toBeCloseTo(160, 6);
     expect(cardWidth).toBeCloseTo(120, 6);
+  });
+
+  it('computes normalized grid steps using base card size and view scale', () => {
+    const { stepX, stepY } = getNormalizedGridSteps({
+      baseCardHeight: 160,
+      baseCardWidth: 120,
+      viewScale: 1.25,
+      zoneWidth: 800,
+      zoneHeight: 640,
+    });
+    expect(stepX).toBeCloseTo(((120 * 1.25) / 2) / 800, 6);
+    expect(stepY).toBeCloseTo(((160 * 1.25) / 4) / 640, 6);
   });
 });

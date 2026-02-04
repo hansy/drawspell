@@ -1,7 +1,7 @@
 import * as React from "react";
 
 import type { Card } from "@/types";
-import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from "@/lib/constants";
+import { getCardPixelSize } from "@/lib/positions";
 import { getFlipRotation } from "@/lib/cardDisplay";
 import { CardView } from "../card/CardView";
 
@@ -32,9 +32,12 @@ export const BattlefieldGhostOverlay = React.memo(
     selectedCardIds,
   }: BattlefieldGhostOverlayProps) => {
     if (ghostCards.length === 0) return null;
-    const resolvedBaseHeight = baseCardHeight ?? BASE_CARD_HEIGHT;
-    const baseWidth = baseCardWidth ?? resolvedBaseHeight * CARD_ASPECT_RATIO;
-    const baseHeight = resolvedBaseHeight;
+    const { cardWidth: baseWidth, cardHeight: baseHeight } = getCardPixelSize({
+      viewScale: 1,
+      isTapped: false,
+      baseCardHeight,
+      baseCardWidth,
+    });
 
     return (
       <>

@@ -31,10 +31,12 @@ describe('resolveBattlefieldCollisionPosition', () => {
   });
 
   it('accepts a custom grid step size', () => {
+    const viewScale = 0.75;
     const stepY = getNormalizedGridSteps({
       baseCardHeight: 160,
       baseCardWidth: 120,
       zoneHeight: 640,
+      viewScale,
     }).stepY;
     const position = resolveBattlefieldCollisionPosition({
       movingCardId: 'c1',

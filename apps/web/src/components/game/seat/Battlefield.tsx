@@ -8,7 +8,6 @@ import { useGameStore } from '@/store/gameStore';
 import { useSelectionStore } from '@/store/selectionStore';
 import { computeBattlefieldCardLayout } from '@/models/game/seat/battlefieldModel';
 import { getCardPixelSize } from '@/lib/positions';
-import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from '@/lib/constants';
 import { useElementSize } from "@/hooks/shared/useElementSize";
 import { useBattlefieldZoomControls } from "@/hooks/game/board/useBattlefieldZoomControls";
 import { useBattlefieldSelection } from "@/hooks/game/board/useBattlefieldSelection";
@@ -161,8 +160,12 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     const isSelectionEnabled = Boolean(isMe && zone.ownerId === viewerPlayerId);
     const selectedCardIds = useSelectionStore((state) => state.selectedCardIds);
     const selectionZoneId = useSelectionStore((state) => state.selectionZoneId);
-    const resolvedBaseHeight = baseCardHeight ?? BASE_CARD_HEIGHT;
-    const resolvedBaseWidth = baseCardWidth ?? resolvedBaseHeight * CARD_ASPECT_RATIO;
+    const { cardWidth: baseCardWidthPx, cardHeight: baseCardHeightPx } = getCardPixelSize({
+        viewScale: 1,
+        isTapped: false,
+        baseCardHeight,
+        baseCardWidth,
+    });
 
     React.useEffect(() => {
         if (!zoneSize.height) {
@@ -171,16 +174,16 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
         }
         setBattlefieldGridSizing(zone.ownerId, {
             zoneHeightPx: zoneSize.height,
-            baseCardHeightPx: resolvedBaseHeight,
-            baseCardWidthPx: resolvedBaseWidth,
+            baseCardHeightPx,
+            baseCardWidthPx,
             viewScale,
         });
         return () => {
             setBattlefieldGridSizing(zone.ownerId, null);
         };
     }, [
-        resolvedBaseHeight,
-        resolvedBaseWidth,
+        baseCardHeightPx,
+        baseCardWidthPx,
         setBattlefieldGridSizing,
         viewScale,
         zone.ownerId,

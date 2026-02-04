@@ -176,13 +176,13 @@ Epic E-03: Board + Seat Layout Conversion
   - Files: `apps/web/src/components/game/seat/__tests__/**`, `apps/web/src/components/game/player/__tests__/**`
 
 Epic E-04: Card Size + Battlefield Math
-- T-030 (not-started): Replace card base classes to use `--card-h` and `--card-w` at lg+.
+- T-030 (done): Replace card base classes to use `--card-h` and `--card-w` at lg+.
   - Files: `apps/web/src/lib/constants.ts`, `apps/web/src/components/game/card/CardView.tsx`
-- T-031 (not-started): Update battlefield viewScale, grid, snapping, and ghost overlays to match new base card size.
+- T-031 (done): Update battlefield viewScale, grid, snapping, and ghost overlays to match new base card size.
   - Files: `apps/web/src/components/game/seat/Battlefield.tsx`, `apps/web/src/lib/positions.ts`, `packages/shared/src/positions.ts`
-- T-032 (not-started): Update drag overlay sizing in `MultiplayerBoardView` to use computed base card sizes.
+- T-032 (done): Update drag overlay sizing in `MultiplayerBoardView` to use computed base card sizes.
   - Files: `apps/web/src/components/game/board/MultiplayerBoardView.tsx`
-- T-033 (not-started): Update math-related tests (positions, DnD, battlefield collision) for new sizing inputs.
+- T-033 (done): Update math-related tests (positions, DnD, battlefield collision) for new sizing inputs.
   - Files: `apps/web/src/lib/__tests__/positions.unit.test.ts`, `apps/web/src/lib/__tests__/battlefieldCollision.unit.test.ts`, `apps/web/src/lib/__tests__/dndBattlefield.unit.test.ts`
 
 Epic E-05: Previews, Overlays, and Hover
