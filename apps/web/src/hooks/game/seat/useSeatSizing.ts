@@ -16,10 +16,6 @@ export const PREVIEW_MIN_WIDTH_PX = 200;
 export const PREVIEW_MAX_WIDTH_PX = 400;
 export const MIN_CARD_HEIGHT_PX = 80;
 
-// Padding around side zone cards (p-2).
-// export const ZONE_PAD_PX = 12;
-export const ZONE_PAD_AREA_SCALE = 1;
-// export const ZONE_AREA_SCALE = 1;
 // DialogContent default p-6.
 export const MODAL_PAD_PX = 24;
 
@@ -31,10 +27,6 @@ export interface SeatSizingOptions {
   previewScale?: number;
   previewMinWidthPx?: number;
   previewMaxWidthPx?: number;
-  zonePadPx?: number;
-  zonePadAreaScale?: number;
-  zoneAreaScale?: number;
-  sideAreaPadPx?: number;
   modalPadPx?: number;
 }
 
@@ -45,10 +37,6 @@ export interface SeatSizing {
   battlefieldHeightPx: number;
   baseCardHeightPx: number;
   baseCardWidthPx: number;
-  landscapeCardWidthPx: number;
-  landscapeCardHeightPx: number;
-  sideZoneWidthPx: number;
-  sideZoneHeightPx: number;
   previewWidthPx: number;
   previewHeightPx: number;
   cmdrStackOffsetPx: number;
@@ -58,28 +46,6 @@ export interface SeatSizing {
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
-
-// const computeZonePadPx = (
-//   cardWidthPx: number,
-//   cardHeightPx: number,
-//   areaScale: number,
-// ) => {
-//   if (
-//     !Number.isFinite(cardWidthPx) ||
-//     !Number.isFinite(cardHeightPx) ||
-//     cardWidthPx <= 0 ||
-//     cardHeightPx <= 0
-//   ) {
-//     return ZONE_PAD_PX;
-//   }
-//   const targetScale = Math.max(1, areaScale);
-//   if (targetScale === 1) return 0;
-//   const sum = cardWidthPx + cardHeightPx;
-//   const discriminant =
-//     sum * sum + 4 * (targetScale - 1) * cardWidthPx * cardHeightPx;
-//   const pad = (Math.sqrt(discriminant) - sum) / 4;
-//   return Math.max(0, pad);
-// };
 
 export const getPreviewDimensions = (
   baseCardWidthPx?: number,
@@ -144,8 +110,6 @@ export const computeSeatSizing = (
     battlefieldHeightPx / 4,
   );
   const baseCardWidthPx = baseCardHeightPx * CARD_ASPECT_RATIO;
-  const landscapeCardWidthPx = baseCardHeightPx;
-  const landscapeCardHeightPx = baseCardWidthPx;
 
   const { previewWidthPx, previewHeightPx } = getPreviewDimensions(
     baseCardWidthPx,
@@ -156,17 +120,6 @@ export const computeSeatSizing = (
     },
   );
 
-  const scaledZoneCardWidthPx = landscapeCardWidthPx;
-  const scaledZoneCardHeightPx = landscapeCardHeightPx;
-  // const resolvedZonePadPx = Number.isFinite(zonePadPx)
-  //   ? zonePadPx!
-  //   : computeZonePadPx(
-  //       scaledZoneCardWidthPx,
-  //       scaledZoneCardHeightPx,
-  //       zonePadAreaScale,
-  //     );
-  const sideZoneWidthPx = scaledZoneCardWidthPx;
-  const sideZoneHeightPx = scaledZoneCardHeightPx;
   const cmdrStackOffsetPx = Math.max(40, baseCardHeightPx * 0.35);
 
   const viewScale =
@@ -179,10 +132,6 @@ export const computeSeatSizing = (
     battlefieldHeightPx,
     baseCardHeightPx,
     baseCardWidthPx,
-    landscapeCardWidthPx,
-    landscapeCardHeightPx,
-    sideZoneWidthPx,
-    sideZoneHeightPx,
     previewWidthPx,
     previewHeightPx,
     cmdrStackOffsetPx,
@@ -254,8 +203,6 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
     previewScale = PREVIEW_SCALE_K,
     previewMinWidthPx = PREVIEW_MIN_WIDTH_PX,
     previewMaxWidthPx = PREVIEW_MAX_WIDTH_PX,
-    zonePadPx,
-    zonePadAreaScale = ZONE_PAD_AREA_SCALE,
     modalPadPx = MODAL_PAD_PX,
   } = options;
 
@@ -281,8 +228,6 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
       previewScale,
       previewMinWidthPx,
       previewMaxWidthPx,
-      zonePadPx,
-      zonePadAreaScale,
       modalPadPx,
     });
   }, [
@@ -296,8 +241,6 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
     previewScale,
     previewMinWidthPx,
     previewMaxWidthPx,
-    zonePadPx,
-    zonePadAreaScale,
     modalPadPx,
   ]);
 
@@ -310,10 +253,6 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
       "--battlefield-h": `${sizing.battlefieldHeightPx}px`,
       "--card-h": `${sizing.baseCardHeightPx}px`,
       "--card-w": `${sizing.baseCardWidthPx}px`,
-      "--card-h-landscape": `${sizing.landscapeCardHeightPx}px`,
-      "--card-w-landscape": `${sizing.landscapeCardWidthPx}px`,
-      "--sidezone-w": `${sizing.sideZoneWidthPx}px`,
-      "--sidezone-h": `${sizing.sideZoneHeightPx}px`,
       "--cmdr-offset": `${sizing.cmdrStackOffsetPx}px`,
       "--preview-h": `${sizing.previewHeightPx}px`,
       "--preview-w": `${sizing.previewWidthPx}px`,

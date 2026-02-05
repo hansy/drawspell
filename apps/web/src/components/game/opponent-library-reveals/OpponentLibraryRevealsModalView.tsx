@@ -1,7 +1,7 @@
 import React from "react";
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { Card } from "../card/Card";
+import { CardView } from "../card/Card";
 import { cn } from "@/lib/utils";
 import { getPreviewDimensions, useIsLg } from "@/hooks/game/seat/useSeatSizing";
 import { useGameStore } from "@/store/gameStore";
@@ -59,7 +59,12 @@ export const OpponentLibraryRevealsModalView: React.FC<OpponentLibraryRevealsCon
                       className={cn("rounded-lg shadow-lg")}
                       style={{ width: previewWidthPx, height: previewHeightPx }}
                     >
-                      <Card card={card} faceDown={false} className="w-full h-full" disableDrag />
+                      <CardView
+                        card={card}
+                        faceDown={false}
+                        style={{ width: previewWidthPx, height: previewHeightPx }}
+                        className="w-full h-full"
+                      />
                     </div>
                   </div>
                 );

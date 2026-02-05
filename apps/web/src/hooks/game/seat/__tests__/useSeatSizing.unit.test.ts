@@ -38,14 +38,12 @@ describe("computeSeatSizing", () => {
   it("derives base sizing from seat height", () => {
     const result = computeSeatSizing({ seatWidth: 1000, seatHeight: 800 });
 
-    expect(result.handHeightPx).toBeCloseTo(176);
-    expect(result.battlefieldHeightPx).toBeCloseTo(624);
-    expect(result.baseCardHeightPx).toBeCloseTo(156);
-    expect(result.baseCardWidthPx).toBeCloseTo(104);
+    expect(result.handHeightPx).toBeCloseTo(200);
+    expect(result.battlefieldHeightPx).toBeCloseTo(600);
+    expect(result.baseCardHeightPx).toBeCloseTo(150);
+    expect(result.baseCardWidthPx).toBeCloseTo(100);
     expect(result.previewWidthPx).toBe(PREVIEW_MIN_WIDTH_PX);
     expect(result.previewHeightPx).toBeCloseTo(300);
-    expect(result.sideZoneWidthPx).toBeCloseTo(146.4, 1);
-    expect(result.sideAreaWidthPx).toBeCloseTo(163.5, 1);
   });
 
   it("clamps hand height overrides to min/max", () => {

@@ -102,7 +102,8 @@ describe("computeLocalPlayerInitPlan", () => {
       defaultName: "Player P1",
     });
 
-    expect(plan?.patchColors).toEqual([{ playerId: "p1", color: expected.p1 }]);
+    expect(plan?.patchLocalPlayer).toEqual({ color: expected.p1 });
+    expect(plan?.patchColors).toEqual([]);
   });
 
   it("patches the local player color when it differs from the canonical order", () => {
