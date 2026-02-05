@@ -36,7 +36,6 @@ interface HandProps {
 const SortableCard = React.memo(
   ({
     card,
-    isTop,
     isMe,
     viewerPlayerId,
     viewerRole,
@@ -45,7 +44,6 @@ const SortableCard = React.memo(
     baseCardHeight,
   }: {
     card: CardType;
-    isTop: boolean;
     isMe: boolean;
     viewerPlayerId: string;
     viewerRole?: ViewerRole;
@@ -193,7 +191,6 @@ const HandInner: React.FC<HandProps> = ({
               <SortableCard
                 key={card.id}
                 card={card}
-                isTop={isTop}
                 isMe={isMe}
                 viewerPlayerId={viewerPlayerId}
                 viewerRole={viewerRole}

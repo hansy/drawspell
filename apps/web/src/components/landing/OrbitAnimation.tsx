@@ -15,7 +15,7 @@ type OrbitRing = {
 const orbitRings: OrbitRing[] = [
   {
     sizeClass:
-      "h-[200px] w-[200px] sm:h-[240px] sm:w-[240px] lg:h-[520px] lg:w-[520px]",
+      "h-[280px] w-[280px] sm:h-[360px] sm:w-[360px] lg:h-[760px] lg:w-[760px]",
     duration: "12s",
     color: "#0b0a0f",
     glow: "rgba(246, 241, 222, 0.9)",
@@ -23,7 +23,7 @@ const orbitRings: OrbitRing[] = [
   },
   {
     sizeClass:
-      "h-[230px] w-[230px] sm:h-[280px] sm:w-[280px] lg:h-[580px] lg:w-[580px]",
+      "h-[330px] w-[330px] sm:h-[420px] sm:w-[420px] lg:h-[860px] lg:w-[860px]",
     duration: "15s",
     reverse: true,
     color: "#0b0a0f",
@@ -32,7 +32,7 @@ const orbitRings: OrbitRing[] = [
   },
   {
     sizeClass:
-      "h-[260px] w-[260px] sm:h-[320px] sm:w-[320px] lg:h-[640px] lg:w-[640px]",
+      "h-[380px] w-[380px] sm:h-[490px] sm:w-[490px] lg:h-[960px] lg:w-[960px]",
     duration: "18s",
     color: "#0b0a0f",
     glow: "rgba(147, 51, 234, 0.5)",
@@ -42,7 +42,7 @@ const orbitRings: OrbitRing[] = [
   },
   {
     sizeClass:
-      "h-[290px] w-[290px] sm:h-[360px] sm:w-[360px] lg:h-[700px] lg:w-[700px]",
+      "h-[430px] w-[430px] sm:h-[560px] sm:w-[560px] lg:h-[1060px] lg:w-[1060px]",
     duration: "21s",
     reverse: true,
     color: "#0b0a0f",
@@ -51,7 +51,7 @@ const orbitRings: OrbitRing[] = [
   },
   {
     sizeClass:
-      "h-[320px] w-[320px] sm:h-[400px] sm:w-[400px] lg:h-[760px] lg:w-[760px]",
+      "h-[480px] w-[480px] sm:h-[630px] sm:w-[630px] lg:h-[1160px] lg:w-[1160px]",
     duration: "24s",
     color: "#0b0a0f",
     glow: "rgba(0, 115, 62, 0.95)",

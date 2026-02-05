@@ -108,7 +108,7 @@ const LandingPage = () => {
           title="Just Magic"
           description="Drawspell is a web-based virtual tabletop simulator for playing Magic: The Gathering. Create a room, share with friends, and play together."
           animation={
-            <OrbitAnimation className="h-[180px] w-[180px] sm:h-[220px] sm:w-[220px] lg:h-[420px] lg:w-[420px]" />
+            <OrbitAnimation className="h-[250px] w-[250px] sm:h-[320px] sm:w-[320px] lg:h-[680px] lg:w-[680px]" />
           }
           secondaryPanel={
             resumeSessionId ? (
