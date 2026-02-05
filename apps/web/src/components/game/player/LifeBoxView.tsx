@@ -40,7 +40,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
               type="button"
               onClick={onEditUsername}
               className={cn(
-                "bg-zinc-900 px-2 text-md font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full shadow-sm lg:text-xs",
+                "bg-zinc-900 px-2 text-md font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full shadow-sm lg:text-md",
                 "cursor-pointer hover:text-zinc-200 hover:border-zinc-500 transition-colors",
               )}
             >

@@ -7,7 +7,7 @@ export const LG_BREAKPOINT_VAR = "--breakpoint-lg";
 export const DEFAULT_LG_BREAKPOINT = "1024px";
 export const LG_MEDIA_QUERY = `(min-width: ${DEFAULT_LG_BREAKPOINT})`;
 
-export const SEAT_BOTTOM_BAR_PCT = 0.12;
+export const SEAT_BOTTOM_BAR_PCT = 0.25;
 export const SEAT_HAND_MIN_PCT = 0.15;
 export const SEAT_HAND_MAX_PCT = 0.4;
 
@@ -17,9 +17,9 @@ export const PREVIEW_MAX_WIDTH_PX = 400;
 export const MIN_CARD_HEIGHT_PX = 80;
 
 // Padding around side zone cards (p-2).
-export const ZONE_PAD_PX = 12;
-export const ZONE_PAD_AREA_SCALE = 1.2;
-export const ZONE_AREA_SCALE = 0.8;
+// export const ZONE_PAD_PX = 12;
+export const ZONE_PAD_AREA_SCALE = 1;
+// export const ZONE_AREA_SCALE = 1;
 // DialogContent default p-6.
 export const MODAL_PAD_PX = 24;
 
@@ -28,7 +28,6 @@ export interface SeatSizingOptions {
   bottomBarPct?: number;
   handMinPct?: number;
   handMaxPct?: number;
-  viewportHeightPx?: number;
   previewScale?: number;
   previewMinWidthPx?: number;
   previewMaxWidthPx?: number;
@@ -54,34 +53,33 @@ export interface SeatSizing {
   previewHeightPx: number;
   cmdrStackOffsetPx: number;
   viewScale: number;
-  zonePadPx: number;
   modalPadPx: number;
 }
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
-const computeZonePadPx = (
-  cardWidthPx: number,
-  cardHeightPx: number,
-  areaScale: number,
-) => {
-  if (
-    !Number.isFinite(cardWidthPx) ||
-    !Number.isFinite(cardHeightPx) ||
-    cardWidthPx <= 0 ||
-    cardHeightPx <= 0
-  ) {
-    return ZONE_PAD_PX;
-  }
-  const targetScale = Math.max(1, areaScale);
-  if (targetScale === 1) return 0;
-  const sum = cardWidthPx + cardHeightPx;
-  const discriminant =
-    sum * sum + 4 * (targetScale - 1) * cardWidthPx * cardHeightPx;
-  const pad = (Math.sqrt(discriminant) - sum) / 4;
-  return Math.max(0, pad);
-};
+// const computeZonePadPx = (
+//   cardWidthPx: number,
+//   cardHeightPx: number,
+//   areaScale: number,
+// ) => {
+//   if (
+//     !Number.isFinite(cardWidthPx) ||
+//     !Number.isFinite(cardHeightPx) ||
+//     cardWidthPx <= 0 ||
+//     cardHeightPx <= 0
+//   ) {
+//     return ZONE_PAD_PX;
+//   }
+//   const targetScale = Math.max(1, areaScale);
+//   if (targetScale === 1) return 0;
+//   const sum = cardWidthPx + cardHeightPx;
+//   const discriminant =
+//     sum * sum + 4 * (targetScale - 1) * cardWidthPx * cardHeightPx;
+//   const pad = (Math.sqrt(discriminant) - sum) / 4;
+//   return Math.max(0, pad);
+// };
 
 export const getPreviewDimensions = (
   baseCardWidthPx?: number,
@@ -124,20 +122,13 @@ export const computeSeatSizing = (
     bottomBarPct = SEAT_BOTTOM_BAR_PCT,
     handMinPct = SEAT_HAND_MIN_PCT,
     handMaxPct = SEAT_HAND_MAX_PCT,
-    viewportHeightPx,
     previewScale = PREVIEW_SCALE_K,
     previewMinWidthPx = PREVIEW_MIN_WIDTH_PX,
     previewMaxWidthPx = PREVIEW_MAX_WIDTH_PX,
-    zonePadPx,
-    zonePadAreaScale = ZONE_PAD_AREA_SCALE,
-    zoneAreaScale = ZONE_AREA_SCALE,
     modalPadPx = MODAL_PAD_PX,
   } = params;
 
-  const heightBasis =
-    Number.isFinite(viewportHeightPx) && (viewportHeightPx ?? 0) > 0
-      ? viewportHeightPx!
-      : seatHeight;
+  const heightBasis = seatHeight;
   const minHandHeight = heightBasis * handMinPct;
   const maxHandHeight = heightBasis * handMaxPct;
   const baselineHandHeight = heightBasis * bottomBarPct;
@@ -165,17 +156,17 @@ export const computeSeatSizing = (
     },
   );
 
-  const scaledZoneCardWidthPx = landscapeCardWidthPx * zoneAreaScale;
-  const scaledZoneCardHeightPx = landscapeCardHeightPx * zoneAreaScale;
-  const resolvedZonePadPx = Number.isFinite(zonePadPx)
-    ? zonePadPx!
-    : computeZonePadPx(
-        scaledZoneCardWidthPx,
-        scaledZoneCardHeightPx,
-        zonePadAreaScale,
-      );
-  const sideZoneWidthPx = scaledZoneCardWidthPx + resolvedZonePadPx * 2;
-  const sideZoneHeightPx = scaledZoneCardHeightPx + resolvedZonePadPx * 2;
+  const scaledZoneCardWidthPx = landscapeCardWidthPx;
+  const scaledZoneCardHeightPx = landscapeCardHeightPx;
+  // const resolvedZonePadPx = Number.isFinite(zonePadPx)
+  //   ? zonePadPx!
+  //   : computeZonePadPx(
+  //       scaledZoneCardWidthPx,
+  //       scaledZoneCardHeightPx,
+  //       zonePadAreaScale,
+  //     );
+  const sideZoneWidthPx = scaledZoneCardWidthPx;
+  const sideZoneHeightPx = scaledZoneCardHeightPx;
   const cmdrStackOffsetPx = Math.max(40, baseCardHeightPx * 0.35);
 
   const viewScale =
@@ -196,7 +187,6 @@ export const computeSeatSizing = (
     previewHeightPx,
     cmdrStackOffsetPx,
     viewScale,
-    zonePadPx: resolvedZonePadPx,
     modalPadPx,
   };
 };
@@ -261,13 +251,11 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
     bottomBarPct = SEAT_BOTTOM_BAR_PCT,
     handMinPct = SEAT_HAND_MIN_PCT,
     handMaxPct = SEAT_HAND_MAX_PCT,
-    viewportHeightPx,
     previewScale = PREVIEW_SCALE_K,
     previewMinWidthPx = PREVIEW_MIN_WIDTH_PX,
     previewMaxWidthPx = PREVIEW_MAX_WIDTH_PX,
     zonePadPx,
     zonePadAreaScale = ZONE_PAD_AREA_SCALE,
-    zoneAreaScale = ZONE_AREA_SCALE,
     modalPadPx = MODAL_PAD_PX,
   } = options;
 
@@ -277,17 +265,6 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
   });
   const lgQuery = React.useMemo(getLgMediaQuery, []);
   const isLg = useMediaQuery(lgQuery);
-  const [viewportHeight, setViewportHeight] = React.useState<number | null>(
-    null,
-  );
-
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handleResize = () => setViewportHeight(window.innerHeight);
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   const sizing = React.useMemo(() => {
     if (!isLg || size.width <= 0 || size.height <= 0) {
@@ -301,13 +278,11 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
       bottomBarPct,
       handMinPct,
       handMaxPct,
-      viewportHeightPx: viewportHeightPx ?? viewportHeight ?? undefined,
       previewScale,
       previewMinWidthPx,
       previewMaxWidthPx,
       zonePadPx,
       zonePadAreaScale,
-      zoneAreaScale,
       modalPadPx,
     });
   }, [
@@ -318,14 +293,11 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
     bottomBarPct,
     handMinPct,
     handMaxPct,
-    viewportHeightPx,
-    viewportHeight,
     previewScale,
     previewMinWidthPx,
     previewMaxWidthPx,
     zonePadPx,
     zonePadAreaScale,
-    zoneAreaScale,
     modalPadPx,
   ]);
 
@@ -342,7 +314,6 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
       "--card-w-landscape": `${sizing.landscapeCardWidthPx}px`,
       "--sidezone-w": `${sizing.sideZoneWidthPx}px`,
       "--sidezone-h": `${sizing.sideZoneHeightPx}px`,
-      "--zone-pad": `${sizing.zonePadPx}px`,
       "--cmdr-offset": `${sizing.cmdrStackOffsetPx}px`,
       "--preview-h": `${sizing.previewHeightPx}px`,
       "--preview-w": `${sizing.previewWidthPx}px`,

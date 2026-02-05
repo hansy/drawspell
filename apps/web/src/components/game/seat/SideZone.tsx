@@ -70,7 +70,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
         )}
         {card ? (
           <div className="w-full h-full relative overflow-hidden rounded-lg">
-            <div className="absolute inset-0 flex items-center justify-center rotate-90 scale-[0.8] origin-center">
+            <div className="absolute inset-0 flex items-center justify-center rotate-90 origin-center">
               <Card
                 card={card}
                 faceDown={faceDown}
