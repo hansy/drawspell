@@ -181,24 +181,10 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
         collisionDetection={pointerWithin}
       >
         <div
-          className="relative h-screen w-screen bg-zinc-950 text-zinc-100 overflow-hidden flex font-sans selection:bg-indigo-500/30"
+          className="relative h-screen w-screen bg-zinc-950 text-zinc-100 overflow-hidden font-sans selection:bg-indigo-500/30"
           onContextMenu={(e) => e.preventDefault()}
+          style={{ height: "100dvh", width: "100dvw" }}
         >
-          <Sidenav
-            onCreateToken={() => setIsTokenModalOpen(true)}
-            onOpenCoinFlipper={handleOpenCoinFlipper}
-            onOpenDiceRoller={handleOpenDiceRoller}
-            onToggleLog={() => setIsLogOpen(!isLogOpen)}
-            isLogOpen={isLogOpen}
-            onOpenShareDialog={() => setIsShareDialogOpen(true)}
-            onLeaveGame={handleLeave}
-            onOpenShortcuts={() => setIsShortcutsOpen(true)}
-            syncStatus={syncStatus}
-            peerCounts={peerCounts}
-            isSpectator={viewerRole === "spectator"}
-            shareLinksReady={shareLinksReady}
-          />
-
           {showConnectingOverlay && (
             <div
               role="status"
@@ -210,8 +196,22 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
             </div>
           )}
 
-          <div className="flex h-full w-full">
-            <div className={`flex-1 min-w-0 h-full grid ${gridClass} pl-12`}>
+          <div className="grid h-full w-full grid-cols-[var(--sidenav-w)_minmax(0,1fr)_auto]">
+            <Sidenav
+              onCreateToken={() => setIsTokenModalOpen(true)}
+              onOpenCoinFlipper={handleOpenCoinFlipper}
+              onOpenDiceRoller={handleOpenDiceRoller}
+              onToggleLog={() => setIsLogOpen(!isLogOpen)}
+              isLogOpen={isLogOpen}
+              onOpenShareDialog={() => setIsShareDialogOpen(true)}
+              onLeaveGame={handleLeave}
+              onOpenShortcuts={() => setIsShortcutsOpen(true)}
+              syncStatus={syncStatus}
+              peerCounts={peerCounts}
+              isSpectator={viewerRole === "spectator"}
+              shareLinksReady={shareLinksReady}
+            />
+            <div className={`min-w-0 h-full grid ${gridClass}`}>
               {slots.map((slot, index) => {
                 const seatPlayer = slot.player;
                 return (

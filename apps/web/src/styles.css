@@ -89,6 +89,8 @@ code {
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --sidenav-w: 3rem;
+  --log-w: 12.5rem;
 }
 
 .dark {
@@ -123,6 +125,13 @@ code {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --sidenav-w: clamp(3rem, 3vw, 4rem);
+    --log-w: clamp(12.5rem, 18vw, 22rem);
+  }
 }
 
 @layer base {

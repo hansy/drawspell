@@ -54,6 +54,7 @@ const createPointerEvent = (type: string, options: PointerEventInit) => {
 
 describe("CardPreview", () => {
   beforeEach(() => {
+    vi.useRealTimers();
     useGameStore.setState({
       zones: {},
       cards: {},

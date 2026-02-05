@@ -222,13 +222,13 @@ Epic E-06: Modals and Dialogs
   - Files: `apps/web/src/components/game/zone-viewer/__tests__/**`, `apps/web/src/components/game/opponent-library-reveals/__tests__/**`, `apps/web/src/components/username/__tests__/**`
 
 Epic E-07: Global UI + Shell
-- T-070 (not-started): Replace `pl-12` board padding with CSS grid and `--sidenav-w` alignment.
+- T-070 (done): Replace `pl-12` board padding with CSS grid and `--sidenav-w` alignment.
   - Files: `apps/web/src/components/game/board/MultiplayerBoardView.tsx`, `apps/web/src/components/game/sidenav/SidenavView.tsx`
-- T-071 (not-started): Log drawer width uses `--log-w` with clamp (lg+).
+- T-071 (done): Log drawer width uses `--log-w` with clamp (lg+).
   - Files: `apps/web/src/components/game/log-drawer/LogDrawerView.tsx`
-- T-072 (not-started): Use dynamic viewport units (dvh/dvw) for full-screen root to avoid iPad issues.
+- T-072 (done): Use dynamic viewport units (dvh/dvw) for full-screen root to avoid iPad issues.
   - Files: `apps/web/src/components/game/board/MultiplayerBoardView.tsx`
-- T-073 (not-started): Update board shell tests/snapshots affected by layout changes.
+- T-073 (done): Update board shell tests/snapshots affected by layout changes.
   - Files: `apps/web/src/components/game/seat/__tests__/BottomBar.component.test.tsx`, `apps/web/src/components/game/board/__tests__/**`
 
 Manual QA Checklist (lg+)
