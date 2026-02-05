@@ -1,7 +1,25 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+type IdleTimeoutOptions = {
+  enabled: boolean;
+  timeoutMs: number;
+  warningMs?: number;
+  onTimeout: () => void;
+  onWarning?: () => void;
+  onResume?: () => void;
+  onActivity?: () => void;
+  pollIntervalMs?: number;
+  subscribe?: (markActivity: () => void) => () => void;
+};
+
 const mockReadRoomTokensFromStorage = vi.hoisted(() => vi.fn());
+const mockUseIdleTimeout = vi.hoisted(() =>
+  vi.fn((_options: IdleTimeoutOptions) => ({
+    markActivity: vi.fn(),
+    getRemainingMs: vi.fn(),
+  })),
+);
 
 const mockGameState = vi.hoisted(() => ({
   zones: {},
@@ -11,7 +29,7 @@ const mockGameState = vi.hoisted(() => ({
   playerOrder: [],
   battlefieldViewScale: {},
   battlefieldGridSizing: {},
-  viewerRole: "player" as const,
+  viewerRole: "player" as "player" | "spectator",
   setViewerRole: vi.fn(),
   roomHostId: "player-1",
   roomLockedByHost: false,
@@ -195,11 +213,16 @@ vi.mock("@/lib/room", () => ({
   MAX_PLAYERS: 4,
 }));
 
+vi.mock("@/hooks/shared/useIdleTimeout", () => ({
+  useIdleTimeout: mockUseIdleTimeout,
+}));
+
 import { useMultiplayerBoardController } from "../useMultiplayerBoardController";
 
 describe("useMultiplayerBoardController", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseIdleTimeout.mockClear();
     mockReadRoomTokensFromStorage.mockReturnValue({ playerToken: "token-123" });
     Object.assign(mockGameState, {
       zones: {},
@@ -232,5 +255,18 @@ describe("useMultiplayerBoardController", () => {
     expect(result.current.shareLinks.spectators).toContain("room-1");
     expect(result.current.shareLinks.spectators).not.toContain("gt=");
     expect(result.current.shareLinks.spectators).not.toContain("st=");
+  });
+
+  it("disables idle timeout for spectators", () => {
+    mockGameState.viewerRole = "spectator";
+
+    renderHook(() => useMultiplayerBoardController("room-1"));
+
+    expect(mockUseIdleTimeout).toHaveBeenCalledTimes(1);
+    const options = mockUseIdleTimeout.mock.calls.at(0)?.[0];
+    if (!options) {
+      throw new Error("Expected useIdleTimeout to be called with options.");
+    }
+    expect(options.enabled).toBe(false);
   });
 });
