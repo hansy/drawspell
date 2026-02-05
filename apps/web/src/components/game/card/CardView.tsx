@@ -51,7 +51,7 @@ export const CardView = React.memo(
           draggable={false}
           className={cn(
             CARD_BASE_CLASS,
-            "bg-zinc-800 rounded-lg border border-zinc-700 shadow-md flex flex-col items-center justify-center select-none relative z-0 transition-transform duration-200 ease-out",
+            "origin-center bg-zinc-800 rounded-lg shadow-md shadow-[inset_0_0_24px_rgba(0,0,0,0.35)] flex flex-col items-center justify-center select-none relative z-0 transition-transform duration-200 ease-out",
             !isDragging &&
               !disableHoverAnimation &&
               "hover:scale-105 hover:shadow-xl hover:z-10 hover:border-indigo-500/50 cursor-grab active:cursor-grabbing",

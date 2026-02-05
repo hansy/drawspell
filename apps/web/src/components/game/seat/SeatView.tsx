@@ -3,7 +3,10 @@ import { Eye, Plus } from "lucide-react";
 
 import { Button } from "../../ui/button";
 import { ZONE, ZONE_LABEL } from "@/constants/zones";
-import { canViewerSeeLibraryCardByReveal, canViewerSeeLibraryTopCard } from "@/lib/reveal";
+import {
+  canViewerSeeLibraryCardByReveal,
+  canViewerSeeLibraryTopCard,
+} from "@/lib/reveal";
 import { cn } from "@/lib/utils";
 import type { Card as CardType, Player, ViewerRole, ZoneId } from "@/types";
 
@@ -75,28 +78,29 @@ export const SeatView: React.FC<SeatViewProps> = ({
 }) => {
   const [handHeight, setHandHeight] = React.useState(HAND_DEFAULT_HEIGHT);
   const [hasHandOverride, setHasHandOverride] = React.useState(false);
-  const { ref: seatRef, cssVars, sizing, isLg } = useSeatSizing({
+  const {
+    ref: seatRef,
+    cssVars,
+    sizing,
+    isLg,
+  } = useSeatSizing({
     handHeightOverridePx: hasHandOverride ? handHeight : undefined,
   });
   const clamp = React.useCallback(
     (value: number, min: number, max: number) =>
       Math.min(max, Math.max(min, value)),
-    []
+    [],
   );
   const seatHeightPx = sizing?.seatHeightPx;
   const handMinHeightPx = React.useMemo(
     () =>
-      isLg && seatHeightPx
-        ? seatHeightPx * SEAT_HAND_MIN_PCT
-        : HAND_MIN_HEIGHT,
-    [isLg, seatHeightPx]
+      isLg && seatHeightPx ? seatHeightPx * SEAT_HAND_MIN_PCT : HAND_MIN_HEIGHT,
+    [isLg, seatHeightPx],
   );
   const handMaxHeightPx = React.useMemo(
     () =>
-      isLg && seatHeightPx
-        ? seatHeightPx * SEAT_HAND_MAX_PCT
-        : HAND_MAX_HEIGHT,
-    [isLg, seatHeightPx]
+      isLg && seatHeightPx ? seatHeightPx * SEAT_HAND_MAX_PCT : HAND_MAX_HEIGHT,
+    [isLg, seatHeightPx],
   );
   const handDefaultHeightPx = React.useMemo(
     () =>
@@ -104,10 +108,10 @@ export const SeatView: React.FC<SeatViewProps> = ({
         ? clamp(
             seatHeightPx * SEAT_BOTTOM_BAR_PCT,
             handMinHeightPx,
-            handMaxHeightPx
+            handMaxHeightPx,
           )
         : HAND_DEFAULT_HEIGHT,
-    [clamp, handMaxHeightPx, handMinHeightPx, isLg, seatHeightPx]
+    [clamp, handMaxHeightPx, handMinHeightPx, isLg, seatHeightPx],
   );
   const effectiveHandHeight = isLg && sizing ? sizing.handHeightPx : handHeight;
   const baseCardHeightPx = sizing?.baseCardHeightPx;
@@ -158,23 +162,23 @@ export const SeatView: React.FC<SeatViewProps> = ({
             counters: [],
           } as CardType)
         : null,
-    [library]
+    [library],
   );
   const libraryTopCard =
     libraryCards.length > 0
       ? libraryCards[libraryCards.length - 1]
       : libraryCount > 0
-        ? libraryPlaceholder ?? undefined
+        ? (libraryPlaceholder ?? undefined)
         : undefined;
   const libraryTopIsPlaceholder = Boolean(
-    libraryTopCard?.id && libraryTopCard.id.startsWith("placeholder:library:")
+    libraryTopCard?.id && libraryTopCard.id.startsWith("placeholder:library:"),
   );
   const canSeeLibraryTop =
     libraryCards.length > 0 && libraryTopCard
       ? canViewerSeeLibraryCardByReveal(
           libraryTopCard,
           viewerPlayerId,
-          viewerRole
+          viewerRole,
         ) ||
         canViewerSeeLibraryTopCard({
           viewerId: viewerPlayerId,
@@ -194,7 +198,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
       <div
         className={cn(
           "flex w-full h-full relative",
-          isRight && "flex-row-reverse" // If on right, flip so sidebar is on right (edge)
+          isRight && "flex-row-reverse", // If on right, flip so sidebar is on right (edge)
         )}
         style={{
           width: `${inverseScalePercent}%`,
@@ -216,16 +220,16 @@ export const SeatView: React.FC<SeatViewProps> = ({
             color === "rose" && "border-rose-900/20 shadow-rose-400/90",
             color === "violet" && "border-violet-900/20 shadow-violet-400/90",
             color === "sky" && "border-sky-900/20 shadow-sky-400/90",
-            color === "amber" && "border-amber-900/20 shadow-amber-400/90"
+            color === "amber" && "border-amber-900/20 shadow-amber-400/90",
           )}
         />
 
         {/* Sidebar */}
         <div
           className={cn(
-            "w-40 bg-zinc-900/50 flex flex-col px-2 shrink-0 z-10 items-center border-zinc-800/50 h-full justify-between lg:w-[var(--sidebar-w)] lg:px-[var(--sidearea-pad)]",
+            "w-40 bg-zinc-900/50 flex flex-col px-3 shrink-0 z-10 items-center border-zinc-800/50 h-full justify-between lg:w-[var(--sidebar-w)] lg:px-[var(--sidearea-pad)]",
             isRight ? "border-l" : "border-r",
-            isTop ? "pb-6" : "pt-6"
+            isTop ? "pb-6" : "pt-6",
           )}
         >
           {/* Player HUD (Life) */}
@@ -251,7 +255,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
           <div
             className={cn(
               "flex flex-col gap-10 w-full items-center flex-1 justify-center",
-              isTop && "flex-col-reverse"
+              isTop && "flex-col-reverse",
             )}
           >
             {/* Library */}
@@ -348,7 +352,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
         <div
           className={cn(
             "flex-1 relative flex flex-col",
-            isTop ? "border-b border-white/5" : "border-t border-white/5"
+            isTop ? "border-b border-white/5" : "border-t border-white/5",
           )}
         >
           {battlefield && (

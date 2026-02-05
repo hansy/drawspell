@@ -17,9 +17,9 @@ export const PREVIEW_MAX_WIDTH_PX = 400;
 export const MIN_CARD_HEIGHT_PX = 80;
 
 // Padding around side zone cards (p-2).
-export const ZONE_PAD_PX = 8;
+export const ZONE_PAD_PX = 12;
 // Sidebar padding (p-2).
-export const SIDE_AREA_PAD_PX = 8;
+export const SIDE_AREA_PAD_PX = 12;
 // DialogContent default p-6.
 export const MODAL_PAD_PX = 24;
 
@@ -67,7 +67,7 @@ export const getPreviewDimensions = (
     previewScale?: number;
     previewMinWidthPx?: number;
     previewMaxWidthPx?: number;
-  } = {}
+  } = {},
 ) => {
   const {
     previewScale = PREVIEW_SCALE_K,
@@ -81,7 +81,7 @@ export const getPreviewDimensions = (
   const previewWidthPx = clamp(
     resolvedBaseWidth * previewScale,
     previewMinWidthPx,
-    previewMaxWidthPx
+    previewMaxWidthPx,
   );
   return {
     previewWidthPx,
@@ -89,10 +89,12 @@ export const getPreviewDimensions = (
   };
 };
 
-export const computeSeatSizing = (params: SeatSizingOptions & {
-  seatWidth: number;
-  seatHeight: number;
-}): SeatSizing => {
+export const computeSeatSizing = (
+  params: SeatSizingOptions & {
+    seatWidth: number;
+    seatHeight: number;
+  },
+): SeatSizing => {
   const {
     seatWidth,
     seatHeight,
@@ -119,27 +121,34 @@ export const computeSeatSizing = (params: SeatSizingOptions & {
   const handHeightPx = clamp(
     handHeightOverridePx ?? baselineHandHeight,
     minHandHeight,
-    maxHandHeight
+    maxHandHeight,
   );
 
   const battlefieldHeightPx = seatHeight - handHeightPx;
-  const baseCardHeightPx = Math.max(MIN_CARD_HEIGHT_PX, battlefieldHeightPx / 4);
+  const baseCardHeightPx = Math.max(
+    MIN_CARD_HEIGHT_PX,
+    battlefieldHeightPx / 4,
+  );
   const baseCardWidthPx = baseCardHeightPx * CARD_ASPECT_RATIO;
   const landscapeCardWidthPx = baseCardHeightPx;
   const landscapeCardHeightPx = baseCardWidthPx;
 
-  const { previewWidthPx, previewHeightPx } = getPreviewDimensions(baseCardWidthPx, {
-    previewScale,
-    previewMinWidthPx,
-    previewMaxWidthPx,
-  });
+  const { previewWidthPx, previewHeightPx } = getPreviewDimensions(
+    baseCardWidthPx,
+    {
+      previewScale,
+      previewMinWidthPx,
+      previewMaxWidthPx,
+    },
+  );
 
   const sideZoneWidthPx = landscapeCardWidthPx + zonePadPx * 2;
   const sideZoneHeightPx = landscapeCardHeightPx + zonePadPx * 2;
   const sideAreaWidthPx = sideZoneWidthPx + sideAreaPadPx * 2;
   const cmdrStackOffsetPx = baseCardHeightPx * 0.3;
 
-  const viewScale = BASE_CARD_HEIGHT > 0 ? baseCardHeightPx / BASE_CARD_HEIGHT : 1;
+  const viewScale =
+    BASE_CARD_HEIGHT > 0 ? baseCardHeightPx / BASE_CARD_HEIGHT : 1;
 
   return {
     seatWidthPx: seatWidth,
@@ -238,7 +247,9 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
   });
   const lgQuery = React.useMemo(getLgMediaQuery, []);
   const isLg = useMediaQuery(lgQuery);
-  const [viewportHeight, setViewportHeight] = React.useState<number | null>(null);
+  const [viewportHeight, setViewportHeight] = React.useState<number | null>(
+    null,
+  );
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;

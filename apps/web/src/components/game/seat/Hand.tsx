@@ -105,7 +105,7 @@ const SortableCard = React.memo(({
       >
         <Card
           card={card}
-          className="shadow-xl ring-1 ring-black/50"
+          className="shadow-xl origin-top"
           faceDown={shouldRenderFaceDown(card, "hand", viewerPlayerId, viewerRole)}
           onContextMenu={handleContextMenu}
           disableDrag // We use Sortable's drag handle

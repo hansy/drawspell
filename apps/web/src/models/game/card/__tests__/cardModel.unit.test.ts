@@ -49,6 +49,17 @@ describe("cardModel", () => {
 
       expect(style.opacity).toBe(0);
     });
+
+    it("respects a custom transform origin when provided", () => {
+      const style = computeCardContainerStyle({
+        propStyle: { transformOrigin: "top center" },
+        scale: 1,
+        tapped: false,
+        isDragging: false,
+      });
+
+      expect(style.transformOrigin).toBe("top center");
+    });
   });
 
   describe("getCardHoverPreviewPolicy", () => {
