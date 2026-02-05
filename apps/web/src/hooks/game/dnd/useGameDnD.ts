@@ -212,6 +212,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
             zoneId: result.ghostCard.zoneId,
             position: result.ghostCard.position,
             tapped: result.ghostCard.tapped,
+            size: result.ghostCard.size,
           },
         ]);
       } else {
@@ -303,6 +304,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
           zoneId: targetZone.id,
           position,
           tapped: card.tapped,
+          size: { width: cardWidth, height: cardHeight },
         };
       })
       .filter((value): value is NonNullable<typeof value> => Boolean(value));

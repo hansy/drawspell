@@ -81,6 +81,7 @@ describe("gameDnD model", () => {
         zoneId: "p1-battlefield",
         position: { x: 360, y: 360 },
         tapped: false,
+        size: { width: 80, height: 120 },
       });
     });
 

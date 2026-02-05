@@ -38,6 +38,7 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 's
 
     const ghostPosition = ghostCard?.position;
     const ghostTapped = ghostCard?.tapped;
+    const ghostSize = ghostCard?.size;
 
     const { setNodeRef, isOver } = useDroppable({
         id: zone.id,
@@ -104,20 +105,26 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 's
             {ghostPosition && (() => {
                 const resolvedBaseHeight = cardBaseHeight ?? BASE_CARD_HEIGHT;
                 const resolvedBaseWidth = cardBaseWidth ?? resolvedBaseHeight * CARD_ASPECT_RATIO;
-                const ghostWidth = resolvedBaseWidth * cardScale;
-                const ghostHeight = resolvedBaseHeight * cardScale;
+                const fallbackGhostWidth = resolvedBaseWidth * cardScale;
+                const fallbackGhostHeight = resolvedBaseHeight * cardScale;
+                const ghostWidth = ghostSize?.width ?? fallbackGhostWidth;
+                const ghostHeight = ghostSize?.height ?? fallbackGhostHeight;
+                const shouldRotateGhost = Boolean(ghostTapped && !ghostSize);
                 return (
                     <div
-                        className="absolute bg-indigo-500/40 rounded-lg pointer-events-none z-0"
+                        className="absolute pointer-events-none z-20"
                         style={{
                             width: ghostWidth,
                             height: ghostHeight,
                             left: ghostPosition.x - ghostWidth / 2,
                             top: ghostPosition.y - ghostHeight / 2,
-                            transform: ghostTapped ? 'rotate(90deg)' : undefined,
+                            transform: shouldRotateGhost ? 'rotate(90deg)' : undefined,
                             transformOrigin: 'center center'
                         }}
-                    />
+                    >
+                        <div className="h-full w-full rounded-lg border border-indigo-300/80 bg-indigo-500/40 shadow-[0_0_0_1px_rgba(129,140,248,0.35),0_0_20px_rgba(99,102,241,0.28)]" />
+                        <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-300/85 shadow-[0_0_10px_rgba(129,140,248,0.9)]" />
+                    </div>
                 );
             })()}
         </div>

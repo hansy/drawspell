@@ -5,6 +5,7 @@ interface GhostCardState {
     zoneId: string;
     position: { x: number; y: number };
     tapped?: boolean;
+    size?: { width: number; height: number };
 }
 
 interface DragStore {

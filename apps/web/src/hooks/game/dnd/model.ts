@@ -8,6 +8,7 @@ export type GhostCardState = {
   zoneId: ZoneId;
   position: { x: number; y: number };
   tapped?: boolean;
+  size?: { width: number; height: number };
 };
 
 export type DragMoveUiState = {
@@ -95,6 +96,7 @@ export const computeDragMoveUiState = (params: {
       zoneId: targetZone.id,
       position: placement.ghostPosition,
       tapped: isTapped,
+      size: { width: placement.cardWidth, height: placement.cardHeight },
     },
     overCardScale,
   };
