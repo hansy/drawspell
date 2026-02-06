@@ -23,32 +23,34 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
 }) => {
   const isAtMinLife = player.life <= MIN_PLAYER_LIFE;
   const isAtMaxLife = player.life >= MAX_PLAYER_LIFE;
+  const namePillClass =
+    "inline-flex items-center leading-none bg-zinc-900 px-2 py-1 text-xs font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full shadow-sm lg:text-[clamp(10px,calc(var(--sidezone-h)*0.14),14px)]";
 
   return (
     <div
       className={cn(
-        "group w-full h-24 flex flex-col items-center justify-center p-1.5 bg-zinc-800/30 rounded-lg border-2 border-zinc-700 shadow-lg backdrop-blur-sm relative lg:h-full lg:p-[clamp(4px,calc(var(--sidezone-h)*0.08),10px)]",
-        isMe && "border-indigo-500/50 ring-1 ring-indigo-500/20",
+        "group w-full h-24 flex flex-col items-center justify-center p-1.5 bg-zinc-800/30 rounded-lg border-2 border-zinc-700 ring-1 ring-transparent shadow-lg backdrop-blur-sm relative lg:h-full lg:p-[clamp(4px,calc(var(--sidezone-h)*0.08),10px)]",
+        isMe && "border-indigo-500/50 ring-indigo-500/20",
         className,
       )}
     >
       {/* Player Name Label */}
-      <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+      <div className="absolute -top-[18px] left-1/2 -translate-x-1/2 z-10">
         {isMe && onEditUsername ? (
           <Tooltip content="Click to edit username" placement="top">
             <button
               type="button"
               onClick={onEditUsername}
               className={cn(
-                "bg-zinc-900 px-2 text-xs font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full shadow-sm lg:text-[clamp(10px,calc(var(--sidezone-h)*0.14),14px)]",
-                "cursor-pointer hover:text-zinc-200 hover:border-zinc-500 transition-colors",
+                namePillClass,
+                "appearance-none cursor-pointer hover:text-zinc-200 hover:border-zinc-500 transition-colors",
               )}
             >
               {player.name || "Me"}
             </button>
           </Tooltip>
         ) : (
-          <div className="bg-zinc-900 px-2 text-xs font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full shadow-sm lg:text-[clamp(10px,calc(var(--sidezone-h)*0.14),14px)]">
+          <div className={namePillClass}>
             {player.name || (isMe ? "Me" : "")}
           </div>
         )}
