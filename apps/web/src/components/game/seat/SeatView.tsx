@@ -227,19 +227,21 @@ export const SeatView: React.FC<SeatViewProps> = ({
         {/* Sidebar */}
         <div
           className={cn(
-            "bg-zinc-900/50 flex flex-col px-4 shrink-0 z-10 items-center border-zinc-800/50 h-full justify-between w-[max(var(--seat-sidebar-min),var(--seat-sidebar-pct))]",
+            "bg-zinc-900/50 flex flex-col justify-between shrink-0 z-10 items-center border-zinc-800/50 h-full overflow-visible w-[var(--seat-sidebar-w)] px-[var(--sidebar-pad-x)] py-[var(--sidebar-pad-y)]",
             isRight ? "border-l" : "border-r",
-            isTop ? "pb-6" : "pt-6",
           )}
         >
           {/* Player HUD (Life) */}
           <div
-            className={cn("w-full flex justify-center", isTop && "order-last")}
+            className={cn(
+              "w-full h-[var(--sidezone-h)] min-h-0 shrink-0 flex items-center justify-center",
+              isTop && "order-last",
+            )}
           >
             <LifeBox
               player={player}
               isMe={isMe}
-              className="origin-center"
+              className="origin-center h-full !w-auto max-w-full aspect-[var(--sidezone-aspect)]"
               opponentColors={opponentColors}
               isRight={isRight}
               onEditUsername={isMe ? onEditUsername : undefined}
@@ -254,7 +256,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
           {/* Zones */}
           <div
             className={cn(
-              "flex flex-col gap-10 w-full items-center flex-1 justify-center",
+              "my-auto flex flex-col w-full min-h-0 shrink-0 items-center overflow-hidden py-[var(--sidezone-container-pad-y)] gap-[var(--sidezone-gap)]",
               isTop && "flex-col-reverse",
             )}
           >

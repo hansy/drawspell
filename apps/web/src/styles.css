@@ -91,8 +91,16 @@ code {
   --sidebar-ring: oklch(0.708 0 0);
   --sidenav-w: 3rem;
   --log-w: 12.5rem;
-  --seat-sidebar-min: 120px;
-  --seat-sidebar-pct: 20%;
+  --seat-sidebar-min: 96px;
+  --seat-sidebar-pct: 16%;
+  --seat-sidebar-w: max(var(--seat-sidebar-min), var(--seat-sidebar-pct));
+  --sidebar-pad-x: 1rem;
+  --sidebar-pad-y: 1rem;
+  --sidebar-section-gap: 0.75rem;
+  --lifebox-h: 72px;
+  --sidezone-h: 96px;
+  --sidezone-gap: 1rem;
+  --sidezone-container-pad-y: 0.75rem;
   --sidezone-aspect: 1.5;
   --sidezone-card-scale: var(--sidezone-aspect);
   --sidezone-pad: 0rem;

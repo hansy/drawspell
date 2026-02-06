@@ -64,9 +64,17 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
 
   // Use liveCard if available, otherwise fallback to the prop (snapshot)
   const currentCard = liveCard || card;
-  const zoneType = useGameStore((state) => state.zones[currentCard.zoneId]?.type);
-  const faceDownOnBattlefield = zoneType === ZONE.BATTLEFIELD && currentCard.faceDown;
-  const canPeek = canViewerSeeCardIdentity(currentCard, zoneType, myPlayerId, viewerRole);
+  const zoneType = useGameStore(
+    (state) => state.zones[currentCard.zoneId]?.type,
+  );
+  const faceDownOnBattlefield =
+    zoneType === ZONE.BATTLEFIELD && currentCard.faceDown;
+  const canPeek = canViewerSeeCardIdentity(
+    currentCard,
+    zoneType,
+    myPlayerId,
+    viewerRole,
+  );
   const maskFaceDown = faceDownOnBattlefield && !canPeek;
   const morphFaceDown = isMorphFaceDown(currentCard, maskFaceDown);
   const showPT = maskFaceDown
@@ -82,29 +90,38 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
       ? getMorphDisplayStat(currentCard, "toughness")
       : undefined
     : getDisplayToughness(currentCard);
-  const ptBasePower = maskFaceDown && morphFaceDown ? FACE_DOWN_MORPH_STAT : currentCard.basePower;
+  const ptBasePower =
+    maskFaceDown && morphFaceDown
+      ? FACE_DOWN_MORPH_STAT
+      : currentCard.basePower;
   const ptBaseToughness =
-    maskFaceDown && morphFaceDown ? FACE_DOWN_MORPH_STAT : currentCard.baseToughness;
+    maskFaceDown && morphFaceDown
+      ? FACE_DOWN_MORPH_STAT
+      : currentCard.baseToughness;
 
   // Local face override for previewing DFCs
-  const [overrideFaceIndex, setOverrideFaceIndex] = useState<number | null>(null);
+  const [overrideFaceIndex, setOverrideFaceIndex] = useState<number | null>(
+    null,
+  );
 
-  const [previewWidthFromAnchor, setPreviewWidthFromAnchor] = useState<number | null>(null);
+  const [previewWidthFromAnchor, setPreviewWidthFromAnchor] = useState<
+    number | null
+  >(null);
   const previewWidthPx = clamp(
     previewWidthFromAnchor ?? width,
     PREVIEW_MIN_WIDTH_PX,
-    PREVIEW_MAX_WIDTH_PX
+    PREVIEW_MAX_WIDTH_PX,
   );
   const previewHeightPx = previewWidthPx / CARD_ASPECT_RATIO;
   const gap = zoneType === ZONE.HAND ? HAND_GAP : GAP;
   const edgePadding = Math.min(
     MAX_EDGE_PADDING,
-    Math.max(gap, Math.round(previewHeightPx * EDGE_PADDING_RATIO))
+    Math.max(gap, Math.round(previewHeightPx * EDGE_PADDING_RATIO)),
   );
 
   const fallbackPlacements = React.useMemo<Placement[]>(
     () => ["bottom", "left", "right"],
-    []
+    [],
   );
   const middleware = React.useMemo(
     () => [
@@ -112,7 +129,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
       flip({ fallbackPlacements, padding: edgePadding }),
       shift({ padding: edgePadding }),
     ],
-    [edgePadding, fallbackPlacements, gap]
+    [edgePadding, fallbackPlacements, gap],
   );
   const { refs, floatingStyles, update, x, y } = useFloating({
     placement: "top",
@@ -125,13 +142,18 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     const resolvedAnchor =
       anchorEl && anchorEl.isConnected
         ? anchorEl
-        : (document.querySelector(`[data-card-id="${card.id}"]`) as HTMLElement | null);
+        : (document.querySelector(
+            `[data-card-id="${card.id}"]`,
+          ) as HTMLElement | null);
     refs.setReference(resolvedAnchor);
     return resolvedAnchor;
   }, [anchorEl, card.id, refs]);
 
   const updatePreviewWidth = React.useCallback(() => {
-    if (typeof window === "undefined" || typeof getComputedStyle === "undefined") {
+    if (
+      typeof window === "undefined" ||
+      typeof getComputedStyle === "undefined"
+    ) {
       setPreviewWidthFromAnchor(null);
       return;
     }
@@ -144,7 +166,9 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
       .getPropertyValue("--preview-w")
       .trim();
     const parsedValue = Number.parseFloat(rawValue);
-    setPreviewWidthFromAnchor(Number.isFinite(parsedValue) ? parsedValue : null);
+    setPreviewWidthFromAnchor(
+      Number.isFinite(parsedValue) ? parsedValue : null,
+    );
   }, [resolveAnchor]);
 
   useEffect(() => {
@@ -208,7 +232,8 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     visibility: isPositioned ? "visible" : "hidden",
   };
 
-  const effectiveFaceIndex = overrideFaceIndex ?? currentCard.currentFaceIndex ?? 0;
+  const effectiveFaceIndex =
+    overrideFaceIndex ?? currentCard.currentFaceIndex ?? 0;
 
   // Construct the card to show (forcing the face index)
   const previewCard = { ...currentCard, currentFaceIndex: effectiveFaceIndex };
@@ -230,10 +255,10 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
 
   const showControllerRevealIcon = Boolean(
     locked &&
-      onClose &&
-      (currentCard.revealedToAll ||
-        (currentCard.revealedTo && currentCard.revealedTo.length > 0)) &&
-      currentCard.controllerId === myPlayerId
+    onClose &&
+    (currentCard.revealedToAll ||
+      (currentCard.revealedTo && currentCard.revealedTo.length > 0)) &&
+    currentCard.controllerId === myPlayerId,
   );
 
   const controllerRevealNames = showControllerRevealIcon
@@ -249,7 +274,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
           "bg-zinc-900/90 backdrop-blur-sm p-2 rounded-lg border border-zinc-700 shadow-xl min-w-[120px] max-w-[200px] mt-2",
           locked &&
             currentCard.controllerId === myPlayerId &&
-            "cursor-text hover:border-indigo-500/50 transition-colors"
+            "cursor-text hover:border-indigo-500/50 transition-colors",
         )}
         onClick={(e) => {
           if (!locked || currentCard.controllerId !== myPlayerId) return;

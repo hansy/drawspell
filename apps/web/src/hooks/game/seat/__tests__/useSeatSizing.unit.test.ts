@@ -67,6 +67,28 @@ describe("computeSeatSizing", () => {
 
     expect(result.previewWidthPx).toBe(PREVIEW_MAX_WIDTH_PX);
   });
+
+  it("keeps side zones aspect-locked while fitting vertically", () => {
+    const result = computeSeatSizing({ seatWidth: 1000, seatHeight: 400 });
+
+    const sidezoneContentWidth = result.sidebarWidthPx - result.sidebarPadXPx * 2;
+    expect(sidezoneContentWidth).toBeGreaterThan(0);
+    expect(result.sidezoneAspect).toBeCloseTo(1.5, 6);
+    expect(result.sidezoneHeightPx).toBeCloseTo(
+      sidezoneContentWidth / result.sidezoneAspect,
+      6,
+    );
+    expect(result.lifeBoxHeightPx).toBeCloseTo(result.sidezoneHeightPx, 6);
+
+    const verticalUsed =
+      result.sidebarPadYPx * 2 +
+      result.sidebarSectionGapPx +
+      result.lifeBoxHeightPx +
+      result.sidezoneContainerPadYPx * 2 +
+      result.sidezoneHeightPx * 3 +
+      result.sidezoneGapPx * 2;
+    expect(verticalUsed).toBeLessThanOrEqual(result.seatHeightPx + 1e-6);
+  });
 });
 
 describe("useSeatSizing", () => {

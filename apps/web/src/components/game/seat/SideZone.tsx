@@ -41,7 +41,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
 }) => {
   return (
     <div
-      className="relative group w-full"
+      className="relative group w-full h-[var(--sidezone-h)] min-h-0 shrink-0 flex items-center justify-center"
       onContextMenu={(e) => onContextMenu?.(e, zone.id)}
       onClick={(e) => onClick?.(e, zone.id)}
       onDoubleClick={(e) => onDoubleClick?.(e, zone.id)}
@@ -87,10 +87,10 @@ export const SideZone: React.FC<SideZoneProps> = ({
           (emptyContent ?? <span className="text-zinc-600 text-xs">Empty</span>)
         )}
 
-        <div className="absolute left-1/2 -translate-x-1/2 bg-zinc-900 px-2 text-xs text-zinc-400 uppercase tracking-wider font-semibold whitespace-nowrap border border-zinc-800 rounded-full z-10 -top-3">
+        <div className="absolute left-1/2 -translate-x-1/2 bg-zinc-900 px-2 text-xs text-zinc-400 uppercase tracking-wider font-semibold whitespace-nowrap border border-zinc-800 rounded-full z-10 top-1">
           {label}
         </div>
-        <div className="absolute left-1/2 -translate-x-1/2 bg-zinc-900 px-2 lg:text-xs text-zinc-300 font-mono border border-zinc-800 rounded-full z-10 -bottom-3">
+        <div className="absolute left-1/2 -translate-x-1/2 bg-zinc-900 px-2 lg:text-xs text-zinc-300 font-mono border border-zinc-800 rounded-full z-10 bottom-1">
           {count}
         </div>
       </Zone>

@@ -27,7 +27,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
   return (
     <div
       className={cn(
-        "w-full h-24 flex flex-col items-center justify-center p-2 bg-zinc-800/30 rounded-lg border-2 border-zinc-700 shadow-lg backdrop-blur-sm relative lg:h-[calc(var(--card-h)*0.75)] lg:p-[calc(var(--card-h)*0.08)]",
+        "group w-full h-24 flex flex-col items-center justify-center p-1.5 bg-zinc-800/30 rounded-lg border-2 border-zinc-700 shadow-lg backdrop-blur-sm relative lg:h-full lg:p-[clamp(4px,calc(var(--sidezone-h)*0.08),10px)]",
         isMe && "border-indigo-500/50 ring-1 ring-indigo-500/20",
         className,
       )}
@@ -40,7 +40,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
               type="button"
               onClick={onEditUsername}
               className={cn(
-                "bg-zinc-900 px-2 text-xs font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full shadow-sm lg:text-md",
+                "bg-zinc-900 px-2 text-xs font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full shadow-sm lg:text-[clamp(10px,calc(var(--sidezone-h)*0.14),14px)]",
                 "cursor-pointer hover:text-zinc-200 hover:border-zinc-500 transition-colors",
               )}
             >
@@ -48,13 +48,13 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
             </button>
           </Tooltip>
         ) : (
-          <div className="bg-zinc-900 px-2 text-md font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full shadow-sm lg:text-xs">
+          <div className="bg-zinc-900 px-2 text-xs font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full shadow-sm lg:text-[clamp(10px,calc(var(--sidezone-h)*0.14),14px)]">
             {player.name || (isMe ? "Me" : "")}
           </div>
         )}
       </div>
 
-      <div className="group w-full flex flex-col items-center justify-center">
+      <div className="w-full flex flex-col items-center justify-center">
         {/* Main Life Counter */}
         <div className="flex items-center gap-1">
           {canEditLife ? (
@@ -64,7 +64,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
               onClick={() => handleLifeChange(-1)}
               disabled={isAtMinLife}
               className={cn(
-                "w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 lg:w-[clamp(28px,calc(var(--card-h)*0.18),36px)] lg:h-[clamp(28px,calc(var(--card-h)*0.18),36px)]",
+                "w-7 h-7 rounded-full bg-zinc-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 lg:w-[clamp(18px,calc(var(--sidezone-h)*0.24),32px)] lg:h-[clamp(18px,calc(var(--sidezone-h)*0.24),32px)]",
                 isAtMinLife
                   ? "cursor-not-allowed text-zinc-500 group-hover:opacity-50"
                   : "hover:bg-red-900/50",
@@ -73,11 +73,11 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
               <Minus size={16} />
             </button>
           ) : (
-            <div className="w-8 h-8" />
+            <div className="w-7 h-7 lg:w-[clamp(18px,calc(var(--sidezone-h)*0.24),32px)] lg:h-[clamp(18px,calc(var(--sidezone-h)*0.24),32px)]" />
           )}
 
           <div
-            className="text-4xl font-bold font-mono text-center leading-none select-none lg:text-[clamp(28px,calc(var(--card-h)*0.32),48px)]"
+            className="text-3xl font-bold font-mono text-center leading-none select-none lg:text-[clamp(18px,calc(var(--sidezone-h)*0.45),46px)]"
             onContextMenu={canEditLife ? onContextMenu : undefined}
           >
             {player.life}
@@ -90,7 +90,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
               onClick={() => handleLifeChange(1)}
               disabled={isAtMaxLife}
               className={cn(
-                "w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 lg:w-[clamp(28px,calc(var(--card-h)*0.18),36px)] lg:h-[clamp(28px,calc(var(--card-h)*0.18),36px)]",
+                "w-7 h-7 rounded-full bg-zinc-700 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 lg:w-[clamp(18px,calc(var(--sidezone-h)*0.24),32px)] lg:h-[clamp(18px,calc(var(--sidezone-h)*0.24),32px)]",
                 isAtMaxLife
                   ? "cursor-not-allowed text-zinc-500 group-hover:opacity-50"
                   : "hover:bg-green-900/50",
@@ -99,7 +99,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
               <Plus size={16} />
             </button>
           ) : (
-            <div className="w-8 h-8" />
+            <div className="w-7 h-7 lg:w-[clamp(18px,calc(var(--sidezone-h)*0.24),32px)] lg:h-[clamp(18px,calc(var(--sidezone-h)*0.24),32px)]" />
           )}
         </div>
 
@@ -117,7 +117,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
             )}
           >
             {/* Label straddling top border */}
-            <div className="absolute left-1/2 -translate-x-1/2 bg-zinc-900 px-2 text-xs font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full z-10 -top-2.5 shadow-sm lg:text-[clamp(14px,calc(var(--card-h)*0.12),16px)]">
+            <div className="absolute left-1/2 -translate-x-1/2 bg-zinc-900 px-2 text-xs font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full z-10 -top-2.5 shadow-sm">
               CMDR DMG
             </div>
 

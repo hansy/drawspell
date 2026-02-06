@@ -15,6 +15,18 @@ export const PREVIEW_SCALE_K = 1.6;
 export const PREVIEW_MIN_WIDTH_PX = 200;
 export const PREVIEW_MAX_WIDTH_PX = 400;
 export const MIN_CARD_HEIGHT_PX = 80;
+export const SIDEBAR_WIDTH_PCT = 0.15;
+export const SIDEBAR_PAD_X_PX = 16;
+export const SIDEBAR_PAD_Y_MIN_PX = 10;
+export const SIDEBAR_PAD_Y_MAX_PX = 24;
+export const SIDEBAR_SECTION_GAP_MIN_PX = 8;
+export const SIDEBAR_SECTION_GAP_MAX_PX = 20;
+export const SIDEZONE_COUNT = 3;
+export const SIDEZONE_TARGET_ASPECT = 1.5;
+export const SIDEZONE_MIN_GAP_PX = 0;
+export const SIDEZONE_MAX_GAP_PX = 20;
+// Matches the `-top-3/-bottom-3` label overhang in SideZone.
+export const SIDEZONE_CONTAINER_PAD_Y_PX = 12;
 
 // DialogContent default p-6.
 export const MODAL_PAD_PX = 24;
@@ -42,6 +54,16 @@ export interface SeatSizing {
   cmdrStackOffsetPx: number;
   viewScale: number;
   modalPadPx: number;
+  sidebarWidthPx: number;
+  sidebarPadXPx: number;
+  sidebarPadYPx: number;
+  sidebarSectionGapPx: number;
+  lifeBoxHeightPx: number;
+  sidezoneHeightPx: number;
+  sidezoneGapPx: number;
+  sidezoneContainerPadYPx: number;
+  sidezoneAspect: number;
+  sidezoneCardScale: number;
 }
 
 const clamp = (value: number, min: number, max: number) =>
@@ -110,6 +132,49 @@ export const computeSeatSizing = (
     battlefieldHeightPx / 4,
   );
   const baseCardWidthPx = baseCardHeightPx * CARD_ASPECT_RATIO;
+  const sidebarPadYPx = clamp(
+    seatHeight * 0.03,
+    SIDEBAR_PAD_Y_MIN_PX,
+    SIDEBAR_PAD_Y_MAX_PX,
+  );
+  const sidebarSectionGapPx = 0;
+  const sidebarWidthTargetPx = seatWidth * SIDEBAR_WIDTH_PCT;
+  const stackVerticalBudgetPx = Math.max(
+    0,
+    seatHeight - sidebarPadYPx * 2 - sidebarSectionGapPx,
+  );
+  const zonesBlockBudgetPx = Math.max(
+    0,
+    stackVerticalBudgetPx - SIDEZONE_CONTAINER_PAD_Y_PX * 2,
+  );
+  const sidebarWidthByHeightPx =
+    (zonesBlockBudgetPx * SIDEZONE_TARGET_ASPECT) / (SIDEZONE_COUNT + 1) +
+    SIDEBAR_PAD_X_PX * 2;
+  const sidebarWidthPx = Math.max(
+    SIDEBAR_PAD_X_PX * 2 + 1,
+    Math.min(sidebarWidthTargetPx, sidebarWidthByHeightPx),
+  );
+  const sidebarInnerWidthPx = Math.max(
+    1,
+    sidebarWidthPx - SIDEBAR_PAD_X_PX * 2,
+  );
+  const sidezoneHeightPx = sidebarInnerWidthPx / SIDEZONE_TARGET_ASPECT;
+  const lifeBoxHeightPx = sidezoneHeightPx;
+  const zonesVerticalBudgetPx = Math.max(
+    0,
+    zonesBlockBudgetPx - lifeBoxHeightPx,
+  );
+  const sidezoneGapPx =
+    SIDEZONE_COUNT > 1
+      ? clamp(
+          (zonesVerticalBudgetPx - sidezoneHeightPx * SIDEZONE_COUNT) /
+            (SIDEZONE_COUNT - 1),
+          SIDEZONE_MIN_GAP_PX,
+          SIDEZONE_MAX_GAP_PX,
+        )
+      : 0;
+  const sidezoneAspect = SIDEZONE_TARGET_ASPECT;
+  const sidezoneCardScale = sidezoneAspect;
 
   const { previewWidthPx, previewHeightPx } = getPreviewDimensions(
     baseCardWidthPx,
@@ -137,6 +202,16 @@ export const computeSeatSizing = (
     cmdrStackOffsetPx,
     viewScale,
     modalPadPx,
+    sidebarWidthPx,
+    sidebarPadXPx: SIDEBAR_PAD_X_PX,
+    sidebarPadYPx,
+    sidebarSectionGapPx,
+    lifeBoxHeightPx,
+    sidezoneHeightPx,
+    sidezoneGapPx,
+    sidezoneContainerPadYPx: SIDEZONE_CONTAINER_PAD_Y_PX,
+    sidezoneAspect,
+    sidezoneCardScale,
   };
 };
 
@@ -257,6 +332,16 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
       "--preview-h": `${sizing.previewHeightPx}px`,
       "--preview-w": `${sizing.previewWidthPx}px`,
       "--modal-pad": `${sizing.modalPadPx}px`,
+      "--seat-sidebar-w": `${sizing.sidebarWidthPx}px`,
+      "--sidebar-pad-x": `${sizing.sidebarPadXPx}px`,
+      "--sidebar-pad-y": `${sizing.sidebarPadYPx}px`,
+      "--sidebar-section-gap": `${sizing.sidebarSectionGapPx}px`,
+      "--lifebox-h": `${sizing.lifeBoxHeightPx}px`,
+      "--sidezone-h": `${sizing.sidezoneHeightPx}px`,
+      "--sidezone-gap": `${sizing.sidezoneGapPx}px`,
+      "--sidezone-container-pad-y": `${sizing.sidezoneContainerPadYPx}px`,
+      "--sidezone-aspect": `${sizing.sidezoneAspect}`,
+      "--sidezone-card-scale": `${sizing.sidezoneCardScale}`,
     } as React.CSSProperties;
   }, [sizing]);
 
