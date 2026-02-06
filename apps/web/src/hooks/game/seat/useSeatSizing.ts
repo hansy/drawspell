@@ -15,7 +15,8 @@ export const PREVIEW_SCALE_K = 1.6;
 export const PREVIEW_MIN_WIDTH_PX = 200;
 export const PREVIEW_MAX_WIDTH_PX = 400;
 export const MIN_CARD_HEIGHT_PX = 80;
-export const SIDEBAR_WIDTH_PCT = 0.15;
+export const SIDEBAR_MIN_WIDTH_PX = 120;
+export const SIDEBAR_WIDTH_SCALE_K = 0.195;
 export const SIDEBAR_PAD_X_PX = 16;
 export const SIDEBAR_PAD_Y_MIN_PX = 10;
 export const SIDEBAR_PAD_Y_MAX_PX = 24;
@@ -23,10 +24,19 @@ export const SIDEBAR_SECTION_GAP_MIN_PX = 8;
 export const SIDEBAR_SECTION_GAP_MAX_PX = 20;
 export const SIDEZONE_COUNT = 3;
 export const SIDEZONE_TARGET_ASPECT = 1.5;
+export const SIDEZONE_LABEL_OVERHANG_PCT = 0.012;
+export const SIDEZONE_LABEL_OVERHANG_MIN_PX = 6;
+export const SIDEZONE_LABEL_OVERHANG_MAX_PX = 10;
+export const SIDEZONE_TARGET_GAP_PCT = 0.012;
+export const SIDEZONE_TARGET_GAP_MIN_PX = 8;
+export const SIDEZONE_TARGET_GAP_MAX_PX = 16;
 export const SIDEZONE_MIN_GAP_PX = 0;
-export const SIDEZONE_MAX_GAP_PX = 20;
+export const SIDEZONE_MAX_GAP_PX = 28;
 // Matches the `-top-3/-bottom-3` label overhang in SideZone.
 export const SIDEZONE_CONTAINER_PAD_Y_PX = 12;
+export const BATTLEFIELD_MIN_WIDTH_PX = 420;
+export const BATTLEFIELD_MIN_CARD_COLUMNS = 6.5;
+export const BATTLEFIELD_MAX_WIDTH_SHARE = 0.9;
 
 // DialogContent default p-6.
 export const MODAL_PAD_PX = 24;
@@ -138,7 +148,10 @@ export const computeSeatSizing = (
     SIDEBAR_PAD_Y_MAX_PX,
   );
   const sidebarSectionGapPx = 0;
-  const sidebarWidthTargetPx = seatWidth * SIDEBAR_WIDTH_PCT;
+  const sidebarWidthTargetPx = Math.max(
+    SIDEBAR_MIN_WIDTH_PX,
+    Math.sqrt(seatWidth * seatHeight) * SIDEBAR_WIDTH_SCALE_K,
+  );
   const stackVerticalBudgetPx = Math.max(
     0,
     seatHeight - sidebarPadYPx * 2 - sidebarSectionGapPx,
@@ -147,12 +160,44 @@ export const computeSeatSizing = (
     0,
     stackVerticalBudgetPx - SIDEZONE_CONTAINER_PAD_Y_PX * 2,
   );
+  const sidezoneTargetGapPx = clamp(
+    seatHeight * SIDEZONE_TARGET_GAP_PCT,
+    SIDEZONE_TARGET_GAP_MIN_PX,
+    SIDEZONE_TARGET_GAP_MAX_PX,
+  );
+  const sidezoneLabelOverhangPx = clamp(
+    seatHeight * SIDEZONE_LABEL_OVERHANG_PCT,
+    SIDEZONE_LABEL_OVERHANG_MIN_PX,
+    SIDEZONE_LABEL_OVERHANG_MAX_PX,
+  );
+  const sidezoneTargetStackGapPx =
+    sidezoneTargetGapPx + sidezoneLabelOverhangPx * 2;
+  const zonesBlockBudgetForSizedGapsPx = Math.max(
+    0,
+    zonesBlockBudgetPx - (SIDEZONE_COUNT - 1) * sidezoneTargetStackGapPx,
+  );
   const sidebarWidthByHeightPx =
-    (zonesBlockBudgetPx * SIDEZONE_TARGET_ASPECT) / (SIDEZONE_COUNT + 1) +
+    (zonesBlockBudgetForSizedGapsPx * SIDEZONE_TARGET_ASPECT) /
+      (SIDEZONE_COUNT + 1) +
     SIDEBAR_PAD_X_PX * 2;
+  const battlefieldMinWidthPx = Math.min(
+    seatWidth * BATTLEFIELD_MAX_WIDTH_SHARE,
+    Math.max(
+      BATTLEFIELD_MIN_WIDTH_PX,
+      baseCardWidthPx * BATTLEFIELD_MIN_CARD_COLUMNS,
+    ),
+  );
+  const sidebarWidthByBattlefieldPx = Math.max(
+    SIDEBAR_PAD_X_PX * 2 + 1,
+    seatWidth - battlefieldMinWidthPx,
+  );
   const sidebarWidthPx = Math.max(
     SIDEBAR_PAD_X_PX * 2 + 1,
-    Math.min(sidebarWidthTargetPx, sidebarWidthByHeightPx),
+    Math.min(
+      sidebarWidthTargetPx,
+      sidebarWidthByHeightPx,
+      sidebarWidthByBattlefieldPx,
+    ),
   );
   const sidebarInnerWidthPx = Math.max(
     1,

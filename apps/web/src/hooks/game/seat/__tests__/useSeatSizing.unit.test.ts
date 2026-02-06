@@ -15,6 +15,12 @@ import {
   PREVIEW_MAX_WIDTH_PX,
   PREVIEW_MIN_WIDTH_PX,
   PREVIEW_SCALE_K,
+  SIDEBAR_MIN_WIDTH_PX,
+  SIDEBAR_WIDTH_SCALE_K,
+  BATTLEFIELD_MAX_WIDTH_SHARE,
+  SIDEZONE_LABEL_OVERHANG_MIN_PX,
+  SIDEZONE_TARGET_GAP_MIN_PX,
+  SIDEZONE_MAX_GAP_PX,
 } from "../useSeatSizing";
 
 const setMatchMedia = (matches: boolean) => {
@@ -37,11 +43,16 @@ const setMatchMedia = (matches: boolean) => {
 describe("computeSeatSizing", () => {
   it("derives base sizing from seat height", () => {
     const result = computeSeatSizing({ seatWidth: 1000, seatHeight: 800 });
+    const expectedSidebarWidth = Math.max(
+      SIDEBAR_MIN_WIDTH_PX,
+      Math.sqrt(1000 * 800) * SIDEBAR_WIDTH_SCALE_K,
+    );
 
     expect(result.handHeightPx).toBeCloseTo(200);
     expect(result.battlefieldHeightPx).toBeCloseTo(600);
     expect(result.baseCardHeightPx).toBeCloseTo(150);
     expect(result.baseCardWidthPx).toBeCloseTo(100);
+    expect(result.sidebarWidthPx).toBeCloseTo(expectedSidebarWidth, 6);
     expect(result.previewWidthPx).toBe(PREVIEW_MIN_WIDTH_PX);
     expect(result.previewHeightPx).toBeCloseTo(300);
   });
@@ -88,6 +99,38 @@ describe("computeSeatSizing", () => {
       result.sidezoneHeightPx * 3 +
       result.sidezoneGapPx * 2;
     expect(verticalUsed).toBeLessThanOrEqual(result.seatHeightPx + 1e-6);
+  });
+
+  it("caps sidebar by height budget to preserve non-zero side zone gaps", () => {
+    const seatWidth = 4000;
+    const seatHeight = 600;
+    const result = computeSeatSizing({ seatWidth, seatHeight });
+    const targetSidebarWidth = Math.max(
+      SIDEBAR_MIN_WIDTH_PX,
+      Math.sqrt(seatWidth * seatHeight) * SIDEBAR_WIDTH_SCALE_K,
+    );
+    const expectedMinGap = Math.min(
+      SIDEZONE_MAX_GAP_PX,
+      SIDEZONE_TARGET_GAP_MIN_PX + SIDEZONE_LABEL_OVERHANG_MIN_PX * 2,
+    );
+
+    expect(result.sidebarWidthPx).toBeLessThan(targetSidebarWidth);
+    expect(result.sidezoneGapPx).toBeGreaterThanOrEqual(expectedMinGap);
+  });
+
+  it("caps sidebar when preserving battlefield minimum width", () => {
+    const seatWidth = 600;
+    const seatHeight = 1600;
+    const result = computeSeatSizing({ seatWidth, seatHeight });
+    const targetSidebarWidth = Math.max(
+      SIDEBAR_MIN_WIDTH_PX,
+      Math.sqrt(seatWidth * seatHeight) * SIDEBAR_WIDTH_SCALE_K,
+    );
+
+    expect(result.sidebarWidthPx).toBeLessThan(targetSidebarWidth);
+    expect(result.sidebarWidthPx).toBeLessThanOrEqual(
+      seatWidth * (1 - BATTLEFIELD_MAX_WIDTH_SHARE) + 1e-6,
+    );
   });
 });
 
