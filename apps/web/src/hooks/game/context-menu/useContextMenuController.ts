@@ -77,7 +77,7 @@ export const useContextMenuController = ({
   }, [referenceElement, anchorVirtualElement, refs]);
 
   React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handlePointerOutside = (event: PointerEvent) => {
       const target = event.target as Node | null;
       if (!target) return;
 
@@ -92,9 +92,9 @@ export const useContextMenuController = ({
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("pointerdown", handlePointerOutside);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("pointerdown", handlePointerOutside);
     };
   }, [onClose, isSubmenu]);
 

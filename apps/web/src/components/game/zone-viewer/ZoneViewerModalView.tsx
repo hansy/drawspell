@@ -8,6 +8,7 @@ import { useGameStore } from "@/store/gameStore";
 import { ZoneViewerModalHeader } from "./ZoneViewerModalHeader";
 import { ZoneViewerGroupedView } from "./ZoneViewerGroupedView";
 import { ZoneViewerLinearView } from "./ZoneViewerLinearView";
+import { useTwoFingerScroll } from "@/hooks/shared/useTwoFingerScroll";
 
 export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
   isOpen,
@@ -47,6 +48,8 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
     () => getPreviewDimensions(baseCardWidthPx),
     [baseCardWidthPx]
   );
+  const [scrollNode, setScrollNode] = React.useState<HTMLDivElement | null>(null);
+  useTwoFingerScroll({ target: scrollNode, axis: "x" });
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -66,7 +69,10 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
             />
           </div>
 
-          <div className="flex-1 overflow-x-auto overflow-y-hidden pt-4 bg-zinc-950/50">
+          <div
+            ref={setScrollNode}
+            className="flex-1 overflow-x-auto overflow-y-hidden pt-4 bg-zinc-950/50 touch-none"
+          >
             {!isPreviewReady ? (
               <div className="h-full flex items-center justify-center text-zinc-500">
                 Preparing card previews...

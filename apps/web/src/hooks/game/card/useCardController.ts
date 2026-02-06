@@ -12,6 +12,7 @@ import {
 } from "@/lib/reveal";
 import { getFlipRotation } from "@/lib/cardDisplay";
 import { useSelectionStore } from "@/store/selectionStore";
+import { useDragStore } from "@/store/dragStore";
 import {
   canToggleCardPreviewLock,
   computeCardContainerStyle,
@@ -24,6 +25,18 @@ import type { CardProps, CardViewProps } from "@/components/game/card/types";
 
 const PREVIEW_LOCK_LONG_PRESS_MS = 400;
 const PREVIEW_LOCK_MOVE_TOLERANCE_PX = 8;
+const TOUCH_TWO_FINGER_HOLD_MS = 500;
+const TOUCH_MOVE_TOLERANCE_PX = 10;
+const TOUCH_PREVIEW_TAP_MOVE_TOLERANCE_PX = 6;
+
+type TouchPointState = {
+  startX: number;
+  startY: number;
+  x: number;
+  y: number;
+  target: HTMLDivElement;
+  moved: boolean;
+};
 
 export type CardController = {
   ref: (node: HTMLElement | null) => void;
@@ -49,7 +62,7 @@ export const useCardController = (props: CardProps): CardController => {
     isSelected: propIsSelected,
   } = props;
 
-  const { showPreview, hidePreview, toggleLock } = useCardPreview();
+  const { showPreview, hidePreview, toggleLock, lockPreview } = useCardPreview();
   const {
     attributes,
     listeners,
@@ -133,6 +146,14 @@ export const useCardController = (props: CardProps): CardController => {
     typeof setTimeout
   > | null>(null);
   const lockPressStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const touchPointsRef = React.useRef<Map<number, TouchPointState>>(new Map());
+  const primaryTouchPointerIdRef = React.useRef<number | null>(null);
+  const touchHadMultiTouchRef = React.useRef(false);
+  const touchContextMenuTriggeredRef = React.useRef(false);
+  const twoFingerHoldTimeoutRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const twoFingerHoldPointerIdsRef = React.useRef<[number, number] | null>(null);
 
   const clearLockPress = React.useCallback(() => {
     if (lockPressTimeoutRef.current) {
@@ -141,6 +162,26 @@ export const useCardController = (props: CardProps): CardController => {
     }
     lockPressStartRef.current = null;
   }, []);
+
+  const clearTwoFingerHoldTimeout = React.useCallback(() => {
+    if (twoFingerHoldTimeoutRef.current) {
+      clearTimeout(twoFingerHoldTimeoutRef.current);
+      twoFingerHoldTimeoutRef.current = null;
+    }
+  }, []);
+
+  const cancelTwoFingerHold = React.useCallback(() => {
+    clearTwoFingerHoldTimeout();
+    twoFingerHoldPointerIdsRef.current = null;
+  }, [clearTwoFingerHoldTimeout]);
+
+  const resetTouchGesture = React.useCallback(() => {
+    cancelTwoFingerHold();
+    touchPointsRef.current.clear();
+    primaryTouchPointerIdRef.current = null;
+    touchHadMultiTouchRef.current = false;
+    touchContextMenuTriggeredRef.current = false;
+  }, [cancelTwoFingerHold]);
 
   const handleMouseEnter = React.useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -196,6 +237,7 @@ export const useCardController = (props: CardProps): CardController => {
   const handleLockPressStart = React.useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (interactionsDisabled) return;
+      if (e.pointerType === "touch") return;
       if (e.button !== 0) return;
       if (
         e.defaultPrevented ||
@@ -230,22 +272,6 @@ export const useCardController = (props: CardProps): CardController => {
     },
     [zoneType, interactionsDisabled, card, toggleLock, faceDown, canPeek]
   );
-
-  const handleLockPressMove = React.useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!lockPressTimeoutRef.current || !lockPressStartRef.current) return;
-      const dx = e.clientX - lockPressStartRef.current.x;
-      const dy = e.clientY - lockPressStartRef.current.y;
-      if (Math.hypot(dx, dy) > PREVIEW_LOCK_MOVE_TOLERANCE_PX) {
-        clearLockPress();
-      }
-    },
-    [clearLockPress]
-  );
-
-  const handleLockPressEnd = React.useCallback(() => {
-    clearLockPress();
-  }, [clearLockPress]);
 
   const handleDoubleClick = React.useCallback(() => {
     if (viewerRole === "spectator") return;
@@ -287,6 +313,195 @@ export const useCardController = (props: CardProps): CardController => {
     viewerRole,
   ]);
 
+  const openTouchContextMenu = React.useCallback(
+    (pointA: TouchPointState, pointB: TouchPointState) => {
+      if (!onContextMenu) return;
+      const clientX = (pointA.x + pointB.x) / 2;
+      const clientY = (pointA.y + pointB.y) / 2;
+      onContextMenu({
+        preventDefault: () => {},
+        stopPropagation: () => {},
+        clientX,
+        clientY,
+        currentTarget: pointA.target,
+        target: pointA.target,
+      } as unknown as React.MouseEvent);
+    },
+    [onContextMenu]
+  );
+
+  const beginTwoFingerHold = React.useCallback(() => {
+    if (!onContextMenu) return;
+    if (interactionsDisabled) return;
+    const points = Array.from(touchPointsRef.current.entries());
+    if (points.length !== 2) return;
+    const pointerIds: [number, number] = [points[0][0], points[1][0]];
+    twoFingerHoldPointerIdsRef.current = pointerIds;
+    clearTwoFingerHoldTimeout();
+    twoFingerHoldTimeoutRef.current = setTimeout(() => {
+      const trackedIds = twoFingerHoldPointerIdsRef.current;
+      if (!trackedIds) return;
+      const pointA = touchPointsRef.current.get(trackedIds[0]);
+      const pointB = touchPointsRef.current.get(trackedIds[1]);
+      if (!pointA || !pointB) return;
+      if (pointA.moved || pointB.moved) return;
+      touchContextMenuTriggeredRef.current = true;
+      clearTwoFingerHoldTimeout();
+      twoFingerHoldPointerIdsRef.current = null;
+      openTouchContextMenu(pointA, pointB);
+    }, TOUCH_TWO_FINGER_HOLD_MS);
+  }, [
+    clearTwoFingerHoldTimeout,
+    interactionsDisabled,
+    onContextMenu,
+    openTouchContextMenu,
+  ]);
+
+  const handleTouchPressStart = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType !== "touch") return;
+      if (interactionsDisabled) return;
+      if (event.button !== 0) return;
+      if (
+        event.defaultPrevented ||
+        event.shiftKey ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      touchPointsRef.current.set(event.pointerId, {
+        startX: event.clientX,
+        startY: event.clientY,
+        x: event.clientX,
+        y: event.clientY,
+        target: event.currentTarget,
+        moved: false,
+      });
+
+      const pointCount = touchPointsRef.current.size;
+      if (pointCount === 1) {
+        primaryTouchPointerIdRef.current = event.pointerId;
+        touchHadMultiTouchRef.current = false;
+        touchContextMenuTriggeredRef.current = false;
+      } else {
+        touchHadMultiTouchRef.current = true;
+      }
+
+      if (pointCount === 2) {
+        beginTwoFingerHold();
+        return;
+      }
+      if (pointCount > 2) {
+        cancelTwoFingerHold();
+      }
+    },
+    [beginTwoFingerHold, cancelTwoFingerHold, interactionsDisabled]
+  );
+
+  const handleTouchPressMove = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType !== "touch") return;
+      const point = touchPointsRef.current.get(event.pointerId);
+      if (!point) return;
+      point.x = event.clientX;
+      point.y = event.clientY;
+      if (!point.moved) {
+        const dx = event.clientX - point.startX;
+        const dy = event.clientY - point.startY;
+        if (Math.hypot(dx, dy) > TOUCH_MOVE_TOLERANCE_PX) {
+          point.moved = true;
+        }
+      }
+      const trackedIds = twoFingerHoldPointerIdsRef.current;
+      if (trackedIds) {
+        const pointA = touchPointsRef.current.get(trackedIds[0]);
+        const pointB = touchPointsRef.current.get(trackedIds[1]);
+        if (!pointA || !pointB || pointA.moved || pointB.moved) {
+          cancelTwoFingerHold();
+        }
+      }
+    },
+    [cancelTwoFingerHold]
+  );
+
+  const handleTouchPressFinish = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType !== "touch") return;
+      const point = touchPointsRef.current.get(event.pointerId);
+      if (!point) return;
+
+      point.x = event.clientX;
+      point.y = event.clientY;
+      const movement = Math.hypot(point.x - point.startX, point.y - point.startY);
+      const wasPrimaryTouch = primaryTouchPointerIdRef.current === event.pointerId;
+
+      touchPointsRef.current.delete(event.pointerId);
+      if (touchPointsRef.current.size < 2) {
+        cancelTwoFingerHold();
+      }
+
+      const previewPolicy = getCardHoverPreviewPolicy({
+        zoneType,
+        canPeek,
+        faceDown,
+        isDragging: interactionsDisabled,
+        isZoneTopCard,
+        allowLibraryTopPreview: canSeeLibraryTop,
+      });
+      const shouldShowPreview = Boolean(
+        wasPrimaryTouch &&
+          !touchHadMultiTouchRef.current &&
+          !touchContextMenuTriggeredRef.current &&
+          movement <= TOUCH_PREVIEW_TAP_MOVE_TOLERANCE_PX &&
+          !interactionsDisabled &&
+          previewPolicy.kind !== "none"
+      );
+      if (touchPointsRef.current.size === 0) {
+        primaryTouchPointerIdRef.current = null;
+        touchHadMultiTouchRef.current = false;
+        touchContextMenuTriggeredRef.current = false;
+      }
+
+      if (!shouldShowPreview) return;
+      if (useDragStore.getState().activeCardId === card.id) return;
+      lockPreview(card, point.target);
+    },
+    [
+      cancelTwoFingerHold,
+      canPeek,
+      canSeeLibraryTop,
+      card,
+      faceDown,
+      interactionsDisabled,
+      isZoneTopCard,
+      lockPreview,
+      zoneType,
+    ]
+  );
+
+  const handleTouchPressCancel = React.useCallback(() => {
+    resetTouchGesture();
+  }, [resetTouchGesture]);
+
+  const handleLockPressMove = React.useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!lockPressTimeoutRef.current || !lockPressStartRef.current) return;
+      const dx = e.clientX - lockPressStartRef.current.x;
+      const dy = e.clientY - lockPressStartRef.current.y;
+      if (Math.hypot(dx, dy) > PREVIEW_LOCK_MOVE_TOLERANCE_PX) {
+        clearLockPress();
+      }
+    },
+    [clearLockPress]
+  );
+
+  const handleLockPressEnd = React.useCallback(() => {
+    clearLockPress();
+  }, [clearLockPress]);
+
   const handlePointerDown = React.useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (viewerRole === "spectator") return;
@@ -324,9 +539,10 @@ export const useCardController = (props: CardProps): CardController => {
         clearTimeout(hoverTimeoutRef.current);
       }
       clearLockPress();
+      resetTouchGesture();
       hidePreview(card.id);
     };
-  }, [hidePreview, clearLockPress, card.id]);
+  }, [card.id, clearLockPress, hidePreview, resetTouchGesture]);
 
   const disableHoverAnimation =
     Boolean(propDisableHoverAnimation) ||
@@ -349,10 +565,22 @@ export const useCardController = (props: CardProps): CardController => {
       onDoubleClick: handleDoubleClick,
       onMouseEnter: handleMouseEnter,
       onMouseLeave: handleMouseLeave,
-      onPointerMove: handleLockPressMove,
-      onPointerUp: handleLockPressEnd,
-      onPointerCancel: handleLockPressEnd,
-      onPointerLeave: handleLockPressEnd,
+      onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => {
+        handleLockPressMove(event);
+        handleTouchPressMove(event);
+      },
+      onPointerUp: (event: React.PointerEvent<HTMLDivElement>) => {
+        handleLockPressEnd();
+        handleTouchPressFinish(event);
+      },
+      onPointerCancel: () => {
+        handleLockPressEnd();
+        handleTouchPressCancel();
+      },
+      onPointerLeave: () => {
+        handleLockPressEnd();
+        handleTouchPressCancel();
+      },
       imageTransform,
       preferArtCrop: useArtCrop,
       rotateLabel,
@@ -367,6 +595,7 @@ export const useCardController = (props: CardProps): CardController => {
       onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => {
         handlePointerDown(event);
         handleLockPressStart(event);
+        handleTouchPressStart(event);
         listeners?.onPointerDown?.(event);
       },
     },

@@ -5,6 +5,7 @@ import { CardView } from "../card/Card";
 import { cn } from "@/lib/utils";
 import { getPreviewDimensions, useIsLg } from "@/hooks/game/seat/useSeatSizing";
 import { useGameStore } from "@/store/gameStore";
+import { useTwoFingerScroll } from "@/hooks/shared/useTwoFingerScroll";
 
 import type { OpponentLibraryRevealsController } from "@/hooks/game/opponent-library-reveals/useOpponentLibraryRevealsController";
 
@@ -25,6 +26,8 @@ export const OpponentLibraryRevealsModalView: React.FC<OpponentLibraryRevealsCon
     () => getPreviewDimensions(baseCardWidthPx),
     [baseCardWidthPx]
   );
+  const [scrollNode, setScrollNode] = React.useState<HTMLDivElement | null>(null);
+  useTwoFingerScroll({ target: scrollNode, axis: "x" });
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -39,7 +42,10 @@ export const OpponentLibraryRevealsModalView: React.FC<OpponentLibraryRevealsCon
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-x-auto overflow-y-hidden py-4">
+        <div
+          ref={setScrollNode}
+          className="flex-1 overflow-x-auto overflow-y-hidden py-4 touch-none"
+        >
           {!isPreviewReady ? (
             <div className="h-full flex items-center justify-center text-zinc-500">
               Preparing card previews...

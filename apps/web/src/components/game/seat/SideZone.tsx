@@ -5,6 +5,22 @@ import { Card } from "../card/Card";
 import { cn } from "@/lib/utils";
 import { ZONE_SIDEWAYS_CLASSES } from "@/lib/constants";
 
+const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
+const TOUCH_DOUBLE_TAP_MS = 280;
+const TOUCH_MOVE_TOLERANCE_PX = 10;
+const NATIVE_CLICK_SUPPRESSION_MS = 450;
+
+type TouchPressState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  clientX: number;
+  clientY: number;
+  target: HTMLDivElement;
+  moved: boolean;
+  longPressTriggered: boolean;
+};
+
 interface SideZoneProps {
   zone: ZoneType;
   card?: CardType;
@@ -39,12 +55,213 @@ export const SideZone: React.FC<SideZoneProps> = ({
   rightIndicator,
   indicatorSide = "right",
 }) => {
+  const touchPressTimeoutRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const touchPressRef = React.useRef<TouchPressState | null>(null);
+  const lastTapRef = React.useRef<{
+    timestamp: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const suppressNativeUntilRef = React.useRef(0);
+
+  const clearTouchPressTimeout = React.useCallback(() => {
+    if (touchPressTimeoutRef.current) {
+      clearTimeout(touchPressTimeoutRef.current);
+      touchPressTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearTouchPress = React.useCallback(() => {
+    clearTouchPressTimeout();
+    touchPressRef.current = null;
+  }, [clearTouchPressTimeout]);
+
+  const suppressNativeMouseEvents = React.useCallback(() => {
+    suppressNativeUntilRef.current = Date.now() + NATIVE_CLICK_SUPPRESSION_MS;
+  }, []);
+
+  const shouldSuppressNativeMouseEvents = React.useCallback(
+    () => Date.now() < suppressNativeUntilRef.current,
+    []
+  );
+
+  const isCardTarget = React.useCallback((target: EventTarget | null) => {
+    return target instanceof HTMLElement && Boolean(target.closest("[data-card-id]"));
+  }, []);
+
+  const handleContextMenu = React.useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      onContextMenu?.(event, zone.id);
+    },
+    [onContextMenu, zone.id]
+  );
+
+  const handleClick = React.useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (shouldSuppressNativeMouseEvents()) return;
+      if (isCardTarget(event.target)) return;
+      onClick?.(event, zone.id);
+    },
+    [isCardTarget, onClick, shouldSuppressNativeMouseEvents, zone.id]
+  );
+
+  const handleDoubleClick = React.useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (shouldSuppressNativeMouseEvents()) return;
+      if (isCardTarget(event.target)) return;
+      onDoubleClick?.(event, zone.id);
+    },
+    [isCardTarget, onDoubleClick, shouldSuppressNativeMouseEvents, zone.id]
+  );
+
+  const handleTouchPressStart = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType !== "touch") return;
+      if (event.button !== 0) return;
+      if (isCardTarget(event.target)) return;
+
+      if (
+        touchPressRef.current &&
+        touchPressRef.current.pointerId !== event.pointerId
+      ) {
+        clearTouchPress();
+        return;
+      }
+
+      const press: TouchPressState = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        target: event.currentTarget,
+        moved: false,
+        longPressTriggered: false,
+      };
+      touchPressRef.current = press;
+      clearTouchPressTimeout();
+      touchPressTimeoutRef.current = setTimeout(() => {
+        const currentPress = touchPressRef.current;
+        if (!currentPress) return;
+        if (currentPress.pointerId !== press.pointerId) return;
+        if (currentPress.moved) return;
+        currentPress.longPressTriggered = true;
+        touchPressTimeoutRef.current = null;
+        suppressNativeMouseEvents();
+        onContextMenu?.(
+          {
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            clientX: currentPress.clientX,
+            clientY: currentPress.clientY,
+            currentTarget: currentPress.target,
+            target: currentPress.target,
+          } as unknown as React.MouseEvent,
+          zone.id
+        );
+      }, TOUCH_CONTEXT_MENU_LONG_PRESS_MS);
+    },
+    [
+      clearTouchPress,
+      clearTouchPressTimeout,
+      isCardTarget,
+      onContextMenu,
+      suppressNativeMouseEvents,
+      zone.id,
+    ]
+  );
+
+  const handleTouchPressMove = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType !== "touch") return;
+      const press = touchPressRef.current;
+      if (!press || press.pointerId !== event.pointerId) return;
+      press.clientX = event.clientX;
+      press.clientY = event.clientY;
+      if (press.moved) return;
+      const dx = event.clientX - press.startX;
+      const dy = event.clientY - press.startY;
+      if (Math.hypot(dx, dy) > TOUCH_MOVE_TOLERANCE_PX) {
+        press.moved = true;
+        clearTouchPressTimeout();
+      }
+    },
+    [clearTouchPressTimeout]
+  );
+
+  const handleTouchPressEnd = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType !== "touch") return;
+      const press = touchPressRef.current;
+      if (!press || press.pointerId !== event.pointerId) return;
+      press.clientX = event.clientX;
+      press.clientY = event.clientY;
+      clearTouchPressTimeout();
+      touchPressRef.current = null;
+      suppressNativeMouseEvents();
+
+      if (press.longPressTriggered || press.moved) return;
+
+      const now = Date.now();
+      const previousTap = lastTapRef.current;
+      const isDoubleTap = Boolean(
+        previousTap &&
+          now - previousTap.timestamp <= TOUCH_DOUBLE_TAP_MS &&
+          Math.hypot(event.clientX - previousTap.x, event.clientY - previousTap.y) <=
+            TOUCH_MOVE_TOLERANCE_PX
+      );
+      if (isDoubleTap) {
+        lastTapRef.current = null;
+        onDoubleClick?.(event as unknown as React.MouseEvent, zone.id);
+        return;
+      }
+
+      lastTapRef.current = {
+        timestamp: now,
+        x: event.clientX,
+        y: event.clientY,
+      };
+      onClick?.(event as unknown as React.MouseEvent, zone.id);
+    },
+    [
+      clearTouchPressTimeout,
+      onClick,
+      onDoubleClick,
+      suppressNativeMouseEvents,
+      zone.id,
+    ]
+  );
+
+  const handleTouchPressCancel = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType !== "touch") return;
+      const press = touchPressRef.current;
+      if (!press || press.pointerId !== event.pointerId) return;
+      clearTouchPress();
+      suppressNativeMouseEvents();
+    },
+    [clearTouchPress, suppressNativeMouseEvents]
+  );
+
+  React.useEffect(() => {
+    return () => {
+      clearTouchPress();
+    };
+  }, [clearTouchPress]);
+
   return (
     <div
-      className="relative group w-full h-[var(--sidezone-h)] min-h-0 shrink-0 flex items-center justify-center"
-      onContextMenu={(e) => onContextMenu?.(e, zone.id)}
-      onClick={(e) => onClick?.(e, zone.id)}
-      onDoubleClick={(e) => onDoubleClick?.(e, zone.id)}
+      className="relative group w-full h-[var(--sidezone-h)] min-h-0 shrink-0 flex items-center justify-center touch-manipulation"
+      onContextMenu={handleContextMenu}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+      onPointerDown={handleTouchPressStart}
+      onPointerMove={handleTouchPressMove}
+      onPointerUp={handleTouchPressEnd}
+      onPointerCancel={handleTouchPressCancel}
+      onPointerLeave={handleTouchPressCancel}
     >
       <Zone
         zone={zone}

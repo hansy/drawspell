@@ -45,11 +45,21 @@ const buildPlayer = (id: string, name: string): Player => ({
   commanderTax: 0,
 });
 
-const createPointerEvent = (type: string, options: PointerEventInit) => {
+const createPointerEvent = (
+  type: string,
+  options: PointerEventInit & { pointerType?: string; pointerId?: number }
+) => {
   if (typeof PointerEvent !== "undefined") {
     return new PointerEvent(type, options);
   }
-  return new MouseEvent(type, options);
+  const fallback = new MouseEvent(type, options);
+  Object.defineProperty(fallback, "pointerType", {
+    value: options.pointerType ?? "mouse",
+  });
+  Object.defineProperty(fallback, "pointerId", {
+    value: options.pointerId ?? 1,
+  });
+  return fallback as unknown as PointerEvent;
 };
 
 describe("CardPreview", () => {
@@ -399,5 +409,202 @@ describe("CardPreview", () => {
     });
 
     expect(document.querySelector("[data-card-preview]")).toBeNull();
+  });
+
+  it("shows a preview on touch tap", () => {
+    const zoneId = "me-battlefield";
+    const cardId = "c1";
+    const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
+    const card = buildCard(cardId, "Test Card", zoneId);
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me") },
+      myPlayerId: "me",
+      viewerRole: "player",
+    }));
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Card card={card} />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+    const cardElement = container.querySelector(`[data-card-id="${cardId}"]`);
+    if (!cardElement) {
+      throw new Error("Expected card element to be present.");
+    }
+
+    act(() => {
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 30,
+          clientY: 40,
+        })
+      );
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 30,
+          clientY: 40,
+        })
+      );
+    });
+
+    expect(document.querySelector("[data-card-preview]")).not.toBeNull();
+  });
+
+  it("opens card context menu on two-finger hold", () => {
+    vi.useFakeTimers();
+
+    const zoneId = "me-battlefield";
+    const cardId = "c1";
+    const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
+    const card = buildCard(cardId, "Test Card", zoneId);
+    const onContextMenu = vi.fn();
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me") },
+      myPlayerId: "me",
+      viewerRole: "player",
+    }));
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Card card={card} onContextMenu={onContextMenu} />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+    const cardElement = container.querySelector(`[data-card-id="${cardId}"]`);
+    if (!cardElement) {
+      throw new Error("Expected card element to be present.");
+    }
+
+    act(() => {
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 20,
+          clientY: 20,
+        })
+      );
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 2,
+          clientX: 40,
+          clientY: 20,
+        })
+      );
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(onContextMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not map touch double tap to card tap/untap", () => {
+    const zoneId = "me-battlefield";
+    const cardId = "c1";
+    const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
+    const card = buildCard(cardId, "Test Card", zoneId);
+    const originalTapCard = useGameStore.getState().tapCard;
+    const tapCard = vi.fn();
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me") },
+      myPlayerId: "me",
+      viewerRole: "player",
+      tapCard: tapCard as any,
+    }));
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Card card={card} />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+    const cardElement = container.querySelector(`[data-card-id="${cardId}"]`);
+    if (!cardElement) {
+      throw new Error("Expected card element to be present.");
+    }
+
+    act(() => {
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 10,
+          clientY: 10,
+        })
+      );
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 10,
+          clientY: 10,
+        })
+      );
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 10,
+          clientY: 10,
+        })
+      );
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 10,
+          clientY: 10,
+        })
+      );
+    });
+
+    expect(tapCard).not.toHaveBeenCalled();
+    act(() => {
+      useGameStore.setState({ tapCard: originalTapCard } as any);
+    });
   });
 });

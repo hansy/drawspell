@@ -229,6 +229,7 @@ export const useBattlefieldSelection = ({
   const handlePointerDown = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (!isSelectionEnabled) return;
+      if (event.pointerType === "touch") return;
       if (event.button !== 0) return;
       if (event.target instanceof HTMLElement && event.target.closest("[data-card-id]")) return;
 

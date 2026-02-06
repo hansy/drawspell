@@ -23,10 +23,11 @@ interface ZoneProps {
     onPointerMove?: (e: React.PointerEvent<HTMLDivElement>) => void;
     onPointerUp?: (e: React.PointerEvent<HTMLDivElement>) => void;
     onPointerCancel?: (e: React.PointerEvent<HTMLDivElement>) => void;
+    onPointerLeave?: (e: React.PointerEvent<HTMLDivElement>) => void;
     innerRef?: (node: HTMLDivElement | null) => void;
 }
 
-const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, cardScale = 1, cardBaseHeight, cardBaseWidth, mirrorY = false, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, innerRef }) => {
+const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, cardScale = 1, cardBaseHeight, cardBaseWidth, mirrorY = false, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onPointerLeave, innerRef }) => {
     const myPlayerId = useGameStore((state) => state.myPlayerId);
     const viewerRole = useGameStore((state) => state.viewerRole);
 
@@ -100,6 +101,7 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 's
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerCancel}
+            onPointerLeave={onPointerLeave}
         >
             {children}
             {ghostPosition && (() => {

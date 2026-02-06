@@ -7,6 +7,19 @@ import { Zone } from "../zone/Zone";
 
 import type { CommanderZoneController } from "@/hooks/game/seat/useCommanderZoneController";
 
+const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
+const TOUCH_MOVE_TOLERANCE_PX = 10;
+
+type TouchPressState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  clientX: number;
+  clientY: number;
+  target: HTMLDivElement;
+  moved: boolean;
+};
+
 export interface CommanderZoneViewProps extends CommanderZoneController {
   zone: ZoneType;
   cards: CardType[];
@@ -31,9 +44,127 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
   const STACK_OFFSET_PX = 36;
   const stackCards = cards.slice(-MAX_STACK_CARDS);
   const stackOffset = `var(--cmdr-offset, ${STACK_OFFSET_PX}px)`;
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+  const [activeTaxCardId, setActiveTaxCardId] = React.useState<string | null>(null);
+  const touchPressTimeoutRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const touchPressRef = React.useRef<TouchPressState | null>(null);
+
+  const clearTouchPressTimeout = React.useCallback(() => {
+    if (touchPressTimeoutRef.current) {
+      clearTimeout(touchPressTimeoutRef.current);
+      touchPressTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearTouchPress = React.useCallback(() => {
+    clearTouchPressTimeout();
+    touchPressRef.current = null;
+  }, [clearTouchPressTimeout]);
+
+  const handleTouchContextMenuStart = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!onZoneContextMenu) return;
+      if (event.pointerType !== "touch") return;
+      if (event.button !== 0) return;
+      if (event.target instanceof HTMLElement) {
+        if (event.target.closest("[data-card-id]")) return;
+        if (event.target.closest("button")) return;
+      }
+
+      if (
+        touchPressRef.current &&
+        touchPressRef.current.pointerId !== event.pointerId
+      ) {
+        clearTouchPress();
+        return;
+      }
+
+      const press: TouchPressState = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        target: event.currentTarget,
+        moved: false,
+      };
+      touchPressRef.current = press;
+      clearTouchPressTimeout();
+      touchPressTimeoutRef.current = setTimeout(() => {
+        const currentPress = touchPressRef.current;
+        if (!currentPress) return;
+        if (currentPress.pointerId !== press.pointerId) return;
+        if (currentPress.moved) return;
+        touchPressTimeoutRef.current = null;
+        onZoneContextMenu(
+          {
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            clientX: currentPress.clientX,
+            clientY: currentPress.clientY,
+            currentTarget: currentPress.target,
+            target: currentPress.target,
+          } as unknown as React.MouseEvent,
+          zone.id
+        );
+      }, TOUCH_CONTEXT_MENU_LONG_PRESS_MS);
+    },
+    [clearTouchPress, clearTouchPressTimeout, onZoneContextMenu, zone.id]
+  );
+
+  const handleTouchContextMenuMove = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType !== "touch") return;
+      const press = touchPressRef.current;
+      if (!press || press.pointerId !== event.pointerId) return;
+      press.clientX = event.clientX;
+      press.clientY = event.clientY;
+      if (press.moved) return;
+      const dx = event.clientX - press.startX;
+      const dy = event.clientY - press.startY;
+      if (Math.hypot(dx, dy) > TOUCH_MOVE_TOLERANCE_PX) {
+        press.moved = true;
+        clearTouchPressTimeout();
+      }
+    },
+    [clearTouchPressTimeout]
+  );
+
+  const handleTouchContextMenuEnd = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType !== "touch") return;
+      const press = touchPressRef.current;
+      if (!press || press.pointerId !== event.pointerId) return;
+      clearTouchPress();
+    },
+    [clearTouchPress]
+  );
+
+  React.useEffect(() => {
+    return () => {
+      clearTouchPress();
+    };
+  }, [clearTouchPress]);
+
+  React.useEffect(() => {
+    if (!activeTaxCardId) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (rootRef.current?.contains(target)) return;
+      setActiveTaxCardId(null);
+    };
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+    };
+  }, [activeTaxCardId]);
 
   return (
     <div
+      ref={rootRef}
       className={cn(
         "relative z-30 h-full shrink-0 flex items-stretch justify-start aspect-[11/15]", // Increased z-index to sit above Hand
         isRight ? "border-r border-white/5" : "border-l border-white/5" // Separator
@@ -42,6 +173,11 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
       <div
         className="relative group h-full w-full"
         onContextMenu={(e) => onZoneContextMenu?.(e, zone.id)}
+        onPointerDown={handleTouchContextMenuStart}
+        onPointerMove={handleTouchContextMenuMove}
+        onPointerUp={handleTouchContextMenuEnd}
+        onPointerCancel={handleTouchContextMenuEnd}
+        onPointerLeave={handleTouchContextMenuEnd}
       >
         <Zone
           zone={zone}
@@ -66,6 +202,7 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
               {stackCards.map((card, index) => {
                 const taxValue = card.commanderTax ?? 0;
                 const canDecrement = taxValue > 0;
+                const taxControlsVisible = activeTaxCardId === card.id;
                 return (
                   <div
                     key={card.id}
@@ -79,14 +216,17 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
                       card={card}
                       className="w-full h-full lg:!w-full lg:!h-full"
                     />
-                    <div className="absolute right-0 top-2 translate-x-1/2 z-40 pointer-events-none group-hover/commander-card:pointer-events-auto">
+                    <div className="absolute right-0 top-2 translate-x-1/2 z-40 pointer-events-auto">
                       <div className="relative flex items-center justify-center w-[112px] h-8">
                         {isOwner && (
                           <button
                             type="button"
                             aria-label={`Decrease commander tax for ${card.name}`}
                             className={cn(
-                              "absolute left-0 w-8 h-8 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-full text-white text-xs border border-zinc-600 opacity-0 scale-90 group-hover/commander-card:opacity-100 group-hover/commander-card:scale-100 transition-all pointer-events-none group-hover/commander-card:pointer-events-auto",
+                              "absolute left-0 w-8 h-8 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-full text-white text-xs border border-zinc-600 transition-all",
+                              taxControlsVisible
+                                ? "opacity-100 scale-100 pointer-events-auto"
+                                : "opacity-0 scale-90 pointer-events-none group-hover/commander-card:opacity-100 group-hover/commander-card:scale-100 group-hover/commander-card:pointer-events-auto",
                               !canDecrement && "opacity-0 cursor-not-allowed pointer-events-none"
                             )}
                             disabled={!canDecrement}
@@ -98,14 +238,29 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
                             -2
                           </button>
                         )}
-                        <div className="bg-zinc-950 border-2 border-zinc-500 rounded-full w-8 h-8 flex items-center justify-center text-xs font-bold text-white shadow-lg ring-1 ring-black/50 pointer-events-none">
+                        <div
+                          className={cn(
+                            "bg-zinc-950 border-2 border-zinc-500 rounded-full w-8 h-8 flex items-center justify-center text-xs font-bold text-white shadow-lg ring-1 ring-black/50 pointer-events-auto",
+                            taxControlsVisible && "border-indigo-300 ring-indigo-300/70"
+                          )}
+                          onPointerDown={(e) => {
+                            if (e.pointerType !== "touch") return;
+                            e.stopPropagation();
+                            setActiveTaxCardId(card.id);
+                          }}
+                        >
                           {taxValue}
                         </div>
                         {isOwner && (
                           <button
                             type="button"
                             aria-label={`Increase commander tax for ${card.name}`}
-                            className="absolute right-0 w-8 h-8 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-full text-white text-xs border border-zinc-600 opacity-0 scale-90 group-hover/commander-card:opacity-100 group-hover/commander-card:scale-100 transition-all pointer-events-none group-hover/commander-card:pointer-events-auto"
+                            className={cn(
+                              "absolute right-0 w-8 h-8 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-full text-white text-xs border border-zinc-600 transition-all",
+                              taxControlsVisible
+                                ? "opacity-100 scale-100 pointer-events-auto"
+                                : "opacity-0 scale-90 pointer-events-none group-hover/commander-card:opacity-100 group-hover/commander-card:scale-100 group-hover/commander-card:pointer-events-auto"
+                            )}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleTaxDelta(card, 2);

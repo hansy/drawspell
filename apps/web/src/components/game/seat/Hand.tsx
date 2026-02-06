@@ -6,6 +6,7 @@ import { Zone } from "../zone/Zone";
 import { ZONE_LABEL } from "@/constants/zones";
 import { shouldRenderFaceDown } from "@/lib/reveal";
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from "@/lib/constants";
+import { useTwoFingerScroll } from "@/hooks/shared/useTwoFingerScroll";
 import {
   HAND_BASE_CARD_SCALE,
   HAND_CARD_OVERLAP_RATIO,
@@ -141,6 +142,9 @@ const HandInner: React.FC<HandProps> = ({
 }) => {
   // Memoize card IDs array for SortableContext
   const cardIds = React.useMemo(() => cards.map((c) => c.id), [cards]);
+  const [handScrollNode, setHandScrollNode] =
+    React.useState<HTMLDivElement | null>(null);
+  useTwoFingerScroll({ target: handScrollNode, axis: "x" });
 
   return (
     <div
@@ -173,8 +177,9 @@ const HandInner: React.FC<HandProps> = ({
         zone={zone}
         scale={scale}
         cardScale={cardScale}
+        innerRef={setHandScrollNode}
         className={cn(
-          "w-full h-full flex overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent overscroll-x-none",
+          "w-full h-full flex overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent overscroll-x-none touch-none",
         )}
       >
         <SortableContext

@@ -34,6 +34,19 @@ interface BattlefieldProps {
     disableZoomControls?: boolean;
 }
 
+const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
+const TOUCH_MOVE_TOLERANCE_PX = 10;
+
+type TouchPressState = {
+    pointerId: number;
+    startX: number;
+    startY: number;
+    clientX: number;
+    clientY: number;
+    target: HTMLDivElement;
+    moved: boolean;
+};
+
 // Memoized card wrapper to prevent unnecessary re-renders
 const BattlefieldCard = React.memo<{
     card: CardType;
@@ -199,10 +212,10 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
 
     const {
         selectionRect,
-        handlePointerDown,
-        handlePointerMove,
-        handlePointerUp,
-        handlePointerCancel,
+        handlePointerDown: handleSelectionPointerDown,
+        handlePointerMove: handleSelectionPointerMove,
+        handlePointerUp: handleSelectionPointerUp,
+        handlePointerCancel: handleSelectionPointerCancel,
     } = useBattlefieldSelection({
         zoneId: zone.id,
         cards,
@@ -215,6 +228,109 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
         zoneNodeRef,
         isSelectionEnabled,
     });
+    const touchPressTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const touchPressRef = React.useRef<TouchPressState | null>(null);
+
+    const clearTouchPressTimeout = React.useCallback(() => {
+        if (touchPressTimeoutRef.current) {
+            clearTimeout(touchPressTimeoutRef.current);
+            touchPressTimeoutRef.current = null;
+        }
+    }, []);
+
+    const clearTouchPress = React.useCallback(() => {
+        clearTouchPressTimeout();
+        touchPressRef.current = null;
+    }, [clearTouchPressTimeout]);
+
+    const handleTouchContextMenuStart = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        if (!onContextMenu) return;
+        if (event.pointerType !== "touch") return;
+        if (event.button !== 0) return;
+        if (event.target instanceof HTMLElement && event.target.closest("[data-card-id]")) {
+            return;
+        }
+
+        if (touchPressRef.current && touchPressRef.current.pointerId !== event.pointerId) {
+            clearTouchPress();
+            return;
+        }
+
+        const press: TouchPressState = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            clientX: event.clientX,
+            clientY: event.clientY,
+            target: event.currentTarget,
+            moved: false,
+        };
+        touchPressRef.current = press;
+        clearTouchPressTimeout();
+        touchPressTimeoutRef.current = setTimeout(() => {
+            const currentPress = touchPressRef.current;
+            if (!currentPress) return;
+            if (currentPress.pointerId !== press.pointerId) return;
+            if (currentPress.moved) return;
+            touchPressTimeoutRef.current = null;
+            onContextMenu({
+                preventDefault: () => {},
+                stopPropagation: () => {},
+                clientX: currentPress.clientX,
+                clientY: currentPress.clientY,
+                currentTarget: currentPress.target,
+                target: currentPress.target,
+            } as unknown as React.MouseEvent);
+        }, TOUCH_CONTEXT_MENU_LONG_PRESS_MS);
+    }, [clearTouchPress, clearTouchPressTimeout, onContextMenu]);
+
+    const handleTouchContextMenuMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        if (event.pointerType !== "touch") return;
+        const press = touchPressRef.current;
+        if (!press || press.pointerId !== event.pointerId) return;
+        press.clientX = event.clientX;
+        press.clientY = event.clientY;
+        if (press.moved) return;
+        const dx = event.clientX - press.startX;
+        const dy = event.clientY - press.startY;
+        if (Math.hypot(dx, dy) > TOUCH_MOVE_TOLERANCE_PX) {
+            press.moved = true;
+            clearTouchPressTimeout();
+        }
+    }, [clearTouchPressTimeout]);
+
+    const handleTouchContextMenuEnd = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        if (event.pointerType !== "touch") return;
+        const press = touchPressRef.current;
+        if (!press || press.pointerId !== event.pointerId) return;
+        clearTouchPress();
+    }, [clearTouchPress]);
+
+    const handlePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        handleSelectionPointerDown(event);
+        handleTouchContextMenuStart(event);
+    }, [handleSelectionPointerDown, handleTouchContextMenuStart]);
+
+    const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        handleSelectionPointerMove(event);
+        handleTouchContextMenuMove(event);
+    }, [handleSelectionPointerMove, handleTouchContextMenuMove]);
+
+    const handlePointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        handleSelectionPointerUp(event);
+        handleTouchContextMenuEnd(event);
+    }, [handleSelectionPointerUp, handleTouchContextMenuEnd]);
+
+    const handlePointerCancel = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        handleSelectionPointerCancel(event);
+        handleTouchContextMenuEnd(event);
+    }, [handleSelectionPointerCancel, handleTouchContextMenuEnd]);
+
+    React.useEffect(() => {
+        return () => {
+            clearTouchPress();
+        };
+    }, [clearTouchPress]);
 
     const groupGhostForZone = React.useMemo(() => {
         if (!ghostCards || ghostCards.length < 2) return [];
@@ -246,7 +362,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
         >
             <Zone
                 zone={zone}
-                className="w-full h-full relative"
+                className="w-full h-full relative touch-none"
                 layout="free-form"
                 scale={scale}
                 cardScale={viewScale}
@@ -259,6 +375,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerCancel}
+                onPointerLeave={handlePointerCancel}
             >
                 <BattlefieldGridOverlay visible={showGrid} gridStepX={gridStepX} gridStepY={gridStepY} />
                 {selectionRect && (
