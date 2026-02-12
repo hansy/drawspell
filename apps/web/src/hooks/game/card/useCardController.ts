@@ -27,7 +27,9 @@ const PREVIEW_LOCK_LONG_PRESS_MS = 400;
 const PREVIEW_LOCK_MOVE_TOLERANCE_PX = 8;
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
-const TOUCH_PREVIEW_TAP_MOVE_TOLERANCE_PX = 6;
+const TOUCH_PREVIEW_HOLD_MS = 250;
+const TOUCH_PREVIEW_HOLD_MOVE_TOLERANCE_PX = 6;
+const SUPPRESS_MOUSE_HOVER_AFTER_TOUCH_MS = 700;
 
 type TouchPointState = {
   startX: number;
@@ -147,13 +149,16 @@ export const useCardController = (props: CardProps): CardController => {
   > | null>(null);
   const lockPressStartRef = React.useRef<{ x: number; y: number } | null>(null);
   const touchPointsRef = React.useRef<Map<number, TouchPointState>>(new Map());
-  const primaryTouchPointerIdRef = React.useRef<number | null>(null);
   const touchHadMultiTouchRef = React.useRef(false);
-  const touchContextMenuTriggeredRef = React.useRef(false);
   const contextMenuHoldTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
   const contextMenuHoldPointerIdRef = React.useRef<number | null>(null);
+  const touchPreviewHoldTimeoutRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const touchPreviewHoldPointerIdRef = React.useRef<number | null>(null);
+  const suppressMouseHoverPreviewUntilRef = React.useRef(0);
 
   const clearLockPress = React.useCallback(() => {
     if (lockPressTimeoutRef.current) {
@@ -175,17 +180,29 @@ export const useCardController = (props: CardProps): CardController => {
     contextMenuHoldPointerIdRef.current = null;
   }, [clearContextMenuHoldTimeout]);
 
+  const clearTouchPreviewHoldTimeout = React.useCallback(() => {
+    if (touchPreviewHoldTimeoutRef.current) {
+      clearTimeout(touchPreviewHoldTimeoutRef.current);
+      touchPreviewHoldTimeoutRef.current = null;
+    }
+  }, []);
+
+  const cancelTouchPreviewHold = React.useCallback(() => {
+    clearTouchPreviewHoldTimeout();
+    touchPreviewHoldPointerIdRef.current = null;
+  }, [clearTouchPreviewHoldTimeout]);
+
   const resetTouchGesture = React.useCallback(() => {
     cancelContextMenuHold();
+    cancelTouchPreviewHold();
     touchPointsRef.current.clear();
-    primaryTouchPointerIdRef.current = null;
     touchHadMultiTouchRef.current = false;
-    touchContextMenuTriggeredRef.current = false;
-  }, [cancelContextMenuHold]);
+  }, [cancelContextMenuHold, cancelTouchPreviewHold]);
 
   const handleMouseEnter = React.useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (interactionsDisabled) return;
+      if (Date.now() < suppressMouseHoverPreviewUntilRef.current) return;
       const policy = getCardHoverPreviewPolicy({
         zoneType,
         canPeek,
@@ -339,7 +356,6 @@ export const useCardController = (props: CardProps): CardController => {
       const point = touchPointsRef.current.get(pointerId);
       if (!point) return;
       if (point.moved) return;
-      touchContextMenuTriggeredRef.current = true;
       cancelContextMenuHold();
       openTouchContextMenu(point);
     }, TOUCH_CONTEXT_MENU_LONG_PRESS_MS);
@@ -349,6 +365,44 @@ export const useCardController = (props: CardProps): CardController => {
     interactionsDisabled,
     onContextMenu,
     openTouchContextMenu,
+  ]);
+
+  const beginTouchPreviewHold = React.useCallback((pointerId: number) => {
+    if (interactionsDisabled) return;
+    touchPreviewHoldPointerIdRef.current = pointerId;
+    clearTouchPreviewHoldTimeout();
+    touchPreviewHoldTimeoutRef.current = setTimeout(() => {
+      if (touchPreviewHoldPointerIdRef.current !== pointerId) return;
+      if (touchPointsRef.current.size !== 1) return;
+      if (touchHadMultiTouchRef.current) return;
+      const point = touchPointsRef.current.get(pointerId);
+      if (!point) return;
+      const movement = Math.hypot(point.x - point.startX, point.y - point.startY);
+      if (movement > TOUCH_PREVIEW_HOLD_MOVE_TOLERANCE_PX) return;
+      const previewPolicy = getCardHoverPreviewPolicy({
+        zoneType,
+        canPeek,
+        faceDown,
+        isDragging: interactionsDisabled,
+        isZoneTopCard,
+        allowLibraryTopPreview: canSeeLibraryTop,
+      });
+      if (previewPolicy.kind === "none") return;
+      if (useDragStore.getState().activeCardId === card.id) return;
+      cancelTouchPreviewHold();
+      lockPreview(card, point.target);
+    }, TOUCH_PREVIEW_HOLD_MS);
+  }, [
+    canPeek,
+    canSeeLibraryTop,
+    cancelTouchPreviewHold,
+    card,
+    clearTouchPreviewHoldTimeout,
+    faceDown,
+    interactionsDisabled,
+    isZoneTopCard,
+    lockPreview,
+    zoneType,
   ]);
 
   const handleTouchPressStart = React.useCallback(
@@ -365,6 +419,8 @@ export const useCardController = (props: CardProps): CardController => {
       ) {
         return;
       }
+      suppressMouseHoverPreviewUntilRef.current =
+        Date.now() + SUPPRESS_MOUSE_HOVER_AFTER_TOUCH_MS;
 
       touchPointsRef.current.set(event.pointerId, {
         startX: event.clientX,
@@ -377,16 +433,22 @@ export const useCardController = (props: CardProps): CardController => {
 
       const pointCount = touchPointsRef.current.size;
       if (pointCount === 1) {
-        primaryTouchPointerIdRef.current = event.pointerId;
         touchHadMultiTouchRef.current = false;
-        touchContextMenuTriggeredRef.current = false;
+        beginTouchPreviewHold(event.pointerId);
         beginTouchContextMenuHold(event.pointerId);
       } else {
         touchHadMultiTouchRef.current = true;
+        cancelTouchPreviewHold();
         cancelContextMenuHold();
       }
     },
-    [beginTouchContextMenuHold, cancelContextMenuHold, interactionsDisabled]
+    [
+      beginTouchContextMenuHold,
+      beginTouchPreviewHold,
+      cancelContextMenuHold,
+      cancelTouchPreviewHold,
+      interactionsDisabled,
+    ]
   );
 
   const handleTouchPressMove = React.useCallback(
@@ -409,8 +471,14 @@ export const useCardController = (props: CardProps): CardController => {
       ) {
         cancelContextMenuHold();
       }
+      if (touchPreviewHoldPointerIdRef.current === event.pointerId) {
+        const movement = Math.hypot(point.x - point.startX, point.y - point.startY);
+        if (movement > TOUCH_PREVIEW_HOLD_MOVE_TOLERANCE_PX) {
+          cancelTouchPreviewHold();
+        }
+      }
     },
-    [cancelContextMenuHold]
+    [cancelContextMenuHold, cancelTouchPreviewHold]
   );
 
   const handleTouchPressFinish = React.useCallback(
@@ -421,51 +489,19 @@ export const useCardController = (props: CardProps): CardController => {
 
       point.x = event.clientX;
       point.y = event.clientY;
-      const movement = Math.hypot(point.x - point.startX, point.y - point.startY);
-      const wasPrimaryTouch = primaryTouchPointerIdRef.current === event.pointerId;
 
       touchPointsRef.current.delete(event.pointerId);
       if (contextMenuHoldPointerIdRef.current === event.pointerId) {
         cancelContextMenuHold();
       }
-
-      const previewPolicy = getCardHoverPreviewPolicy({
-        zoneType,
-        canPeek,
-        faceDown,
-        isDragging: interactionsDisabled,
-        isZoneTopCard,
-        allowLibraryTopPreview: canSeeLibraryTop,
-      });
-      const shouldShowPreview = Boolean(
-        wasPrimaryTouch &&
-          !touchHadMultiTouchRef.current &&
-          !touchContextMenuTriggeredRef.current &&
-          movement <= TOUCH_PREVIEW_TAP_MOVE_TOLERANCE_PX &&
-          !interactionsDisabled &&
-          previewPolicy.kind !== "none"
-      );
-      if (touchPointsRef.current.size === 0) {
-        primaryTouchPointerIdRef.current = null;
-        touchHadMultiTouchRef.current = false;
-        touchContextMenuTriggeredRef.current = false;
+      if (touchPreviewHoldPointerIdRef.current === event.pointerId) {
+        cancelTouchPreviewHold();
       }
-
-      if (!shouldShowPreview) return;
-      if (useDragStore.getState().activeCardId === card.id) return;
-      lockPreview(card, point.target);
+      if (touchPointsRef.current.size === 0) {
+        touchHadMultiTouchRef.current = false;
+      }
     },
-    [
-      cancelContextMenuHold,
-      canPeek,
-      canSeeLibraryTop,
-      card,
-      faceDown,
-      interactionsDisabled,
-      isZoneTopCard,
-      lockPreview,
-      zoneType,
-    ]
+    [cancelContextMenuHold, cancelTouchPreviewHold]
   );
 
   const handleTouchPressCancel = React.useCallback(() => {

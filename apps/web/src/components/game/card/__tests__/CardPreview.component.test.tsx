@@ -15,6 +15,8 @@ import { Card } from "../Card";
 import { CardPreview } from "../CardPreview";
 import { CardPreviewProvider } from "../CardPreviewProvider";
 
+const TOUCH_PREVIEW_HOLD_MS = 250;
+
 const buildZone = (id: string, type: keyof typeof ZONE, ownerId: string, cardIds: string[] = []) =>
   ({
     id,
@@ -411,7 +413,9 @@ describe("CardPreview", () => {
     expect(document.querySelector("[data-card-preview]")).toBeNull();
   });
 
-  it("shows a preview on touch tap", () => {
+  it("does not show a preview on touch tap", () => {
+    vi.useFakeTimers();
+
     const zoneId = "me-battlefield";
     const cardId = "c1";
     const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
@@ -463,6 +467,63 @@ describe("CardPreview", () => {
       );
     });
 
+    expect(document.querySelector("[data-card-preview]")).toBeNull();
+
+    act(() => {
+      fireEvent.mouseEnter(cardElement);
+      vi.advanceTimersByTime(300);
+    });
+    expect(document.querySelector("[data-card-preview]")).toBeNull();
+  });
+
+  it("shows a preview on touch hold after 250ms", () => {
+    vi.useFakeTimers();
+
+    const zoneId = "me-battlefield";
+    const cardId = "c1";
+    const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
+    const card = buildCard(cardId, "Test Card", zoneId);
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me") },
+      myPlayerId: "me",
+      viewerRole: "player",
+    }));
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Card card={card} />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+    const cardElement = container.querySelector(`[data-card-id="${cardId}"]`);
+    if (!cardElement) {
+      throw new Error("Expected card element to be present.");
+    }
+
+    act(() => {
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 30,
+          clientY: 40,
+        })
+      );
+      vi.advanceTimersByTime(TOUCH_PREVIEW_HOLD_MS - 1);
+    });
+    expect(document.querySelector("[data-card-preview]")).toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
     expect(document.querySelector("[data-card-preview]")).not.toBeNull();
   });
 
