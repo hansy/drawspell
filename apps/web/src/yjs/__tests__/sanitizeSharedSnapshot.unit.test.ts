@@ -65,6 +65,57 @@ describe("sanitizeSharedSnapshot", () => {
     expect(safe.zones.z1.cardIds).toEqual(["c1"]);
   });
 
+  it("removes stale zone cardIds that point to cards in a different zone", () => {
+    const safe = sanitizeSharedSnapshot({
+      players: { p1: { id: "p1", name: "P1", life: 40 } },
+      zones: {
+        battlefield: {
+          id: "battlefield",
+          ownerId: "p1",
+          type: ZONE.BATTLEFIELD,
+          cardIds: ["c1", "c2"],
+        },
+        graveyard: {
+          id: "graveyard",
+          ownerId: "p1",
+          type: ZONE.GRAVEYARD,
+          cardIds: [],
+        },
+      },
+      cards: {
+        c1: {
+          id: "c1",
+          ownerId: "p1",
+          controllerId: "p1",
+          zoneId: "battlefield",
+          name: "Card 1",
+          tapped: false,
+          faceDown: false,
+          position: { x: 0.5, y: 0.5 },
+          rotation: 0,
+          counters: [],
+        },
+        c2: {
+          id: "c2",
+          ownerId: "p1",
+          controllerId: "p1",
+          zoneId: "graveyard",
+          name: "Card 2",
+          tapped: false,
+          faceDown: false,
+          position: { x: 0.5, y: 0.5 },
+          rotation: 0,
+          counters: [],
+        },
+      },
+      globalCounters: {},
+      playerOrder: [],
+    } as any);
+
+    expect(safe.zones.battlefield.cardIds).toEqual(["c1"]);
+    expect(safe.zones.graveyard.cardIds).toEqual(["c2"]);
+  });
+
   it("enforces revealedTo limits and normalizes positions", () => {
     const safe = sanitizeSharedSnapshot({
       players: { p1: { id: "p1", name: "P1", life: 40 } },

@@ -262,6 +262,43 @@ describe("applyIntentToDoc", () => {
     expect(readZone(maps, "cmd-p1")?.cardIds).toEqual(["c0"]);
   });
 
+  it("ignores stale commander cardIds when moving a card into commander zone", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    writePlayer(maps, makePlayer("p1"));
+    writeZone(maps, makeZone("bf-p1", ZONE.BATTLEFIELD, "p1", ["c1"]));
+    writeZone(
+      maps,
+      makeZone(
+        "cmd-p1",
+        ZONE.COMMANDER,
+        "p1",
+        Array.from({ length: MAX_COMMANDER_ZONE_CARDS }, (_value, index) => `stale-${index}`)
+      )
+    );
+    writeCard(maps, makeCard("c1", "p1", "bf-p1", { isCommander: true }));
+
+    const result = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-5d",
+        type: "card.move",
+        payload: {
+          actorId: "p1",
+          cardId: "c1",
+          toZoneId: "cmd-p1",
+        },
+      },
+      hidden
+    );
+
+    expect(result.ok).toBe(true);
+    expect(readZone(maps, "bf-p1")?.cardIds).toEqual([]);
+    expect(readZone(maps, "cmd-p1")?.cardIds).toEqual(["c1"]);
+  });
+
   it("should redact card names when moving to hidden zones", () => {
     const doc = createDoc();
     const maps = getMaps(doc);

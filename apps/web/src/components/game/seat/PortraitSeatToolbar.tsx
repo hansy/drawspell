@@ -9,12 +9,7 @@ import {
 } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";

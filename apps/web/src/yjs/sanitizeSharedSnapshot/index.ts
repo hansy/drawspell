@@ -106,7 +106,10 @@ export function sanitizeSharedSnapshot(snapshot: SharedSnapshotLike) {
       zone.cardIds = [];
       return;
     }
-    zone.cardIds = zone.cardIds.filter((id) => safeCards[id]);
+    zone.cardIds = zone.cardIds.filter((id) => {
+      const card = safeCards[id];
+      return Boolean(card && card.zoneId === zone.id);
+    });
   });
 
   Object.values(safeCards).forEach((card) => {

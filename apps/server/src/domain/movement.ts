@@ -27,6 +27,12 @@ import { readCard, readZone, writeCard, writeZone } from "./yjsStore";
 import { placeCardId, removeFromArray } from "./lists";
 import { syncLibraryRevealsToAllForPlayer, updatePlayerCounts } from "./hiddenState";
 
+const getLiveCommanderZoneCardIds = (maps: Maps, zoneId: string, cardIds: string[]): string[] =>
+  cardIds.filter((cardId) => {
+    const existing = readCard(maps, cardId);
+    return Boolean(existing && existing.zoneId === zoneId);
+  });
+
 const resolveFaceDownAfterMove = ({
   fromZoneType,
   toZoneType,
@@ -134,6 +140,12 @@ export const applyCardMove = (
 
   const fromZone = readZone(maps, card.zoneId);
   if (!fromZone) return { ok: false, error: "zone not found" };
+  const fromZoneCardIds = isCommanderZoneType(fromZone.type)
+    ? getLiveCommanderZoneCardIds(maps, fromZone.id, fromZone.cardIds)
+    : fromZone.cardIds;
+  const toZoneCardIds = isCommanderZoneType(toZone.type)
+    ? getLiveCommanderZoneCardIds(maps, toZone.id, toZone.cardIds)
+    : toZone.cardIds;
 
   const priorReveal =
     fromZone.type === ZONE.HAND
@@ -242,7 +254,7 @@ export const applyCardMove = (
       fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD;
     const tokenLeavingBattlefield = card.isToken && toZone.type !== ZONE.BATTLEFIELD;
     if (tokenLeavingBattlefield) {
-      const nextFromIds = removeFromArray(fromZone.cardIds, cardId);
+      const nextFromIds = removeFromArray(fromZoneCardIds, cardId);
       writeZone(maps, { ...fromZone, cardIds: nextFromIds });
       maps.cards.delete(cardId);
       return { ok: true };
@@ -267,7 +279,7 @@ export const applyCardMove = (
       fallbackPosition &&
       (!opts?.skipCollision || opts?.groupCollision)
     ) {
-      const ordered = toZone.cardIds;
+      const ordered = toZoneCardIds;
       const cardsById: Record<string, Card> = {};
       ordered.forEach((id) => {
         const entry = readCard(maps, id);
@@ -334,12 +346,12 @@ export const applyCardMove = (
     const publicCard = willBeFaceDownBattlefield ? stripCardIdentity(nextCard) : nextCard;
 
     if (fromZone.id === toZone.id) {
-      const nextIds = placeCardId(fromZone.cardIds, cardId, placement);
+      const nextIds = placeCardId(fromZoneCardIds, cardId, placement);
       writeZone(maps, { ...fromZone, cardIds: nextIds });
       writeCard(maps, publicCard);
     } else {
-      const nextFromIds = removeFromArray(fromZone.cardIds, cardId);
-      const nextToIds = placeCardId(toZone.cardIds, cardId, placement);
+      const nextFromIds = removeFromArray(fromZoneCardIds, cardId);
+      const nextToIds = placeCardId(toZoneCardIds, cardId, placement);
       writeZone(maps, { ...fromZone, cardIds: nextFromIds });
       writeZone(maps, { ...toZone, cardIds: nextToIds });
       writeCard(maps, publicCard);
@@ -496,7 +508,7 @@ export const applyCardMove = (
     const tokenLeavingBattlefield =
       card.isToken && fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD;
     if (tokenLeavingBattlefield) {
-      const nextFromIds = removeFromArray(fromZone.cardIds, cardId);
+      const nextFromIds = removeFromArray(fromZoneCardIds, cardId);
       writeZone(maps, { ...fromZone, cardIds: nextFromIds });
       maps.cards.delete(cardId);
       return { ok: true };
@@ -530,7 +542,7 @@ export const applyCardMove = (
       }
     }
 
-    const nextFromIds = removeFromArray(fromZone.cardIds, cardId);
+    const nextFromIds = removeFromArray(fromZoneCardIds, cardId);
     writeZone(maps, { ...fromZone, cardIds: nextFromIds });
     maps.cards.delete(cardId);
 
@@ -621,7 +633,7 @@ export const applyCardMove = (
       fallbackPosition &&
       (!opts?.skipCollision || opts?.groupCollision)
     ) {
-      const ordered = toZone.cardIds;
+      const ordered = toZoneCardIds;
       const cardsById: Record<string, Card> = {};
       ordered.forEach((id) => {
         const entry = readCard(maps, id);
@@ -683,7 +695,7 @@ export const applyCardMove = (
       }
     }
 
-    const nextToIds = placeCardId(toZone.cardIds, cardId, placement);
+    const nextToIds = placeCardId(toZoneCardIds, cardId, placement);
     writeZone(maps, { ...toZone, cardIds: nextToIds });
     const willBeFaceDownBattlefield =
       toZone.type === ZONE.BATTLEFIELD && nextCard.faceDown;

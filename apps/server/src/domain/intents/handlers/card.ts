@@ -740,7 +740,13 @@ const handleCardMove: IntentHandler = ({ actorId, maps, hidden, payload, pushLog
   if (!card) return { ok: false, error: "card not found" };
   const fromZone = readZone(maps, card.zoneId);
   if (!fromZone) return { ok: false, error: "zone not found" };
-  const permission = canMoveCard(actorId, card, fromZone, toZone);
+  const toZoneForPermission = isCommanderZoneType(toZone.type)
+    ? {
+        ...toZone,
+        cardIds: getLiveCommanderZoneCardIds(maps, toZone.id, toZone.cardIds),
+      }
+    : toZone;
+  const permission = canMoveCard(actorId, card, fromZone, toZoneForPermission);
   const allowed = ensurePermission(permission);
   if (!allowed.ok) return allowed;
   const placement =
