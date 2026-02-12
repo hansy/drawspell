@@ -9,7 +9,12 @@ import {
 } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
@@ -31,8 +36,14 @@ interface PortraitSeatToolbarProps {
   onViewZone?: (zoneId: ZoneId, count?: number) => void;
   onDrawCard?: (playerId: string) => void;
   onOpponentLibraryReveals?: (zoneId: ZoneId) => void;
+  onZoneContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   onLoadDeck?: () => void;
 }
+
+const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
+const TOUCH_MOVE_TOLERANCE_PX = 10;
+const TOUCH_DOUBLE_TAP_MS = 280;
+const NATIVE_CLICK_SUPPRESSION_MS = 450;
 
 const colorTextClass = (color: string | undefined) => {
   if (color === "rose") return "text-rose-300";
@@ -46,14 +57,27 @@ const ZoneButton: React.FC<{
   icon: React.ReactNode;
   value: React.ReactNode;
   label: string;
-  onClick?: () => void;
+  onClick?: React.MouseEventHandler<HTMLButtonElement>;
+  onLongPress?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   className?: string;
   dropZoneId?: string;
   dropType?: string;
-}> = ({ icon, value, label, onClick, disabled, className, dropZoneId, dropType }) => {
+}> = ({
+  icon,
+  value,
+  label,
+  onClick,
+  onLongPress,
+  disabled,
+  className,
+  dropZoneId,
+  dropType,
+}) => {
   const dropTarget = useDroppable({
-    id: dropZoneId ? `mobile-drop:${dropZoneId}` : `mobile-drop:disabled:${label}`,
+    id: dropZoneId
+      ? `mobile-drop:${dropZoneId}`
+      : `mobile-drop:disabled:${label}`,
     disabled: disabled || !dropZoneId,
     data: dropZoneId
       ? {
@@ -62,6 +86,162 @@ const ZoneButton: React.FC<{
         }
       : undefined,
   });
+  const touchPressTimeoutRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const touchPressRef = React.useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    clientX: number;
+    clientY: number;
+    target: HTMLButtonElement;
+    moved: boolean;
+    longPressTriggered: boolean;
+  } | null>(null);
+  const suppressNativeUntilRef = React.useRef(0);
+
+  const clearTouchPressTimeout = React.useCallback(() => {
+    if (touchPressTimeoutRef.current) {
+      clearTimeout(touchPressTimeoutRef.current);
+      touchPressTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearTouchPress = React.useCallback(() => {
+    clearTouchPressTimeout();
+    touchPressRef.current = null;
+  }, [clearTouchPressTimeout]);
+
+  const suppressNativeClick = React.useCallback(() => {
+    suppressNativeUntilRef.current = Date.now() + NATIVE_CLICK_SUPPRESSION_MS;
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      clearTouchPress();
+    };
+  }, [clearTouchPress]);
+
+  const handlePointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (!onLongPress) return;
+      if (event.pointerType !== "touch") return;
+      if (event.button !== 0) return;
+
+      if (
+        touchPressRef.current &&
+        touchPressRef.current.pointerId !== event.pointerId
+      ) {
+        clearTouchPress();
+      }
+
+      touchPressRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        target: event.currentTarget,
+        moved: false,
+        longPressTriggered: false,
+      };
+
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // Ignore capture failures on unsupported environments.
+      }
+
+      clearTouchPressTimeout();
+      touchPressTimeoutRef.current = setTimeout(() => {
+        const press = touchPressRef.current;
+        if (!press) return;
+        if (press.pointerId !== event.pointerId) return;
+        if (press.moved) return;
+        press.longPressTriggered = true;
+        suppressNativeClick();
+        onLongPress({
+          preventDefault: () => {},
+          stopPropagation: () => {},
+          clientX: press.clientX,
+          clientY: press.clientY,
+          currentTarget: press.target,
+          target: press.target,
+        } as unknown as React.MouseEvent<HTMLButtonElement>);
+      }, TOUCH_CONTEXT_MENU_LONG_PRESS_MS);
+    },
+    [clearTouchPress, clearTouchPressTimeout, onLongPress, suppressNativeClick],
+  );
+
+  const handlePointerMove = React.useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (event.pointerType !== "touch") return;
+      const press = touchPressRef.current;
+      if (!press || press.pointerId !== event.pointerId) return;
+      press.clientX = event.clientX;
+      press.clientY = event.clientY;
+      if (press.moved) return;
+      const dx = event.clientX - press.startX;
+      const dy = event.clientY - press.startY;
+      if (Math.hypot(dx, dy) > TOUCH_MOVE_TOLERANCE_PX) {
+        press.moved = true;
+        clearTouchPressTimeout();
+      }
+    },
+    [clearTouchPressTimeout],
+  );
+
+  const handlePointerEnd = React.useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (event.pointerType !== "touch") return;
+      const press = touchPressRef.current;
+      if (!press || press.pointerId !== event.pointerId) return;
+      press.clientX = event.clientX;
+      press.clientY = event.clientY;
+      if (
+        typeof event.currentTarget.hasPointerCapture === "function" &&
+        typeof event.currentTarget.releasePointerCapture === "function" &&
+        event.currentTarget.hasPointerCapture(event.pointerId)
+      ) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      if (press.longPressTriggered) {
+        suppressNativeClick();
+      }
+      clearTouchPress();
+    },
+    [clearTouchPress, suppressNativeClick],
+  );
+
+  const handlePointerCancel = React.useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (event.pointerType !== "touch") return;
+      const press = touchPressRef.current;
+      if (!press || press.pointerId !== event.pointerId) return;
+      if (
+        typeof event.currentTarget.hasPointerCapture === "function" &&
+        typeof event.currentTarget.releasePointerCapture === "function" &&
+        event.currentTarget.hasPointerCapture(event.pointerId)
+      ) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      if (press.longPressTriggered) {
+        suppressNativeClick();
+      }
+      clearTouchPress();
+    },
+    [clearTouchPress, suppressNativeClick],
+  );
+
+  const handleClick = React.useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      if (Date.now() < suppressNativeUntilRef.current) return;
+      onClick?.(event);
+    },
+    [onClick],
+  );
+
   return (
     <button
       ref={dropTarget.setNodeRef}
@@ -70,10 +250,21 @@ const ZoneButton: React.FC<{
         "h-full w-full rounded-lg border border-zinc-700 bg-zinc-900/80 px-2",
         "flex items-center justify-center gap-1.5 text-zinc-200",
         "transition-colors hover:bg-zinc-800/80 disabled:opacity-40 disabled:cursor-not-allowed",
+        "touch-manipulation select-none",
         dropTarget.isOver && "ring-2 ring-indigo-400/80 bg-indigo-500/20",
         className,
       )}
-      onClick={onClick}
+      style={{
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        WebkitTouchCallout: "none",
+      }}
+      onClick={handleClick}
+      onContextMenu={(event) => event.preventDefault()}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerCancel}
       disabled={disabled}
       aria-label={label}
       data-no-seat-swipe="true"
@@ -133,9 +324,6 @@ const MobileLifeDialog: React.FC<{
         showCloseButton
       >
         <DialogHeader className="gap-1">
-          <DialogTitle className="text-sm text-zinc-400 font-medium uppercase tracking-wider">
-            Player
-          </DialogTitle>
           {isEditingName ? (
             <div className="flex items-center gap-2">
               <Input
@@ -178,9 +366,6 @@ const MobileLifeDialog: React.FC<{
         </DialogHeader>
 
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
-          <div className="mb-2 text-[10px] uppercase tracking-wider text-zinc-500">
-            Life Total
-          </div>
           <div className="flex items-center justify-center gap-4">
             <button
               type="button"
@@ -278,35 +463,70 @@ export const PortraitSeatToolbar: React.FC<PortraitSeatToolbarProps> = ({
   onViewZone,
   onDrawCard,
   onOpponentLibraryReveals,
+  onZoneContextMenu,
   onLoadDeck,
 }) => {
   const [lifeDialogOpen, setLifeDialogOpen] = React.useState(false);
   const isLibraryLoaded = Boolean(player.deckLoaded);
+  const lastLibraryTapRef = React.useRef<{
+    timestamp: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
-  const handleLibraryClick = React.useCallback(() => {
-    if (!library) return;
-    if (isMe && onDrawCard) {
-      onDrawCard(player.id);
-      return;
+  const handleLibraryClick = React.useCallback(
+    (event: React.MouseEvent) => {
+      if (!library) return;
+      if (isMe) {
+        if (!onDrawCard) return;
+        const now = Date.now();
+        const previousTap = lastLibraryTapRef.current;
+        const isDoubleTap = Boolean(
+          previousTap &&
+          now - previousTap.timestamp <= TOUCH_DOUBLE_TAP_MS &&
+          Math.hypot(
+            event.clientX - previousTap.x,
+            event.clientY - previousTap.y,
+          ) <= TOUCH_MOVE_TOLERANCE_PX,
+        );
+        if (isDoubleTap) {
+          lastLibraryTapRef.current = null;
+          onDrawCard(player.id);
+          return;
+        }
+        lastLibraryTapRef.current = {
+          timestamp: now,
+          x: event.clientX,
+          y: event.clientY,
+        };
+        return;
+      }
+      if (!isMe && opponentLibraryRevealCount > 0 && onOpponentLibraryReveals) {
+        onOpponentLibraryReveals(library.id);
+        return;
+      }
+      onViewZone?.(library.id);
+    },
+    [
+      isMe,
+      library,
+      onDrawCard,
+      onOpponentLibraryReveals,
+      onViewZone,
+      opponentLibraryRevealCount,
+      player.id,
+    ],
+  );
+
+  React.useEffect(() => {
+    if (!isMe) {
+      lastLibraryTapRef.current = null;
     }
-    if (!isMe && opponentLibraryRevealCount > 0 && onOpponentLibraryReveals) {
-      onOpponentLibraryReveals(library.id);
-      return;
-    }
-    onViewZone?.(library.id);
-  }, [
-    isMe,
-    library,
-    onDrawCard,
-    onOpponentLibraryReveals,
-    onViewZone,
-    opponentLibraryRevealCount,
-    player.id,
-  ]);
+  }, [isMe]);
 
   return (
     <>
-      <div className="shrink-0 border-y border-zinc-800/70 bg-zinc-950/85 px-2 py-1.5">
+      <div className="relative z-20 shrink-0 border-y border-zinc-800/70 bg-zinc-950/85 px-2 py-1.5">
         <div className="grid h-14 grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-2">
           <ZoneButton
             icon={<Heart size={16} />}
@@ -322,6 +542,11 @@ export const PortraitSeatToolbar: React.FC<PortraitSeatToolbarProps> = ({
                 label="Library"
                 value={libraryCount}
                 onClick={handleLibraryClick}
+                onLongPress={
+                  library && onZoneContextMenu
+                    ? (event) => onZoneContextMenu(event, library.id)
+                    : undefined
+                }
                 disabled={!library}
                 dropZoneId={library?.id}
                 dropType={library?.type}
@@ -334,6 +559,11 @@ export const PortraitSeatToolbar: React.FC<PortraitSeatToolbarProps> = ({
                   if (!graveyard) return;
                   onViewZone?.(graveyard.id);
                 }}
+                onLongPress={
+                  graveyard && onZoneContextMenu
+                    ? (event) => onZoneContextMenu(event, graveyard.id)
+                    : undefined
+                }
                 disabled={!graveyard}
                 dropZoneId={graveyard?.id}
                 dropType={graveyard?.type}
@@ -346,6 +576,11 @@ export const PortraitSeatToolbar: React.FC<PortraitSeatToolbarProps> = ({
                   if (!exile) return;
                   onViewZone?.(exile.id);
                 }}
+                onLongPress={
+                  exile && onZoneContextMenu
+                    ? (event) => onZoneContextMenu(event, exile.id)
+                    : undefined
+                }
                 disabled={!exile}
                 dropZoneId={exile?.id}
                 dropType={exile?.type}

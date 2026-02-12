@@ -57,60 +57,55 @@ const GroupedColumn: React.FC<GroupedColumnProps> = ({
   const [scrollNode, setScrollNode] = React.useState<HTMLDivElement | null>(null);
   useTwoFingerScroll({ target: scrollNode, axis: "y" });
   const touchPointsRef = React.useRef<Map<number, TouchPointState>>(new Map());
-  const twoFingerHoldTimeoutRef = React.useRef<ReturnType<
+  const touchHoldTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-  const twoFingerHoldPointerIdsRef = React.useRef<[number, number] | null>(null);
+  const touchHoldPointerIdRef = React.useRef<number | null>(null);
 
-  const clearTwoFingerHoldTimeout = React.useCallback(() => {
-    if (twoFingerHoldTimeoutRef.current) {
-      clearTimeout(twoFingerHoldTimeoutRef.current);
-      twoFingerHoldTimeoutRef.current = null;
+  const clearTouchHoldTimeout = React.useCallback(() => {
+    if (touchHoldTimeoutRef.current) {
+      clearTimeout(touchHoldTimeoutRef.current);
+      touchHoldTimeoutRef.current = null;
     }
   }, []);
 
-  const cancelTwoFingerHold = React.useCallback(() => {
-    clearTwoFingerHoldTimeout();
-    twoFingerHoldPointerIdsRef.current = null;
-  }, [clearTwoFingerHoldTimeout]);
+  const cancelTouchHold = React.useCallback(() => {
+    clearTouchHoldTimeout();
+    touchHoldPointerIdRef.current = null;
+  }, [clearTouchHoldTimeout]);
 
-  const beginTwoFingerHold = React.useCallback(() => {
+  const beginTouchHold = React.useCallback((pointerId: number) => {
     if (interactionsDisabled) return;
-    const points = Array.from(touchPointsRef.current.entries());
-    if (points.length !== 2) return;
-    const [firstEntry, secondEntry] = points;
-    const [firstPointerId, firstPoint] = firstEntry;
-    const [secondPointerId, secondPoint] = secondEntry;
-    if (firstPoint.cardId !== secondPoint.cardId) return;
-    const targetCard = cardsInGroup.find((card) => card.id === firstPoint.cardId);
+    const point = touchPointsRef.current.get(pointerId);
+    if (!point) return;
+    const targetCard = cardsInGroup.find((card) => card.id === point.cardId);
     if (!targetCard) return;
 
-    twoFingerHoldPointerIdsRef.current = [firstPointerId, secondPointerId];
-    clearTwoFingerHoldTimeout();
-    twoFingerHoldTimeoutRef.current = setTimeout(() => {
-      const trackedIds = twoFingerHoldPointerIdsRef.current;
-      if (!trackedIds) return;
-      const pointA = touchPointsRef.current.get(trackedIds[0]);
-      const pointB = touchPointsRef.current.get(trackedIds[1]);
-      if (!pointA || !pointB) return;
-      if (pointA.moved || pointB.moved) return;
-      clearTwoFingerHoldTimeout();
-      twoFingerHoldPointerIdsRef.current = null;
+    touchHoldPointerIdRef.current = pointerId;
+    clearTouchHoldTimeout();
+    touchHoldTimeoutRef.current = setTimeout(() => {
+      if (touchHoldPointerIdRef.current !== pointerId) return;
+      if (touchPointsRef.current.size !== 1) return;
+      const currentPoint = touchPointsRef.current.get(pointerId);
+      if (!currentPoint) return;
+      if (currentPoint.moved) return;
+      cancelTouchHold();
       onCardContextMenu(
         {
           preventDefault: () => {},
           stopPropagation: () => {},
-          clientX: (pointA.x + pointB.x) / 2,
-          clientY: (pointA.y + pointB.y) / 2,
-          currentTarget: pointA.target,
-          target: pointA.target,
+          clientX: currentPoint.x,
+          clientY: currentPoint.y,
+          currentTarget: currentPoint.target,
+          target: currentPoint.target,
         } as unknown as React.MouseEvent,
         targetCard
       );
     }, TOUCH_CONTEXT_MENU_LONG_PRESS_MS);
   }, [
+    cancelTouchHold,
     cardsInGroup,
-    clearTwoFingerHoldTimeout,
+    clearTouchHoldTimeout,
     interactionsDisabled,
     onCardContextMenu,
   ]);
@@ -138,15 +133,15 @@ const GroupedColumn: React.FC<GroupedColumnProps> = ({
       });
 
       const pointCount = touchPointsRef.current.size;
-      if (pointCount === 2) {
-        beginTwoFingerHold();
+      if (pointCount === 1) {
+        beginTouchHold(event.pointerId);
         return;
       }
-      if (pointCount > 2) {
-        cancelTwoFingerHold();
+      if (pointCount > 1) {
+        cancelTouchHold();
       }
     },
-    [beginTwoFingerHold, cancelTwoFingerHold, interactionsDisabled]
+    [beginTouchHold, cancelTouchHold, interactionsDisabled]
   );
 
   const handleTouchPointerMove = React.useCallback(
@@ -165,15 +160,14 @@ const GroupedColumn: React.FC<GroupedColumnProps> = ({
         }
       }
 
-      const trackedIds = twoFingerHoldPointerIdsRef.current;
-      if (!trackedIds) return;
-      const pointA = touchPointsRef.current.get(trackedIds[0]);
-      const pointB = touchPointsRef.current.get(trackedIds[1]);
-      if (!pointA || !pointB || pointA.moved || pointB.moved) {
-        cancelTwoFingerHold();
+      if (
+        touchHoldPointerIdRef.current === event.pointerId &&
+        point.moved
+      ) {
+        cancelTouchHold();
       }
     },
-    [cancelTwoFingerHold]
+    [cancelTouchHold]
   );
 
   const finishTouchPointer = React.useCallback(
@@ -191,19 +185,19 @@ const GroupedColumn: React.FC<GroupedColumnProps> = ({
       }
 
       touchPointsRef.current.delete(event.pointerId);
-      if (touchPointsRef.current.size < 2) {
-        cancelTwoFingerHold();
+      if (touchHoldPointerIdRef.current === event.pointerId) {
+        cancelTouchHold();
       }
     },
-    [cancelTwoFingerHold]
+    [cancelTouchHold]
   );
 
   React.useEffect(() => {
     return () => {
-      cancelTwoFingerHold();
+      cancelTouchHold();
       touchPointsRef.current.clear();
     };
-  }, [cancelTwoFingerHold]);
+  }, [cancelTouchHold]);
 
   return (
     <div className="shrink-0 flex flex-col" style={{ width: columnWidthPx }}>

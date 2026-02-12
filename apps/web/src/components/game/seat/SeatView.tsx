@@ -259,6 +259,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
             onViewZone={onViewZone}
             onDrawCard={onDrawCard}
             onOpponentLibraryReveals={onOpponentLibraryReveals}
+            onZoneContextMenu={onZoneContextMenu}
             onLoadDeck={onLoadDeck}
           />
           <div className="relative min-h-0 flex-1 flex flex-col bg-zinc-900/55 backdrop-blur-sm border-t border-white/10 overflow-hidden">

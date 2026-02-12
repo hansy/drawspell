@@ -71,10 +71,10 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
   useTwoFingerScroll({ target: scrollNode, axis: "x" });
   const latestOrderRef = React.useRef<string[]>([]);
   const touchPointsRef = React.useRef<Map<number, TouchPointState>>(new Map());
-  const twoFingerHoldTimeoutRef = React.useRef<ReturnType<
+  const touchHoldTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-  const twoFingerHoldPointerIdsRef = React.useRef<[number, number] | null>(null);
+  const touchHoldPointerIdRef = React.useRef<number | null>(null);
   const touchDragRef = React.useRef<TouchDragState | null>(null);
   const touchContextMenuTriggeredRef = React.useRef(false);
 
@@ -84,17 +84,17 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
       : displayCards.map((card) => card.id);
   }, [displayCards, orderedCardIds]);
 
-  const clearTwoFingerHoldTimeout = React.useCallback(() => {
-    if (twoFingerHoldTimeoutRef.current) {
-      clearTimeout(twoFingerHoldTimeoutRef.current);
-      twoFingerHoldTimeoutRef.current = null;
+  const clearTouchHoldTimeout = React.useCallback(() => {
+    if (touchHoldTimeoutRef.current) {
+      clearTimeout(touchHoldTimeoutRef.current);
+      touchHoldTimeoutRef.current = null;
     }
   }, []);
 
-  const cancelTwoFingerHold = React.useCallback(() => {
-    clearTwoFingerHoldTimeout();
-    twoFingerHoldPointerIdsRef.current = null;
-  }, [clearTwoFingerHoldTimeout]);
+  const cancelTouchHold = React.useCallback(() => {
+    clearTouchHoldTimeout();
+    touchHoldPointerIdRef.current = null;
+  }, [clearTouchHoldTimeout]);
 
   const reorderFromTouch = React.useCallback(
     (draggedCardId: string, overCardId: string) => {
@@ -110,46 +110,41 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
     [displayCards, reorderList, setOrderedCardIds]
   );
 
-  const beginTwoFingerHold = React.useCallback(() => {
+  const beginTouchHold = React.useCallback((pointerId: number) => {
     if (interactionsDisabled) return;
-    const points = Array.from(touchPointsRef.current.entries());
-    if (points.length !== 2) return;
-    const [firstEntry, secondEntry] = points;
-    const [firstPointerId, firstPoint] = firstEntry;
-    const [secondPointerId, secondPoint] = secondEntry;
-    if (firstPoint.cardId !== secondPoint.cardId) return;
-    const targetCard = cardsById.get(firstPoint.cardId);
+    const point = touchPointsRef.current.get(pointerId);
+    if (!point) return;
+    const targetCard = cardsById.get(point.cardId);
     if (!targetCard) return;
 
-    twoFingerHoldPointerIdsRef.current = [firstPointerId, secondPointerId];
-    clearTwoFingerHoldTimeout();
-    twoFingerHoldTimeoutRef.current = setTimeout(() => {
-      const trackedIds = twoFingerHoldPointerIdsRef.current;
-      if (!trackedIds) return;
-      const pointA = touchPointsRef.current.get(trackedIds[0]);
-      const pointB = touchPointsRef.current.get(trackedIds[1]);
-      if (!pointA || !pointB) return;
-      if (pointA.moved || pointB.moved) return;
+    touchHoldPointerIdRef.current = pointerId;
+    clearTouchHoldTimeout();
+    touchHoldTimeoutRef.current = setTimeout(() => {
+      if (touchHoldPointerIdRef.current !== pointerId) return;
+      if (touchPointsRef.current.size !== 1) return;
+      const currentPoint = touchPointsRef.current.get(pointerId);
+      if (!currentPoint) return;
+      if (currentPoint.moved) return;
       touchContextMenuTriggeredRef.current = true;
       touchDragRef.current = null;
       setDraggingId(null);
-      clearTwoFingerHoldTimeout();
-      twoFingerHoldPointerIdsRef.current = null;
+      cancelTouchHold();
       onCardContextMenu(
         {
           preventDefault: () => {},
           stopPropagation: () => {},
-          clientX: (pointA.x + pointB.x) / 2,
-          clientY: (pointA.y + pointB.y) / 2,
-          currentTarget: pointA.target,
-          target: pointA.target,
+          clientX: currentPoint.x,
+          clientY: currentPoint.y,
+          currentTarget: currentPoint.target,
+          target: currentPoint.target,
         } as unknown as React.MouseEvent,
         targetCard
       );
     }, TOUCH_CONTEXT_MENU_LONG_PRESS_MS);
   }, [
+    cancelTouchHold,
     cardsById,
-    clearTwoFingerHoldTimeout,
+    clearTouchHoldTimeout,
     interactionsDisabled,
     onCardContextMenu,
     setDraggingId,
@@ -187,20 +182,14 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
               started: false,
             }
           : null;
+        beginTouchHold(event.pointerId);
       } else {
         touchDragRef.current = null;
         setDraggingId(null);
-      }
-
-      if (pointCount === 2) {
-        beginTwoFingerHold();
-        return;
-      }
-      if (pointCount > 2) {
-        cancelTwoFingerHold();
+        cancelTouchHold();
       }
     },
-    [beginTwoFingerHold, canReorder, cancelTwoFingerHold, interactionsDisabled, setDraggingId]
+    [beginTouchHold, canReorder, cancelTouchHold, interactionsDisabled, setDraggingId]
   );
 
   const handleTouchPointerMove = React.useCallback(
@@ -219,13 +208,11 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
         }
       }
 
-      const trackedIds = twoFingerHoldPointerIdsRef.current;
-      if (trackedIds) {
-        const pointA = touchPointsRef.current.get(trackedIds[0]);
-        const pointB = touchPointsRef.current.get(trackedIds[1]);
-        if (!pointA || !pointB || pointA.moved || pointB.moved) {
-          cancelTwoFingerHold();
-        }
+      if (
+        touchHoldPointerIdRef.current === event.pointerId &&
+        point.moved
+      ) {
+        cancelTouchHold();
       }
 
       const drag = touchDragRef.current;
@@ -255,7 +242,7 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
       if (overCardId === drag.draggedCardId) return;
       reorderFromTouch(drag.draggedCardId, overCardId);
     },
-    [canReorder, cancelTwoFingerHold, reorderFromTouch, setDraggingId]
+    [canReorder, cancelTouchHold, reorderFromTouch, setDraggingId]
   );
 
   const finishTouchPointer = React.useCallback(
@@ -273,8 +260,8 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
       }
 
       touchPointsRef.current.delete(event.pointerId);
-      if (touchPointsRef.current.size < 2) {
-        cancelTwoFingerHold();
+      if (touchHoldPointerIdRef.current === event.pointerId) {
+        cancelTouchHold();
       }
 
       const drag = touchDragRef.current;
@@ -292,16 +279,16 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
         touchContextMenuTriggeredRef.current = false;
       }
     },
-    [cancelTwoFingerHold, commitReorder, setDraggingId]
+    [cancelTouchHold, commitReorder, setDraggingId]
   );
 
   React.useEffect(() => {
     return () => {
-      cancelTwoFingerHold();
+      cancelTouchHold();
       touchPointsRef.current.clear();
       touchDragRef.current = null;
     };
-  }, [cancelTwoFingerHold]);
+  }, [cancelTouchHold]);
   const hoveredIndex = React.useMemo(() => {
     if (!hoveredId) return -1;
     return renderCards.findIndex((card) => card.id === hoveredId);

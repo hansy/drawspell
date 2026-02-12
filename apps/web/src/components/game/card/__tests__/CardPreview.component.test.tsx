@@ -466,7 +466,7 @@ describe("CardPreview", () => {
     expect(document.querySelector("[data-card-preview]")).not.toBeNull();
   });
 
-  it("opens card context menu on two-finger hold", () => {
+  it("opens card context menu on single touch hold", () => {
     vi.useFakeTimers();
 
     const zoneId = "me-battlefield";
@@ -505,17 +505,6 @@ describe("CardPreview", () => {
           pointerType: "touch",
           pointerId: 1,
           clientX: 20,
-          clientY: 20,
-        })
-      );
-      fireEvent(
-        cardElement,
-        createPointerEvent("pointerdown", {
-          bubbles: true,
-          button: 0,
-          pointerType: "touch",
-          pointerId: 2,
-          clientX: 40,
           clientY: 20,
         })
       );

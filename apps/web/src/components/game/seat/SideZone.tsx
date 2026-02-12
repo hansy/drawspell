@@ -245,7 +245,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
 
   return (
     <div
-      className="relative group w-full h-[var(--sidezone-h)] min-h-0 shrink-0 flex items-center justify-center touch-manipulation"
+      className="relative group w-full h-[var(--sidezone-h)] min-h-0 shrink-0 flex items-center justify-center touch-manipulation select-none"
       onContextMenu={handleContextMenu}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
@@ -254,6 +254,11 @@ export const SideZone: React.FC<SideZoneProps> = ({
       onPointerUp={handleTouchPressEnd}
       onPointerCancel={handleTouchPressCancel}
       onPointerLeave={handleTouchPressCancel}
+      style={{
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        WebkitTouchCallout: "none",
+      }}
     >
       <Zone
         zone={zone}
@@ -286,6 +291,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
                   style={{ width: "100%", height: "100%" }}
                   faceDown={faceDown}
                   disableDrag={disableCardDrag}
+                  disableInteractions
                   disableHoverAnimation
                   className={cn("w-full h-full", cardClassName)}
                 />
@@ -296,10 +302,10 @@ export const SideZone: React.FC<SideZoneProps> = ({
           (emptyContent ?? <span className="text-zinc-600 text-xs">Empty</span>)
         )}
 
-        <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 px-2 text-xs text-zinc-400 uppercase tracking-wider font-medium whitespace-nowrap border border-zinc-800 rounded-full z-10 top-0">
+        <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 px-2 text-xs text-zinc-400 uppercase tracking-wider font-medium whitespace-nowrap border border-zinc-800 rounded-full z-10 top-0 pointer-events-none select-none">
           {label}
         </div>
-        <div className="absolute left-1/2 -translate-x-1/2 translate-y-1/2 bg-zinc-900 px-2 lg:text-xs text-zinc-300 font-mono border border-zinc-800 rounded-full z-10 bottom-0">
+        <div className="absolute left-1/2 -translate-x-1/2 translate-y-1/2 bg-zinc-900 px-2 lg:text-xs text-zinc-300 font-mono border border-zinc-800 rounded-full z-10 bottom-0 pointer-events-none select-none">
           {count}
         </div>
       </Zone>

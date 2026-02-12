@@ -105,7 +105,7 @@ describe("ZoneViewer touch gestures", () => {
     vi.useRealTimers();
   });
 
-  it("opens linear card context menu on two-finger hold", () => {
+  it("opens linear card context menu on single touch hold", () => {
     const cards = [buildCard("c1", "Card 1", "zone-1")];
     const onCardContextMenu = vi.fn();
     const commitReorder = vi.fn();
@@ -134,17 +134,6 @@ describe("ZoneViewer touch gestures", () => {
           clientY: 20,
         })
       );
-      fireEvent(
-        cardNode,
-        createPointerEvent("pointerdown", {
-          bubbles: true,
-          button: 0,
-          pointerType: "touch",
-          pointerId: 2,
-          clientX: 38,
-          clientY: 20,
-        })
-      );
       vi.advanceTimersByTime(500);
     });
 
@@ -152,7 +141,7 @@ describe("ZoneViewer touch gestures", () => {
     expect(commitReorder).not.toHaveBeenCalled();
   });
 
-  it("opens grouped card context menu on two-finger hold", () => {
+  it("opens grouped card context menu on single touch hold", () => {
     const card = buildCard("c1", "Card 1", "zone-1");
     const onCardContextMenu = vi.fn();
 
@@ -180,17 +169,6 @@ describe("ZoneViewer touch gestures", () => {
           pointerType: "touch",
           pointerId: 1,
           clientX: 20,
-          clientY: 20,
-        })
-      );
-      fireEvent(
-        cardNode,
-        createPointerEvent("pointerdown", {
-          bubbles: true,
-          button: 0,
-          pointerType: "touch",
-          pointerId: 2,
-          clientX: 34,
           clientY: 20,
         })
       );

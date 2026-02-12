@@ -41,7 +41,9 @@ type SeatPosition = SeatSlot["position"];
 type OccupiedSeatSlot = SeatSlot & { player: NonNullable<SeatSlot["player"]> };
 
 const MOBILE_SWIPE_MIN_DISTANCE_PX = 56;
-const MOBILE_SWIPE_MAX_DURATION_MS = 450;
+const MOBILE_SWIPE_MAX_DURATION_MS = 650;
+const SEAT_SWIPE_BLOCK_SELECTOR =
+  "[data-card-id],button,a,input,textarea,select,[role='dialog'],[data-no-seat-swipe='true']";
 
 const SEAT_COORDS: Record<SeatPosition, { x: number; y: number }> = {
   "top-left": { x: 0, y: 0 },
@@ -326,32 +328,66 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
     setIsPortraitCommanderDrawerOpen(false);
   }, [activeSeat?.player.id]);
 
-  const swipeRef = React.useRef<{
-    pointerId: number;
-    x: number;
-    y: number;
+  const swipeTouchPointsRef = React.useRef<
+    Map<number, { x: number; y: number; eligible: boolean }>
+  >(new Map());
+  const swipeGestureRef = React.useRef<{
+    pointerIds: [number, number];
+    startMidpointX: number;
+    startMidpointY: number;
     startedAt: number;
   } | null>(null);
+
+  const clearSwipeGesture = React.useCallback(() => {
+    swipeTouchPointsRef.current.clear();
+    swipeGestureRef.current = null;
+  }, []);
+
+  React.useEffect(() => {
+    if (isPortraitViewport) return;
+    clearSwipeGesture();
+  }, [clearSwipeGesture, isPortraitViewport]);
 
   const handleViewportPointerDownCapture = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (!isPortraitViewport) return;
       if (event.pointerType !== "touch" || event.button !== 0) return;
       const target = event.target;
-      if (
+      const isBlockedTarget =
         target instanceof HTMLElement &&
-        target.closest(
-          "[data-card-id],button,a,input,textarea,select,[role='dialog'],[data-no-seat-swipe='true']",
-        )
-      ) {
-        return;
-      }
-      swipeRef.current = {
-        pointerId: event.pointerId,
+        Boolean(target.closest(SEAT_SWIPE_BLOCK_SELECTOR));
+
+      swipeTouchPointsRef.current.set(event.pointerId, {
         x: event.clientX,
         y: event.clientY,
+        eligible: !isBlockedTarget,
+      });
+
+      if (swipeGestureRef.current) return;
+      const eligibleTouches = Array.from(swipeTouchPointsRef.current.entries()).filter(
+        ([, point]) => point.eligible,
+      );
+      if (eligibleTouches.length < 2) return;
+
+      const [firstTouch, secondTouch] = eligibleTouches.slice(-2);
+      swipeGestureRef.current = {
+        pointerIds: [firstTouch[0], secondTouch[0]],
+        startMidpointX: (firstTouch[1].x + secondTouch[1].x) / 2,
+        startMidpointY: (firstTouch[1].y + secondTouch[1].y) / 2,
         startedAt: Date.now(),
       };
+    },
+    [isPortraitViewport],
+  );
+
+  const handleViewportPointerMoveCapture = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!isPortraitViewport) return;
+      if (event.pointerType !== "touch") return;
+      const point = swipeTouchPointsRef.current.get(event.pointerId);
+      if (!point) return;
+      point.x = event.clientX;
+      point.y = event.clientY;
     },
     [isPortraitViewport],
   );
@@ -360,19 +396,49 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (!isPortraitViewport) return;
       if (event.pointerType !== "touch") return;
-      const swipeStart = swipeRef.current;
-      if (!swipeStart || swipeStart.pointerId !== event.pointerId) return;
-      swipeRef.current = null;
-      if (!activeSeat) return;
 
-      const elapsed = Date.now() - swipeStart.startedAt;
+      const point = swipeTouchPointsRef.current.get(event.pointerId);
+      if (point) {
+        point.x = event.clientX;
+        point.y = event.clientY;
+      }
+
+      const swipeGesture = swipeGestureRef.current;
+      if (!swipeGesture) {
+        swipeTouchPointsRef.current.delete(event.pointerId);
+        return;
+      }
+      if (!swipeGesture.pointerIds.includes(event.pointerId)) {
+        swipeTouchPointsRef.current.delete(event.pointerId);
+        return;
+      }
+
+      if (!activeSeat) {
+        swipeGestureRef.current = null;
+        swipeTouchPointsRef.current.delete(event.pointerId);
+        return;
+      }
+
+      const firstTouch = swipeTouchPointsRef.current.get(swipeGesture.pointerIds[0]);
+      const secondTouch = swipeTouchPointsRef.current.get(swipeGesture.pointerIds[1]);
+      swipeGestureRef.current = null;
+      swipeTouchPointsRef.current.delete(event.pointerId);
+
+      if (!firstTouch || !secondTouch) return;
+
+      const elapsed = Date.now() - swipeGesture.startedAt;
       if (elapsed > MOBILE_SWIPE_MAX_DURATION_MS) return;
+
+      const deltaX =
+        (firstTouch.x + secondTouch.x) / 2 - swipeGesture.startMidpointX;
+      const deltaY =
+        (firstTouch.y + secondTouch.y) / 2 - swipeGesture.startMidpointY;
 
       const nextSeat = resolveSwipeTargetSeat(
         activeSeat,
         occupiedSlots,
-        event.clientX - swipeStart.x,
-        event.clientY - swipeStart.y,
+        deltaX,
+        deltaY,
       );
       if (!nextSeat) return;
       if (nextSeat.player.id === activeSeat.player.id) return;
@@ -505,6 +571,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                 <div
                   className="relative min-h-0 overflow-hidden overscroll-none touch-none"
                   onPointerDownCapture={handleViewportPointerDownCapture}
+                  onPointerMoveCapture={handleViewportPointerMoveCapture}
                   onPointerUpCapture={handleViewportPointerEndCapture}
                   onPointerCancelCapture={handleViewportPointerEndCapture}
                   >

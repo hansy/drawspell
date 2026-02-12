@@ -25,7 +25,7 @@ import type { CardProps, CardViewProps } from "@/components/game/card/types";
 
 const PREVIEW_LOCK_LONG_PRESS_MS = 400;
 const PREVIEW_LOCK_MOVE_TOLERANCE_PX = 8;
-const TOUCH_TWO_FINGER_HOLD_MS = 500;
+const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
 const TOUCH_PREVIEW_TAP_MOVE_TOLERANCE_PX = 6;
 
@@ -150,10 +150,10 @@ export const useCardController = (props: CardProps): CardController => {
   const primaryTouchPointerIdRef = React.useRef<number | null>(null);
   const touchHadMultiTouchRef = React.useRef(false);
   const touchContextMenuTriggeredRef = React.useRef(false);
-  const twoFingerHoldTimeoutRef = React.useRef<ReturnType<
+  const contextMenuHoldTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-  const twoFingerHoldPointerIdsRef = React.useRef<[number, number] | null>(null);
+  const contextMenuHoldPointerIdRef = React.useRef<number | null>(null);
 
   const clearLockPress = React.useCallback(() => {
     if (lockPressTimeoutRef.current) {
@@ -163,25 +163,25 @@ export const useCardController = (props: CardProps): CardController => {
     lockPressStartRef.current = null;
   }, []);
 
-  const clearTwoFingerHoldTimeout = React.useCallback(() => {
-    if (twoFingerHoldTimeoutRef.current) {
-      clearTimeout(twoFingerHoldTimeoutRef.current);
-      twoFingerHoldTimeoutRef.current = null;
+  const clearContextMenuHoldTimeout = React.useCallback(() => {
+    if (contextMenuHoldTimeoutRef.current) {
+      clearTimeout(contextMenuHoldTimeoutRef.current);
+      contextMenuHoldTimeoutRef.current = null;
     }
   }, []);
 
-  const cancelTwoFingerHold = React.useCallback(() => {
-    clearTwoFingerHoldTimeout();
-    twoFingerHoldPointerIdsRef.current = null;
-  }, [clearTwoFingerHoldTimeout]);
+  const cancelContextMenuHold = React.useCallback(() => {
+    clearContextMenuHoldTimeout();
+    contextMenuHoldPointerIdRef.current = null;
+  }, [clearContextMenuHoldTimeout]);
 
   const resetTouchGesture = React.useCallback(() => {
-    cancelTwoFingerHold();
+    cancelContextMenuHold();
     touchPointsRef.current.clear();
     primaryTouchPointerIdRef.current = null;
     touchHadMultiTouchRef.current = false;
     touchContextMenuTriggeredRef.current = false;
-  }, [cancelTwoFingerHold]);
+  }, [cancelContextMenuHold]);
 
   const handleMouseEnter = React.useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -314,44 +314,38 @@ export const useCardController = (props: CardProps): CardController => {
   ]);
 
   const openTouchContextMenu = React.useCallback(
-    (pointA: TouchPointState, pointB: TouchPointState) => {
+    (point: TouchPointState) => {
       if (!onContextMenu) return;
-      const clientX = (pointA.x + pointB.x) / 2;
-      const clientY = (pointA.y + pointB.y) / 2;
       onContextMenu({
         preventDefault: () => {},
         stopPropagation: () => {},
-        clientX,
-        clientY,
-        currentTarget: pointA.target,
-        target: pointA.target,
+        clientX: point.x,
+        clientY: point.y,
+        currentTarget: point.target,
+        target: point.target,
       } as unknown as React.MouseEvent);
     },
     [onContextMenu]
   );
 
-  const beginTwoFingerHold = React.useCallback(() => {
+  const beginTouchContextMenuHold = React.useCallback((pointerId: number) => {
     if (!onContextMenu) return;
     if (interactionsDisabled) return;
-    const points = Array.from(touchPointsRef.current.entries());
-    if (points.length !== 2) return;
-    const pointerIds: [number, number] = [points[0][0], points[1][0]];
-    twoFingerHoldPointerIdsRef.current = pointerIds;
-    clearTwoFingerHoldTimeout();
-    twoFingerHoldTimeoutRef.current = setTimeout(() => {
-      const trackedIds = twoFingerHoldPointerIdsRef.current;
-      if (!trackedIds) return;
-      const pointA = touchPointsRef.current.get(trackedIds[0]);
-      const pointB = touchPointsRef.current.get(trackedIds[1]);
-      if (!pointA || !pointB) return;
-      if (pointA.moved || pointB.moved) return;
+    contextMenuHoldPointerIdRef.current = pointerId;
+    clearContextMenuHoldTimeout();
+    contextMenuHoldTimeoutRef.current = setTimeout(() => {
+      if (contextMenuHoldPointerIdRef.current !== pointerId) return;
+      if (touchPointsRef.current.size !== 1) return;
+      const point = touchPointsRef.current.get(pointerId);
+      if (!point) return;
+      if (point.moved) return;
       touchContextMenuTriggeredRef.current = true;
-      clearTwoFingerHoldTimeout();
-      twoFingerHoldPointerIdsRef.current = null;
-      openTouchContextMenu(pointA, pointB);
-    }, TOUCH_TWO_FINGER_HOLD_MS);
+      cancelContextMenuHold();
+      openTouchContextMenu(point);
+    }, TOUCH_CONTEXT_MENU_LONG_PRESS_MS);
   }, [
-    clearTwoFingerHoldTimeout,
+    cancelContextMenuHold,
+    clearContextMenuHoldTimeout,
     interactionsDisabled,
     onContextMenu,
     openTouchContextMenu,
@@ -386,19 +380,13 @@ export const useCardController = (props: CardProps): CardController => {
         primaryTouchPointerIdRef.current = event.pointerId;
         touchHadMultiTouchRef.current = false;
         touchContextMenuTriggeredRef.current = false;
+        beginTouchContextMenuHold(event.pointerId);
       } else {
         touchHadMultiTouchRef.current = true;
-      }
-
-      if (pointCount === 2) {
-        beginTwoFingerHold();
-        return;
-      }
-      if (pointCount > 2) {
-        cancelTwoFingerHold();
+        cancelContextMenuHold();
       }
     },
-    [beginTwoFingerHold, cancelTwoFingerHold, interactionsDisabled]
+    [beginTouchContextMenuHold, cancelContextMenuHold, interactionsDisabled]
   );
 
   const handleTouchPressMove = React.useCallback(
@@ -415,16 +403,14 @@ export const useCardController = (props: CardProps): CardController => {
           point.moved = true;
         }
       }
-      const trackedIds = twoFingerHoldPointerIdsRef.current;
-      if (trackedIds) {
-        const pointA = touchPointsRef.current.get(trackedIds[0]);
-        const pointB = touchPointsRef.current.get(trackedIds[1]);
-        if (!pointA || !pointB || pointA.moved || pointB.moved) {
-          cancelTwoFingerHold();
-        }
+      if (
+        contextMenuHoldPointerIdRef.current === event.pointerId &&
+        point.moved
+      ) {
+        cancelContextMenuHold();
       }
     },
-    [cancelTwoFingerHold]
+    [cancelContextMenuHold]
   );
 
   const handleTouchPressFinish = React.useCallback(
@@ -439,8 +425,8 @@ export const useCardController = (props: CardProps): CardController => {
       const wasPrimaryTouch = primaryTouchPointerIdRef.current === event.pointerId;
 
       touchPointsRef.current.delete(event.pointerId);
-      if (touchPointsRef.current.size < 2) {
-        cancelTwoFingerHold();
+      if (contextMenuHoldPointerIdRef.current === event.pointerId) {
+        cancelContextMenuHold();
       }
 
       const previewPolicy = getCardHoverPreviewPolicy({
@@ -470,7 +456,7 @@ export const useCardController = (props: CardProps): CardController => {
       lockPreview(card, point.target);
     },
     [
-      cancelTwoFingerHold,
+      cancelContextMenuHold,
       canPeek,
       canSeeLibraryTop,
       card,
