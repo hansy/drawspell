@@ -93,13 +93,13 @@ describe("ShareRoomDialog", () => {
   });
 
   it("shows a resume link when provided", () => {
-    renderDialog({ resumeLink: "https://example.com/room?playerId=p1&rt=resume" });
+    const resumeLink = "https://example.com/room?playerId=p1&rt=resume";
+    renderDialog({ resumeLink });
 
-    expect(screen.getByText("Private link (only for you)")).toBeTruthy();
-    expect(screen.getByText("New device link (private to you)")).toBeTruthy();
-    expect(
-      screen.getByDisplayValue("https://example.com/room?playerId=p1&rt=resume")
-    ).toBeTruthy();
+    const resumeInput = screen.getByDisplayValue(resumeLink) as HTMLInputElement;
+    expect(resumeInput).toBeTruthy();
+    expect(resumeInput.readOnly).toBe(true);
+    expect(screen.getAllByRole("textbox")).toHaveLength(3);
   });
 
   it("shows a loading state before links are ready", () => {

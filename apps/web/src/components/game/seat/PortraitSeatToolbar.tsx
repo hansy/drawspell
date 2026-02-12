@@ -9,7 +9,13 @@ import {
 } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 
-import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
@@ -320,6 +326,12 @@ const MobileLifeDialog: React.FC<{
         showCloseButton
       >
         <DialogHeader className="gap-1">
+          <DialogTitle className="sr-only">
+            {player.name ? `${player.name} life controls` : "Player life controls"}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Adjust life total and commander damage values.
+          </DialogDescription>
           {isEditingName ? (
             <div className="flex items-center gap-2">
               <Input

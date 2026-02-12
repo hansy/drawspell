@@ -277,7 +277,6 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
     const hasTokens = Boolean(
       storedTokens?.playerToken ||
         storedTokens?.spectatorToken ||
-        storedTokens?.resumeToken ||
         storeTokens?.playerToken ||
         storeTokens?.spectatorToken ||
         storeTokens?.resumeToken
@@ -388,9 +387,12 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         return;
       }
       const inviteToken = resolveInviteTokenFromUrl(window.location.href);
+      const hasResumeFromUrl = Boolean(
+        inviteToken.resumeToken && inviteToken.playerId,
+      );
       const hostPending = isRoomHostPending(sessionId);
       if (roomUnavailableRef.current || isRoomUnavailable(sessionId)) {
-        if (inviteToken.token || hostPending) {
+        if (inviteToken.token || hasResumeFromUrl || hostPending) {
           clearRoomUnavailable(sessionId);
           roomUnavailableRef.current = false;
           setRoomUnavailable(false);
@@ -409,15 +411,11 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       setJoinBlockedReason(null);
 
       const storedTokens = readRoomTokensFromStorage(sessionId);
-      const hasResumeFromUrl = Boolean(
-        inviteToken.resumeToken && inviteToken.playerId,
-      );
       const hasToken = Boolean(
         inviteToken.token ||
           hasResumeFromUrl ||
           storedTokens?.playerToken ||
           storedTokens?.spectatorToken ||
-          storedTokens?.resumeToken ||
           roomTokens?.playerToken ||
           roomTokens?.spectatorToken ||
           roomTokens?.resumeToken

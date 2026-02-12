@@ -54,6 +54,7 @@ const EMPTY_ROOM_GRACE_MS = 120_000;
 const ROOM_TEARDOWN_CLOSE_CODE = 1013;
 const PLAYER_TAKEOVER_CLOSE_CODE = 1008;
 const PLAYER_TAKEOVER_CLOSE_REASON = "session moved to another device";
+const RESUME_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 const Y_DOC_STORAGE_KEY = "yjs:doc";
 const SNAPSHOT_META_KEY = "snapshot:meta";
 const SNAPSHOT_HIDDEN_PREFIX = "snapshot:hidden:";
@@ -83,6 +84,13 @@ const JOIN_TOKEN_MAX_SKEW_MS = 30_000;
 const CONNECT_RATE_WINDOW_MS = 60_000;
 const CONNECT_RATE_MAX_ATTEMPTS = 20;
 const CONNECT_RATE_BLOCK_MS = 120_000;
+
+type PlayerResumeTokenEntry = {
+  token: string;
+  expiresAt: number;
+};
+
+type PlayerResumeTokens = Record<string, PlayerResumeTokenEntry>;
 
 const nowMs = () =>
   typeof performance !== "undefined" && typeof performance.now === "function"
@@ -267,7 +275,7 @@ export class Room extends YServer<Env> {
   private intentConnections = new Set<Connection>();
   private hiddenState: HiddenState | null = null;
   private roomTokens: RoomTokens | null = null;
-  private playerResumeTokens: Record<string, string> | null = null;
+  private playerResumeTokens: PlayerResumeTokens | null = null;
   private libraryViews = new Map<
     string,
     { playerId: string; count?: number; lastPingAt: number }
@@ -856,22 +864,44 @@ export class Room extends YServer<Env> {
 
   private normalizePlayerResumeTokens(
     value: unknown,
-  ): Record<string, string> | null {
+  ): PlayerResumeTokens | null {
     if (!value || typeof value !== "object") return null;
-    const normalized: Record<string, string> = {};
-    for (const [playerId, token] of Object.entries(value as Record<string, unknown>)) {
+    const now = Date.now();
+    const normalized: PlayerResumeTokens = {};
+    for (const [playerId, rawEntry] of Object.entries(
+      value as Record<string, unknown>,
+    )) {
+      let token: string | undefined;
+      let expiresAt: number | undefined;
+      if (typeof rawEntry === "string") {
+        token = rawEntry;
+        expiresAt = now + RESUME_TOKEN_TTL_MS;
+      } else if (rawEntry && typeof rawEntry === "object") {
+        const entryRecord = rawEntry as Record<string, unknown>;
+        token = typeof entryRecord.token === "string" ? entryRecord.token : undefined;
+        const parsedExpiresAt =
+          typeof entryRecord.expiresAt === "number" &&
+          Number.isFinite(entryRecord.expiresAt)
+            ? entryRecord.expiresAt
+            : undefined;
+        expiresAt = parsedExpiresAt ?? now + RESUME_TOKEN_TTL_MS;
+      }
       if (typeof playerId !== "string" || typeof token !== "string") continue;
       const trimmedPlayerId = playerId.trim();
       const trimmedToken = token.trim();
       if (!trimmedPlayerId || !trimmedToken) continue;
-      normalized[trimmedPlayerId] = trimmedToken;
+      if (!expiresAt || expiresAt <= now) continue;
+      normalized[trimmedPlayerId] = {
+        token: trimmedToken,
+        expiresAt,
+      };
     }
     return Object.keys(normalized).length > 0 ? normalized : null;
   }
 
-  private async loadPlayerResumeTokens(): Promise<Record<string, string>> {
+  private async loadPlayerResumeTokens(): Promise<PlayerResumeTokens> {
     if (this.playerResumeTokens) return this.playerResumeTokens;
-    const stored = await this.ctx.storage.get<Record<string, string>>(
+    const stored = await this.ctx.storage.get<unknown>(
       PLAYER_RESUME_TOKENS_KEY,
     );
     const normalized = this.normalizePlayerResumeTokens(stored) ?? {};
@@ -879,15 +909,45 @@ export class Room extends YServer<Env> {
     return normalized;
   }
 
-  private async ensurePlayerResumeToken(playerId: string): Promise<string> {
+  private async ensurePlayerResumeToken(
+    playerId: string,
+    options?: { rotate?: boolean },
+  ): Promise<string> {
+    const rotate = options?.rotate ?? false;
+    const now = Date.now();
     const normalizedPlayerId = playerId.trim();
     const existing = await this.loadPlayerResumeTokens();
     const current = existing[normalizedPlayerId];
-    if (typeof current === "string" && current.length > 0) {
-      return current;
+    if (
+      current &&
+      typeof current.token === "string" &&
+      current.token.length > 0 &&
+      current.expiresAt > now &&
+      !rotate
+    ) {
+      if (current.expiresAt - now > RESUME_TOKEN_TTL_MS / 2) {
+        return current.token;
+      }
+      const refreshed = {
+        token: current.token,
+        expiresAt: now + RESUME_TOKEN_TTL_MS,
+      };
+      const refreshedTokens = {
+        ...existing,
+        [normalizedPlayerId]: refreshed,
+      };
+      this.playerResumeTokens = refreshedTokens;
+      await this.ctx.storage.put(PLAYER_RESUME_TOKENS_KEY, refreshedTokens);
+      return refreshed.token;
     }
     const created = crypto.randomUUID();
-    const next = { ...existing, [normalizedPlayerId]: created };
+    const next = {
+      ...existing,
+      [normalizedPlayerId]: {
+        token: created,
+        expiresAt: now + RESUME_TOKEN_TTL_MS,
+      },
+    };
     this.playerResumeTokens = next;
     await this.ctx.storage.put(PLAYER_RESUME_TOKENS_KEY, next);
     return created;
@@ -900,8 +960,17 @@ export class Room extends YServer<Env> {
     const normalizedPlayerId = playerId.trim();
     const normalizedToken = resumeToken.trim();
     if (!normalizedPlayerId || !normalizedToken) return false;
+    const now = Date.now();
     const tokens = await this.loadPlayerResumeTokens();
-    return tokens[normalizedPlayerId] === normalizedToken;
+    const existing = tokens[normalizedPlayerId];
+    if (!existing) return false;
+    if (existing.expiresAt <= now) {
+      const { [normalizedPlayerId]: _expired, ...next } = tokens;
+      this.playerResumeTokens = next;
+      await this.ctx.storage.put(PLAYER_RESUME_TOKENS_KEY, next);
+      return false;
+    }
+    return existing.token === normalizedToken;
   }
 
   private sendRoomTokens(
@@ -1518,17 +1587,9 @@ export class Room extends YServer<Env> {
       if (connectedPlayerId !== playerId || connection === currentConnection) {
         continue;
       }
-      const isIntentConnection = this.intentConnections.has(connection);
-      if (!isIntentConnection) {
-        // Sync connections may not always carry connection-group metadata
-        // consistently; closing the old intent socket is enough to force
-        // the losing device back to home via auth failure handling.
-        continue;
-      }
       const existingGroupId = this.connectionGroups.get(connection);
-      if (existingGroupId && existingGroupId === connectionGroupId) {
-        continue;
-      }
+      if (existingGroupId === connectionGroupId) continue;
+      if (!existingGroupId && !this.intentConnections.has(connection)) continue;
       try {
         connection.close(PLAYER_TAKEOVER_CLOSE_CODE, PLAYER_TAKEOVER_CLOSE_REASON);
       } catch (_err) {}
@@ -1691,6 +1752,9 @@ export class Room extends YServer<Env> {
     ) {
       return auth;
     }
+    if (!state.connectionGroupId) {
+      return { ok: false, reason: "invalid token" };
+    }
     const canResume = await this.validatePlayerResumeToken(
       state.playerId,
       state.resumeToken,
@@ -1779,7 +1843,9 @@ export class Room extends YServer<Env> {
         : undefined);
     const resumeToken =
       resolvedRole === "player" && resolvedPlayerId
-        ? await this.ensurePlayerResumeToken(resolvedPlayerId)
+        ? await this.ensurePlayerResumeToken(resolvedPlayerId, {
+            rotate: auth.resumed,
+          })
         : undefined;
 
     if (connectionClosed) return;

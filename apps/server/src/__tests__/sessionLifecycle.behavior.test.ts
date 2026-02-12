@@ -93,6 +93,7 @@ class TestConnection {
   id = "conn-1";
   uri = "wss://example.test";
   state: unknown;
+  closed: Array<{ code?: number; reason?: string }> = [];
   private listeners = new Map<string, Set<(event: any) => void>>();
 
   addEventListener(event: string, handler: (event: any) => void) {
@@ -102,6 +103,7 @@ class TestConnection {
   }
 
   close(code?: number, reason?: string) {
+    this.closed.push({ code, reason });
     const handlers = this.listeners.get("close");
     if (!handlers) return;
     handlers.forEach((handler) => handler({ code, reason }));
@@ -485,5 +487,83 @@ describe("server lifecycle guards", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("rotates and expires resume tokens", async () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+
+    const first = await (server as any).ensurePlayerResumeToken("p1");
+    expect(await (server as any).validatePlayerResumeToken("p1", first)).toBe(true);
+
+    const rotated = await (server as any).ensurePlayerResumeToken("p1", {
+      rotate: true,
+    });
+    expect(rotated).not.toBe(first);
+    expect(await (server as any).validatePlayerResumeToken("p1", first)).toBe(false);
+    expect(await (server as any).validatePlayerResumeToken("p1", rotated)).toBe(true);
+
+    const tokens = (server as any).playerResumeTokens as Record<
+      string,
+      { token: string; expiresAt: number }
+    >;
+    tokens.p1.expiresAt = Date.now() - 1;
+
+    expect(await (server as any).validatePlayerResumeToken("p1", rotated)).toBe(false);
+  });
+
+  it("rejects resume auth without a connection group id", async () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const resumeToken = await (server as any).ensurePlayerResumeToken("p1");
+
+    const result = await (server as any).resolveConnectionAuthWithResume(
+      {
+        playerId: "p1",
+        viewerRole: "player",
+        resumeToken,
+      },
+      {
+        playerToken: "player-token",
+        spectatorToken: "spectator-token",
+      },
+      { allowTokenCreation: false },
+    );
+
+    expect(result).toEqual({ ok: false, reason: "invalid token" });
+  });
+
+  it("closes mismatched sync and intent connections on takeover", () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+
+    const current = new TestConnection();
+    current.id = "current";
+    const oldSync = new TestConnection();
+    oldSync.id = "old-sync";
+    const oldIntent = new TestConnection();
+    oldIntent.id = "old-intent";
+    const sameGroup = new TestConnection();
+    sameGroup.id = "same-group";
+
+    (server as any).connectionPlayers.set(oldSync, "p1");
+    (server as any).connectionGroups.set(oldSync, "old-device");
+    (server as any).connectionPlayers.set(oldIntent, "p1");
+    (server as any).connectionGroups.set(oldIntent, "old-device");
+    (server as any).intentConnections.add(oldIntent);
+    (server as any).connectionPlayers.set(sameGroup, "p1");
+    (server as any).connectionGroups.set(sameGroup, "new-device");
+
+    (server as any).closeConnectionsForResumedPlayer("p1", "new-device", current);
+
+    expect(oldSync.closed.at(0)).toEqual({
+      code: 1008,
+      reason: "session moved to another device",
+    });
+    expect(oldIntent.closed.at(0)).toEqual({
+      code: 1008,
+      reason: "session moved to another device",
+    });
+    expect(sameGroup.closed).toEqual([]);
   });
 });
