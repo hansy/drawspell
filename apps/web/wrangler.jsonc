@@ -10,11 +10,13 @@
   "env": {
     "development": {
       "vars": {
+        "NODE_ENV": "development",
         "VITE_SERVER_HOST": "localhost:8787",
       },
     },
     "production": {
       "vars": {
+        "NODE_ENV": "production",
         "VITE_SERVER_HOST": "ws.drawspell.space",
         "VITE_PUBLIC_POSTHOG_KEY": "phc_oYFcMPG9V4ARE4INIzfQQnLmADFN2GRLaYfDFiLSaQ6",
         "VITE_PUBLIC_POSTHOG_HOST": "https://us.i.posthog.com",

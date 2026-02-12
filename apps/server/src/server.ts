@@ -120,6 +120,7 @@ const normalizeOrigin = (value: string) => {
 };
 
 const isOriginAllowed = (origin: string | null, allowed: Set<string>) => {
+  if (process.env.NODE_ENV === "development") return true;
   if (!origin) return false;
   const normalized = normalizeOrigin(origin);
   if (!normalized) return false;

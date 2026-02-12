@@ -22,18 +22,18 @@
     "logs": {
       "enabled": true,
       "head_sampling_rate": 1,
-      "persist": true,
       "invocation_logs": true,
-    },
-    "traces": {
-      "enabled": false,
-      "persist": true,
-      "head_sampling_rate": 1,
     },
   },
   "env": {
+    "development": {
+      "vars": {
+        "NODE_ENV": "development",
+      },
+    },
     "production": {
       "vars": {
+        "NODE_ENV": "production",
         "POSTHOG_API_KEY": "phc_oYFcMPG9V4ARE4INIzfQQnLmADFN2GRLaYfDFiLSaQ6",
         "POSTHOG_API_HOST": "https://us.i.posthog.com",
       },

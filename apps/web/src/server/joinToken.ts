@@ -27,25 +27,22 @@ const normalizeOrigin = (value: string) => {
 };
 
 const isOriginAllowed = (origin: string | null, allowed: Set<string>) => {
+  if (process.env.NODE_ENV === "development") return true;
   if (!origin) return false;
   const normalized = normalizeOrigin(origin);
   if (!normalized) return false;
   return allowed.has(normalized);
 };
 
-type ServerEnv = {
-  JOIN_TOKEN_SECRET?: string;
-};
-
-const resolveServerEnv = (ctx: {
-  context?: { env?: ServerEnv };
-}): ServerEnv => {
-  if (ctx.context?.env) return ctx.context.env;
-  if (typeof process !== "undefined") {
-    return process.env as ServerEnv;
-  }
-  return {};
-};
+// const resolveServerEnv = (ctx: {
+//   context?: { env?: ServerEnv };
+// }): ServerEnv => {
+//   if (ctx.context?.env) return ctx.context.env;
+//   if (typeof process !== "undefined") {
+//     return process.env as ServerEnv;
+//   }
+//   return {};
+// };
 
 export const getJoinToken = createServerFn({ method: "POST" })
   .inputValidator(joinTokenValidator)
@@ -58,7 +55,7 @@ export const getJoinToken = createServerFn({ method: "POST" })
         throw new Error("missing room");
       }
 
-      const env = resolveServerEnv(ctx);
+      // const env = resolveServerEnv(ctx);
       const request = (ctx as { request?: Request }).request;
       const origin = request?.headers?.get("Origin") ?? null;
       if (!isOriginAllowed(origin, CLIENT_ALLOWED_ORIGINS)) {
@@ -66,7 +63,7 @@ export const getJoinToken = createServerFn({ method: "POST" })
         throw new Error("origin not allowed");
       }
 
-      const secret = env.JOIN_TOKEN_SECRET;
+      const secret = process.env.JOIN_TOKEN_SECRET;
       if (!secret) {
         console.error("[joinToken] secret missing", { roomId });
         throw new Error("join token secret missing");

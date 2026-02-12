@@ -20,3 +20,5 @@ todos.json
 .dev.vars.*
 .vscode
 .codex
+
+worker-configuration.d.ts
