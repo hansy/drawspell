@@ -104,7 +104,7 @@ const LandingPage = () => {
           </a>
         </header>
         <LandingHero
-          badge="No accounts - No login"
+          badge="No downloads - No login"
           title="Just Magic"
           description="Drawspell is a web-based virtual tabletop simulator for playing Magic: The Gathering. Create a room, share with friends, and play together."
           animation={
@@ -144,7 +144,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Drawspell is a web-based virtual tabletop simulator for playing Magic: The Gathering. No login, no download required.",
+          "Drawspell is a web-based virtual tabletop simulator for playing Magic: The Gathering. No login, no downloads required.",
       },
       {
         name: "og:image",
