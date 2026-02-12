@@ -763,6 +763,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           onClose={() => setIsShareDialogOpen(false)}
           playerLink={shareLinks.players}
           spectatorLink={shareLinks.spectators}
+          resumeLink={shareLinks.resume}
           linksReady={shareLinksReady}
           players={players}
           isHost={isHost}

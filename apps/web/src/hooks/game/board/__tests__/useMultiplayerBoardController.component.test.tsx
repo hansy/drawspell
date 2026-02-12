@@ -20,6 +20,13 @@ const mockUseIdleTimeout = vi.hoisted(() =>
     getRemainingMs: vi.fn(),
   })),
 );
+const mockNavigate = vi.hoisted(() => vi.fn());
+const mockSyncState = vi.hoisted(() => ({
+  status: "connected",
+  peerCounts: { total: 1, players: 1, spectators: 0 },
+  joinBlocked: false,
+  joinBlockedReason: null as string | null,
+}));
 
 const mockGameState = vi.hoisted(() => ({
   zones: {},
@@ -63,7 +70,7 @@ const mockPrefsState = vi.hoisted(() => ({
 }));
 
 vi.mock("@tanstack/react-router", () => ({
-  useNavigate: () => vi.fn(),
+  useNavigate: () => mockNavigate,
   useRouterState: ({ select }: any) =>
     select ? select({ location: { search: "" } }) : { location: { search: "" } },
 }));
@@ -189,12 +196,7 @@ vi.mock("../shortcuts/model", () => ({
 }));
 
 vi.mock("../multiplayer-sync/useMultiplayerSync", () => ({
-  useMultiplayerSync: () => ({
-    status: "connected",
-    peerCounts: { total: 1, players: 1, spectators: 0 },
-    joinBlocked: false,
-    joinBlockedReason: null,
-  }),
+  useMultiplayerSync: () => mockSyncState,
 }));
 
 vi.mock("../player/usePlayerLayout", () => ({
@@ -222,8 +224,18 @@ import { useMultiplayerBoardController } from "../useMultiplayerBoardController"
 describe("useMultiplayerBoardController", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockNavigate.mockReset();
+    Object.assign(mockSyncState, {
+      status: "connected",
+      peerCounts: { total: 1, players: 1, spectators: 0 },
+      joinBlocked: false,
+      joinBlockedReason: null,
+    });
     mockUseIdleTimeout.mockClear();
-    mockReadRoomTokensFromStorage.mockReturnValue({ playerToken: "token-123" });
+    mockReadRoomTokensFromStorage.mockReturnValue({
+      playerToken: "token-123",
+      resumeToken: "resume-123",
+    });
     Object.assign(mockGameState, {
       zones: {},
       cards: {},
@@ -255,6 +267,8 @@ describe("useMultiplayerBoardController", () => {
     expect(result.current.shareLinks.spectators).toContain("room-1");
     expect(result.current.shareLinks.spectators).not.toContain("gt=");
     expect(result.current.shareLinks.spectators).not.toContain("st=");
+    expect(result.current.shareLinks.resume).toContain("rt=resume-123");
+    expect(result.current.shareLinks.resume).toContain("playerId=player-1");
   });
 
   it("disables idle timeout for spectators", () => {
@@ -269,4 +283,5 @@ describe("useMultiplayerBoardController", () => {
     }
     expect(options.enabled).toBe(false);
   });
+
 });

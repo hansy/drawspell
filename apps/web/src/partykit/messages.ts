@@ -44,6 +44,7 @@ export type LogEventMessage = {
 export type RoomTokensPayload = {
   playerToken?: string;
   spectatorToken?: string;
+  resumeToken?: string;
 };
 
 export type RoomTokensMessage = {

@@ -436,6 +436,26 @@ describe("useMultiplayerSync", () => {
     });
   });
 
+  it("marks session as takeover when moved to another device", async () => {
+    const { result } = renderHook(() => useMultiplayerSync("session-takeover"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+
+    const [{ onClose }] = intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+
+    act(() => {
+      onClose({ code: 1008, reason: "session moved to another device" });
+    });
+
+    await waitFor(() => {
+      expect(markRoomUnavailable).not.toHaveBeenCalled();
+      expect(result.current.joinBlocked).toBe(true);
+      expect(result.current.joinBlockedReason).toBe("takeover");
+    });
+  });
+
   it("forwards logEvent messages to the log store", async () => {
     renderHook(() => useMultiplayerSync("session-789"));
 

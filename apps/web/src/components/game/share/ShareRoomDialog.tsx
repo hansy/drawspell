@@ -20,6 +20,7 @@ type ShareRoomDialogProps = {
   onClose: () => void;
   playerLink: string;
   spectatorLink: string;
+  resumeLink?: string;
   linksReady?: boolean;
   players: Record<PlayerId, Player>;
   isHost: boolean;
@@ -80,6 +81,7 @@ export const ShareRoomDialog: React.FC<ShareRoomDialogProps> = ({
   onClose,
   playerLink,
   spectatorLink,
+  resumeLink = "",
   linksReady = true,
   players,
   isHost,
@@ -197,6 +199,18 @@ export const ShareRoomDialog: React.FC<ShareRoomDialogProps> = ({
                     value={resolvedSpectatorLink}
                     onCopy={handleCopy}
                   />
+                  {resumeLink ? (
+                    <div className="border-t border-zinc-800 pt-4 space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-400">
+                        Private link (only for you)
+                      </p>
+                      <ShareLinkField
+                        label="New device link (resume this session on another device"
+                        value={resumeLink}
+                        onCopy={handleCopy}
+                      />
+                    </div>
+                  ) : null}
                 </>
               ) : (
                 <div className="flex items-center gap-2 text-sm text-zinc-400">

@@ -45,10 +45,12 @@ type JoinBlockedReason =
   | NonNullable<LocalPlayerInitResult>["reason"]
   | "invite"
   | "room-unavailable"
+  | "takeover"
   | null;
 
 const CONNECTION_LOGS_ENABLED = false;
 const INTENT_DISCONNECT_GRACE_MS = 15_000;
+const PLAYER_TAKEOVER_CLOSE_REASON = "session moved to another device";
 
 export function useMultiplayerSync(sessionId: string, locationKey?: string) {
   const hasHydrated = useGameStore((state) => state.hasHydrated);
@@ -275,8 +277,10 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
     const hasTokens = Boolean(
       storedTokens?.playerToken ||
         storedTokens?.spectatorToken ||
+        storedTokens?.resumeToken ||
         storeTokens?.playerToken ||
-        storeTokens?.spectatorToken
+        storeTokens?.spectatorToken ||
+        storeTokens?.resumeToken
     );
     const hadLastSession =
       initialSessionEvidenceRef.current.sessionId === sessionId &&
@@ -286,7 +290,12 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       hasTokens,
       hadLastSession,
     };
-  }, [sessionId, roomTokens?.playerToken, roomTokens?.spectatorToken]);
+  }, [
+    sessionId,
+    roomTokens?.playerToken,
+    roomTokens?.spectatorToken,
+    roomTokens?.resumeToken,
+  ]);
 
   useEffect(() => {
     attemptJoinRef.current?.();
@@ -400,12 +409,18 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       setJoinBlockedReason(null);
 
       const storedTokens = readRoomTokensFromStorage(sessionId);
+      const hasResumeFromUrl = Boolean(
+        inviteToken.resumeToken && inviteToken.playerId,
+      );
       const hasToken = Boolean(
         inviteToken.token ||
+          hasResumeFromUrl ||
           storedTokens?.playerToken ||
           storedTokens?.spectatorToken ||
+          storedTokens?.resumeToken ||
           roomTokens?.playerToken ||
-          roomTokens?.spectatorToken
+          roomTokens?.spectatorToken ||
+          roomTokens?.resumeToken
       );
       const canConnect = hasToken || hostPending;
       if (!canConnect) {
@@ -554,7 +569,9 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
             clearLastSessionId();
           }
           setJoinBlocked(true);
-          setJoinBlockedReason("invite");
+          setJoinBlockedReason(
+            reason === PLAYER_TAKEOVER_CLOSE_REASON ? "takeover" : "invite",
+          );
 
           const activeResources = resourcesRef.current;
           if (activeResources) {

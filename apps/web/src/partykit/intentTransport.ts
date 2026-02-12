@@ -24,6 +24,8 @@ type IntentTransportOptions = {
   playerId?: string;
   userId?: string;
   viewerRole?: "player" | "spectator";
+  resumeToken?: string;
+  connectionGroupId?: string;
   joinToken?: string;
   getJoinToken?: () => Promise<string | null>;
   onMessage?: (message: PartyMessage) => void;
@@ -73,6 +75,8 @@ export const createIntentTransport = ({
   playerId,
   userId,
   viewerRole,
+  resumeToken,
+  connectionGroupId,
   joinToken,
   getJoinToken,
   onMessage,
@@ -109,6 +113,8 @@ export const createIntentTransport = ({
       playerId,
       userId,
       viewerRole,
+      resumeToken,
+      connectionGroupId,
       joinToken,
       getJoinToken,
       onMessage,

@@ -108,13 +108,40 @@ export function setupSessionResources({
     faceDownRevealsToAll,
   };
 
+  const inviteToken =
+    typeof window !== "undefined"
+      ? resolveInviteTokenFromUrl(window.location.href)
+      : {};
+  const resumePlayerId =
+    inviteToken.resumeToken && inviteToken.playerId
+      ? inviteToken.playerId
+      : undefined;
+  const connectionGroupId =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
   // Setup store
   const store = useGameStore.getState();
-  const ensuredPlayerId = store.ensurePlayerIdForSession(sessionId);
+  const storedPlayerIds = store.playerIdsBySession ?? {};
+  if (resumePlayerId && storedPlayerIds[sessionId] !== resumePlayerId) {
+    useGameStore.setState((state) => ({
+      playerIdsBySession: {
+        ...(state.playerIdsBySession ?? {}),
+        [sessionId]: resumePlayerId,
+      },
+    }));
+  }
+  const latestPlayerIds = useGameStore.getState().playerIdsBySession ?? {};
+  const ensuredPlayerId =
+    resumePlayerId ??
+    latestPlayerIds[sessionId] ??
+    store.ensurePlayerIdForSession(sessionId);
+  const activeStore = useGameStore.getState();
   const needsReset =
-    store.sessionId !== sessionId || store.myPlayerId !== ensuredPlayerId;
+    activeStore.sessionId !== sessionId || activeStore.myPlayerId !== ensuredPlayerId;
   if (needsReset) {
-    store.resetSession(sessionId, ensuredPlayerId);
+    activeStore.resetSession(sessionId, ensuredPlayerId);
   } else {
     useGameStore.setState((state) => ({ ...state, sessionId }));
   }
@@ -124,29 +151,38 @@ export function setupSessionResources({
     useGameStore.getState().setRoomTokens(storedTokens);
     clearRoomHostPending(sessionId);
   }
-  const inviteToken =
-    typeof window !== "undefined"
-      ? resolveInviteTokenFromUrl(window.location.href)
-      : {};
-  if (inviteToken.token) {
+  if (inviteToken.token || inviteToken.resumeToken) {
     const currentTokens = useGameStore.getState().roomTokens;
     const nextTokens = mergeRoomTokens(storedTokens ?? currentTokens, {
-      ...(inviteToken.role === "spectator"
+      ...(inviteToken.token && inviteToken.role === "spectator"
         ? { spectatorToken: inviteToken.token }
-        : { playerToken: inviteToken.token }),
+        : inviteToken.token
+          ? { playerToken: inviteToken.token }
+          : {}),
+      ...(inviteToken.resumeToken
+        ? { resumeToken: inviteToken.resumeToken }
+        : {}),
     });
     if (nextTokens) {
       useGameStore.getState().setRoomTokens(nextTokens);
       writeRoomTokensToStorage(sessionId, nextTokens);
     }
   }
-  if (inviteToken.role) {
+  const desiredRole: ViewerRole | undefined = inviteToken.resumeToken
+    ? "player"
+    : inviteToken.role;
+  if (desiredRole) {
     const currentRole = useGameStore.getState().viewerRole;
-    if (inviteToken.role !== currentRole) {
-      useGameStore.getState().setViewerRole(inviteToken.role);
+    if (desiredRole !== currentRole) {
+      useGameStore.getState().setViewerRole(desiredRole);
     }
   }
-  if (inviteToken.token || inviteToken.role) {
+  if (
+    inviteToken.token ||
+    inviteToken.role ||
+    inviteToken.resumeToken ||
+    inviteToken.playerId
+  ) {
     clearInviteTokenFromUrl();
   }
 
@@ -182,6 +218,7 @@ export function setupSessionResources({
         );
   const token = resolvedIntentToken.token;
   const tokenRole = resolvedIntentToken.tokenRole;
+  const intentResumeToken = useGameStore.getState().roomTokens?.resumeToken;
 
   const awareness = new Awareness(doc);
   const provider: YSyncProvider = new YPartyServerProvider(
@@ -198,6 +235,7 @@ export function setupSessionResources({
         const resolvedSyncToken = resolveTokenForRole(role, state.roomTokens);
         const syncToken = resolvedSyncToken.token;
         const syncTokenRole = resolvedSyncToken.tokenRole;
+        const syncResumeToken = state.roomTokens?.resumeToken;
         const resolvedJoinToken = joinToken ?? (await resolveJoinToken(sessionId));
         const tokenParam =
           syncToken && syncTokenRole === "spectator"
@@ -212,6 +250,8 @@ export function setupSessionResources({
           ...(ensuredPlayerId ? { playerId: ensuredPlayerId } : {}),
           ...(userId ? { uid: userId } : {}),
           ...(role ? { viewerRole: role } : {}),
+          ...(syncResumeToken ? { rt: syncResumeToken } : {}),
+          ...(connectionGroupId ? { cid: connectionGroupId } : {}),
         };
       },
     },
@@ -264,6 +304,8 @@ export function setupSessionResources({
     playerId: ensuredPlayerId,
     userId,
     viewerRole: intentViewerRole,
+    resumeToken: intentResumeToken,
+    connectionGroupId,
     ...(joinToken
       ? { joinToken }
       : { getJoinToken: () => resolveJoinToken(sessionId) }),

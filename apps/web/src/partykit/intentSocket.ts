@@ -11,6 +11,8 @@ export type IntentSocketOptions = {
   playerId?: string;
   userId?: string;
   viewerRole?: "player" | "spectator";
+  resumeToken?: string;
+  connectionGroupId?: string;
   joinToken?: string;
   getJoinToken?: () => Promise<string | null>;
   onMessage?: (message: PartyMessage) => void;
@@ -37,6 +39,8 @@ export const createIntentSocket = ({
   playerId,
   userId,
   viewerRole,
+  resumeToken,
+  connectionGroupId,
   tokenRole,
   joinToken,
   getJoinToken,
@@ -64,6 +68,8 @@ export const createIntentSocket = ({
       ...(playerId ? { playerId } : {}),
       ...(userId ? { uid: userId } : {}),
       ...(viewerRole ? { viewerRole } : {}),
+      ...(resumeToken ? { rt: resumeToken } : {}),
+      ...(connectionGroupId ? { cid: connectionGroupId } : {}),
     };
   };
 
@@ -76,6 +82,8 @@ export const createIntentSocket = ({
         ...(playerId ? { playerId } : {}),
         ...(userId ? { uid: userId } : {}),
         ...(viewerRole ? { viewerRole } : {}),
+        ...(resumeToken ? { rt: resumeToken } : {}),
+        ...(connectionGroupId ? { cid: connectionGroupId } : {}),
       };
 
   const socket = new PartySocket({

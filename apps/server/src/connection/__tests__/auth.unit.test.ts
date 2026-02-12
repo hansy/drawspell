@@ -29,6 +29,18 @@ describe("connection auth helpers", () => {
     });
   });
 
+  it("parses resume and connection group params", () => {
+    const url = new URL(
+      "https://example.test/?playerId=p1&rt=resume-token&cid=device-1"
+    );
+
+    expect(parseConnectionParams(url)).toMatchObject({
+      playerId: "p1",
+      resumeToken: "resume-token",
+      connectionGroupId: "device-1",
+    });
+  });
+
   it("rejects missing token when stored tokens exist", async () => {
     const ensureTokens = vi.fn(async () => tokens);
     const result = await resolveConnectionAuth(
