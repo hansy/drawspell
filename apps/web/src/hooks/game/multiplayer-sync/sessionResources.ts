@@ -112,12 +112,14 @@ export function setupSessionResources({
     typeof window !== "undefined"
       ? resolveInviteTokenFromUrl(window.location.href)
       : {};
-  const hasResumeInvite = Boolean(inviteToken.resumeToken);
-  let pendingResumeInviteUrlClear = hasResumeInvite;
-  const resumePlayerId =
-    inviteToken.resumeToken && inviteToken.playerId
-      ? inviteToken.playerId
-      : undefined;
+  const hasValidResumeInvite = Boolean(
+    inviteToken.resumeToken && inviteToken.playerId,
+  );
+  const hasMalformedResumeInvite = Boolean(
+    inviteToken.resumeToken && !inviteToken.playerId,
+  );
+  let pendingResumeInviteUrlClear = hasValidResumeInvite;
+  const resumePlayerId = hasValidResumeInvite ? inviteToken.playerId : undefined;
   const connectionGroupId =
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
@@ -161,7 +163,7 @@ export function setupSessionResources({
         : inviteToken.token
           ? { playerToken: inviteToken.token }
           : {}),
-      ...(inviteToken.resumeToken
+      ...(hasValidResumeInvite && inviteToken.resumeToken
         ? { resumeToken: inviteToken.resumeToken }
         : {}),
     });
@@ -170,7 +172,7 @@ export function setupSessionResources({
       writeRoomTokensToStorage(sessionId, nextTokens);
     }
   }
-  const desiredRole: ViewerRole | undefined = inviteToken.resumeToken
+  const desiredRole: ViewerRole | undefined = hasValidResumeInvite
     ? "player"
     : inviteToken.role;
   if (desiredRole) {
@@ -182,7 +184,8 @@ export function setupSessionResources({
   if (
     inviteToken.token ||
     inviteToken.role ||
-    (!hasResumeInvite && inviteToken.playerId)
+    hasMalformedResumeInvite ||
+    (!hasValidResumeInvite && inviteToken.playerId)
   ) {
     clearInviteTokenFromUrl();
   }

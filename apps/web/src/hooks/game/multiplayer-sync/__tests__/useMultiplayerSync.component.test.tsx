@@ -394,6 +394,25 @@ describe("useMultiplayerSync", () => {
     });
   });
 
+  it("treats resume token without playerId as malformed and clears params immediately", async () => {
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      resumeToken: "resume-token",
+    });
+
+    renderHook(() => useMultiplayerSync("session-malformed-resume"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(clearInviteTokenFromUrl).toHaveBeenCalledTimes(1);
+    });
+
+    const [transportConfig] =
+      intentTransportMocks.createIntentTransport.mock.calls[0] ?? [];
+    expect(transportConfig?.resumeToken).toBeUndefined();
+  });
+
   it("still clears non-resume invite params immediately", async () => {
     vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
       token: "player-token",
