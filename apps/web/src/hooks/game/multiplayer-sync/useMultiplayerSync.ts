@@ -91,6 +91,11 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
   const resourcesRef = useRef<SessionSetupResult | null>(null);
   const pendingIntentJoinRef = useRef(false);
   const authFailureHandled = useRef(false);
+  const resumeIdentityBackupRef = useRef<{
+    sessionId: string;
+    attemptedPlayerId: string;
+    previousPlayerId?: string;
+  } | null>(null);
   const initialSessionEvidenceRef = useRef({
     sessionId: "",
     hadLastSession: false,
@@ -391,6 +396,17 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       const hasResumeFromUrl = Boolean(
         inviteToken.resumeToken && inviteToken.playerId,
       );
+      if (hasResumeFromUrl && inviteToken.playerId) {
+        const currentPlayerId =
+          useGameStore.getState().playerIdsBySession?.[sessionId];
+        resumeIdentityBackupRef.current = {
+          sessionId,
+          attemptedPlayerId: inviteToken.playerId,
+          previousPlayerId: currentPlayerId,
+        };
+      } else {
+        resumeIdentityBackupRef.current = null;
+      }
       const hostPending = isRoomHostPending(sessionId);
       if (roomUnavailableRef.current || isRoomUnavailable(sessionId)) {
         if (inviteToken.token || hasResumeFromUrl || hostPending) {
@@ -530,6 +546,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       };
 
       const handleIntentOpen = () => {
+        resumeIdentityBackupRef.current = null;
         resetIntentCloseTracking();
         clearConnectAttemptTimer();
         if (attemptJoinRef.current) {
@@ -550,6 +567,28 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
           authFailureHandled.current = true;
           emitConnectionLog("connection.authFailure", { reason });
           if (reason === "invalid token") {
+            const failedInvite = resolveInviteTokenFromUrl(window.location.href);
+            const failedResumeInvite = Boolean(
+              failedInvite.resumeToken && failedInvite.playerId,
+            );
+            const backup = resumeIdentityBackupRef.current;
+            if (
+              failedResumeInvite &&
+              backup &&
+              backup.sessionId === sessionId &&
+              failedInvite.playerId === backup.attemptedPlayerId
+            ) {
+              useGameStore.setState((state) => {
+                const nextPlayerIds = { ...(state.playerIdsBySession ?? {}) };
+                if (backup.previousPlayerId) {
+                  nextPlayerIds[sessionId] = backup.previousPlayerId;
+                } else {
+                  delete nextPlayerIds[sessionId];
+                }
+                return { playerIdsBySession: nextPlayerIds };
+              });
+            }
+            resumeIdentityBackupRef.current = null;
             clearInviteTokenFromUrl();
           }
           const priorEvidence = priorSessionEvidenceRef.current;

@@ -29,6 +29,7 @@ const mockGameState = vi.hoisted(() => ({
   viewerRole: "player" as ViewerRole,
   sessionId: null as string | null,
   myPlayerId: null as string | null,
+  playerIdsBySession: {} as Record<string, string>,
   players: {},
   playerOrder: [],
   zones: {},
@@ -227,6 +228,7 @@ describe("useMultiplayerSync", () => {
       viewerRole: "player" as ViewerRole,
       sessionId: null as string | null,
       myPlayerId: null as string | null,
+      playerIdsBySession: {},
     });
     mockGameState.setViewerRole.mockClear();
   });
@@ -516,6 +518,40 @@ describe("useMultiplayerSync", () => {
       expect(markRoomUnavailable).not.toHaveBeenCalled();
       expect(result.current.joinBlocked).toBe(true);
       expect(result.current.joinBlockedReason).toBe("takeover");
+    });
+  });
+
+  it("restores previous session player id when resume auth fails", async () => {
+    mockGameState.playerIdsBySession = {
+      "session-resume-invalid": "original-player",
+    };
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      playerId: "resume-player",
+      resumeToken: "resume-token",
+    });
+
+    const { result } = renderHook(() =>
+      useMultiplayerSync("session-resume-invalid")
+    );
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+    expect(
+      mockGameState.playerIdsBySession["session-resume-invalid"]
+    ).toBe("resume-player");
+
+    const [{ onClose }] = intentTransportMocks.createIntentTransport.mock
+      .calls[0] as any;
+    act(() => {
+      onClose({ code: 1008, reason: "invalid token" });
+    });
+
+    await waitFor(() => {
+      expect(
+        mockGameState.playerIdsBySession["session-resume-invalid"]
+      ).toBe("original-player");
+      expect(result.current.joinBlocked).toBe(true);
     });
   });
 
