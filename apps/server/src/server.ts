@@ -1589,7 +1589,6 @@ export class Room extends YServer<Env> {
       }
       const existingGroupId = this.connectionGroups.get(connection);
       if (existingGroupId === connectionGroupId) continue;
-      if (!existingGroupId && !this.intentConnections.has(connection)) continue;
       try {
         connection.close(PLAYER_TAKEOVER_CLOSE_CODE, PLAYER_TAKEOVER_CLOSE_REASON);
       } catch (_err) {}

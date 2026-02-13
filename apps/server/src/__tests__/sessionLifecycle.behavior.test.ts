@@ -543,6 +543,8 @@ describe("server lifecycle guards", () => {
     oldSync.id = "old-sync";
     const oldIntent = new TestConnection();
     oldIntent.id = "old-intent";
+    const legacySyncWithoutGroup = new TestConnection();
+    legacySyncWithoutGroup.id = "legacy-sync-without-group";
     const sameGroup = new TestConnection();
     sameGroup.id = "same-group";
 
@@ -551,6 +553,7 @@ describe("server lifecycle guards", () => {
     (server as any).connectionPlayers.set(oldIntent, "p1");
     (server as any).connectionGroups.set(oldIntent, "old-device");
     (server as any).intentConnections.add(oldIntent);
+    (server as any).connectionPlayers.set(legacySyncWithoutGroup, "p1");
     (server as any).connectionPlayers.set(sameGroup, "p1");
     (server as any).connectionGroups.set(sameGroup, "new-device");
 
@@ -561,6 +564,10 @@ describe("server lifecycle guards", () => {
       reason: "session moved to another device",
     });
     expect(oldIntent.closed.at(0)).toEqual({
+      code: 1008,
+      reason: "session moved to another device",
+    });
+    expect(legacySyncWithoutGroup.closed.at(0)).toEqual({
       code: 1008,
       reason: "session moved to another device",
     });
