@@ -30,6 +30,7 @@ const renderDialog = (overrides: Partial<ShareRoomDialogProps> = {}) => {
     onClose: vi.fn(),
     playerLink: "https://example.com/room",
     spectatorLink: "https://example.com/room?role=spectator",
+    resumeLink: "",
     players: {
       p1: buildPlayer("p1", "Alice"),
       p2: buildPlayer("p2", "Bob"),
@@ -89,6 +90,16 @@ describe("ShareRoomDialog", () => {
     expect(
       screen.getByDisplayValue("https://example.com/room?role=spectator")
     ).toBeTruthy();
+  });
+
+  it("shows a resume link when provided", () => {
+    const resumeLink = "https://example.com/room?playerId=p1&rt=resume";
+    renderDialog({ resumeLink });
+
+    const resumeInput = screen.getByDisplayValue(resumeLink) as HTMLInputElement;
+    expect(resumeInput).toBeTruthy();
+    expect(resumeInput.readOnly).toBe(true);
+    expect(screen.getAllByRole("textbox")).toHaveLength(3);
   });
 
   it("shows a loading state before links are ready", () => {

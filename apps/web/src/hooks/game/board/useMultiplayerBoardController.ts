@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { toast } from "sonner";
 
 import { useDragStore } from "@/store/dragStore";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
@@ -91,7 +92,8 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const activeModal = useGameStore((state) => state.activeModal);
   const setActiveModal = useGameStore((state) => state.setActiveModal);
   const shareLinksReady = Boolean(
-    shareTokenSource?.playerToken || shareTokenSource?.spectatorToken,
+    shareTokenSource?.playerToken ||
+      shareTokenSource?.spectatorToken,
   );
 
   const overCardScale = useDragStore((state) => state.overCardScale);
@@ -116,6 +118,19 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     joinBlocked,
     joinBlockedReason,
   } = useMultiplayerSync(sessionId, locationSearch);
+  const takeoverNoticeShownRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (joinBlockedReason !== "takeover") {
+      takeoverNoticeShownRef.current = false;
+      return;
+    }
+    if (!takeoverNoticeShownRef.current) {
+      takeoverNoticeShownRef.current = true;
+      toast.info("You were disconnected because this game resumed on another device.");
+    }
+    navigate({ to: "/" });
+  }, [joinBlockedReason, navigate]);
 
   const [zoneViewerState, setZoneViewerState] = React.useState<{
     isOpen: boolean;
@@ -248,20 +263,35 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const [shareLinks, setShareLinks] = React.useState({
     players: "",
     spectators: "",
+    resume: "",
   });
   const buildShareLink = React.useCallback(
-    (tokenParam?: { name: "gt" | "st"; value: string }) => {
+    ({
+      tokenParam,
+      playerId,
+    }: {
+      tokenParam?: { name: "gt" | "st" | "rt"; value: string };
+      playerId?: string;
+    } = {}) => {
       if (typeof window === "undefined") return "";
       const url = new URL(window.location.href);
       url.searchParams.delete("gt");
       url.searchParams.delete("st");
+      url.searchParams.delete("rt");
       url.searchParams.delete("viewerRole");
       url.searchParams.delete("playerToken");
       url.searchParams.delete("spectatorToken");
+      url.searchParams.delete("resumeToken");
+      url.searchParams.delete("connectionGroupId");
+      url.searchParams.delete("cid");
       url.searchParams.delete("token");
       url.searchParams.delete("role");
+      url.searchParams.delete("playerId");
       if (tokenParam) {
         url.searchParams.set(tokenParam.name, tokenParam.value);
+      }
+      if (playerId) {
+        url.searchParams.set("playerId", playerId);
       }
       return url.toString();
     },
@@ -271,23 +301,36 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   React.useEffect(() => {
     if (!isShareDialogOpen) return;
     if (!shareLinksReady) {
-      setShareLinks({ players: "", spectators: "" });
+      setShareLinks({ players: "", spectators: "", resume: "" });
       return;
     }
     const base = buildShareLink();
     const playerLink = shareTokenSource?.playerToken
-      ? buildShareLink({ name: "gt", value: shareTokenSource.playerToken })
+      ? buildShareLink({
+          tokenParam: { name: "gt", value: shareTokenSource.playerToken },
+        })
       : base;
     const spectatorLink = shareTokenSource?.spectatorToken
-      ? buildShareLink({ name: "st", value: shareTokenSource.spectatorToken })
+      ? buildShareLink({
+          tokenParam: { name: "st", value: shareTokenSource.spectatorToken },
+        })
       : base;
-    setShareLinks({ players: playerLink, spectators: spectatorLink });
+    const resumeLink =
+      shareTokenSource?.resumeToken && myPlayerId
+        ? buildShareLink({
+            tokenParam: { name: "rt", value: shareTokenSource.resumeToken },
+            playerId: myPlayerId,
+          })
+        : "";
+    setShareLinks({ players: playerLink, spectators: spectatorLink, resume: resumeLink });
   }, [
     buildShareLink,
     isShareDialogOpen,
+    myPlayerId,
     shareLinksReady,
     shareTokenSource?.playerToken,
     shareTokenSource?.spectatorToken,
+    shareTokenSource?.resumeToken,
   ]);
 
   const preferredUsername = useClientPrefsStore((state) => state.username);

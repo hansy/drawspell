@@ -29,6 +29,7 @@ const mockGameState = vi.hoisted(() => ({
   viewerRole: "player" as ViewerRole,
   sessionId: null as string | null,
   myPlayerId: null as string | null,
+  playerIdsBySession: {} as Record<string, string>,
   players: {},
   playerOrder: [],
   zones: {},
@@ -202,6 +203,7 @@ vi.mock("../fullSyncToStore", () => ({ createFullSyncToStore }));
 vi.mock("../disposeSessionTransport", () => ({ disposeSessionTransport }));
 
 import {
+  clearInviteTokenFromUrl,
   clearRoomUnavailable,
   isRoomHostPending,
   isRoomUnavailable,
@@ -226,6 +228,7 @@ describe("useMultiplayerSync", () => {
       viewerRole: "player" as ViewerRole,
       sessionId: null as string | null,
       myPlayerId: null as string | null,
+      playerIdsBySession: {},
     });
     mockGameState.setViewerRole.mockClear();
   });
@@ -365,6 +368,66 @@ describe("useMultiplayerSync", () => {
     });
   });
 
+  it("defers clearing resume invite params until room tokens arrive", async () => {
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      playerId: "player-1",
+      resumeToken: "resume-token",
+    });
+
+    renderHook(() => useMultiplayerSync("session-resume"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+    expect(clearInviteTokenFromUrl).not.toHaveBeenCalled();
+
+    const [{ onMessage }] = intentTransportMocks.createIntentTransport.mock
+      .calls[0] as any;
+
+    act(() => {
+      onMessage({
+        type: "roomTokens",
+        payload: { playerToken: "player-token" },
+      });
+    });
+
+    await waitFor(() => {
+      expect(clearInviteTokenFromUrl).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("treats resume token without playerId as malformed and clears params immediately", async () => {
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      resumeToken: "resume-token",
+    });
+
+    renderHook(() => useMultiplayerSync("session-malformed-resume"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(clearInviteTokenFromUrl).toHaveBeenCalledTimes(1);
+    });
+
+    const [transportConfig] =
+      intentTransportMocks.createIntentTransport.mock.calls[0] ?? [];
+    expect(transportConfig?.resumeToken).toBeUndefined();
+  });
+
+  it("still clears non-resume invite params immediately", async () => {
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      token: "player-token",
+      role: "player",
+    });
+
+    renderHook(() => useMultiplayerSync("session-player-token"));
+
+    await waitFor(() => {
+      expect(clearInviteTokenFromUrl).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("rechecks invites when the location key changes", async () => {
     vi.mocked(isRoomUnavailable).mockReturnValueOnce(true).mockReturnValueOnce(true);
     vi.mocked(isRoomHostPending).mockReturnValueOnce(false).mockReturnValueOnce(false);
@@ -406,6 +469,7 @@ describe("useMultiplayerSync", () => {
 
     await waitFor(() => {
       expect(markRoomUnavailable).not.toHaveBeenCalled();
+      expect(clearInviteTokenFromUrl).toHaveBeenCalled();
       expect(result.current.joinBlocked).toBe(true);
       expect(result.current.joinBlockedReason).toBe("invite");
     });
@@ -431,8 +495,92 @@ describe("useMultiplayerSync", () => {
 
     await waitFor(() => {
       expect(markRoomUnavailable).toHaveBeenCalledWith("session-expired");
+      expect(clearInviteTokenFromUrl).toHaveBeenCalled();
       expect(result.current.joinBlocked).toBe(true);
       expect(result.current.joinBlockedReason).toBe("room-unavailable");
+    });
+  });
+
+  it("marks session as takeover when moved to another device", async () => {
+    const { result } = renderHook(() => useMultiplayerSync("session-takeover"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+
+    const [{ onClose }] = intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+
+    act(() => {
+      onClose({ code: 1008, reason: "session moved to another device" });
+    });
+
+    await waitFor(() => {
+      expect(markRoomUnavailable).not.toHaveBeenCalled();
+      expect(result.current.joinBlocked).toBe(true);
+      expect(result.current.joinBlockedReason).toBe("takeover");
+    });
+  });
+
+  it("restores previous session player id when resume auth fails", async () => {
+    mockGameState.playerIdsBySession = {
+      "session-resume-invalid": "original-player",
+    };
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      playerId: "resume-player",
+      resumeToken: "resume-token",
+    });
+
+    const { result } = renderHook(() =>
+      useMultiplayerSync("session-resume-invalid")
+    );
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+    expect(
+      mockGameState.playerIdsBySession["session-resume-invalid"]
+    ).toBe("resume-player");
+
+    const [{ onClose }] = intentTransportMocks.createIntentTransport.mock
+      .calls[0] as any;
+    act(() => {
+      onClose({ code: 1008, reason: "invalid token" });
+    });
+
+    await waitFor(() => {
+      expect(
+        mockGameState.playerIdsBySession["session-resume-invalid"]
+      ).toBe("original-player");
+      expect(result.current.joinBlocked).toBe(true);
+    });
+  });
+
+  it("does not mark room unavailable from resume-token-only evidence", async () => {
+    mockGameState.roomTokens = {
+      resumeToken: "resume-only-token",
+    } as any;
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      playerId: "resume-player",
+      resumeToken: "stale-resume-token",
+    });
+
+    const { result } = renderHook(() =>
+      useMultiplayerSync("session-resume-only-evidence")
+    );
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+
+    const [{ onClose }] = intentTransportMocks.createIntentTransport.mock
+      .calls[0] as any;
+    act(() => {
+      onClose({ code: 1008, reason: "invalid token" });
+    });
+
+    await waitFor(() => {
+      expect(markRoomUnavailable).not.toHaveBeenCalled();
+      expect(result.current.joinBlockedReason).toBe("invite");
     });
   });
 

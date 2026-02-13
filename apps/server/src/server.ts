@@ -15,6 +15,7 @@ import {
   HIDDEN_STATE_CARDS_PREFIX,
   HIDDEN_STATE_KEY,
   HIDDEN_STATE_META_KEY,
+  PLAYER_RESUME_TOKENS_KEY,
   ROOM_TOKENS_KEY,
 } from "./domain/constants";
 import type {
@@ -41,6 +42,7 @@ import {
   syncPlayerOrder,
 } from "./domain/yjsStore";
 import {
+  type AuthRejectReason,
   parseConnectionParams,
   resolveConnectionAuth,
 } from "./connection/auth";
@@ -50,6 +52,9 @@ import { SnapshotStore, type SnapshotMeta } from "./storage/snapshotStore";
 const INTENT_ROLE = "intent";
 const EMPTY_ROOM_GRACE_MS = 120_000;
 const ROOM_TEARDOWN_CLOSE_CODE = 1013;
+const PLAYER_TAKEOVER_CLOSE_CODE = 1008;
+const PLAYER_TAKEOVER_CLOSE_REASON = "session moved to another device";
+const RESUME_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 const Y_DOC_STORAGE_KEY = "yjs:doc";
 const SNAPSHOT_META_KEY = "snapshot:meta";
 const SNAPSHOT_HIDDEN_PREFIX = "snapshot:hidden:";
@@ -79,6 +84,13 @@ const JOIN_TOKEN_MAX_SKEW_MS = 30_000;
 const CONNECT_RATE_WINDOW_MS = 60_000;
 const CONNECT_RATE_MAX_ATTEMPTS = 20;
 const CONNECT_RATE_BLOCK_MS = 120_000;
+
+type PlayerResumeTokenEntry = {
+  token: string;
+  expiresAt: number;
+};
+
+type PlayerResumeTokens = Record<string, PlayerResumeTokenEntry>;
 
 const nowMs = () =>
   typeof performance !== "undefined" && typeof performance.now === "function"
@@ -263,6 +275,8 @@ export class Room extends YServer<Env> {
   private intentConnections = new Set<Connection>();
   private hiddenState: HiddenState | null = null;
   private roomTokens: RoomTokens | null = null;
+  private playerResumeTokens: PlayerResumeTokens | null = null;
+  private playerResumeTokensMutation: Promise<void> = Promise.resolve();
   private libraryViews = new Map<
     string,
     { playerId: string; count?: number; lastPingAt: number }
@@ -281,6 +295,8 @@ export class Room extends YServer<Env> {
   });
   private connectionCapabilities = new Map<string, Set<string>>();
   private connectionRoles = new Map<Connection, "player" | "spectator">();
+  private connectionPlayers = new Map<Connection, string>();
+  private connectionGroups = new Map<Connection, string>();
   private roomAnalytics: RoomAnalyticsTracker | null = null;
   private pendingPlayerConnections = 0;
   private emptyRoomTimer: number | null = null;
@@ -847,18 +863,177 @@ export class Room extends YServer<Env> {
     return generated;
   }
 
+  private normalizePlayerResumeTokens(
+    value: unknown,
+  ): PlayerResumeTokens | null {
+    if (!value || typeof value !== "object") return null;
+    const now = Date.now();
+    const normalized: PlayerResumeTokens = {};
+    for (const [playerId, rawEntry] of Object.entries(
+      value as Record<string, unknown>,
+    )) {
+      let token: string | undefined;
+      let expiresAt: number | undefined;
+      if (typeof rawEntry === "string") {
+        token = rawEntry;
+        expiresAt = now + RESUME_TOKEN_TTL_MS;
+      } else if (rawEntry && typeof rawEntry === "object") {
+        const entryRecord = rawEntry as Record<string, unknown>;
+        token = typeof entryRecord.token === "string" ? entryRecord.token : undefined;
+        const parsedExpiresAt =
+          typeof entryRecord.expiresAt === "number" &&
+          Number.isFinite(entryRecord.expiresAt)
+            ? entryRecord.expiresAt
+            : undefined;
+        expiresAt = parsedExpiresAt ?? now + RESUME_TOKEN_TTL_MS;
+      }
+      if (typeof playerId !== "string" || typeof token !== "string") continue;
+      const trimmedPlayerId = playerId.trim();
+      const trimmedToken = token.trim();
+      if (!trimmedPlayerId || !trimmedToken) continue;
+      if (!expiresAt || expiresAt <= now) continue;
+      normalized[trimmedPlayerId] = {
+        token: trimmedToken,
+        expiresAt,
+      };
+    }
+    return Object.keys(normalized).length > 0 ? normalized : null;
+  }
+
+  private async loadPlayerResumeTokens(): Promise<PlayerResumeTokens> {
+    if (this.playerResumeTokens) return this.playerResumeTokens;
+    const stored = await this.ctx.storage.get<unknown>(
+      PLAYER_RESUME_TOKENS_KEY,
+    );
+    const normalized = this.normalizePlayerResumeTokens(stored) ?? {};
+    this.playerResumeTokens = normalized;
+    return normalized;
+  }
+
+  private async mutatePlayerResumeTokens<T>(
+    mutator: (
+      tokens: PlayerResumeTokens,
+    ) =>
+      | Promise<{ result: T; nextTokens?: PlayerResumeTokens }>
+      | { result: T; nextTokens?: PlayerResumeTokens },
+  ): Promise<T> {
+    const operation = this.playerResumeTokensMutation.then(async () => {
+      const tokens = await this.loadPlayerResumeTokens();
+      const { result, nextTokens } = await mutator(tokens);
+      if (nextTokens) {
+        this.playerResumeTokens = nextTokens;
+        await this.ctx.storage.put(PLAYER_RESUME_TOKENS_KEY, nextTokens);
+      }
+      return result;
+    });
+    this.playerResumeTokensMutation = operation.then(
+      () => undefined,
+      () => undefined,
+    );
+    return operation;
+  }
+
+  private async ensurePlayerResumeToken(
+    playerId: string,
+    options?: { rotate?: boolean },
+  ): Promise<string> {
+    return this.mutatePlayerResumeTokens((tokens) => {
+      const rotate = options?.rotate ?? false;
+      const now = Date.now();
+      const normalizedPlayerId = playerId.trim();
+      const current = tokens[normalizedPlayerId];
+      if (
+        current &&
+        typeof current.token === "string" &&
+        current.token.length > 0 &&
+        current.expiresAt > now &&
+        !rotate
+      ) {
+        if (current.expiresAt - now > RESUME_TOKEN_TTL_MS / 2) {
+          return { result: current.token };
+        }
+        const refreshed = {
+          token: current.token,
+          expiresAt: now + RESUME_TOKEN_TTL_MS,
+        };
+        const nextTokens = {
+          ...tokens,
+          [normalizedPlayerId]: refreshed,
+        };
+        return { result: refreshed.token, nextTokens };
+      }
+
+      const created = crypto.randomUUID();
+      const nextTokens = {
+        ...tokens,
+        [normalizedPlayerId]: {
+          token: created,
+          expiresAt: now + RESUME_TOKEN_TTL_MS,
+        },
+      };
+      return { result: created, nextTokens };
+    });
+  }
+
+  private async validatePlayerResumeToken(
+    playerId: string,
+    resumeToken: string,
+  ): Promise<boolean> {
+    const normalizedPlayerId = playerId.trim();
+    const normalizedToken = resumeToken.trim();
+    if (!normalizedPlayerId || !normalizedToken) return false;
+    return this.mutatePlayerResumeTokens((tokens) => {
+      const now = Date.now();
+      const existing = tokens[normalizedPlayerId];
+      if (!existing) return { result: false };
+      if (existing.expiresAt <= now) {
+        const { [normalizedPlayerId]: _expired, ...nextTokens } = tokens;
+        return { result: false, nextTokens };
+      }
+      return { result: existing.token === normalizedToken };
+    });
+  }
+
   private sendRoomTokens(
     conn: Connection,
     tokens: RoomTokens,
     viewerRole: "player" | "spectator",
-  ) {
+    resumeToken?: string,
+  ): boolean {
     const payload =
       viewerRole === "player"
-        ? tokens
+        ? {
+            ...tokens,
+            ...(resumeToken ? { resumeToken } : {}),
+          }
         : { spectatorToken: tokens.spectatorToken };
     try {
       conn.send(JSON.stringify({ type: "roomTokens", payload }));
-    } catch (_err) {}
+      return true;
+    } catch (_err) {
+      return false;
+    }
+  }
+
+  private async restorePlayerResumeToken(
+    playerId: string,
+    resumeToken: string,
+  ): Promise<void> {
+    const normalizedPlayerId = playerId.trim();
+    const normalizedToken = resumeToken.trim();
+    if (!normalizedPlayerId || !normalizedToken) return;
+    await this.mutatePlayerResumeTokens((tokens) => {
+      const expiresAt =
+        tokens[normalizedPlayerId]?.expiresAt ?? Date.now() + RESUME_TOKEN_TTL_MS;
+      const nextTokens = {
+        ...tokens,
+        [normalizedPlayerId]: {
+          token: normalizedToken,
+          expiresAt,
+        },
+      };
+      return { result: undefined, nextTokens };
+    });
   }
 
   private hasPlayerConnections(): boolean {
@@ -1411,8 +1586,22 @@ export class Room extends YServer<Env> {
     }, EMPTY_ROOM_GRACE_MS) as unknown as number;
   }
 
-  private registerConnection(conn: Connection, role: "player" | "spectator") {
+  private registerConnection(
+    conn: Connection,
+    role: "player" | "spectator",
+    state: IntentConnectionState,
+  ) {
     this.connectionRoles.set(conn, role);
+    if (role === "player" && state.playerId) {
+      this.connectionPlayers.set(conn, state.playerId);
+    } else {
+      this.connectionPlayers.delete(conn);
+    }
+    if (state.connectionGroupId) {
+      this.connectionGroups.set(conn, state.connectionGroupId);
+    } else {
+      this.connectionGroups.delete(conn);
+    }
     if (role === "player") {
       this.teardownGeneration += 1;
       this.clearEmptyRoomTimer();
@@ -1422,12 +1611,32 @@ export class Room extends YServer<Env> {
 
   private unregisterConnection(conn: Connection) {
     this.connectionRoles.delete(conn);
+    this.connectionPlayers.delete(conn);
+    this.connectionGroups.delete(conn);
     this.scheduleEmptyRoomTeardown();
     if (!this.hasPlayerConnections()) {
       this.enqueueHiddenStatePersist(this.resetGeneration, conn.id);
     }
     if (this.connectionRoles.size === 0) {
       this.clearPerfMetricsTimer();
+    }
+  }
+
+  private closeConnectionsForResumedPlayer(
+    playerId: string,
+    connectionGroupId: string | undefined,
+    currentConnection: Connection,
+  ) {
+    if (!connectionGroupId) return;
+    for (const [connection, connectedPlayerId] of this.connectionPlayers.entries()) {
+      if (connectedPlayerId !== playerId || connection === currentConnection) {
+        continue;
+      }
+      const existingGroupId = this.connectionGroups.get(connection);
+      if (existingGroupId === connectionGroupId) continue;
+      try {
+        connection.close(PLAYER_TAKEOVER_CLOSE_CODE, PLAYER_TAKEOVER_CLOSE_REASON);
+      } catch (_err) {}
     }
   }
 
@@ -1495,6 +1704,8 @@ export class Room extends YServer<Env> {
     try {
       const connections = Array.from(this.connectionRoles.keys());
       this.connectionRoles.clear();
+      this.connectionPlayers.clear();
+      this.connectionGroups.clear();
       this.connectionCapabilities.clear();
       for (const connection of connections) {
         try {
@@ -1508,6 +1719,7 @@ export class Room extends YServer<Env> {
       }
       this.hiddenState = null;
       this.roomTokens = null;
+      this.playerResumeTokens = null;
       this.intentLogMeta = null;
       this.snapshotMeta = null;
       this.intentLogWritePromise = Promise.resolve();
@@ -1550,6 +1762,79 @@ export class Room extends YServer<Env> {
     void this.bindSyncConnection(conn, url, ctx);
   }
 
+  private async resolveConnectionAuthWithResume(
+    state: IntentConnectionState,
+    storedTokens: RoomTokens | null,
+    options: { allowTokenCreation: boolean },
+  ): Promise<
+    | {
+        ok: true;
+        resolvedRole: "player" | "spectator";
+        playerId?: string;
+        token?: string;
+        tokens: RoomTokens | null;
+        resumed: boolean;
+      }
+    | {
+        ok: false;
+        reason: AuthRejectReason;
+      }
+  > {
+    const resolveStandardAuth = async (): Promise<
+      | {
+          ok: true;
+          resolvedRole: "player" | "spectator";
+          playerId?: string;
+          token?: string;
+          tokens: RoomTokens | null;
+          resumed: boolean;
+        }
+      | {
+          ok: false;
+          reason: AuthRejectReason;
+        }
+    > => {
+      const auth = await resolveConnectionAuth(
+        state,
+        storedTokens,
+        () => this.ensureRoomTokens(),
+        { allowTokenCreation: options.allowTokenCreation },
+      );
+      return auth.ok ? { ...auth, resumed: false } : auth;
+    };
+
+    const resumePlayerId = state.playerId;
+    const resumeToken = state.resumeToken;
+    const shouldAttemptResume =
+      state.viewerRole !== "spectator" &&
+      Boolean(resumePlayerId && resumeToken);
+    if (shouldAttemptResume && resumePlayerId && resumeToken) {
+      // If a request carries both resume and room tokens, prioritize resume
+      // takeover, but fall back to standard token auth when resume validation
+      // fails to avoid lockouts on stale/rotated resume tokens.
+      if (!state.connectionGroupId) {
+        return state.token ? resolveStandardAuth() : { ok: false, reason: "invalid token" };
+      }
+      const canResume = await this.validatePlayerResumeToken(resumePlayerId, resumeToken);
+      if (!canResume) {
+        return state.token ? resolveStandardAuth() : { ok: false, reason: "invalid token" };
+      }
+      let activeTokens = storedTokens;
+      if (!activeTokens && options.allowTokenCreation) {
+        activeTokens = await this.ensureRoomTokens();
+      }
+      return {
+        ok: true,
+        resolvedRole: "player",
+        playerId: resumePlayerId,
+        token: activeTokens?.playerToken,
+        tokens: activeTokens ?? null,
+        resumed: true,
+      };
+    }
+    return resolveStandardAuth();
+  }
+
   private async bindIntentConnection(conn: Connection, url: URL) {
     this.intentConnections.add(conn);
     const state = parseConnectionParams(url);
@@ -1559,8 +1844,7 @@ export class Room extends YServer<Env> {
     let resolvedPlayerId: string | undefined;
     let resolvedUserId: string | undefined;
     let resolvedAnalyticsUserId: string | undefined;
-    conn.addEventListener("close", () => {
-      connectionClosed = true;
+    const cleanupTrackedConnection = () => {
       this.intentConnections.delete(conn);
       this.connectionCapabilities.delete(conn.id);
       this.libraryViews.delete(conn.id);
@@ -1568,6 +1852,10 @@ export class Room extends YServer<Env> {
         this.clearLibraryViewCleanupTimer();
       }
       this.overlayService.removeConnection(conn.id);
+    };
+    conn.addEventListener("close", () => {
+      connectionClosed = true;
+      cleanupTrackedConnection();
       if (!connectionRegistered) return;
       this.unregisterConnection(conn);
       if (resolvedAnalyticsUserId) {
@@ -1580,24 +1868,24 @@ export class Room extends YServer<Env> {
         viewerRole: resolvedRole,
       });
     });
-    const rejectConnection = (reason: string) => {
-      this.intentConnections.delete(conn);
-      this.connectionCapabilities.delete(conn.id);
-      this.libraryViews.delete(conn.id);
-      if (this.libraryViews.size === 0) {
-        this.clearLibraryViewCleanupTimer();
+    const rejectConnection = (reason: string, code = 1008) => {
+      if (connectionRegistered) {
+        connectionRegistered = false;
+        this.unregisterConnection(conn);
+        if (resolvedAnalyticsUserId) {
+          this.roomAnalytics?.onUserLeave(resolvedAnalyticsUserId);
+        }
       }
-      this.overlayService.removeConnection(conn.id);
+      cleanupTrackedConnection();
       try {
-        conn.close(1008, reason);
+        conn.close(code, reason);
       } catch (_err) {}
     };
 
     const storedTokens = await this.loadRoomTokens();
-    const auth = await resolveConnectionAuth(
+    const auth = await this.resolveConnectionAuthWithResume(
       state,
       storedTokens,
-      () => this.ensureRoomTokens(),
       { allowTokenCreation: true },
     );
     if (!auth.ok) {
@@ -1616,7 +1904,12 @@ export class Room extends YServer<Env> {
       (resolvedRole === "player" && resolvedPlayerId
         ? `player:${resolvedPlayerId}`
         : undefined);
-
+    const priorResumeToken =
+      auth.resumed && resolvedRole === "player" ? state.resumeToken : undefined;
+    const rollbackResumeToken = async () => {
+      if (!priorResumeToken || !resolvedPlayerId) return;
+      await this.restorePlayerResumeToken(resolvedPlayerId, priorResumeToken);
+    };
     if (connectionClosed) return;
     this.capturePerfMetricsFlag(url);
     conn.setState({
@@ -1624,9 +1917,73 @@ export class Room extends YServer<Env> {
       viewerRole: resolvedRole,
       token: auth.token,
       userId: resolvedUserId,
+      resumeToken: state.resumeToken,
+      connectionGroupId: state.connectionGroupId,
     });
-    this.registerConnection(conn, resolvedRole);
+    this.registerConnection(conn, resolvedRole, {
+      playerId: resolvedPlayerId,
+      viewerRole: resolvedRole,
+      token: auth.token,
+      userId: resolvedUserId,
+      resumeToken: state.resumeToken,
+      connectionGroupId: state.connectionGroupId,
+    });
     connectionRegistered = true;
+
+    let resumeToken: string | undefined;
+    try {
+      resumeToken =
+        resolvedRole === "player" && resolvedPlayerId
+          ? await this.ensurePlayerResumeToken(resolvedPlayerId, {
+              rotate: auth.resumed,
+            })
+          : undefined;
+    } catch (err) {
+      console.error("[party] failed to rotate resume token", {
+        room: this.name,
+        connId: conn.id,
+        playerId: resolvedPlayerId,
+        error:
+          err && typeof err === "object" && "message" in err
+            ? String((err as { message?: unknown }).message)
+            : String(err),
+      });
+      try {
+        await rollbackResumeToken();
+      } catch (_rollbackErr) {}
+      rejectConnection("internal error", 1011);
+      return;
+    }
+
+    if (connectionClosed) {
+      await rollbackResumeToken();
+      return;
+    }
+
+    if (activeTokens) {
+      const sent = this.sendRoomTokens(
+        conn,
+        activeTokens,
+        resolvedRole,
+        resumeToken,
+      );
+      if (!sent) {
+        try {
+          await rollbackResumeToken();
+        } catch (_rollbackErr) {}
+        rejectConnection("internal error", 1011);
+        return;
+      }
+    }
+
+    if (auth.resumed && resolvedRole === "player" && resolvedPlayerId) {
+      this.closeConnectionsForResumedPlayer(
+        resolvedPlayerId,
+        state.connectionGroupId,
+        conn,
+      );
+    }
+
     if (resolvedRole === "player") {
       this.roomAnalytics?.onPlayerJoin();
     }
@@ -1640,10 +1997,6 @@ export class Room extends YServer<Env> {
       viewerRole: resolvedRole,
       hasToken: Boolean(auth.token),
     });
-
-    if (activeTokens) {
-      this.sendRoomTokens(conn, activeTokens, resolvedRole);
-    }
 
     void this.sendOverlayForConnection(conn);
 
@@ -1723,11 +2076,12 @@ export class Room extends YServer<Env> {
     }
 
     let resolvedRole: "player" | "spectator";
+    let resolvedPlayerId: string | undefined;
+    let authToken: string | undefined;
     try {
-      const auth = await resolveConnectionAuth(
+      const auth = await this.resolveConnectionAuthWithResume(
         state,
         storedTokens,
-        () => this.ensureRoomTokens(),
         { allowTokenCreation: false },
       );
       if (!auth.ok) {
@@ -1735,6 +2089,8 @@ export class Room extends YServer<Env> {
         return;
       }
       resolvedRole = auth.resolvedRole;
+      resolvedPlayerId = auth.playerId;
+      authToken = auth.token;
     } catch (err) {
       finalizePending();
       throw err;
@@ -1749,7 +2105,22 @@ export class Room extends YServer<Env> {
       return;
     }
     this.capturePerfMetricsFlag(url);
-    this.registerConnection(conn, resolvedRole);
+    conn.setState({
+      playerId: resolvedPlayerId,
+      viewerRole: resolvedRole,
+      token: authToken,
+      userId: state.userId,
+      resumeToken: state.resumeToken,
+      connectionGroupId: state.connectionGroupId,
+    });
+    this.registerConnection(conn, resolvedRole, {
+      playerId: resolvedPlayerId,
+      viewerRole: resolvedRole,
+      token: authToken,
+      userId: state.userId,
+      resumeToken: state.resumeToken,
+      connectionGroupId: state.connectionGroupId,
+    });
     connectionRegistered = true;
     finalizePending();
     return super.onConnect(conn, ctx);

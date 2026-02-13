@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
 import {
+  clearInviteTokenFromUrl,
   clearRoomUnavailable,
   clearRoomHostPending,
   isRoomHostPending,
@@ -45,10 +46,12 @@ type JoinBlockedReason =
   | NonNullable<LocalPlayerInitResult>["reason"]
   | "invite"
   | "room-unavailable"
+  | "takeover"
   | null;
 
 const CONNECTION_LOGS_ENABLED = false;
 const INTENT_DISCONNECT_GRACE_MS = 15_000;
+const PLAYER_TAKEOVER_CLOSE_REASON = "session moved to another device";
 
 export function useMultiplayerSync(sessionId: string, locationKey?: string) {
   const hasHydrated = useGameStore((state) => state.hasHydrated);
@@ -88,6 +91,11 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
   const resourcesRef = useRef<SessionSetupResult | null>(null);
   const pendingIntentJoinRef = useRef(false);
   const authFailureHandled = useRef(false);
+  const resumeIdentityBackupRef = useRef<{
+    sessionId: string;
+    attemptedPlayerId: string;
+    previousPlayerId?: string;
+  } | null>(null);
   const initialSessionEvidenceRef = useRef({
     sessionId: "",
     hadLastSession: false,
@@ -286,7 +294,11 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       hasTokens,
       hadLastSession,
     };
-  }, [sessionId, roomTokens?.playerToken, roomTokens?.spectatorToken]);
+  }, [
+    sessionId,
+    roomTokens?.playerToken,
+    roomTokens?.spectatorToken,
+  ]);
 
   useEffect(() => {
     attemptJoinRef.current?.();
@@ -379,9 +391,23 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         return;
       }
       const inviteToken = resolveInviteTokenFromUrl(window.location.href);
+      const hasResumeFromUrl = Boolean(
+        inviteToken.resumeToken && inviteToken.playerId,
+      );
+      if (hasResumeFromUrl && inviteToken.playerId) {
+        const currentPlayerId =
+          useGameStore.getState().playerIdsBySession?.[sessionId];
+        resumeIdentityBackupRef.current = {
+          sessionId,
+          attemptedPlayerId: inviteToken.playerId,
+          previousPlayerId: currentPlayerId,
+        };
+      } else {
+        resumeIdentityBackupRef.current = null;
+      }
       const hostPending = isRoomHostPending(sessionId);
       if (roomUnavailableRef.current || isRoomUnavailable(sessionId)) {
-        if (inviteToken.token || hostPending) {
+        if (inviteToken.token || hasResumeFromUrl || hostPending) {
           clearRoomUnavailable(sessionId);
           roomUnavailableRef.current = false;
           setRoomUnavailable(false);
@@ -402,10 +428,12 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       const storedTokens = readRoomTokensFromStorage(sessionId);
       const hasToken = Boolean(
         inviteToken.token ||
+          hasResumeFromUrl ||
           storedTokens?.playerToken ||
           storedTokens?.spectatorToken ||
           roomTokens?.playerToken ||
-          roomTokens?.spectatorToken
+          roomTokens?.spectatorToken ||
+          roomTokens?.resumeToken
       );
       const canConnect = hasToken || hostPending;
       if (!canConnect) {
@@ -516,6 +544,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       };
 
       const handleIntentOpen = () => {
+        resumeIdentityBackupRef.current = null;
         resetIntentCloseTracking();
         clearConnectAttemptTimer();
         if (attemptJoinRef.current) {
@@ -535,6 +564,31 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
           if (authFailureHandled.current) return;
           authFailureHandled.current = true;
           emitConnectionLog("connection.authFailure", { reason });
+          if (reason === "invalid token") {
+            const failedInvite = resolveInviteTokenFromUrl(window.location.href);
+            const failedResumeInvite = Boolean(
+              failedInvite.resumeToken && failedInvite.playerId,
+            );
+            const backup = resumeIdentityBackupRef.current;
+            if (
+              failedResumeInvite &&
+              backup &&
+              backup.sessionId === sessionId &&
+              failedInvite.playerId === backup.attemptedPlayerId
+            ) {
+              useGameStore.setState((state) => {
+                const nextPlayerIds = { ...(state.playerIdsBySession ?? {}) };
+                if (backup.previousPlayerId) {
+                  nextPlayerIds[sessionId] = backup.previousPlayerId;
+                } else {
+                  delete nextPlayerIds[sessionId];
+                }
+                return { playerIdsBySession: nextPlayerIds };
+              });
+            }
+            resumeIdentityBackupRef.current = null;
+            clearInviteTokenFromUrl();
+          }
           const priorEvidence = priorSessionEvidenceRef.current;
           const shouldTreatAsUnavailable =
             reason === "invalid token" &&
@@ -554,7 +608,9 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
             clearLastSessionId();
           }
           setJoinBlocked(true);
-          setJoinBlockedReason("invite");
+          setJoinBlockedReason(
+            reason === PLAYER_TAKEOVER_CLOSE_REASON ? "takeover" : "invite",
+          );
 
           const activeResources = resourcesRef.current;
           if (activeResources) {

@@ -5,6 +5,8 @@ import { createSafeStorage } from "@/lib/safeStorage";
 export type ResolvedInviteToken = {
   token?: string;
   role?: ViewerRole;
+  playerId?: string;
+  resumeToken?: string;
 };
 
 const TOKEN_STORAGE_PREFIX = "drawspell:roomTokens:";
@@ -19,13 +21,26 @@ export const resolveInviteTokenFromUrl = (href?: string): ResolvedInviteToken =>
   if (!href) return {};
   try {
     const url = new URL(href);
+    const playerId = url.searchParams.get("playerId") ?? undefined;
+    const resumeToken =
+      url.searchParams.get("rt") ??
+      url.searchParams.get("resumeToken") ??
+      undefined;
     const spectatorToken = url.searchParams.get("st");
     if (spectatorToken) {
-      return { token: spectatorToken, role: "spectator" };
+      return {
+        token: spectatorToken,
+        role: "spectator",
+        playerId,
+        resumeToken,
+      };
     }
     const playerToken = url.searchParams.get("gt");
     if (playerToken) {
-      return { token: playerToken, role: "player" };
+      return { token: playerToken, role: "player", playerId, resumeToken };
+    }
+    if (resumeToken || playerId) {
+      return { playerId, resumeToken };
     }
     return {};
   } catch (_err) {
@@ -43,8 +58,13 @@ export const clearInviteTokenFromUrl = (href?: string) => {
     url.searchParams.delete("viewerRole");
     url.searchParams.delete("playerToken");
     url.searchParams.delete("spectatorToken");
+    url.searchParams.delete("rt");
+    url.searchParams.delete("resumeToken");
+    url.searchParams.delete("connectionGroupId");
+    url.searchParams.delete("cid");
     url.searchParams.delete("token");
     url.searchParams.delete("role");
+    url.searchParams.delete("playerId");
     window.history.replaceState({}, "", url.toString());
   } catch (_err) {}
 };
@@ -66,6 +86,15 @@ export const readRoomTokensFromStorage = (
     const payload: RoomTokensPayload = {};
     if (typeof parsed.playerToken === "string") payload.playerToken = parsed.playerToken;
     if (typeof parsed.spectatorToken === "string") payload.spectatorToken = parsed.spectatorToken;
+    if (typeof parsed.resumeToken === "string") {
+      // Resume links are private takeover credentials and should not persist in
+      // long-lived browser storage.
+      if (payload.playerToken || payload.spectatorToken) {
+        storage.setItem(tokenKey(sessionId), JSON.stringify(payload));
+      } else {
+        storage.removeItem(tokenKey(sessionId));
+      }
+    }
     return payload.playerToken || payload.spectatorToken ? payload : null;
   } catch (_err) {
     return null;
@@ -141,5 +170,5 @@ export const mergeRoomTokens = (
 ): RoomTokensPayload | null => {
   if (!base && !update) return null;
   const next = { ...(base ?? {}), ...(update ?? {}) };
-  return next.playerToken || next.spectatorToken ? next : null;
+  return next.playerToken || next.spectatorToken || next.resumeToken ? next : null;
 };

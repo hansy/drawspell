@@ -67,6 +67,8 @@ export type IntentConnectionState = {
   viewerRole?: "player" | "spectator";
   token?: string;
   userId?: string;
+  resumeToken?: string;
+  connectionGroupId?: string;
 };
 
 export type OverlayMeta = {
