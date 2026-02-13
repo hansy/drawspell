@@ -489,6 +489,33 @@ describe("server lifecycle guards", () => {
     }
   });
 
+  it("does not evict existing devices when only resumed sync auth succeeds", async () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const resumeToken = await (server as any).ensurePlayerResumeToken("p1");
+    vi.spyOn(server as any, "loadRoomTokens").mockResolvedValue({
+      playerToken: "player-token",
+      spectatorToken: "spectator-token",
+    });
+
+    const oldConnection = new TestConnection();
+    oldConnection.id = "old-device-sync";
+    (server as any).connectionPlayers.set(oldConnection, "p1");
+    (server as any).connectionGroups.set(oldConnection, "old-device");
+
+    const conn = new TestConnection();
+    const url = new URL(
+      `https://example.test/?gt=player-token&playerId=p1&rt=${resumeToken}&cid=new-device`
+    );
+
+    await (server as any).bindSyncConnection(conn, url, {
+      request: new Request(url.toString()),
+    });
+
+    expect(oldConnection.closed).toEqual([]);
+    expect(superOnConnect).toHaveBeenCalled();
+  });
+
   it("does not rotate resume token if resumed intent closes before auth resolves", async () => {
     const state = createState();
     const server = new Room(state, createEnv());

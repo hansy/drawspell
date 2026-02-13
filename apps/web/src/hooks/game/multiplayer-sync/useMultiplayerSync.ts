@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useGameStore } from "@/store/gameStore";
 import {
+  clearInviteTokenFromUrl,
   clearRoomUnavailable,
   clearRoomHostPending,
   isRoomHostPending,
@@ -548,6 +549,9 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
           if (authFailureHandled.current) return;
           authFailureHandled.current = true;
           emitConnectionLog("connection.authFailure", { reason });
+          if (reason === "invalid token") {
+            clearInviteTokenFromUrl();
+          }
           const priorEvidence = priorSessionEvidenceRef.current;
           const shouldTreatAsUnavailable =
             reason === "invalid token" &&

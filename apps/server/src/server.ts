@@ -1989,7 +1989,6 @@ export class Room extends YServer<Env> {
     let resolvedRole: "player" | "spectator";
     let resolvedPlayerId: string | undefined;
     let authToken: string | undefined;
-    let resumed = false;
     try {
       const auth = await this.resolveConnectionAuthWithResume(
         state,
@@ -2003,7 +2002,6 @@ export class Room extends YServer<Env> {
       resolvedRole = auth.resolvedRole;
       resolvedPlayerId = auth.playerId;
       authToken = auth.token;
-      resumed = auth.resumed;
     } catch (err) {
       finalizePending();
       throw err;
@@ -2016,13 +2014,6 @@ export class Room extends YServer<Env> {
     if (this.teardownInProgress) {
       rejectForReset();
       return;
-    }
-    if (resumed && resolvedRole === "player" && resolvedPlayerId) {
-      this.closeConnectionsForResumedPlayer(
-        resolvedPlayerId,
-        state.connectionGroupId,
-        conn,
-      );
     }
     this.capturePerfMetricsFlag(url);
     conn.setState({

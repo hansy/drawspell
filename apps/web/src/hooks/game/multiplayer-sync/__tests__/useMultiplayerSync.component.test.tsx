@@ -467,6 +467,7 @@ describe("useMultiplayerSync", () => {
 
     await waitFor(() => {
       expect(markRoomUnavailable).not.toHaveBeenCalled();
+      expect(clearInviteTokenFromUrl).toHaveBeenCalled();
       expect(result.current.joinBlocked).toBe(true);
       expect(result.current.joinBlockedReason).toBe("invite");
     });
@@ -492,6 +493,7 @@ describe("useMultiplayerSync", () => {
 
     await waitFor(() => {
       expect(markRoomUnavailable).toHaveBeenCalledWith("session-expired");
+      expect(clearInviteTokenFromUrl).toHaveBeenCalled();
       expect(result.current.joinBlocked).toBe(true);
       expect(result.current.joinBlockedReason).toBe("room-unavailable");
     });
