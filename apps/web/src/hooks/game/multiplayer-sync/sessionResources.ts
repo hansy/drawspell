@@ -112,6 +112,8 @@ export function setupSessionResources({
     typeof window !== "undefined"
       ? resolveInviteTokenFromUrl(window.location.href)
       : {};
+  const hasResumeInvite = Boolean(inviteToken.resumeToken);
+  let pendingResumeInviteUrlClear = hasResumeInvite;
   const resumePlayerId =
     inviteToken.resumeToken && inviteToken.playerId
       ? inviteToken.playerId
@@ -180,8 +182,7 @@ export function setupSessionResources({
   if (
     inviteToken.token ||
     inviteToken.role ||
-    inviteToken.resumeToken ||
-    inviteToken.playerId
+    (!hasResumeInvite && inviteToken.playerId)
   ) {
     clearInviteTokenFromUrl();
   }
@@ -339,6 +340,10 @@ export function setupSessionResources({
           sessionId,
           mergeRoomTokens(useGameStore.getState().roomTokens, payload),
         );
+        if (pendingResumeInviteUrlClear) {
+          clearInviteTokenFromUrl();
+          pendingResumeInviteUrlClear = false;
+        }
         clearRoomHostPending(sessionId);
         return;
       }

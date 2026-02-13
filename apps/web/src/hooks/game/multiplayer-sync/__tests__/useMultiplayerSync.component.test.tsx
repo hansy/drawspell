@@ -202,6 +202,7 @@ vi.mock("../fullSyncToStore", () => ({ createFullSyncToStore }));
 vi.mock("../disposeSessionTransport", () => ({ disposeSessionTransport }));
 
 import {
+  clearInviteTokenFromUrl,
   clearRoomUnavailable,
   isRoomHostPending,
   isRoomUnavailable,
@@ -362,6 +363,47 @@ describe("useMultiplayerSync", () => {
         "session-host",
         expect.any(Object)
       );
+    });
+  });
+
+  it("defers clearing resume invite params until room tokens arrive", async () => {
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      playerId: "player-1",
+      resumeToken: "resume-token",
+    });
+
+    renderHook(() => useMultiplayerSync("session-resume"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+    expect(clearInviteTokenFromUrl).not.toHaveBeenCalled();
+
+    const [{ onMessage }] = intentTransportMocks.createIntentTransport.mock
+      .calls[0] as any;
+
+    act(() => {
+      onMessage({
+        type: "roomTokens",
+        payload: { playerToken: "player-token" },
+      });
+    });
+
+    await waitFor(() => {
+      expect(clearInviteTokenFromUrl).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("still clears non-resume invite params immediately", async () => {
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      token: "player-token",
+      role: "player",
+    });
+
+    renderHook(() => useMultiplayerSync("session-player-token"));
+
+    await waitFor(() => {
+      expect(clearInviteTokenFromUrl).toHaveBeenCalledTimes(1);
     });
   });
 
