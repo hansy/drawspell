@@ -543,6 +543,36 @@ describe("server lifecycle guards", () => {
     ).toBe(true);
   });
 
+  it("cleans up registered intent connection when resume rotation fails", async () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const initialResumeToken = await (server as any).ensurePlayerResumeToken("p1");
+    const originalEnsure = (server as any).ensurePlayerResumeToken.bind(server);
+    vi.spyOn(server as any, "ensurePlayerResumeToken").mockImplementation(
+      async (playerId: string, options?: { rotate?: boolean }) => {
+        if (options?.rotate) {
+          throw new Error("storage put failed");
+        }
+        return originalEnsure(playerId, options);
+      }
+    );
+
+    const conn = new TestConnection();
+    conn.id = "new-device-intent";
+    const url = new URL(
+      `https://example.test/?role=intent&playerId=p1&rt=${initialResumeToken}&cid=new-device&gt=player-token`
+    );
+
+    await (server as any).bindIntentConnection(conn, url);
+
+    expect(conn.closed.at(-1)).toEqual({
+      code: 1011,
+      reason: "internal error",
+    });
+    expect(((server as any).connectionRoles as Map<unknown, unknown>).size).toBe(0);
+    expect(((server as any).intentConnections as Set<unknown>).size).toBe(0);
+  });
+
   it("does not kick old connections if resumed intent closes during token rotation", async () => {
     const state = createState();
     const server = new Room(state, createEnv());

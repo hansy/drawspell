@@ -1823,8 +1823,7 @@ export class Room extends YServer<Env> {
     let resolvedPlayerId: string | undefined;
     let resolvedUserId: string | undefined;
     let resolvedAnalyticsUserId: string | undefined;
-    conn.addEventListener("close", () => {
-      connectionClosed = true;
+    const cleanupTrackedConnection = () => {
       this.intentConnections.delete(conn);
       this.connectionCapabilities.delete(conn.id);
       this.libraryViews.delete(conn.id);
@@ -1832,6 +1831,10 @@ export class Room extends YServer<Env> {
         this.clearLibraryViewCleanupTimer();
       }
       this.overlayService.removeConnection(conn.id);
+    };
+    conn.addEventListener("close", () => {
+      connectionClosed = true;
+      cleanupTrackedConnection();
       if (!connectionRegistered) return;
       this.unregisterConnection(conn);
       if (resolvedAnalyticsUserId) {
@@ -1844,16 +1847,17 @@ export class Room extends YServer<Env> {
         viewerRole: resolvedRole,
       });
     });
-    const rejectConnection = (reason: string) => {
-      this.intentConnections.delete(conn);
-      this.connectionCapabilities.delete(conn.id);
-      this.libraryViews.delete(conn.id);
-      if (this.libraryViews.size === 0) {
-        this.clearLibraryViewCleanupTimer();
+    const rejectConnection = (reason: string, code = 1008) => {
+      if (connectionRegistered) {
+        connectionRegistered = false;
+        this.unregisterConnection(conn);
+        if (resolvedAnalyticsUserId) {
+          this.roomAnalytics?.onUserLeave(resolvedAnalyticsUserId);
+        }
       }
-      this.overlayService.removeConnection(conn.id);
+      cleanupTrackedConnection();
       try {
-        conn.close(1008, reason);
+        conn.close(code, reason);
       } catch (_err) {}
     };
 
@@ -1905,12 +1909,30 @@ export class Room extends YServer<Env> {
     });
     connectionRegistered = true;
 
-    const resumeToken =
-      resolvedRole === "player" && resolvedPlayerId
-        ? await this.ensurePlayerResumeToken(resolvedPlayerId, {
-            rotate: auth.resumed,
-          })
-        : undefined;
+    let resumeToken: string | undefined;
+    try {
+      resumeToken =
+        resolvedRole === "player" && resolvedPlayerId
+          ? await this.ensurePlayerResumeToken(resolvedPlayerId, {
+              rotate: auth.resumed,
+            })
+          : undefined;
+    } catch (err) {
+      console.error("[party] failed to rotate resume token", {
+        room: this.name,
+        connId: conn.id,
+        playerId: resolvedPlayerId,
+        error:
+          err && typeof err === "object" && "message" in err
+            ? String((err as { message?: unknown }).message)
+            : String(err),
+      });
+      try {
+        await rollbackResumeToken();
+      } catch (_rollbackErr) {}
+      rejectConnection("internal error", 1011);
+      return;
+    }
 
     if (connectionClosed) {
       await rollbackResumeToken();
@@ -1925,7 +1947,10 @@ export class Room extends YServer<Env> {
         resumeToken,
       );
       if (!sent) {
-        await rollbackResumeToken();
+        try {
+          await rollbackResumeToken();
+        } catch (_rollbackErr) {}
+        rejectConnection("internal error", 1011);
         return;
       }
     }
