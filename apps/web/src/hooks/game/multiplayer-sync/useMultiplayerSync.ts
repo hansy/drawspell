@@ -284,8 +284,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       storedTokens?.playerToken ||
         storedTokens?.spectatorToken ||
         storeTokens?.playerToken ||
-        storeTokens?.spectatorToken ||
-        storeTokens?.resumeToken
+        storeTokens?.spectatorToken
     );
     const hadLastSession =
       initialSessionEvidenceRef.current.sessionId === sessionId &&
@@ -299,7 +298,6 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
     sessionId,
     roomTokens?.playerToken,
     roomTokens?.spectatorToken,
-    roomTokens?.resumeToken,
   ]);
 
   useEffect(() => {

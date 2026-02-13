@@ -555,6 +555,35 @@ describe("useMultiplayerSync", () => {
     });
   });
 
+  it("does not mark room unavailable from resume-token-only evidence", async () => {
+    mockGameState.roomTokens = {
+      resumeToken: "resume-only-token",
+    } as any;
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      playerId: "resume-player",
+      resumeToken: "stale-resume-token",
+    });
+
+    const { result } = renderHook(() =>
+      useMultiplayerSync("session-resume-only-evidence")
+    );
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+
+    const [{ onClose }] = intentTransportMocks.createIntentTransport.mock
+      .calls[0] as any;
+    act(() => {
+      onClose({ code: 1008, reason: "invalid token" });
+    });
+
+    await waitFor(() => {
+      expect(markRoomUnavailable).not.toHaveBeenCalled();
+      expect(result.current.joinBlockedReason).toBe("invite");
+    });
+  });
+
   it("forwards logEvent messages to the log store", async () => {
     renderHook(() => useMultiplayerSync("session-789"));
 
