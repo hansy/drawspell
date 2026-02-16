@@ -3,6 +3,7 @@ import {
   Coins,
   Dice5,
   Keyboard,
+  Smartphone,
   Loader2,
   LogOut,
   Plus,
@@ -213,10 +214,17 @@ export const SidenavView: React.FC<SidenavController> = ({
 
                   <button
                     onClick={handleOpenShortcuts}
-                    className="flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
+                    className="hidden lg:flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
                   >
                     <Keyboard size={16} />
                     Keyboard Shortcuts
+                  </button>
+                  <button
+                    onClick={handleOpenShortcuts}
+                    className="flex lg:hidden items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
+                  >
+                    <Smartphone size={16} />
+                    Touch Controls
                   </button>
                 </>
               )}

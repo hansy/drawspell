@@ -549,12 +549,12 @@ describe("server lifecycle guards", () => {
     const initialResumeToken = await (server as any).ensurePlayerResumeToken("p1");
     const originalEnsure = (server as any).ensurePlayerResumeToken.bind(server);
     vi.spyOn(server as any, "ensurePlayerResumeToken").mockImplementation(
-      async (playerId: string, options?: { rotate?: boolean }) => {
+      (async (playerId: string, options?: { rotate?: boolean }) => {
         if (options?.rotate) {
           throw new Error("storage put failed");
         }
         return originalEnsure(playerId, options);
-      }
+      }) as any
     );
 
     const conn = new TestConnection();
@@ -588,13 +588,13 @@ describe("server lifecycle guards", () => {
     const rotationDeferred = createDeferred<string>();
     const originalEnsure = (server as any).ensurePlayerResumeToken.bind(server);
     vi.spyOn(server as any, "ensurePlayerResumeToken").mockImplementation(
-      async (playerId: string, options?: { rotate?: boolean }) => {
+      (async (playerId: string, options?: { rotate?: boolean }) => {
         if (options?.rotate) {
           conn.close(1000, "client closed");
           return rotationDeferred.promise;
         }
         return originalEnsure(playerId, options);
-      }
+      }) as any
     );
 
     const url = new URL(

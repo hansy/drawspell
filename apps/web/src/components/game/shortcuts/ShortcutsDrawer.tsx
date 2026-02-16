@@ -8,6 +8,51 @@ interface ShortcutsDrawerProps {
     onClose: () => void;
 }
 
+const TOUCH_CONTROLS = [
+    {
+        id: "touch.moveCard",
+        title: "Move Card",
+        description: "Drag a card to reposition it.",
+        gesture: "Tap + drag",
+    },
+    {
+        id: "touch.tapUntapCard",
+        title: "Tap / Untap Card",
+        description: "Toggle a battlefield card's tapped state.",
+        gesture: "Double tap",
+    },
+    {
+        id: "touch.openGraveyardOrExile",
+        title: "Open Graveyard / Exile",
+        description: "View cards in graveyard or exile.",
+        gesture: "Tap",
+    },
+    {
+        id: "touch.drawFromLibrary",
+        title: "Draw From Library",
+        description: "Draw one card from your library.",
+        gesture: "Double tap",
+    },
+    {
+        id: "touch.openContextMenu",
+        title: "Open Context Menu",
+        description: "Use on cards, zones, life, and battlefield.",
+        gesture: "Long press",
+    },
+    {
+        id: "touch.zoomBattlefield",
+        title: "Zoom Battlefield",
+        description: "Adjust battlefield zoom level.",
+        gesture: "Pinch",
+    },
+    {
+        id: "touch.switchFocusedSeat",
+        title: "Switch Focused Seat",
+        description: "Cycle the active seat while spectating/rotating views.",
+        gesture: "Two-finger swipe",
+    },
+] as const;
+
 export const ShortcutsDrawer: React.FC<ShortcutsDrawerProps> = ({ isOpen, onClose }) => {
     return (
         <>
@@ -29,8 +74,11 @@ export const ShortcutsDrawer: React.FC<ShortcutsDrawerProps> = ({ isOpen, onClos
             >
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-zinc-800/50 bg-zinc-900/50 rounded-tl-md rounded-tr-xl">
-                    <h2 className="font-bold text-zinc-100 uppercase tracking-wider text-sm flex items-center gap-2">
+                    <h2 className="font-bold text-zinc-100 uppercase tracking-wider text-sm items-center gap-2 hidden lg:flex">
                         Keyboard Shortcuts
+                    </h2>
+                    <h2 className="font-bold text-zinc-100 uppercase tracking-wider text-sm flex items-center gap-2 lg:hidden">
+                        Touch Controls
                     </h2>
                     <button
                         onClick={onClose}
@@ -42,7 +90,7 @@ export const ShortcutsDrawer: React.FC<ShortcutsDrawerProps> = ({ isOpen, onClos
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-                    <div className="space-y-1">
+                    <div className="space-y-1 hidden lg:block">
                         {GAME_SHORTCUTS.map((shortcut) => {
                             const label = formatShortcutBinding(shortcut.binding);
                             const keys = label.split(" + ");
@@ -82,6 +130,28 @@ export const ShortcutsDrawer: React.FC<ShortcutsDrawerProps> = ({ isOpen, onClos
                                 </div>
                             );
                         })}
+                    </div>
+
+                    <div className="space-y-1 lg:hidden">
+                        {TOUCH_CONTROLS.map((control) => (
+                            <div
+                                key={control.id}
+                                className="flex items-center justify-between p-3 rounded-lg hover:bg-zinc-900/40 transition-colors group border border-transparent hover:border-zinc-800 gap-3"
+                            >
+                                <div className="flex flex-col gap-0.5">
+                                    <div className="text-zinc-200 font-medium text-sm">
+                                        {control.title}
+                                    </div>
+                                    <div className="text-zinc-500 text-xs leading-tight">
+                                        {control.description}
+                                    </div>
+                                </div>
+
+                                <div className="shrink-0 px-2.5 py-1.5 bg-zinc-200 text-zinc-900 font-semibold font-mono text-[11px] rounded border-b-4 border-zinc-400 shadow-sm whitespace-nowrap">
+                                    {control.gesture}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>

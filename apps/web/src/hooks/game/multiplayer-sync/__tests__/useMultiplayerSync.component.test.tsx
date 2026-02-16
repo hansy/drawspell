@@ -410,8 +410,12 @@ describe("useMultiplayerSync", () => {
       expect(clearInviteTokenFromUrl).toHaveBeenCalledTimes(1);
     });
 
-    const [transportConfig] =
-      intentTransportMocks.createIntentTransport.mock.calls[0] ?? [];
+    const transportCalls =
+      intentTransportMocks.createIntentTransport.mock
+        .calls as unknown as Array<[{
+          resumeToken?: string;
+        }]>;
+    const transportConfig = transportCalls[0]?.[0];
     expect(transportConfig?.resumeToken).toBeUndefined();
   });
 
