@@ -68,7 +68,7 @@ export const ShortcutsDrawer: React.FC<ShortcutsDrawerProps> = ({ isOpen, onClos
             {/* Drawer */}
             <div
                 className={cn(
-                    "fixed left-[3.5rem] top-4 bottom-4 w-96 bg-zinc-950/90 border border-zinc-800 z-[61] transition-transform duration-300 ease-in-out flex flex-col shadow-2xl backdrop-blur-md rounded-r-xl rounded-l-md",
+                    "fixed z-[61] flex flex-col bg-zinc-950/90 border border-zinc-800 shadow-2xl backdrop-blur-md transition-transform duration-300 ease-in-out left-2 right-2 top-2 bottom-[calc(var(--mobile-sidenav-h,3.75rem)+0.5rem)] rounded-xl lg:left-[3.5rem] lg:right-auto lg:top-4 lg:bottom-4 lg:w-[min(24rem,calc(100dvw-4.5rem))] lg:rounded-r-xl lg:rounded-l-md",
                     isOpen ? "translate-x-0 pointer-events-auto" : "-translate-x-[120%] pointer-events-none"
                 )}
             >
