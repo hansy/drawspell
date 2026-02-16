@@ -30,6 +30,46 @@ const buildCard = (id: string, name: string, zoneId: string): Card =>
   }) as any;
 
 describe("ZoneViewerModalView", () => {
+  it("does not auto-focus the search input when opened", () => {
+    const zone = buildZone({ type: ZONE.GRAVEYARD, id: "gy-me" });
+    const cards = [buildCard("c1", "Card1", zone.id)];
+
+    render(
+      <ZoneViewerModalView
+        isOpen
+        onClose={vi.fn()}
+        zone={zone}
+        count={undefined}
+        isLoading={false}
+        expectedViewCount={null}
+        filterText=""
+        setFilterText={vi.fn()}
+        containerRef={React.createRef<HTMLDivElement>()}
+        listRef={React.createRef<HTMLDivElement>()}
+        displayCards={cards}
+        viewMode="linear"
+        groupedCards={{}}
+        sortedKeys={[]}
+        canReorder={false}
+        orderedCards={cards}
+        orderedCardIds={cards.map((c) => c.id)}
+        setOrderedCardIds={vi.fn() as any}
+        draggingId={null}
+        setDraggingId={vi.fn() as any}
+        reorderList={(ids) => ids}
+        commitReorder={vi.fn()}
+        handleContextMenu={vi.fn()}
+        contextMenu={null}
+        closeContextMenu={vi.fn()}
+        interactionsDisabled={false}
+        pinnedCardId={undefined}
+      />
+    );
+
+    const searchInput = screen.getByPlaceholderText("Search by name, type, or text...");
+    expect(searchInput).not.toBe(document.activeElement);
+  });
+
   it("renders a linear view with a top-card label", () => {
     const zone = buildZone({ type: ZONE.GRAVEYARD, id: "gy-me" });
     const cards = [

@@ -604,7 +604,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                     shareLinksReady={shareLinksReady}
                   />
                 </div>
-                {indicatorSeats.length > 0 && !hasActiveOverlayUi && (
+                {indicatorSeats.length > 1 && !hasActiveOverlayUi && (
                   <div
                     className={`absolute inset-x-0 z-[62] flex justify-center ${
                       isPortraitCommanderDrawerOpen

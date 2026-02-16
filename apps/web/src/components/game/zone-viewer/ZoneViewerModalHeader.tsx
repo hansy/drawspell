@@ -42,7 +42,6 @@ export const ZoneViewerModalHeader: React.FC<ZoneViewerModalHeaderProps> = ({
           value={filterText}
           onChange={(e) => onFilterTextChange(e.target.value)}
           className="bg-zinc-900 border-zinc-800 focus:ring-indigo-500"
-          autoFocus
         />
       </div>
     </>

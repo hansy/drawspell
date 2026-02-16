@@ -73,7 +73,10 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="ds-dialog-size-lg ds-dialog-inset bg-zinc-950 border-zinc-800 text-zinc-100 flex min-h-0 flex-col">
+      <DialogContent
+        className="ds-dialog-size-lg ds-dialog-inset bg-zinc-950 border-zinc-800 text-zinc-100 flex min-h-0 flex-col"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
         <div ref={containerRef} className="relative flex h-full min-h-0 w-full flex-col">
           <div className="px-4 py-3 lg:px-6 lg:py-4 border-b border-zinc-800">
             <ZoneViewerModalHeader
