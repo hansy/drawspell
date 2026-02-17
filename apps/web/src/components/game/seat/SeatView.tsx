@@ -235,14 +235,14 @@ export const SeatView: React.FC<SeatViewProps> = ({
                         anchorEl: e.currentTarget as HTMLElement,
                       });
                     }
-                  : !isMe &&
-                      opponentLibraryRevealCount > 0 &&
-                      onOpponentLibraryReveals
+                  : opponentLibraryRevealCount > 0 && onOpponentLibraryReveals
                     ? (e) => {
                         e.preventDefault();
                         onOpponentLibraryReveals(library.id);
                       }
-                    : undefined
+                    : onViewZone
+                      ? () => onViewZone(library.id)
+                      : undefined
               }
               rightIndicator={
                 !isMe && opponentLibraryRevealCount > 0 ? (

@@ -189,4 +189,61 @@ describe("SeatView mobile toolbar", () => {
     fireEvent.doubleClick(screen.getByText("Library"));
     expect(onDrawCard).toHaveBeenCalledWith("p1");
   });
+
+  it("opens opponent library zone on tap when there are no pending reveal cards", () => {
+    const onViewZone = vi.fn();
+    render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer({
+              id: "p1",
+              deckLoaded: true,
+              libraryCount: 1,
+            })}
+            color="sky"
+            isMe={false}
+            viewerPlayerId="me"
+            opponentColors={{ me: "rose", p1: "sky" }}
+            model={baseModel as any}
+            layoutVariant="portrait-viewport"
+            onViewZone={onViewZone}
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    fireEvent.click(screen.getByText("Library"));
+    expect(onViewZone).toHaveBeenCalledWith(libraryZone.id);
+  });
+
+  it("prioritizes opponent reveal modal over zone viewer when reveal cards exist", () => {
+    const onViewZone = vi.fn();
+    const onOpponentLibraryReveals = vi.fn();
+    render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer({
+              id: "p1",
+              deckLoaded: true,
+              libraryCount: 1,
+            })}
+            color="sky"
+            isMe={false}
+            viewerPlayerId="me"
+            opponentColors={{ me: "rose", p1: "sky" }}
+            model={{ ...baseModel, opponentLibraryRevealCount: 2 } as any}
+            layoutVariant="portrait-viewport"
+            onViewZone={onViewZone}
+            onOpponentLibraryReveals={onOpponentLibraryReveals}
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    fireEvent.click(screen.getByText("Library"));
+    expect(onOpponentLibraryReveals).toHaveBeenCalledWith(libraryZone.id);
+    expect(onViewZone).not.toHaveBeenCalled();
+  });
 });
