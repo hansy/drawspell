@@ -1,11 +1,8 @@
 import React from "react";
 import {
   Heart,
-  Layers,
   Minus,
   Plus,
-  Skull,
-  SquircleDashed,
 } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 
@@ -21,30 +18,19 @@ import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
 import { useLifeBoxController } from "@/hooks/game/player/useLifeBoxController";
 import { MAX_PLAYER_LIFE, MIN_PLAYER_LIFE } from "@/lib/limits";
-import type { Player, Zone as ZoneType, ZoneId } from "@/types";
+import type { Player } from "@/types";
 
 interface PortraitSeatToolbarProps {
   player: Player;
   isMe: boolean;
   opponentColors: Record<string, string>;
-  library?: ZoneType;
-  graveyard?: ZoneType;
-  exile?: ZoneType;
-  libraryCount: number;
-  graveyardCount: number;
-  exileCount: number;
-  opponentLibraryRevealCount: number;
-  onViewZone?: (zoneId: ZoneId, count?: number) => void;
-  onDrawCard?: (playerId: string) => void;
-  onOpponentLibraryReveals?: (zoneId: ZoneId) => void;
-  onZoneContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
+  zoneStrip?: React.ReactNode;
   onLoadDeck?: () => void;
   showLoadLibraryAction?: boolean;
 }
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
-const TOUCH_DOUBLE_TAP_MS = 280;
 const NATIVE_CLICK_SUPPRESSION_MS = 450;
 
 const colorTextClass = (color: string | undefined) => {
@@ -476,140 +462,33 @@ export const PortraitSeatToolbar: React.FC<PortraitSeatToolbarProps> = ({
   player,
   isMe,
   opponentColors,
-  library,
-  graveyard,
-  exile,
-  libraryCount,
-  graveyardCount,
-  exileCount,
-  opponentLibraryRevealCount,
-  onViewZone,
-  onDrawCard,
-  onOpponentLibraryReveals,
-  onZoneContextMenu,
+  zoneStrip,
   onLoadDeck,
   showLoadLibraryAction = false,
 }) => {
   const [lifeDialogOpen, setLifeDialogOpen] = React.useState(false);
-  const lastLibraryTapRef = React.useRef<{
-    timestamp: number;
-    x: number;
-    y: number;
-  } | null>(null);
-
-  const handleLibraryClick = React.useCallback(
-    (event: React.MouseEvent) => {
-      if (!library) return;
-      if (isMe) {
-        if (!onDrawCard) return;
-        const now = Date.now();
-        const previousTap = lastLibraryTapRef.current;
-        const isDoubleTap = Boolean(
-          previousTap &&
-          now - previousTap.timestamp <= TOUCH_DOUBLE_TAP_MS &&
-          Math.hypot(
-            event.clientX - previousTap.x,
-            event.clientY - previousTap.y,
-          ) <= TOUCH_MOVE_TOLERANCE_PX,
-        );
-        if (isDoubleTap) {
-          lastLibraryTapRef.current = null;
-          onDrawCard(player.id);
-          return;
-        }
-        lastLibraryTapRef.current = {
-          timestamp: now,
-          x: event.clientX,
-          y: event.clientY,
-        };
-        return;
-      }
-      if (!isMe && opponentLibraryRevealCount > 0 && onOpponentLibraryReveals) {
-        onOpponentLibraryReveals(library.id);
-        return;
-      }
-      onViewZone?.(library.id);
-    },
-    [
-      isMe,
-      library,
-      onDrawCard,
-      onOpponentLibraryReveals,
-      onViewZone,
-      opponentLibraryRevealCount,
-      player.id,
-    ],
+  const lifeButton = (
+    <ZoneButton
+      icon={<Heart size={16} />}
+      label="Open life details"
+      value={player.life}
+      onClick={() => setLifeDialogOpen(true)}
+    />
   );
-
-  React.useEffect(() => {
-    if (!isMe) {
-      lastLibraryTapRef.current = null;
-    }
-  }, [isMe]);
 
   return (
     <>
       <div className="relative z-20 shrink-0 border-y border-zinc-800/70 bg-zinc-950/85 px-2 py-1.5">
-        <div className="grid h-14 grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-2">
-          <ZoneButton
-            icon={<Heart size={16} />}
-            label="Open life details"
-            value={player.life}
-            onClick={() => setLifeDialogOpen(true)}
-          />
-
-          {!showLoadLibraryAction ? (
-            <div className="grid h-full grid-cols-3 gap-2">
-              <ZoneButton
-                icon={<Layers size={15} />}
-                label="Library"
-                value={libraryCount}
-                onClick={handleLibraryClick}
-                onLongPress={
-                  library && onZoneContextMenu
-                    ? (event) => onZoneContextMenu(event, library.id)
-                    : undefined
-                }
-                disabled={!library}
-                dropZoneId={library?.id}
-                dropType={library?.type}
-              />
-              <ZoneButton
-                icon={<Skull size={15} />}
-                label="Graveyard"
-                value={graveyardCount}
-                onClick={() => {
-                  if (!graveyard) return;
-                  onViewZone?.(graveyard.id);
-                }}
-                onLongPress={
-                  graveyard && onZoneContextMenu
-                    ? (event) => onZoneContextMenu(event, graveyard.id)
-                    : undefined
-                }
-                disabled={!graveyard}
-                dropZoneId={graveyard?.id}
-                dropType={graveyard?.type}
-              />
-              <ZoneButton
-                icon={<SquircleDashed size={15} />}
-                label="Exile"
-                value={exileCount}
-                onClick={() => {
-                  if (!exile) return;
-                  onViewZone?.(exile.id);
-                }}
-                onLongPress={
-                  exile && onZoneContextMenu
-                    ? (event) => onZoneContextMenu(event, exile.id)
-                    : undefined
-                }
-                disabled={!exile}
-                dropZoneId={exile?.id}
-                dropType={exile?.type}
-              />
+        {!showLoadLibraryAction ? (
+          <div className="grid grid-cols-4 gap-2">
+            <div className="aspect-[3/2] min-w-0">{lifeButton}</div>
+            <div className="col-span-3 min-w-0" data-no-seat-swipe="true">
+              {zoneStrip}
             </div>
-          ) : (
+          </div>
+        ) : (
+          <div className="grid h-14 grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-2">
+            {lifeButton}
             <button
               type="button"
               onClick={onLoadDeck}
@@ -625,8 +504,8 @@ export const PortraitSeatToolbar: React.FC<PortraitSeatToolbarProps> = ({
               <Plus size={16} />
               <span className="text-sm font-semibold">Load Library</span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       <MobileLifeDialog
         open={lifeDialogOpen}

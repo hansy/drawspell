@@ -8,6 +8,7 @@ import {
   canViewerSeeLibraryCardByReveal,
   canViewerSeeLibraryTopCard,
 } from "@/lib/reveal";
+import { requestCardPreviewLock } from "@/lib/cardPreviewLock";
 import { cn } from "@/lib/utils";
 import type { Card as CardType, Player, ViewerRole, ZoneId } from "@/types";
 
@@ -195,6 +196,139 @@ export const SeatView: React.FC<SeatViewProps> = ({
         })
       : false;
   const libraryFaceDown = libraryTopCard ? !canSeeLibraryTop : true;
+  const mobileZoneStripStyle = React.useMemo(
+    () =>
+      ({
+        "--sidezone-h": "100%",
+        "--sidezone-aspect": "1.5",
+        "--sidezone-card-scale": "1.5",
+      }) as React.CSSProperties,
+    [],
+  );
+  const mobileZoneStrip = React.useMemo(
+    () => (
+      <div
+        className="grid h-full grid-cols-3 gap-2"
+        style={mobileZoneStripStyle}
+        data-no-seat-swipe="true"
+      >
+        <div className="aspect-[3/2] min-w-0">
+          {library ? (
+            <SideZone
+              zone={library}
+              card={libraryTopCard}
+              label={ZONE_LABEL.library}
+              count={libraryCount}
+              onContextMenu={onZoneContextMenu}
+              faceDown={libraryFaceDown}
+              disableCardDrag={libraryTopIsPlaceholder}
+              showContextMenuCursor={player.deckLoaded}
+              indicatorSide={isRight ? "left" : "right"}
+              onClick={
+                isMe
+                  ? (e) => {
+                      if (!libraryTopCard || libraryFaceDown || libraryTopIsPlaceholder) {
+                        return;
+                      }
+                      requestCardPreviewLock({
+                        cardId: libraryTopCard.id,
+                        anchorEl: e.currentTarget as HTMLElement,
+                      });
+                    }
+                  : !isMe &&
+                      opponentLibraryRevealCount > 0 &&
+                      onOpponentLibraryReveals
+                    ? (e) => {
+                        e.preventDefault();
+                        onOpponentLibraryReveals(library.id);
+                      }
+                    : undefined
+              }
+              rightIndicator={
+                !isMe && opponentLibraryRevealCount > 0 ? (
+                  <div className="w-9 h-9 rounded-full bg-zinc-950/95 border border-zinc-700 flex items-center justify-center shadow-lg">
+                    <Eye size={20} className="text-white" />
+                  </div>
+                ) : undefined
+              }
+              onDoubleClick={
+                isMe && onDrawCard
+                  ? (e) => {
+                      e.preventDefault();
+                      onDrawCard(player.id);
+                    }
+                  : undefined
+              }
+            />
+          ) : (
+            <div className="h-full w-full" />
+          )}
+        </div>
+        <div className="aspect-[3/2] min-w-0">
+          {graveyard ? (
+            <SideZone
+              zone={graveyard}
+              card={graveyardCards[graveyardCards.length - 1]}
+              label={ZONE_LABEL.graveyard}
+              count={graveyard.cardIds.length}
+              onContextMenu={onZoneContextMenu}
+              onClick={
+                onViewZone && graveyard.type === ZONE.GRAVEYARD
+                  ? (_e) => onViewZone(graveyard.id)
+                  : undefined
+              }
+              faceDown={graveyardCards[graveyardCards.length - 1]?.faceDown}
+              showContextMenuCursor={false}
+            />
+          ) : (
+            <div className="h-full w-full" />
+          )}
+        </div>
+        <div className="aspect-[3/2] min-w-0">
+          {exile ? (
+            <SideZone
+              zone={exile}
+              card={exileCards[exileCards.length - 1]}
+              label={ZONE_LABEL.exile}
+              count={exile.cardIds.length}
+              onContextMenu={onZoneContextMenu}
+              onClick={
+                onViewZone && exile.type === ZONE.EXILE
+                  ? (_e) => onViewZone(exile.id)
+                  : undefined
+              }
+              cardClassName="opacity-60 grayscale"
+              faceDown={exileCards[exileCards.length - 1]?.faceDown}
+              showContextMenuCursor={false}
+            />
+          ) : (
+            <div className="h-full w-full" />
+          )}
+        </div>
+      </div>
+    ),
+    [
+      exile,
+      exileCards,
+      graveyard,
+      graveyardCards,
+      isMe,
+      isRight,
+      library,
+      libraryCount,
+      libraryFaceDown,
+      libraryTopCard,
+      libraryTopIsPlaceholder,
+      mobileZoneStripStyle,
+      onDrawCard,
+      onOpponentLibraryReveals,
+      onViewZone,
+      onZoneContextMenu,
+      opponentLibraryRevealCount,
+      player.deckLoaded,
+      player.id,
+    ],
+  );
   const [isCommanderDrawerOpen, setIsCommanderDrawerOpen] = React.useState(false);
   const commanderButtonDrop = useDroppable({
     id: commander ? `mobile-drop:cmdr-btn:${commander.id}` : "mobile-drop:cmdr-btn:none",
@@ -250,17 +384,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
             player={player}
             isMe={isMe}
             opponentColors={opponentColors}
-            library={library}
-            graveyard={graveyard}
-            exile={exile}
-            libraryCount={libraryCount}
-            graveyardCount={graveyard?.cardIds.length ?? 0}
-            exileCount={exile?.cardIds.length ?? 0}
-            opponentLibraryRevealCount={opponentLibraryRevealCount}
-            onViewZone={onViewZone}
-            onDrawCard={onDrawCard}
-            onOpponentLibraryReveals={onOpponentLibraryReveals}
-            onZoneContextMenu={onZoneContextMenu}
+            zoneStrip={mobileZoneStrip}
             onLoadDeck={onLoadDeck}
             showLoadLibraryAction={showLoadDeckAction}
           />

@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { DndContext } from "@dnd-kit/core";
 
 import { useGameStore } from "@/store/gameStore";
-import type { Player, Zone } from "@/types";
+import type { Player } from "@/types";
 
 import { PortraitSeatToolbar } from "../PortraitSeatToolbar";
 
@@ -18,14 +18,6 @@ const makePlayer = (overrides: Partial<Player> = {}): Player =>
     commanderTax: 0,
     ...overrides,
   }) as Player;
-
-const makeZone = (id: string, type: Zone["type"], ownerId = "p1"): Zone =>
-  ({
-    id,
-    ownerId,
-    type,
-    cardIds: [],
-  }) as Zone;
 
 describe("PortraitSeatToolbar", () => {
   let originalUpdatePlayer: unknown;
@@ -55,17 +47,7 @@ describe("PortraitSeatToolbar", () => {
     player: makePlayer({ id: "p1", name: "Opponent" }),
     isMe: false,
     opponentColors: { me: "rose", p1: "sky" },
-    library: makeZone("lib-p1", "library", "p1"),
-    graveyard: makeZone("gy-p1", "graveyard", "p1"),
-    exile: makeZone("ex-p1", "exile", "p1"),
-    libraryCount: 0,
-    graveyardCount: 0,
-    exileCount: 0,
-    opponentLibraryRevealCount: 0,
-    onViewZone: vi.fn(),
-    onDrawCard: vi.fn(),
-    onOpponentLibraryReveals: vi.fn(),
-    onZoneContextMenu: vi.fn(),
+    zoneStrip: <div data-testid="zone-strip">Zone strip</div>,
     onLoadDeck: vi.fn(),
   } as const;
 
@@ -77,7 +59,8 @@ describe("PortraitSeatToolbar", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Load Library" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Library" })).not.toBeNull();
+    expect(screen.getByTestId("zone-strip")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Library" })).toBeNull();
   });
 
   it("shows the load-library CTA only when explicitly enabled", () => {
@@ -97,6 +80,7 @@ describe("PortraitSeatToolbar", () => {
     const button = screen.getByRole("button", { name: "Load Library" });
     fireEvent.click(button);
     expect(onLoadDeck).toHaveBeenCalled();
+    expect(screen.queryByTestId("zone-strip")).toBeNull();
   });
 
   it("hides life and commander-damage +/- controls for opponent life dialog", () => {
