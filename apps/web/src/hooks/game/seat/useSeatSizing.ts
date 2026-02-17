@@ -12,7 +12,8 @@ export const SEAT_HAND_MIN_PCT = 0.15;
 export const SEAT_HAND_MAX_PCT = 0.4;
 
 export const PREVIEW_SCALE_K = 1.6;
-export const PREVIEW_MIN_WIDTH_PX = 200;
+export const PREVIEW_MIN_WIDTH_PX = 80;
+export const PREVIEW_MIN_WIDTH_VIEWPORT_RATIO = 0.1;
 export const PREVIEW_MAX_WIDTH_PX = 400;
 export const MIN_CARD_HEIGHT_PX = 80;
 export const SIDEBAR_MIN_WIDTH_PX = 120;
@@ -47,6 +48,7 @@ export interface SeatSizingOptions {
   handMinPct?: number;
   handMaxPct?: number;
   previewScale?: number;
+  viewportWidthPx?: number;
   previewMinWidthPx?: number;
   previewMaxWidthPx?: number;
   modalPadPx?: number;
@@ -79,26 +81,56 @@ export interface SeatSizing {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+export const getPreviewMinWidthPx = (
+  viewportWidthPx?: number,
+  floorPx: number = PREVIEW_MIN_WIDTH_PX,
+  viewportRatio: number = PREVIEW_MIN_WIDTH_VIEWPORT_RATIO,
+) => {
+  const resolvedViewportWidth =
+    typeof viewportWidthPx === "number" &&
+    Number.isFinite(viewportWidthPx) &&
+    viewportWidthPx > 0
+      ? viewportWidthPx
+      : null;
+
+  if (resolvedViewportWidth === null) return floorPx;
+  return Math.max(floorPx, resolvedViewportWidth * viewportRatio);
+};
+
 export const getPreviewDimensions = (
   baseCardWidthPx?: number,
   options: {
     previewScale?: number;
+    viewportWidthPx?: number;
     previewMinWidthPx?: number;
     previewMaxWidthPx?: number;
   } = {},
 ) => {
   const {
     previewScale = PREVIEW_SCALE_K,
+    viewportWidthPx,
     previewMinWidthPx = PREVIEW_MIN_WIDTH_PX,
     previewMaxWidthPx = PREVIEW_MAX_WIDTH_PX,
   } = options;
+  const resolvedViewportWidthPx =
+    typeof viewportWidthPx === "number" &&
+    Number.isFinite(viewportWidthPx) &&
+    viewportWidthPx > 0
+      ? viewportWidthPx
+      : typeof window !== "undefined"
+        ? window.innerWidth
+        : undefined;
+  const resolvedPreviewMinWidthPx = getPreviewMinWidthPx(
+    resolvedViewportWidthPx,
+    previewMinWidthPx,
+  );
   const resolvedBaseWidth =
     Number.isFinite(baseCardWidthPx) && (baseCardWidthPx ?? 0) > 0
       ? baseCardWidthPx!
       : BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;
   const previewWidthPx = clamp(
     resolvedBaseWidth * previewScale,
-    previewMinWidthPx,
+    resolvedPreviewMinWidthPx,
     previewMaxWidthPx,
   );
   return {
@@ -121,6 +153,7 @@ export const computeSeatSizing = (
     handMinPct = SEAT_HAND_MIN_PCT,
     handMaxPct = SEAT_HAND_MAX_PCT,
     previewScale = PREVIEW_SCALE_K,
+    viewportWidthPx,
     previewMinWidthPx = PREVIEW_MIN_WIDTH_PX,
     previewMaxWidthPx = PREVIEW_MAX_WIDTH_PX,
     modalPadPx = MODAL_PAD_PX,
@@ -225,6 +258,7 @@ export const computeSeatSizing = (
     baseCardWidthPx,
     {
       previewScale,
+      viewportWidthPx: viewportWidthPx ?? seatWidth,
       previewMinWidthPx,
       previewMaxWidthPx,
     },
@@ -321,6 +355,7 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
     handMinPct = SEAT_HAND_MIN_PCT,
     handMaxPct = SEAT_HAND_MAX_PCT,
     previewScale = PREVIEW_SCALE_K,
+    viewportWidthPx,
     previewMinWidthPx = PREVIEW_MIN_WIDTH_PX,
     previewMaxWidthPx = PREVIEW_MAX_WIDTH_PX,
     modalPadPx = MODAL_PAD_PX,
@@ -346,6 +381,9 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
       handMinPct,
       handMaxPct,
       previewScale,
+      viewportWidthPx:
+        viewportWidthPx ??
+        (typeof window !== "undefined" ? window.innerWidth : undefined),
       previewMinWidthPx,
       previewMaxWidthPx,
       modalPadPx,
@@ -359,6 +397,7 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
     handMinPct,
     handMaxPct,
     previewScale,
+    viewportWidthPx,
     previewMinWidthPx,
     previewMaxWidthPx,
     modalPadPx,

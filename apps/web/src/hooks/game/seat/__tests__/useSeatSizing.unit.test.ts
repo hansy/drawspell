@@ -12,6 +12,7 @@ import {
   computeSeatSizing,
   useSeatSizing,
   getLgMediaQuery,
+  getPreviewMinWidthPx,
   PREVIEW_MAX_WIDTH_PX,
   PREVIEW_MIN_WIDTH_PX,
   PREVIEW_SCALE_K,
@@ -53,8 +54,8 @@ describe("computeSeatSizing", () => {
     expect(result.baseCardHeightPx).toBeCloseTo(150);
     expect(result.baseCardWidthPx).toBeCloseTo(100);
     expect(result.sidebarWidthPx).toBeCloseTo(expectedSidebarWidth, 6);
-    expect(result.previewWidthPx).toBe(PREVIEW_MIN_WIDTH_PX);
-    expect(result.previewHeightPx).toBeCloseTo(300);
+    expect(result.previewWidthPx).toBeCloseTo(160);
+    expect(result.previewHeightPx).toBeCloseTo(240);
   });
 
   it("clamps hand height overrides to min/max", () => {
@@ -77,6 +78,30 @@ describe("computeSeatSizing", () => {
     });
 
     expect(result.previewWidthPx).toBe(PREVIEW_MAX_WIDTH_PX);
+  });
+
+  it("uses an 80px floor when 10vw is smaller", () => {
+    const result = computeSeatSizing({
+      seatWidth: 600,
+      seatHeight: 400,
+      previewScale: 1,
+      viewportWidthPx: 600,
+    });
+
+    expect(getPreviewMinWidthPx(600)).toBe(PREVIEW_MIN_WIDTH_PX);
+    expect(result.previewWidthPx).toBe(PREVIEW_MIN_WIDTH_PX);
+  });
+
+  it("uses 10vw when it exceeds the floor", () => {
+    const result = computeSeatSizing({
+      seatWidth: 600,
+      seatHeight: 400,
+      previewScale: 1,
+      viewportWidthPx: 1200,
+    });
+
+    expect(getPreviewMinWidthPx(1200)).toBe(120);
+    expect(result.previewWidthPx).toBe(120);
   });
 
   it("keeps side zones aspect-locked while fitting vertically", () => {

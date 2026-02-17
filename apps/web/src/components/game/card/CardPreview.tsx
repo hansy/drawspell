@@ -15,8 +15,9 @@ import { useGameStore } from "@/store/gameStore";
 import { getNextCardStatUpdate } from "@/lib/cardPT";
 import { CARD_ASPECT_RATIO } from "@/lib/constants";
 import {
+  getPreviewDimensions,
+  getPreviewMinWidthPx,
   PREVIEW_MAX_WIDTH_PX,
-  PREVIEW_MIN_WIDTH_PX,
 } from "@/hooks/game/seat/useSeatSizing";
 import {
   getDisplayPower,
@@ -38,7 +39,6 @@ interface CardPreviewProps {
   onClose?: () => void;
 }
 
-const PREVIEW_WIDTH = 200; // Reduced size
 const GAP = 18;
 const HAND_GAP = 8;
 const MAX_EDGE_PADDING = 56;
@@ -50,7 +50,7 @@ const clamp = (value: number, min: number, max: number) =>
 export const CardPreview: React.FC<CardPreviewProps> = ({
   card,
   anchorEl,
-  width = PREVIEW_WIDTH,
+  width,
   locked,
   onClose,
 }) => {
@@ -107,9 +107,18 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   const [previewWidthFromAnchor, setPreviewWidthFromAnchor] = useState<
     number | null
   >(null);
+  const [viewportWidthPx, setViewportWidthPx] = useState<number | undefined>(
+    typeof window !== "undefined" ? window.innerWidth : undefined,
+  );
+  const { previewWidthPx: fallbackWidthPx } = getPreviewDimensions(undefined, {
+    viewportWidthPx,
+  });
+  const previewMinWidthPx = getPreviewMinWidthPx(
+    viewportWidthPx,
+  );
   const previewWidthPx = clamp(
-    previewWidthFromAnchor ?? width,
-    PREVIEW_MIN_WIDTH_PX,
+    previewWidthFromAnchor ?? width ?? fallbackWidthPx,
+    previewMinWidthPx,
     PREVIEW_MAX_WIDTH_PX,
   );
   const previewHeightPx = previewWidthPx / CARD_ASPECT_RATIO;
@@ -154,9 +163,11 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
       typeof window === "undefined" ||
       typeof getComputedStyle === "undefined"
     ) {
+      setViewportWidthPx(undefined);
       setPreviewWidthFromAnchor(null);
       return;
     }
+    setViewportWidthPx(window.innerWidth);
     const resolvedAnchor = resolveAnchor();
     if (!resolvedAnchor) {
       setPreviewWidthFromAnchor(null);

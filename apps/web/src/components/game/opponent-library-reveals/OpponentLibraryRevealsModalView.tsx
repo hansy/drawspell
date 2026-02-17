@@ -17,6 +17,7 @@ export const OpponentLibraryRevealsModalView: React.FC<OpponentLibraryRevealsCon
   actualTopCardId,
 }) => {
   const ownerId = revealedCards[0]?.ownerId;
+  const cardLabel = revealedCards.length === 1 ? "card" : "cards";
   const baseCardWidthPx = useGameStore((state) =>
     ownerId ? state.battlefieldGridSizing[ownerId]?.baseCardWidthPx : undefined
   );
@@ -31,12 +32,11 @@ export const OpponentLibraryRevealsModalView: React.FC<OpponentLibraryRevealsCon
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="ds-dialog-size-lg ds-dialog-inset bg-zinc-950 border-zinc-800 text-zinc-100 flex min-h-0 flex-col">
         <DialogHeader className="px-4 py-3 lg:px-6 lg:py-4 border-b border-zinc-800">
-          <DialogTitle className="text-xl capitalize flex items-center gap-2">
-            <span>Revealed cards in {ownerName}&apos;s library</span>
-            <span className="text-zinc-500 text-sm font-normal">({revealedCards.length})</span>
+          <DialogTitle className="text-xl capitalize">
+            Revealed cards in {ownerName}&apos;s library
           </DialogTitle>
           <DialogDescription className="text-zinc-400">
-            Cards are shown top-first based on the opponent&apos;s library order.
+            {revealedCards.length} {cardLabel}
           </DialogDescription>
         </DialogHeader>
 

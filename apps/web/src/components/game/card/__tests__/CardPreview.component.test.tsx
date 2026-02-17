@@ -8,8 +8,9 @@ import { useDragStore } from "@/store/dragStore";
 import { useSelectionStore } from "@/store/selectionStore";
 import { ZONE } from "@/constants/zones";
 import {
+  getPreviewDimensions,
+  getPreviewMinWidthPx,
   PREVIEW_MAX_WIDTH_PX,
-  PREVIEW_MIN_WIDTH_PX,
 } from "@/hooks/game/seat/useSeatSizing";
 import { Card } from "../Card";
 import { CardPreview } from "../CardPreview";
@@ -159,51 +160,203 @@ describe("CardPreview", () => {
     anchorEl.remove();
   });
 
-  it("uses seat preview width when available and clamps to min/max", async () => {
-    const zoneId = "me-battlefield";
-    const cardId = "c1";
-    const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
-    const card = buildCard(cardId, "Test Card", zoneId);
-
-    useGameStore.setState((state) => ({
-      ...state,
-      zones: { [zoneId]: zone },
-      cards: { [cardId]: card },
-      players: { me: buildPlayer("me", "Me") },
-      myPlayerId: "me",
-    }));
-
-    const anchorRect = {
-      left: 0,
-      top: 0,
-      right: 100,
-      bottom: 100,
-      width: 100,
-      height: 100,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    } as DOMRect;
-
-    const anchorEl = document.createElement("div");
-    anchorEl.style.setProperty("--preview-w", "900px");
-    vi.spyOn(anchorEl, "getBoundingClientRect").mockReturnValue(anchorRect);
-    document.body.appendChild(anchorEl);
-
-    render(<CardPreview card={card} anchorEl={anchorEl} locked={false} />);
-
-    expect(await screen.findByText("Test Card")).toBeTruthy();
-    const previewEl = document.querySelector("[data-card-preview]") as HTMLElement | null;
-    expect(previewEl).not.toBeNull();
-    expect(previewEl?.style.width).toBe(`${PREVIEW_MAX_WIDTH_PX}px`);
-
-    anchorEl.style.setProperty("--preview-w", "120px");
-    act(() => {
-      fireEvent(window, new Event("resize"));
+  it("uses seat preview width when available and clamps to viewport min/max", async () => {
+    const originalInnerWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      writable: true,
+      value: 1200,
     });
-    expect(previewEl?.style.width).toBe(`${PREVIEW_MIN_WIDTH_PX}px`);
 
-    anchorEl.remove();
+    try {
+      const zoneId = "me-battlefield";
+      const cardId = "c1";
+      const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
+      const card = buildCard(cardId, "Test Card", zoneId);
+
+      useGameStore.setState((state) => ({
+        ...state,
+        zones: { [zoneId]: zone },
+        cards: { [cardId]: card },
+        players: { me: buildPlayer("me", "Me") },
+        myPlayerId: "me",
+      }));
+
+      const anchorRect = {
+        left: 0,
+        top: 0,
+        right: 100,
+        bottom: 100,
+        width: 100,
+        height: 100,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+
+      const anchorEl = document.createElement("div");
+      anchorEl.style.setProperty("--preview-w", "900px");
+      vi.spyOn(anchorEl, "getBoundingClientRect").mockReturnValue(anchorRect);
+      document.body.appendChild(anchorEl);
+
+      render(<CardPreview card={card} anchorEl={anchorEl} locked={false} />);
+
+      expect(await screen.findByText("Test Card")).toBeTruthy();
+      const previewEl = document.querySelector(
+        "[data-card-preview]",
+      ) as HTMLElement | null;
+      expect(previewEl).not.toBeNull();
+      expect(previewEl?.style.width).toBe(`${PREVIEW_MAX_WIDTH_PX}px`);
+
+      anchorEl.style.setProperty("--preview-w", "10px");
+      act(() => {
+        fireEvent(window, new Event("resize"));
+      });
+      expect(previewEl?.style.width).toBe(
+        `${getPreviewMinWidthPx(window.innerWidth)}px`,
+      );
+
+      anchorEl.remove();
+    } finally {
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: originalInnerWidth,
+      });
+    }
+  });
+
+  it("uses shared fallback width when seat preview width is unavailable", async () => {
+    const originalInnerWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      writable: true,
+      value: 370,
+    });
+
+    try {
+      const zoneId = "me-battlefield";
+      const cardId = "c1";
+      const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
+      const card = buildCard(cardId, "Test Card", zoneId);
+
+      useGameStore.setState((state) => ({
+        ...state,
+        zones: { [zoneId]: zone },
+        cards: { [cardId]: card },
+        players: { me: buildPlayer("me", "Me") },
+        myPlayerId: "me",
+      }));
+
+      const anchorRect = {
+        left: 0,
+        top: 0,
+        right: 100,
+        bottom: 100,
+        width: 100,
+        height: 100,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+
+      const anchorEl = document.createElement("div");
+      vi.spyOn(anchorEl, "getBoundingClientRect").mockReturnValue(anchorRect);
+      document.body.appendChild(anchorEl);
+
+      render(<CardPreview card={card} anchorEl={anchorEl} locked={false} />);
+
+      expect(await screen.findByText("Test Card")).toBeTruthy();
+      const previewEl = document.querySelector(
+        "[data-card-preview]",
+      ) as HTMLElement | null;
+      expect(previewEl).not.toBeNull();
+      const expectedWidth = getPreviewDimensions(undefined, {
+        viewportWidthPx: window.innerWidth,
+      }).previewWidthPx;
+      expect(previewEl?.style.width).toBe(`${expectedWidth}px`);
+
+      anchorEl.remove();
+    } finally {
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: originalInnerWidth,
+      });
+    }
+  });
+
+  it("updates shared fallback width on resize when seat preview width is unavailable", async () => {
+    const originalInnerWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      writable: true,
+      value: 370,
+    });
+
+    try {
+      const zoneId = "me-battlefield";
+      const cardId = "c1";
+      const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
+      const card = buildCard(cardId, "Test Card", zoneId);
+
+      useGameStore.setState((state) => ({
+        ...state,
+        zones: { [zoneId]: zone },
+        cards: { [cardId]: card },
+        players: { me: buildPlayer("me", "Me") },
+        myPlayerId: "me",
+      }));
+
+      const anchorRect = {
+        left: 0,
+        top: 0,
+        right: 100,
+        bottom: 100,
+        width: 100,
+        height: 100,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+
+      const anchorEl = document.createElement("div");
+      vi.spyOn(anchorEl, "getBoundingClientRect").mockReturnValue(anchorRect);
+      document.body.appendChild(anchorEl);
+
+      render(<CardPreview card={card} anchorEl={anchorEl} locked={false} />);
+
+      expect(await screen.findByText("Test Card")).toBeTruthy();
+      const previewEl = document.querySelector(
+        "[data-card-preview]",
+      ) as HTMLElement | null;
+      expect(previewEl).not.toBeNull();
+      const initialWidth = getPreviewDimensions(undefined, {
+        viewportWidthPx: 370,
+      }).previewWidthPx;
+      expect(previewEl?.style.width).toBe(`${initialWidth}px`);
+
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: 2000,
+      });
+      act(() => {
+        fireEvent(window, new Event("resize"));
+      });
+      const resizedWidth = getPreviewDimensions(undefined, {
+        viewportWidthPx: 2000,
+      }).previewWidthPx;
+      expect(previewEl?.style.width).toBe(`${resizedWidth}px`);
+
+      anchorEl.remove();
+    } finally {
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: originalInnerWidth,
+      });
+    }
   });
 
   it("shows actual PT for face-down battlefield cards when viewer can peek", async () => {
