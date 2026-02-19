@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Github } from "lucide-react";
+import { Github, Mail } from "lucide-react";
 
 type FooterLink = {
   href: string;
@@ -17,11 +17,14 @@ const defaultLinks: FooterLink[] = [
     label: "Drawspell on GitHub",
     Icon: Github,
   },
+  {
+    href: "mailto:feedback@drawspell.space",
+    label: "Send Feedback!",
+    Icon: Mail,
+  },
 ];
 
-export function FooterLinks({
-  links = defaultLinks,
-}: FooterLinksProps) {
+export function FooterLinks({ links = defaultLinks }: FooterLinksProps) {
   return (
     <footer
       className="flex items-center justify-between px-6 pb-6 text-xs text-zinc-400 sm:px-10"

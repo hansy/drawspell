@@ -2,7 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
 import { useGameStore } from "@/store/gameStore";
-import { ensureLocalStorage } from '@test/utils/storage';
+import { ensureLocalStorage } from "@test/utils/storage";
 
 import { Sidenav } from "../Sidenav";
 
@@ -38,7 +38,7 @@ describe("Sidenav", () => {
         onOpenCoinFlipper={vi.fn()}
         onOpenDiceRoller={vi.fn()}
         onOpenShareDialog={onOpenShareDialog}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Share room" }));
@@ -54,12 +54,25 @@ describe("Sidenav", () => {
         onOpenDiceRoller={vi.fn()}
         onOpenShareDialog={onOpenShareDialog}
         shareLinksReady={false}
-      />
+      />,
     );
 
     const shareButton = screen.getByRole("button", { name: "Share room" });
     expect((shareButton as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(shareButton);
     expect(onOpenShareDialog).not.toHaveBeenCalled();
+  });
+
+  it("shows feedback mailto link in the main menu", () => {
+    render(<Sidenav onOpenCoinFlipper={vi.fn()} onOpenDiceRoller={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
+
+    const feedbackLink = screen.getByRole("link", {
+      name: "Send Feedback!",
+    });
+    expect(feedbackLink.getAttribute("href")).toBe(
+      "mailto:feedback@drawspell.space",
+    );
   });
 });

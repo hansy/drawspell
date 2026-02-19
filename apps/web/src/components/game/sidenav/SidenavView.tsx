@@ -5,6 +5,7 @@ import {
   Keyboard,
   Smartphone,
   Loader2,
+  Mail,
   LogOut,
   Plus,
   CornerUpLeft,
@@ -12,7 +13,13 @@ import {
   Share2,
   Wifi,
 } from "lucide-react";
-import { autoUpdate, flip, offset, shift, useFloating } from "@floating-ui/react";
+import {
+  autoUpdate,
+  flip,
+  offset,
+  shift,
+  useFloating,
+} from "@floating-ui/react";
 
 import drawspellLogo from "@/assets/drawspell-logo.png";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -83,6 +90,28 @@ export const SidenavView: React.FC<SidenavController> = ({
   orientation,
 }) => {
   const isHorizontal = orientation === "horizontal";
+  const closeMenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const clearCloseMenuTimeout = React.useCallback(() => {
+    if (closeMenuTimeoutRef.current) {
+      clearTimeout(closeMenuTimeoutRef.current);
+      closeMenuTimeoutRef.current = null;
+    }
+  }, []);
+  const scheduleCloseMenu = React.useCallback(() => {
+    clearCloseMenuTimeout();
+    closeMenuTimeoutRef.current = setTimeout(() => {
+      closeMenu();
+      closeMenuTimeoutRef.current = null;
+    }, 120);
+  }, [clearCloseMenuTimeout, closeMenu]);
+  React.useEffect(
+    () => () => {
+      clearCloseMenuTimeout();
+    },
+    [clearCloseMenuTimeout],
+  );
   const peerCountLabel = React.useMemo(() => {
     const parts: string[] = [];
     if (peerCounts.players > 0) {
@@ -151,8 +180,15 @@ export const SidenavView: React.FC<SidenavController> = ({
 
       <div
         className="relative"
-        onMouseEnter={isHorizontal ? undefined : openMenu}
-        onMouseLeave={isHorizontal ? undefined : closeMenu}
+        onMouseEnter={
+          isHorizontal
+            ? undefined
+            : () => {
+                clearCloseMenuTimeout();
+                openMenu();
+              }
+        }
+        onMouseLeave={isHorizontal ? undefined : scheduleCloseMenu}
       >
         <button
           type="button"
@@ -175,11 +211,15 @@ export const SidenavView: React.FC<SidenavController> = ({
             ref={menuRefs.setFloating}
             style={menuFloatingStyles}
             className="z-50 w-[min(16rem,calc(100dvw-1rem))] max-h-[min(22rem,calc(100dvh-1rem))] overflow-y-auto"
+            onMouseEnter={isHorizontal ? undefined : clearCloseMenuTimeout}
+            onMouseLeave={isHorizontal ? undefined : scheduleCloseMenu}
           >
             <div
               className={cn(
                 "bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl p-2 flex flex-col gap-1 animate-in fade-in",
-                isHorizontal ? "slide-in-from-bottom-2" : "slide-in-from-left-2",
+                isHorizontal
+                  ? "slide-in-from-bottom-2"
+                  : "slide-in-from-left-2",
               )}
             >
               <div className="px-2 py-1 text-xs font-semibold text-zinc-500 uppercase tracking-wider border-b border-zinc-800 mb-1">
@@ -228,6 +268,14 @@ export const SidenavView: React.FC<SidenavController> = ({
                   </button>
                 </>
               )}
+
+              <a
+                href="mailto:feedback@drawspell.space"
+                className="flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
+              >
+                <Mail size={16} />
+                Send Feedback!
+              </a>
 
               <button
                 onClick={onLeaveGame}
