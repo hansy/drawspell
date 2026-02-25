@@ -6,7 +6,10 @@
     "dev": "wrangler dev --config wrangler.jsonc",
     "build": "wrangler build --config wrangler.jsonc",
     "deploy": "wrangler deploy --config wrangler.jsonc",
+    "register:commands": "bun run src/registerCommands.ts",
+    "register:commands:global": "bun run src/registerCommands.ts --global",
     "test": "vitest run",
+    "test:smoke": "vitest run src/__tests__/discordRoomCommand.integration.test.ts -t TO-01",
     "cf:typegen": "wrangler types",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
