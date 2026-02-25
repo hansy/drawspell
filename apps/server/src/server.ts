@@ -12,6 +12,7 @@ import type { Card } from "@mtg/shared/types/cards";
 import { verifyJoinToken } from "@mtg/shared/security/joinToken";
 
 import {
+  DISCORD_INVITE_METADATA_KEY,
   HIDDEN_STATE_CARDS_PREFIX,
   HIDDEN_STATE_KEY,
   HIDDEN_STATE_META_KEY,
@@ -19,6 +20,7 @@ import {
   ROOM_TOKENS_KEY,
 } from "./domain/constants";
 import type {
+  DiscordRoomInviteMetadata,
   HiddenState,
   HiddenStateMeta,
   Intent,
@@ -78,12 +80,21 @@ const SERVER_ALLOWED_ORIGINS = new Set([
   "http://localhost:5173",
 ]);
 const SERVER_ALLOWED_HOSTS = new Set(["ws.drawspell.space", "localhost:8787"]);
+const DEFAULT_DRAWSPELL_PUBLIC_ORIGIN = "https://drawspell.space";
 const PERF_METRICS_ENABLED = false;
 const PERF_METRICS_ALLOW_PARAM = false;
 const JOIN_TOKEN_MAX_SKEW_MS = 30_000;
 const CONNECT_RATE_WINDOW_MS = 60_000;
 const CONNECT_RATE_MAX_ATTEMPTS = 20;
 const CONNECT_RATE_BLOCK_MS = 120_000;
+const DISCORD_ROOM_PROVISION_ENDPOINT = "/internal/discord/rooms/provision";
+const DISCORD_ROOM_INTERNAL_PROVISION_ENDPOINT =
+  "/internal/discord/provision-room";
+const DISCORD_SERVICE_AUTH_HEADER = "x-drawspell-service-auth";
+const DISCORD_INVITE_TTL_MS = 10 * 60_000;
+const ROOM_ID_ALPHABET =
+  "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const DISCORD_ROOM_ID_LENGTH = 10;
 
 type PlayerResumeTokenEntry = {
   token: string;
@@ -91,6 +102,37 @@ type PlayerResumeTokenEntry = {
 };
 
 type PlayerResumeTokens = Record<string, PlayerResumeTokenEntry>;
+
+type ConnectionAuthWithResumeResult =
+  | {
+      ok: true;
+      resolvedRole: "player" | "spectator";
+      playerId?: string;
+      token?: string;
+      tokens: RoomTokens | null;
+      resumed: boolean;
+    }
+  | {
+      ok: false;
+      reason: AuthRejectReason;
+    };
+
+type DiscordProvisionRequest = {
+  guildId: string;
+  channelId: string;
+  invokerDiscordUserId: string;
+  participantDiscordUserIds: string[];
+};
+
+type DiscordRoomProvisionPayload = DiscordProvisionRequest & {
+  inviteExpiresAt: number;
+};
+
+type DiscordRoomProvisionResponse = {
+  roomId: string;
+  playerToken: string;
+  expiresAt: number;
+};
 
 const nowMs = () =>
   typeof performance !== "undefined" && typeof performance.now === "function"
@@ -121,6 +163,132 @@ const computeMetricStats = (samples: number[]) => {
   );
   const p95 = sorted[index] ?? sorted[sorted.length - 1] ?? 0;
   return { avg: sum / count, p95, count };
+};
+
+const createRoomId = (length = DISCORD_ROOM_ID_LENGTH): string => {
+  const safeLength =
+    typeof length === "number" && Number.isFinite(length) && length > 0
+      ? Math.floor(length)
+      : DISCORD_ROOM_ID_LENGTH;
+  const alphabetLength = ROOM_ID_ALPHABET.length;
+  const bytes = crypto.getRandomValues(new Uint8Array(safeLength));
+
+  let result = "";
+  for (let i = 0; i < safeLength; i += 1) {
+    result += ROOM_ID_ALPHABET[bytes[i] % alphabetLength];
+  }
+  return result;
+};
+
+const parseBearerToken = (headerValue: string | null) => {
+  if (!headerValue) return null;
+  const [scheme, ...rest] = headerValue.trim().split(/\s+/);
+  if (!scheme || scheme.toLowerCase() !== "bearer") return null;
+  const token = rest.join(" ").trim();
+  return token || null;
+};
+
+const normalizeNonEmptyString = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const normalizeParticipantDiscordUserIds = (
+  value: unknown,
+  invokerDiscordUserId: string,
+) => {
+  if (!Array.isArray(value)) return null;
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const candidate of value) {
+    const parsed = normalizeNonEmptyString(candidate);
+    if (!parsed || seen.has(parsed)) continue;
+    seen.add(parsed);
+    normalized.push(parsed);
+  }
+
+  if (!seen.has(invokerDiscordUserId)) {
+    normalized.unshift(invokerDiscordUserId);
+  }
+  return normalized;
+};
+
+const parseDiscordProvisionRequest = (
+  rawBody: unknown,
+): DiscordProvisionRequest | null => {
+  if (!rawBody || typeof rawBody !== "object") return null;
+  const record = rawBody as Record<string, unknown>;
+  const guildId = normalizeNonEmptyString(record.guildId);
+  const channelId = normalizeNonEmptyString(record.channelId);
+  const invokerDiscordUserId = normalizeNonEmptyString(
+    record.invokerDiscordUserId,
+  );
+  if (!guildId || !channelId || !invokerDiscordUserId) return null;
+  const participantDiscordUserIds = normalizeParticipantDiscordUserIds(
+    record.participantDiscordUserIds,
+    invokerDiscordUserId,
+  );
+  if (!participantDiscordUserIds || participantDiscordUserIds.length === 0) {
+    return null;
+  }
+  return {
+    guildId,
+    channelId,
+    invokerDiscordUserId,
+    participantDiscordUserIds,
+  };
+};
+
+const parseDiscordRoomProvisionPayload = (
+  rawBody: unknown,
+): DiscordRoomProvisionPayload | null => {
+  const parsed = parseDiscordProvisionRequest(rawBody);
+  if (!parsed) return null;
+  const record = rawBody as Record<string, unknown>;
+  const inviteExpiresAtRaw = record.inviteExpiresAt;
+  if (
+    typeof inviteExpiresAtRaw !== "number" ||
+    !Number.isFinite(inviteExpiresAtRaw)
+  ) {
+    return null;
+  }
+  const inviteExpiresAt = Math.floor(inviteExpiresAtRaw);
+  if (inviteExpiresAt <= 0) return null;
+  return { ...parsed, inviteExpiresAt };
+};
+
+const parseDiscordRoomProvisionResponse = (
+  rawBody: unknown,
+): DiscordRoomProvisionResponse | null => {
+  if (!rawBody || typeof rawBody !== "object") return null;
+  const record = rawBody as Record<string, unknown>;
+  const roomId = normalizeNonEmptyString(record.roomId);
+  const playerToken = normalizeNonEmptyString(record.playerToken);
+  const expiresAt = record.expiresAt;
+  if (!roomId || !playerToken) return null;
+  if (typeof expiresAt !== "number" || !Number.isFinite(expiresAt)) return null;
+  return {
+    roomId,
+    playerToken,
+    expiresAt: Math.floor(expiresAt),
+  };
+};
+
+const resolveDiscordServiceAuthSecret = (env: Env) => {
+  const raw = (env as Env & { DISCORD_SERVICE_AUTH_SECRET?: string })
+    .DISCORD_SERVICE_AUTH_SECRET;
+  return normalizeNonEmptyString(raw);
+};
+
+const resolveDrawspellPublicOrigin = (env: Env) => {
+  const raw = normalizeNonEmptyString(
+    (env as Env & { DRAWSPELL_PUBLIC_ORIGIN?: string }).DRAWSPELL_PUBLIC_ORIGIN,
+  );
+  if (!raw) return DEFAULT_DRAWSPELL_PUBLIC_ORIGIN;
+  const normalized = normalizeOrigin(raw);
+  return normalized ?? DEFAULT_DRAWSPELL_PUBLIC_ORIGIN;
 };
 
 const normalizeOrigin = (value: string) => {
@@ -236,13 +404,111 @@ const validatePartyHandshake = async (
   return null;
 };
 
+const handleDiscordRoomProvisioningRequest = async (
+  request: Request,
+  env: Env,
+): Promise<Response> => {
+  const serviceSecret = resolveDiscordServiceAuthSecret(env);
+  if (!serviceSecret) {
+    return new Response("Discord service auth is not configured", {
+      status: 500,
+    });
+  }
+  const authHeader = parseBearerToken(request.headers.get("authorization"));
+  if (!authHeader || authHeader !== serviceSecret) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  if (!env.rooms) {
+    return new Response("Room namespace unavailable", { status: 500 });
+  }
+
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch (_err) {
+    return new Response("Invalid JSON body", { status: 400 });
+  }
+  const parsedBody = parseDiscordProvisionRequest(rawBody);
+  if (!parsedBody) {
+    return new Response("Invalid request body", { status: 400 });
+  }
+
+  const roomId = createRoomId();
+  const inviteExpiresAt = Date.now() + DISCORD_INVITE_TTL_MS;
+  const roomPayload: DiscordRoomProvisionPayload = {
+    ...parsedBody,
+    inviteExpiresAt,
+  };
+  const roomRequest = new Request(
+    `https://internal${DISCORD_ROOM_INTERNAL_PROVISION_ENDPOINT}`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-partykit-room": roomId,
+        [DISCORD_SERVICE_AUTH_HEADER]: serviceSecret,
+      },
+      body: JSON.stringify(roomPayload),
+    },
+  );
+  const roomStub = env.rooms.get(env.rooms.idFromName(roomId));
+  let roomResponse: Response;
+  try {
+    roomResponse = await roomStub.fetch(roomRequest);
+  } catch (error) {
+    console.error("[discord-provision] room provision request error", {
+      roomId,
+      message:
+        typeof error === "string"
+          ? error
+          : typeof error === "object" && error && "message" in error
+            ? String((error as { message?: unknown }).message)
+            : "unknown",
+    });
+    return new Response("Failed to provision room invite", { status: 502 });
+  }
+  if (!roomResponse.ok) {
+    const message = await roomResponse.text();
+    console.error("[discord-provision] room provision request failed", {
+      roomId,
+      status: roomResponse.status,
+      message,
+    });
+    return new Response("Failed to provision room invite", { status: 502 });
+  }
+
+  let roomResult: unknown;
+  try {
+    roomResult = await roomResponse.json();
+  } catch (_err) {
+    return new Response("Invalid room provision response", { status: 502 });
+  }
+  const parsedResult = parseDiscordRoomProvisionResponse(roomResult);
+  if (!parsedResult || parsedResult.roomId !== roomId) {
+    return new Response("Invalid room provision response", { status: 502 });
+  }
+  const drawspellPublicOrigin = resolveDrawspellPublicOrigin(env);
+  return Response.json({
+    roomId: parsedResult.roomId,
+    playerToken: parsedResult.playerToken,
+    playerInviteUrl: `${drawspellPublicOrigin}/game/${parsedResult.roomId}?gt=${parsedResult.playerToken}`,
+    expiresAt: parsedResult.expiresAt,
+  });
+};
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
+      const url = new URL(request.url);
+      if (url.pathname === DISCORD_ROOM_PROVISION_ENDPOINT) {
+        if (request.method !== "POST") {
+          return new Response("Method not allowed", { status: 405 });
+        }
+        return handleDiscordRoomProvisioningRequest(request, env);
+      }
       const isWsUpgrade =
         request.headers.get("Upgrade")?.toLowerCase() === "websocket";
       if (isWsUpgrade) {
-        const url = new URL(request.url);
         const rejection = await validatePartyHandshake(request, env, url);
         if (rejection) return rejection;
       }
@@ -362,6 +628,57 @@ export class Room extends YServer<Env> {
   async onLoad() {
     this.ensureYjsMetricsListener();
     await this.restoreFromSnapshotAndLog();
+  }
+
+  async onRequest(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (url.pathname !== DISCORD_ROOM_INTERNAL_PROVISION_ENDPOINT) {
+      return new Response("Not Found", { status: 404 });
+    }
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+
+    const serviceSecret = resolveDiscordServiceAuthSecret(this.env);
+    if (!serviceSecret) {
+      return new Response("Discord service auth is not configured", {
+        status: 500,
+      });
+    }
+    const providedSecret = normalizeNonEmptyString(
+      request.headers.get(DISCORD_SERVICE_AUTH_HEADER),
+    );
+    if (!providedSecret || providedSecret !== serviceSecret) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch (_err) {
+      return new Response("Invalid JSON body", { status: 400 });
+    }
+    const payload = parseDiscordRoomProvisionPayload(rawBody);
+    if (!payload) {
+      return new Response("Invalid request body", { status: 400 });
+    }
+
+    const tokens = await this.ensureRoomTokens();
+    const inviteMetadata: DiscordRoomInviteMetadata = {
+      source: "discord",
+      inviteExpiresAt: payload.inviteExpiresAt,
+      createdByDiscordUserId: payload.invokerDiscordUserId,
+      participantDiscordUserIds: payload.participantDiscordUserIds,
+      guildId: payload.guildId,
+      channelId: payload.channelId,
+    };
+    await this.ctx.storage.put(DISCORD_INVITE_METADATA_KEY, inviteMetadata);
+
+    return Response.json({
+      roomId: this.name,
+      playerToken: tokens.playerToken,
+      expiresAt: payload.inviteExpiresAt,
+    } satisfies DiscordRoomProvisionResponse);
   }
 
   private ensureYjsMetricsListener() {
@@ -861,6 +1178,64 @@ export class Room extends YServer<Env> {
     this.roomTokens = generated;
     await this.ctx.storage.put(ROOM_TOKENS_KEY, generated);
     return generated;
+  }
+
+  private isDiscordRoomInviteMetadata(
+    value: unknown,
+  ): value is DiscordRoomInviteMetadata {
+    if (!value || typeof value !== "object") return false;
+    const record = value as Record<string, unknown>;
+    return (
+      record.source === "discord" &&
+      typeof record.inviteExpiresAt === "number" &&
+      Number.isFinite(record.inviteExpiresAt)
+    );
+  }
+
+  private hasInviteActivated(metadata: DiscordRoomInviteMetadata): boolean {
+    return (
+      typeof metadata.inviteActivatedAt === "number" &&
+      Number.isFinite(metadata.inviteActivatedAt) &&
+      metadata.inviteActivatedAt > 0
+    );
+  }
+
+  private async clearPendingDiscordInviteState() {
+    this.roomTokens = null;
+    try {
+      await this.ctx.storage.delete(DISCORD_INVITE_METADATA_KEY);
+    } catch (_err) {}
+    try {
+      await this.ctx.storage.delete(ROOM_TOKENS_KEY);
+    } catch (_err) {}
+  }
+
+  private async evaluateDiscordInviteForJoin(): Promise<
+    | { allow: true; pendingInvite: DiscordRoomInviteMetadata | null }
+    | { allow: false; reason: AuthRejectReason }
+  > {
+    const rawMetadata = await this.ctx.storage.get<unknown>(
+      DISCORD_INVITE_METADATA_KEY,
+    );
+    if (!this.isDiscordRoomInviteMetadata(rawMetadata)) {
+      return { allow: true, pendingInvite: null };
+    }
+    if (this.hasInviteActivated(rawMetadata)) {
+      return { allow: true, pendingInvite: null };
+    }
+    if (Date.now() > rawMetadata.inviteExpiresAt) {
+      await this.clearPendingDiscordInviteState();
+      return { allow: false, reason: "invalid token" };
+    }
+    return { allow: true, pendingInvite: rawMetadata };
+  }
+
+  private async activateDiscordInvite(metadata: DiscordRoomInviteMetadata) {
+    if (this.hasInviteActivated(metadata)) return;
+    await this.ctx.storage.put(DISCORD_INVITE_METADATA_KEY, {
+      ...metadata,
+      inviteActivatedAt: Date.now(),
+    });
   }
 
   private normalizePlayerResumeTokens(
@@ -1766,34 +2141,37 @@ export class Room extends YServer<Env> {
     state: IntentConnectionState,
     storedTokens: RoomTokens | null,
     options: { allowTokenCreation: boolean },
-  ): Promise<
-    | {
-        ok: true;
-        resolvedRole: "player" | "spectator";
-        playerId?: string;
-        token?: string;
-        tokens: RoomTokens | null;
-        resumed: boolean;
+  ): Promise<ConnectionAuthWithResumeResult> {
+    const inviteGate = await this.evaluateDiscordInviteForJoin();
+    if (!inviteGate.allow) {
+      return { ok: false, reason: inviteGate.reason };
+    }
+
+    const finalizeInviteState = async (
+      resultOrPromise:
+        | ConnectionAuthWithResumeResult
+        | Promise<ConnectionAuthWithResumeResult>,
+    ): Promise<ConnectionAuthWithResumeResult> => {
+      const result = await resultOrPromise;
+      if (!result.ok || !inviteGate.pendingInvite) return result;
+      try {
+        await this.activateDiscordInvite(inviteGate.pendingInvite);
+      } catch (error) {
+        console.error("[party] failed to activate discord invite", {
+          room: this.name,
+          error:
+            typeof error === "string"
+              ? error
+              : typeof error === "object" && error && "message" in error
+                ? String((error as { message?: unknown }).message)
+                : "unknown",
+        });
+        return { ok: false, reason: "invalid token" };
       }
-    | {
-        ok: false;
-        reason: AuthRejectReason;
-      }
-  > {
-    const resolveStandardAuth = async (): Promise<
-      | {
-          ok: true;
-          resolvedRole: "player" | "spectator";
-          playerId?: string;
-          token?: string;
-          tokens: RoomTokens | null;
-          resumed: boolean;
-        }
-      | {
-          ok: false;
-          reason: AuthRejectReason;
-        }
-    > => {
+      return result;
+    };
+
+    const resolveStandardAuth = async (): Promise<ConnectionAuthWithResumeResult> => {
       const auth = await resolveConnectionAuth(
         state,
         storedTokens,
@@ -1813,26 +2191,30 @@ export class Room extends YServer<Env> {
       // takeover, but fall back to standard token auth when resume validation
       // fails to avoid lockouts on stale/rotated resume tokens.
       if (!state.connectionGroupId) {
-        return state.token ? resolveStandardAuth() : { ok: false, reason: "invalid token" };
+        return state.token
+          ? finalizeInviteState(resolveStandardAuth())
+          : { ok: false, reason: "invalid token" };
       }
       const canResume = await this.validatePlayerResumeToken(resumePlayerId, resumeToken);
       if (!canResume) {
-        return state.token ? resolveStandardAuth() : { ok: false, reason: "invalid token" };
+        return state.token
+          ? finalizeInviteState(resolveStandardAuth())
+          : { ok: false, reason: "invalid token" };
       }
       let activeTokens = storedTokens;
       if (!activeTokens && options.allowTokenCreation) {
         activeTokens = await this.ensureRoomTokens();
       }
-      return {
+      return finalizeInviteState({
         ok: true,
         resolvedRole: "player",
         playerId: resumePlayerId,
         token: activeTokens?.playerToken,
         tokens: activeTokens ?? null,
         resumed: true,
-      };
+      });
     }
-    return resolveStandardAuth();
+    return finalizeInviteState(resolveStandardAuth());
   }
 
   private async bindIntentConnection(conn: Connection, url: URL) {

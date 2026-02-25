@@ -9,14 +9,17 @@ Drawspell (drawspell.space) is a multiplayer tabletop for Magic: The Gathering c
 ```mermaid
 flowchart LR
   Web["apps/web<br/>TanStack React Start (Vite)"] -->|WebSocket: Yjs sync + intents| Server["apps/server<br/>PartyServer (Durable Object)"]
+  Discord["apps/discord<br/>Cloudflare Worker (Discord Interactions)"] -->|Service Binding `SERVER`| Server
   Web -->|HTTPS| Scryfall["Scryfall API"]
+  Discord -->|Discord REST API| DiscordApi["Discord API"]
   Server --> DO[(Durable Object storage)]
 ```
 
 - Web app (`apps/web`): UI, routing, and client-side state; connects to PartyServer for sync; fetches Scryfall card data.
 - Realtime server (`apps/server`): PartyServer runtime; applies intents to the Yjs document; manages hidden state and room tokens in Durable Object storage.
+- Discord worker (`apps/discord`): verifies slash-command interactions, provisions rooms via server binding, and sends DM invite links.
 - Shared types: server imports types from `apps/web/src/types` (see `apps/server/src/domain/types.ts`).
-- External services: Scryfall API for card metadata; Cloudflare Workers + Durable Objects for hosting.
+- External services: Scryfall API for card metadata; Discord API for interactions/DMs; Cloudflare Workers + Durable Objects for hosting.
 
 ## Repo structure
 
@@ -24,6 +27,7 @@ flowchart LR
 | ------------- | --------------------------------------------------------------------------------------------------------------- |
 | `apps/web`    | Web client (TanStack React Start + Vite). See [apps/web/README.md](apps/web/README.md).                         |
 | `apps/server` | PartyServer backend (Cloudflare Workers + Durable Objects). See [apps/server/README.md](apps/server/README.md). |
+| `apps/discord` | Discord Interactions worker for `/drawspell room`. See [apps/discord/README.md](apps/discord/README.md). |
 
 ## Getting started
 
@@ -39,31 +43,47 @@ bun install
 
 ### Commands (from repo root)
 
-| Task             | Command              | Notes                                          |
-| ---------------- | -------------------- | ---------------------------------------------- |
-| Dev: web app     | `bun run dev`        | Runs Vite dev server in `apps/web`.            |
-| Dev: server      | `bun run dev:server` | Runs `wrangler dev` in `apps/server`.          |
-| Build            | `bun run build`      | Builds the web app.                            |
-| Preview          | `bun run preview`    | Builds + previews the web app.                 |
-| Test             | `bun run test`       | Runs tests for web and server.                 |
-| Typecheck        | `bun run typecheck`  | Runs typechecks for web and server.            |
-| Cloudflare types | `bun run cf-typegen` | Generates Workers types for the web app.       |
-| Lint             | **TBD**              | No `lint` script is defined in `package.json`. |
+| Task | Command | Notes |
+| --- | --- | --- |
+| Dev: web app | `bun run dev` | Runs Vite dev server in `apps/web`. |
+| Dev: server | `bun run dev:server` | Runs `wrangler dev` in `apps/server`. |
+| Dev: Discord worker | `bun run dev:discord` | Runs `wrangler dev` in `apps/discord`. |
+| Build | `bun run build` | Builds the web app. |
+| Preview | `bun run preview` | Builds + previews the web app. |
+| Test | `bun run test` | Runs tests for all workspaces. |
+| Typecheck | `bun run typecheck` | Runs typechecks for all workspaces. |
+| Deploy: web | `bun run deploy:web` | Deploys `apps/web`. |
+| Deploy: server | `bun run deploy:server` | Deploys `apps/server`. |
+| Deploy: Discord worker | `bun run deploy:discord` | Deploys `apps/discord`. |
+| Register Discord commands (guild) | `bun run register:discord:commands -- --guild-id <GUILD_ID>` | Fast propagation for testing. |
+| Register Discord commands (global) | `bun run register:discord:commands:global` | Use after guild validation. |
+| Smoke test: Discord `/drawspell room` | `bun run test:discord:smoke` | Runs `TO-01` integration expectation used post-registration. |
+| Cloudflare types | `bun run cf-typegen` | Generates Workers types for the web app. |
+| Lint | **TBD** | No `lint` script is defined in `package.json`. |
 
 ## Configuration
 
 ### Environment variables
 
-| Name                | Used by                   | Description                                                          | Source                                                    |
-| ------------------- | ------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------- |
-| `VITE_SERVER_HOST`  | `apps/web`                | Overrides the PartyServer host (host or full URL).                   | `apps/web/wrangler.jsonc` or `.env*` loaded from repo root |
-| `JOIN_TOKEN_SECRET` | `apps/web`, `apps/server` | HMAC secret for join tokens; must match across web + server workers. | Cloudflare secret or local `.env`/`.dev.vars`             |
+| Name | Used by | Description | Source |
+| --- | --- | --- | --- |
+| `VITE_SERVER_HOST` | `apps/web` | Overrides the PartyServer host (host or full URL). | `apps/web/wrangler.jsonc` or `.env*` loaded from repo root |
+| `JOIN_TOKEN_SECRET` | `apps/web`, `apps/server` | HMAC secret for join tokens; must match across web + server workers. | Cloudflare secret or local `.env`/`.dev.vars` |
+| `DISCORD_PUBLIC_KEY` | `apps/discord` | Discord public key for interaction signature validation. | Cloudflare secret or `apps/discord/.dev.vars` |
+| `DISCORD_BOT_TOKEN` | `apps/discord` | Bot token for DM fanout and command registration. | Cloudflare secret or `apps/discord/.dev.vars` |
+| `DISCORD_SERVICE_AUTH_SECRET` | `apps/discord`, `apps/server` | Shared secret for internal provisioning auth. | Cloudflare secret or `.dev.vars` in each app |
+| `DRAWSPELL_PUBLIC_ORIGIN` | `apps/server` | Public web origin used to build Discord DM invite links (staging/prod specific). | `apps/server/wrangler.jsonc` vars or `apps/server/.dev.vars` |
+| `DISCORD_APPLICATION_ID` | `apps/discord` registration script | Discord application ID used for slash-command registration. | Cloudflare secret/env var or `apps/discord/.dev.vars` |
+| `DISCORD_COMMAND_GUILD_ID` | `apps/discord` registration script | Optional default guild for faster command registration rollout. | Local env or shell export |
+| `DISCORD_API_BASE_URL` | `apps/discord` | Optional Discord API base URL override. | Local env / Worker vars |
 
 ### Env files and loading
 
 - Web: Vite loads `.env*` files from the repo root (see `apps/web/vite.config.ts`).
 - Web deploy values live in `apps/web/wrangler.jsonc` under `env`; secrets use `wrangler secret`.
 - Server: Durable Object binding `rooms` is configured in `apps/server/wrangler.jsonc`; secrets use `wrangler secret` or `apps/server/.dev.vars`.
+- Discord: service binding `SERVER` is configured in `apps/discord/wrangler.jsonc`; set secrets with `wrangler secret put` or local `apps/discord/.dev.vars`.
+- Discord command registration script reads `.dev.vars` by default (override with `--env-file`) and still prefers exported shell env values.
 
 ## Common workflows
 
@@ -77,11 +97,14 @@ bun install
 
 - Web only: `bun run --cwd apps/web dev`
 - Server only: `bun run --cwd apps/server dev`
+- Discord only: `bun run --cwd apps/discord dev`
 
 ## Deployment / operations
 
 - Web deploy: `bun run deploy:web` (config: `apps/web/wrangler.jsonc`).
 - Server deploy: `bun run deploy:server` (config: `apps/server/wrangler.jsonc`, `apps/server/partykit.json`).
+- Discord deploy: `bun run deploy:discord` (config: `apps/discord/wrangler.jsonc`).
+- Slash-command registration workflow: see [apps/discord/README.md](apps/discord/README.md) for guild-first rollout and global rollout commands.
 - Durable Object migrations are defined in `apps/server/wrangler.jsonc`.
 - CI: **TBD** (no CI config found in the repo; add one under `.github/` or similar).
 

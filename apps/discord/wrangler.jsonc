@@ -1,0 +1,23 @@
+{
+  "name": "drawspell-discord",
+  "main": "src/worker.ts",
+  "compatibility_date": "2025-12-17",
+  "vars": {
+    "DISCORD_API_BASE_URL": "https://discord.com/api/v10",
+  },
+  "services": [
+    {
+      "binding": "SERVER",
+      "service": "drawspell-server",
+    },
+  ],
+  "observability": {
+    "enabled": false,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true,
+    },
+  },
+}

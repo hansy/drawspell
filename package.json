@@ -11,8 +11,13 @@
     "deploy:web": "bun run --cwd apps/web deploy",
     "cf-typegen": "bun run --cwd apps/web cf-typegen",
     "dev:server": "bun run --cwd apps/server dev",
+    "dev:discord": "bun run --cwd apps/discord dev",
     "dev:all": "concurrently -k \"bun run dev\" \"bun run dev:server\"",
-    "deploy:server": "bun run --cwd apps/server deploy"
+    "deploy:server": "bun run --cwd apps/server deploy",
+    "deploy:discord": "bun run --cwd apps/discord deploy",
+    "register:discord:commands": "bun run --cwd apps/discord register:commands",
+    "register:discord:commands:global": "bun run --cwd apps/discord register:commands:global",
+    "test:discord:smoke": "bun run --cwd apps/discord test:smoke"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

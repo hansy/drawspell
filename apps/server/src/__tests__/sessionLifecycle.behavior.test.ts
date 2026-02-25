@@ -46,6 +46,10 @@ vi.mock("../domain/intents/applyIntentToDoc", () => ({
 }));
 
 import { Room, createEmptyHiddenState } from "../server";
+import {
+  DISCORD_INVITE_METADATA_KEY,
+  ROOM_TOKENS_KEY,
+} from "../domain/constants";
 
 beforeEach(() => {
   superOnConnect.mockClear();
@@ -514,6 +518,132 @@ describe("server lifecycle guards", () => {
 
     expect(oldConnection.closed).toEqual([]);
     expect(superOnConnect).toHaveBeenCalled();
+  });
+
+  it("rejects first joins after discord invite expiry and cleans pending invite state", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-02-25T00:00:00.000Z"));
+      const store = new Map<string, unknown>();
+      const storage = {
+        get: vi.fn(async (key: string) => store.get(key)),
+        put: vi.fn(async (key: string, value: unknown) => {
+          store.set(key, value);
+        }),
+        delete: vi.fn(async (key: string) => {
+          store.delete(key);
+        }),
+        list: vi.fn(async () => store.entries()),
+      };
+      store.set(ROOM_TOKENS_KEY, {
+        playerToken: "player-token",
+        spectatorToken: "spectator-token",
+      });
+      store.set(DISCORD_INVITE_METADATA_KEY, {
+        source: "discord",
+        inviteExpiresAt: Date.now() - 1,
+        createdByDiscordUserId: "user-1",
+        participantDiscordUserIds: ["user-1"],
+        guildId: "guild-1",
+        channelId: "channel-1",
+      });
+      const server = new Room(
+        { id: { name: "room-test" }, storage } as any,
+        createEnv(),
+      );
+      const conn = new TestConnection();
+      const url = new URL("https://example.test/?gt=player-token&playerId=p1");
+
+      await (server as any).bindSyncConnection(conn, url, {
+        request: new Request(url.toString()),
+      });
+
+      expect(conn.closed.at(-1)).toEqual({ code: 1008, reason: "invalid token" });
+      expect(store.has(DISCORD_INVITE_METADATA_KEY)).toBe(false);
+      expect(store.has(ROOM_TOKENS_KEY)).toBe(false);
+      expect(superOnConnect).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("activates discord invites on first join and allows subsequent joins after expiry", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-02-25T00:00:00.000Z"));
+      const store = new Map<string, unknown>();
+      const storage = {
+        get: vi.fn(async (key: string) => store.get(key)),
+        put: vi.fn(async (key: string, value: unknown) => {
+          store.set(key, value);
+        }),
+        delete: vi.fn(async (key: string) => {
+          store.delete(key);
+        }),
+        list: vi.fn(async () => store.entries()),
+      };
+      const inviteExpiresAt = Date.now() + 10 * 60_000;
+      store.set(ROOM_TOKENS_KEY, {
+        playerToken: "player-token",
+        spectatorToken: "spectator-token",
+      });
+      store.set(DISCORD_INVITE_METADATA_KEY, {
+        source: "discord",
+        inviteExpiresAt,
+        createdByDiscordUserId: "user-1",
+        participantDiscordUserIds: ["user-1"],
+        guildId: "guild-1",
+        channelId: "channel-1",
+      });
+      const server = new Room(
+        { id: { name: "room-test" }, storage } as any,
+        createEnv(),
+      );
+
+      const firstConn = new TestConnection();
+      firstConn.id = "conn-first";
+      const firstUrl = new URL(
+        "https://example.test/?gt=player-token&playerId=p1",
+      );
+      await (server as any).bindSyncConnection(firstConn, firstUrl, {
+        request: new Request(firstUrl.toString()),
+      });
+
+      expect(firstConn.closed).toEqual([]);
+      expect(superOnConnect).toHaveBeenCalledTimes(1);
+      const activatedMetadata = store.get(DISCORD_INVITE_METADATA_KEY) as
+        | { inviteActivatedAt?: number; inviteExpiresAt: number }
+        | undefined;
+      expect(activatedMetadata).toMatchObject({
+        inviteExpiresAt,
+      });
+      expect(typeof activatedMetadata?.inviteActivatedAt).toBe("number");
+      const activatedAt = activatedMetadata?.inviteActivatedAt ?? 0;
+      expect(activatedAt).toBeGreaterThan(0);
+
+      vi.advanceTimersByTime(11 * 60_000);
+
+      const secondConn = new TestConnection();
+      secondConn.id = "conn-second";
+      const secondUrl = new URL(
+        "https://example.test/?gt=player-token&playerId=p2",
+      );
+      await (server as any).bindSyncConnection(secondConn, secondUrl, {
+        request: new Request(secondUrl.toString()),
+      });
+
+      expect(secondConn.closed).toEqual([]);
+      expect(superOnConnect).toHaveBeenCalledTimes(2);
+      expect(
+        (
+          store.get(DISCORD_INVITE_METADATA_KEY) as
+            | { inviteActivatedAt?: number }
+            | undefined
+        )?.inviteActivatedAt,
+      ).toBe(activatedAt);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("does not rotate resume token if resumed intent closes before auth resolves", async () => {

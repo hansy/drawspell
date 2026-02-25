@@ -29,11 +29,13 @@
     "development": {
       "vars": {
         "NODE_ENV": "development",
+        "DRAWSPELL_PUBLIC_ORIGIN": "http://localhost:5173",
       },
     },
     "production": {
       "vars": {
         "NODE_ENV": "production",
+        "DRAWSPELL_PUBLIC_ORIGIN": "https://drawspell.space",
         "POSTHOG_API_KEY": "phc_oYFcMPG9V4ARE4INIzfQQnLmADFN2GRLaYfDFiLSaQ6",
         "POSTHOG_API_HOST": "https://us.i.posthog.com",
       },

@@ -35,5 +35,6 @@ export const HIDDEN_STATE_KEY = "hiddenState";
 export const HIDDEN_STATE_META_KEY = "hiddenState:v2:meta";
 export const HIDDEN_STATE_CARDS_PREFIX = "hiddenState:v2:cards:";
 export const ROOM_TOKENS_KEY = "roomTokens";
+export const DISCORD_INVITE_METADATA_KEY = "discordInviteMetadata";
 export const PLAYER_RESUME_TOKENS_KEY = "playerResumeTokens";
 export const MAX_HIDDEN_STATE_CHUNK_SIZE = 120_000;
