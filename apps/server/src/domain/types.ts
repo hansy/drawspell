@@ -56,6 +56,16 @@ export type RoomTokens = {
   spectatorToken: string;
 };
 
+export type DiscordRoomInviteMetadata = {
+  source: "discord";
+  inviteExpiresAt: number;
+  inviteActivatedAt?: number;
+  createdByDiscordUserId: string;
+  participantDiscordUserIds: string[];
+  guildId: string;
+  channelId: string;
+};
+
 export type Intent = {
   id: string;
   type: string;

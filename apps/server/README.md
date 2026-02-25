@@ -13,7 +13,8 @@ Drawspell's realtime backend, built on PartyServer and Cloudflare Durable Object
 - PartyServer room name: `rooms` (see `src/server.ts` and `apps/web/src/partykit/config.ts`).
 - Connection roles via query params: `role=sync` (Yjs provider) and `role=intent` (intent channel). Tokens are passed via `gt` (player) or `st` (spectator), along with optional `playerId` and `viewerRole` (see `apps/web/src/partykit/intentSocket.ts` and `apps/web/src/hooks/game/multiplayer-sync/sessionResources.ts`).
 - Message envelopes: `intent`, `ack`, `privateOverlay`, `logEvent`, `roomTokens` (see `apps/web/src/partykit/messages.ts` and `src/domain/types.ts`).
-- Non-Party requests return `404` (see `src/server.ts`).
+- Internal provisioning endpoint: `POST /internal/discord/rooms/provision` with bearer service auth; returns `{ roomId, playerToken, playerInviteUrl, expiresAt }` and stores pending Discord invite metadata in room Durable Object storage.
+- Other non-Party requests return `404` (see `src/server.ts`).
 
 ## Local development
 Run these from `apps/server` (or prefix with `bun run --cwd apps/server` from the repo root):
@@ -31,6 +32,7 @@ bun run typecheck
 - Compatibility dates are set in `wrangler.jsonc` and `partykit.json`.
 - Env vars:
   - `JOIN_TOKEN_SECRET` (required): HMAC secret used to validate join tokens. Must match `apps/web`.
+  - `DISCORD_SERVICE_AUTH_SECRET` (required for Discord provisioning): shared secret used to authenticate internal `/internal/discord/rooms/provision` calls.
 
 For local dev, set secrets in `apps/server/.dev.vars` or via `wrangler secret put JOIN_TOKEN_SECRET`.
 
