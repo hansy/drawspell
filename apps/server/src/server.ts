@@ -102,6 +102,20 @@ type PlayerResumeTokenEntry = {
 
 type PlayerResumeTokens = Record<string, PlayerResumeTokenEntry>;
 
+type ConnectionAuthWithResumeResult =
+  | {
+      ok: true;
+      resolvedRole: "player" | "spectator";
+      playerId?: string;
+      token?: string;
+      tokens: RoomTokens | null;
+      resumed: boolean;
+    }
+  | {
+      ok: false;
+      reason: AuthRejectReason;
+    };
+
 type DiscordProvisionRequest = {
   guildId: string;
   channelId: string;
@@ -1155,6 +1169,64 @@ export class Room extends YServer<Env> {
     return generated;
   }
 
+  private isDiscordRoomInviteMetadata(
+    value: unknown,
+  ): value is DiscordRoomInviteMetadata {
+    if (!value || typeof value !== "object") return false;
+    const record = value as Record<string, unknown>;
+    return (
+      record.source === "discord" &&
+      typeof record.inviteExpiresAt === "number" &&
+      Number.isFinite(record.inviteExpiresAt)
+    );
+  }
+
+  private hasInviteActivated(metadata: DiscordRoomInviteMetadata): boolean {
+    return (
+      typeof metadata.inviteActivatedAt === "number" &&
+      Number.isFinite(metadata.inviteActivatedAt) &&
+      metadata.inviteActivatedAt > 0
+    );
+  }
+
+  private async clearPendingDiscordInviteState() {
+    this.roomTokens = null;
+    try {
+      await this.ctx.storage.delete(DISCORD_INVITE_METADATA_KEY);
+    } catch (_err) {}
+    try {
+      await this.ctx.storage.delete(ROOM_TOKENS_KEY);
+    } catch (_err) {}
+  }
+
+  private async evaluateDiscordInviteForJoin(): Promise<
+    | { allow: true; pendingInvite: DiscordRoomInviteMetadata | null }
+    | { allow: false; reason: AuthRejectReason }
+  > {
+    const rawMetadata = await this.ctx.storage.get<unknown>(
+      DISCORD_INVITE_METADATA_KEY,
+    );
+    if (!this.isDiscordRoomInviteMetadata(rawMetadata)) {
+      return { allow: true, pendingInvite: null };
+    }
+    if (this.hasInviteActivated(rawMetadata)) {
+      return { allow: true, pendingInvite: null };
+    }
+    if (Date.now() > rawMetadata.inviteExpiresAt) {
+      await this.clearPendingDiscordInviteState();
+      return { allow: false, reason: "invalid token" };
+    }
+    return { allow: true, pendingInvite: rawMetadata };
+  }
+
+  private async activateDiscordInvite(metadata: DiscordRoomInviteMetadata) {
+    if (this.hasInviteActivated(metadata)) return;
+    await this.ctx.storage.put(DISCORD_INVITE_METADATA_KEY, {
+      ...metadata,
+      inviteActivatedAt: Date.now(),
+    });
+  }
+
   private normalizePlayerResumeTokens(
     value: unknown,
   ): PlayerResumeTokens | null {
@@ -2058,34 +2130,37 @@ export class Room extends YServer<Env> {
     state: IntentConnectionState,
     storedTokens: RoomTokens | null,
     options: { allowTokenCreation: boolean },
-  ): Promise<
-    | {
-        ok: true;
-        resolvedRole: "player" | "spectator";
-        playerId?: string;
-        token?: string;
-        tokens: RoomTokens | null;
-        resumed: boolean;
+  ): Promise<ConnectionAuthWithResumeResult> {
+    const inviteGate = await this.evaluateDiscordInviteForJoin();
+    if (!inviteGate.allow) {
+      return { ok: false, reason: inviteGate.reason };
+    }
+
+    const finalizeInviteState = async (
+      resultOrPromise:
+        | ConnectionAuthWithResumeResult
+        | Promise<ConnectionAuthWithResumeResult>,
+    ): Promise<ConnectionAuthWithResumeResult> => {
+      const result = await resultOrPromise;
+      if (!result.ok || !inviteGate.pendingInvite) return result;
+      try {
+        await this.activateDiscordInvite(inviteGate.pendingInvite);
+      } catch (error) {
+        console.error("[party] failed to activate discord invite", {
+          room: this.name,
+          error:
+            typeof error === "string"
+              ? error
+              : typeof error === "object" && error && "message" in error
+                ? String((error as { message?: unknown }).message)
+                : "unknown",
+        });
+        return { ok: false, reason: "invalid token" };
       }
-    | {
-        ok: false;
-        reason: AuthRejectReason;
-      }
-  > {
-    const resolveStandardAuth = async (): Promise<
-      | {
-          ok: true;
-          resolvedRole: "player" | "spectator";
-          playerId?: string;
-          token?: string;
-          tokens: RoomTokens | null;
-          resumed: boolean;
-        }
-      | {
-          ok: false;
-          reason: AuthRejectReason;
-        }
-    > => {
+      return result;
+    };
+
+    const resolveStandardAuth = async (): Promise<ConnectionAuthWithResumeResult> => {
       const auth = await resolveConnectionAuth(
         state,
         storedTokens,
@@ -2105,26 +2180,30 @@ export class Room extends YServer<Env> {
       // takeover, but fall back to standard token auth when resume validation
       // fails to avoid lockouts on stale/rotated resume tokens.
       if (!state.connectionGroupId) {
-        return state.token ? resolveStandardAuth() : { ok: false, reason: "invalid token" };
+        return state.token
+          ? finalizeInviteState(resolveStandardAuth())
+          : { ok: false, reason: "invalid token" };
       }
       const canResume = await this.validatePlayerResumeToken(resumePlayerId, resumeToken);
       if (!canResume) {
-        return state.token ? resolveStandardAuth() : { ok: false, reason: "invalid token" };
+        return state.token
+          ? finalizeInviteState(resolveStandardAuth())
+          : { ok: false, reason: "invalid token" };
       }
       let activeTokens = storedTokens;
       if (!activeTokens && options.allowTokenCreation) {
         activeTokens = await this.ensureRoomTokens();
       }
-      return {
+      return finalizeInviteState({
         ok: true,
         resolvedRole: "player",
         playerId: resumePlayerId,
         token: activeTokens?.playerToken,
         tokens: activeTokens ?? null,
         resumed: true,
-      };
+      });
     }
-    return resolveStandardAuth();
+    return finalizeInviteState(resolveStandardAuth());
   }
 
   private async bindIntentConnection(conn: Connection, url: URL) {
