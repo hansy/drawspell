@@ -1,0 +1,171 @@
+{
+  "id": "feat-discord-room-command-invites",
+  "title": "Create Drawspell Rooms via Discord Slash Command",
+  "description": "Add a Discord integration that lets people run `/drawspell room` to create a Drawspell room and receive DM invite links. This reduces setup friction while preserving the current Drawspell player-link format.",
+  "acceptance_criteria": [
+    "When a member runs `/drawspell room` with no tags, the member receives a DM message with one player invite link and a participant list containing only the invoker.",
+    "When a member runs `/drawspell room` with tagged users, each included member receives the same DM message containing the same room link and participant list.",
+    "When a member tags more than three users, the invoker receives a confirmation message that shows only the first three unique non-bot tagged members were included.",
+    "If any member cannot be DMed, the invoker receives an ephemeral confirmation message listing failed recipients while successful recipients still receive DMs.",
+    "If an operator calls the internal provisioning API with invalid service authentication, the operator receives an unauthorized response and no room invite is created.",
+    "Each member DM message is shown with an invite link in the existing Drawspell player format `/game/<roomId>?gt=<playerToken>`.",
+    "If no member joins within 10 minutes, the next join attempt receives an expired or invalid response and the pending invite state is cleaned.",
+    "If any member joins within 10 minutes, the member can continue in the room using normal existing room lifecycle behavior after activation."
+  ],
+  "details": "Happy path summary:\n- An admin installs the Drawspell Discord bot and slash commands are registered.\n- A member runs `/drawspell room` with optional tagged members.\n- `apps/discord` verifies the interaction signature, normalizes recipients, calls an authenticated internal provisioning endpoint in `apps/server`, receives `{ roomId, playerToken, expiresAt }`, builds the existing-format player link, DMs recipients, and returns an ephemeral confirmation message.\n\nTop 3 edge cases:\n- Edge case 1: More than 3 tags, duplicate tags, or bot tags; include only the first 3 unique non-bot tagged members and include the invoker exactly once.\n- Edge case 2: One or more recipients block DMs; DM successful recipients, then return an ephemeral message listing failures.\n- Edge case 3: Nobody joins before 10 minutes; first post-expiry join attempt is rejected and pending invite metadata is cleaned.\n\nData shape changes:\n- New internal server API contract:\n  - Request: `{ guildId, channelId, invokerDiscordUserId, participantDiscordUserIds[] }`\n  - Response: `{ roomId, playerToken, playerInviteUrl, expiresAt }`\n- New room metadata persisted for Discord-provisioned invites:\n  - `source: \"discord\"`\n  - `inviteExpiresAt: number`\n  - `inviteActivatedAt?: number`\n  - `createdByDiscordUserId: string`\n  - `participantDiscordUserIds: string[]`\n- New `apps/discord` environment config for Discord app credentials and inter-service auth secret.\n\nTechnology decisions (locked):\n- Runtime: `apps/discord` is a Cloudflare Worker using Discord Interactions HTTP flow (no long-lived Gateway bot process).\n- Routing and middleware: `hono`.\n- Discord protocol libraries: `discord-interactions` for signature verification/helpers and `discord-api-types` for typed command payloads.\n- Validation: `zod` for interaction input and env variable boundaries.\n- Inter-service call path: Cloudflare Service Binding from `apps/discord` to `apps/server` provisioning endpoint.\n- Storage: existing Durable Object room storage is reused for invite metadata and lifecycle gating; no separate database is introduced for this feature.\n\nExisting libraries to use:\n- `discord-interactions` for signature verification and interaction helpers.\n- `discord-api-types` for typed Discord payloads.\n- `hono` for Worker routing.\n- `zod` for validation boundaries.\n- Native `fetch` for Discord REST DM calls and internal provisioning calls.\n\nExplicit out-of-scope:\n- Spectator-link distribution from Discord.\n- Ads and monetization data systems.\n- Matchmaking, lobby browser, and invitation history UI.",
+  "git_branch": "feat/discord-room-command-invites",
+  "non_goals": [
+    "Adding spectator invite flows to Discord messages.",
+    "Building ad inventory, storage, or rendering systems.",
+    "Changing existing web invite URL format or web route structure."
+  ],
+  "tests": [
+    {
+      "test_id": "TO-01",
+      "scenario": "Member runs slash command with no tags",
+      "expected_outcome": "Invoker receives a DM message with one player link and a participant list containing only the invoker."
+    },
+    {
+      "test_id": "TO-02",
+      "scenario": "Member runs slash command with tagged recipients",
+      "expected_outcome": "Each included member receives the same DM message payload with identical link and participant list."
+    },
+    {
+      "test_id": "TO-03",
+      "scenario": "Member tags more than three users",
+      "expected_outcome": "Only first three unique non-bot tagged members are included and invoker confirmation message reflects the final recipient set."
+    },
+    {
+      "test_id": "TO-04",
+      "scenario": "Partial DM failures during fanout",
+      "expected_outcome": "Successful recipients still receive DMs and invoker gets ephemeral failure list for recipients that failed."
+    },
+    {
+      "test_id": "TO-05",
+      "scenario": "Invalid service authentication on provisioning API",
+      "expected_outcome": "Provisioning request returns unauthorized and no room invite state is created."
+    },
+    {
+      "test_id": "TO-06",
+      "scenario": "Provisioned link format generation",
+      "expected_outcome": "DM link is shown in `/game/<roomId>?gt=<playerToken>` format."
+    },
+    {
+      "test_id": "TO-07",
+      "scenario": "No joins before 10-minute expiry",
+      "expected_outcome": "First join after expiry receives invalid or expired response and pending invite data is cleaned."
+    },
+    {
+      "test_id": "TO-08",
+      "scenario": "Join before expiry activates room",
+      "expected_outcome": "Join within 10 minutes succeeds and subsequent room behavior follows normal existing lifecycle."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-01",
+      "title": "Add authenticated Discord room provisioning endpoint",
+      "status": "ready",
+      "description": "Implement an internal endpoint in `apps/server` that provisions Discord room invites, generates roomId and player token, stores pending invite metadata with 10-minute expiry, and returns existing-format player invite URL. The endpoint is consumed through a Cloudflare Service Binding from `apps/discord`, and this cross-layer coupling is required because API response and room storage must stay consistent.",
+      "depends_on": [],
+      "desired_outcome": "Server can provision a Discord room invite only for valid service callers and returns deterministic payload fields needed by the Discord worker.",
+      "external_research": [
+        {
+          "topic": "PartyServer Durable Object storage access from internal HTTP handlers",
+          "why": "Required to provision tokens and metadata in the authoritative room storage path.",
+          "links": []
+        }
+      ],
+      "tests": {
+        "covers_test_ids": [
+          "TO-05",
+          "TO-06"
+        ],
+        "notes_for_coder": "Start RED with unauthorized request behavior and link-format response assertions, then implement provisioning logic to pass GREEN."
+      },
+      "commits": []
+    },
+    {
+      "id": "T-02",
+      "title": "Enforce 10-minute pre-join invite expiry",
+      "status": "ready",
+      "description": "Update room join/auth behavior so Discord-provisioned invites expire after 10 minutes only until first successful join; reject first joins after expiry and clean stale pending metadata. This cross-layer behavior is necessary because auth checks and storage cleanup are coupled.",
+      "depends_on": [
+        "T-01"
+      ],
+      "desired_outcome": "Unused Discord invites expire predictably while normal room lifecycle remains unchanged after activation.",
+      "external_research": [
+        {
+          "topic": "Lazy cleanup patterns for expired Durable Object invite metadata",
+          "why": "Required to ensure stale invite state is removed without introducing background schedulers.",
+          "links": []
+        }
+      ],
+      "tests": {
+        "covers_test_ids": [
+          "TO-07",
+          "TO-08"
+        ],
+        "notes_for_coder": "Write RED tests for post-expiry rejection and pre-expiry activation first, then implement minimal gating and state transition logic."
+      },
+      "commits": []
+    },
+    {
+      "id": "T-03",
+      "title": "Build Discord slash command worker with DM fanout",
+      "status": "ready",
+      "description": "Create `apps/discord` Cloudflare Worker using `hono`, `discord-interactions`, `discord-api-types`, and `zod` to verify Discord signatures, handle `/drawspell room`, normalize recipients (max 3 tagged users plus invoker), call provisioning endpoint through Service Binding, send identical DMs to recipients, and return ephemeral command confirmation with DM failures. This cross-layer coupling is required because interaction handling and API calls must run in one request flow.",
+      "depends_on": [
+        "T-01"
+      ],
+      "desired_outcome": "Discord members can invoke `/drawspell room` and receive working Drawspell player invite DMs with consistent participant messaging.",
+      "external_research": [
+        {
+          "topic": "Discord slash command group and subcommand payload structure",
+          "why": "Necessary to parse command options and tagged users correctly.",
+          "links": []
+        },
+        {
+          "topic": "Discord REST DM error codes and rate-limit handling",
+          "why": "Required to implement partial-failure reporting without failing the whole command.",
+          "links": []
+        }
+      ],
+      "tests": {
+        "covers_test_ids": [
+          "TO-01",
+          "TO-02",
+          "TO-03",
+          "TO-04"
+        ],
+        "notes_for_coder": "Start with RED integration tests for no-tag path, tagged path, recipient pruning, and partial DM failures, then implement handler and fanout logic."
+      },
+      "commits": []
+    },
+    {
+      "id": "T-04",
+      "title": "Add deployment and command-registration workflow",
+      "status": "ready",
+      "description": "Add workspace scripts and docs for `apps/discord` development, deployment, and slash-command registration with Wrangler, including environment configuration for Discord credentials and service bindings. This is necessary because operator setup must be repeatable and auditable across environments.",
+      "depends_on": [
+        "T-02",
+        "T-03"
+      ],
+      "desired_outcome": "Operators can configure, deploy, and register `/drawspell room` consistently with documented environment variables and run commands.",
+      "external_research": [
+        {
+          "topic": "Discord guild versus global command registration tradeoffs",
+          "why": "Required to choose a rollout approach that minimizes propagation delay during testing.",
+          "links": []
+        }
+      ],
+      "tests": {
+        "covers_test_ids": [
+          "TO-01"
+        ],
+        "notes_for_coder": "Use a deployment smoke check that confirms slash command invocation still yields expected DM behavior after registration."
+      },
+      "commits": []
+    }
+  ]
+}
