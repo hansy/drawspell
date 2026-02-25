@@ -164,6 +164,97 @@ describe("discord /drawspell room", () => {
     expect(interactionUpdateContent).toContain("DM sent to 1 participant");
   });
 
+  it("accepts nullable global_name fields in invoker and tagged user payloads", async () => {
+    const serverFetch = vi.fn(
+      async (_input: Request | URL | string, _init?: RequestInit) =>
+        Response.json({
+          roomId: "room-nullname",
+          playerToken: "player-token-nullname",
+          playerInviteUrl:
+            "https://drawspell.space/game/room-nullname?gt=player-token-nullname",
+          expiresAt: Date.now() + 600_000,
+        }),
+    );
+    const env: TestEnv = {
+      DISCORD_PUBLIC_KEY: "public-key",
+      DISCORD_BOT_TOKEN: "bot-token",
+      DISCORD_SERVICE_AUTH_SECRET: "service-secret",
+      DISCORD_API_BASE_URL: "https://discord.test/api/v10",
+      SERVER: { fetch: serverFetch },
+    };
+
+    let interactionUpdateContent = "";
+    const discordFetch = vi.fn(
+      async (input: Request | URL | string, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.endsWith("/users/@me/channels")) {
+          const body = JSON.parse(String(init?.body)) as { recipient_id: string };
+          return Response.json({ id: `dm-channel-${body.recipient_id}` });
+        }
+        if (url.includes("/channels/dm-channel-") && url.endsWith("/messages")) {
+          return Response.json({ id: "message-id" });
+        }
+        if (url.endsWith("/webhooks/app-1/interaction-token/messages/@original")) {
+          const payload = JSON.parse(String(init?.body)) as { content: string };
+          interactionUpdateContent = payload.content;
+          return Response.json({ id: "interaction-message-1" });
+        }
+        throw new Error(`Unexpected Discord API call: ${url} ${init?.method ?? "GET"}`);
+      },
+    );
+    vi.stubGlobal("fetch", discordFetch as unknown as typeof fetch);
+
+    const requestBody = createRoomInteraction({
+      member: {
+        user: {
+          id: "user-1",
+          username: "Invoker",
+          global_name: null,
+        },
+      },
+      data: {
+        name: "drawspell",
+        type: 1,
+        options: [
+          {
+            name: "room",
+            type: 1,
+            options: [{ name: "player1", type: 6, value: "user-2" }],
+          },
+        ],
+        resolved: {
+          users: {
+            "user-2": {
+              id: "user-2",
+              username: "TaggedOne",
+              global_name: null,
+            },
+          },
+        },
+      },
+    });
+
+    const { executionCtx, waitForBackgroundTasks } = createExecutionContext();
+    const response = await worker.fetch(
+      new Request("https://discord-worker.test/interactions", {
+        method: "POST",
+        headers: interactionHeaders,
+        body: JSON.stringify(requestBody),
+      }),
+      env,
+      executionCtx as any,
+    );
+    await waitForBackgroundTasks();
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as { type: number };
+    expect(payload.type).toBe(
+      InteractionResponseType.DeferredChannelMessageWithSource,
+    );
+    expect(serverFetch).toHaveBeenCalledTimes(1);
+    expect(interactionUpdateContent).toContain("DM sent to 2 participants.");
+  });
+
   it("TO-02: sends identical DM content to invoker and tagged members", async () => {
     const serverFetch = vi.fn(
       async (_input: Request | URL | string, _init?: RequestInit) =>

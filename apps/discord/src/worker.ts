@@ -38,7 +38,7 @@ const envSchema = z.object({
 const discordUserSchema = z.object({
   id: z.string().trim().min(1),
   username: z.string().trim().optional(),
-  global_name: z.string().trim().optional(),
+  global_name: z.string().trim().nullable().optional(),
   bot: z.boolean().optional(),
 });
 
