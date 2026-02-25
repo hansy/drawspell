@@ -72,6 +72,7 @@ bun install
 | `DISCORD_PUBLIC_KEY` | `apps/discord` | Discord public key for interaction signature validation. | Cloudflare secret or `apps/discord/.dev.vars` |
 | `DISCORD_BOT_TOKEN` | `apps/discord` | Bot token for DM fanout and command registration. | Cloudflare secret or `apps/discord/.dev.vars` |
 | `DISCORD_SERVICE_AUTH_SECRET` | `apps/discord`, `apps/server` | Shared secret for internal provisioning auth. | Cloudflare secret or `.dev.vars` in each app |
+| `DRAWSPELL_PUBLIC_ORIGIN` | `apps/server` | Public web origin used to build Discord DM invite links (staging/prod specific). | `apps/server/wrangler.jsonc` vars or `apps/server/.dev.vars` |
 | `DISCORD_APPLICATION_ID` | `apps/discord` registration script | Discord application ID used for slash-command registration. | Cloudflare secret/env var or `apps/discord/.dev.vars` |
 | `DISCORD_COMMAND_GUILD_ID` | `apps/discord` registration script | Optional default guild for faster command registration rollout. | Local env or shell export |
 | `DISCORD_API_BASE_URL` | `apps/discord` | Optional Discord API base URL override. | Local env / Worker vars |

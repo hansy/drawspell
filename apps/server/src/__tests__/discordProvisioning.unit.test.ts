@@ -146,6 +146,54 @@ describe("discord provisioning endpoint", () => {
     );
   });
 
+  it("builds player invite link using configured public origin", async () => {
+    const rooms = {
+      idFromName: vi.fn((name: string) => ({ name })),
+      get: vi.fn(() => ({
+        fetch: vi.fn(async (request: Request) =>
+          Response.json({
+            roomId: request.headers.get("x-partykit-room"),
+            playerToken: "player-token-xyz",
+            expiresAt: 1_234_567,
+          }),
+        ),
+      })),
+    };
+
+    const env = {
+      JOIN_TOKEN_SECRET: "join-secret",
+      DISCORD_SERVICE_AUTH_SECRET: "service-secret",
+      DRAWSPELL_PUBLIC_ORIGIN: "https://staging.drawspell.space/some/path",
+      rooms,
+    } as any;
+
+    const response = await server.fetch(
+      new Request("https://example.test/internal/discord/rooms/provision", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer service-secret",
+        },
+        body: JSON.stringify({
+          guildId: "guild-1",
+          channelId: "channel-1",
+          invokerDiscordUserId: "user-1",
+          participantDiscordUserIds: ["user-1", "user-2"],
+        }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      roomId: string;
+      playerInviteUrl: string;
+    };
+    expect(payload.playerInviteUrl).toBe(
+      `https://staging.drawspell.space/game/${payload.roomId}?gt=player-token-xyz`,
+    );
+  });
+
   it("stores pending discord invite metadata in room storage", async () => {
     vi.useFakeTimers();
     try {

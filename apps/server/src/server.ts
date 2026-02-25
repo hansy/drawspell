@@ -80,7 +80,7 @@ const SERVER_ALLOWED_ORIGINS = new Set([
   "http://localhost:5173",
 ]);
 const SERVER_ALLOWED_HOSTS = new Set(["ws.drawspell.space", "localhost:8787"]);
-const DRAWSPELL_PUBLIC_ORIGIN = "https://drawspell.space";
+const DEFAULT_DRAWSPELL_PUBLIC_ORIGIN = "https://drawspell.space";
 const PERF_METRICS_ENABLED = false;
 const PERF_METRICS_ALLOW_PARAM = false;
 const JOIN_TOKEN_MAX_SKEW_MS = 30_000;
@@ -282,6 +282,15 @@ const resolveDiscordServiceAuthSecret = (env: Env) => {
   return normalizeNonEmptyString(raw);
 };
 
+const resolveDrawspellPublicOrigin = (env: Env) => {
+  const raw = normalizeNonEmptyString(
+    (env as Env & { DRAWSPELL_PUBLIC_ORIGIN?: string }).DRAWSPELL_PUBLIC_ORIGIN,
+  );
+  if (!raw) return DEFAULT_DRAWSPELL_PUBLIC_ORIGIN;
+  const normalized = normalizeOrigin(raw);
+  return normalized ?? DEFAULT_DRAWSPELL_PUBLIC_ORIGIN;
+};
+
 const normalizeOrigin = (value: string) => {
   try {
     return new URL(value).origin;
@@ -478,10 +487,11 @@ const handleDiscordRoomProvisioningRequest = async (
   if (!parsedResult || parsedResult.roomId !== roomId) {
     return new Response("Invalid room provision response", { status: 502 });
   }
+  const drawspellPublicOrigin = resolveDrawspellPublicOrigin(env);
   return Response.json({
     roomId: parsedResult.roomId,
     playerToken: parsedResult.playerToken,
-    playerInviteUrl: `${DRAWSPELL_PUBLIC_ORIGIN}/game/${parsedResult.roomId}?gt=${parsedResult.playerToken}`,
+    playerInviteUrl: `${drawspellPublicOrigin}/game/${parsedResult.roomId}?gt=${parsedResult.playerToken}`,
     expiresAt: parsedResult.expiresAt,
   });
 };

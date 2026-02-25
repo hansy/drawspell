@@ -33,6 +33,7 @@ bun run typecheck
 - Env vars:
   - `JOIN_TOKEN_SECRET` (required): HMAC secret used to validate join tokens. Must match `apps/web`.
   - `DISCORD_SERVICE_AUTH_SECRET` (required for Discord provisioning): shared secret used to authenticate internal `/internal/discord/rooms/provision` calls.
+  - `DRAWSPELL_PUBLIC_ORIGIN` (recommended for Discord provisioning): public web origin used when building DM invite links (for example `https://drawspell.space` or a staging domain).
 
 For local dev, set secrets in `apps/server/.dev.vars` or via `wrangler secret put JOIN_TOKEN_SECRET`.
 
