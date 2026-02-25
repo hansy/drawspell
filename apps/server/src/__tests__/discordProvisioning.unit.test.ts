@@ -92,7 +92,7 @@ describe("discord provisioning endpoint", () => {
     expect(roomFetch).not.toHaveBeenCalled();
   });
 
-  it("returns player invite link in /game/<roomId>?gt=<playerToken> format", async () => {
+  it("returns fully qualified player invite link in /game/<roomId>?gt=<playerToken> format", async () => {
     const rooms = {
       idFromName: vi.fn((name: string) => ({ name })),
       get: vi.fn(() => ({
@@ -142,7 +142,7 @@ describe("discord provisioning endpoint", () => {
       expiresAt: 1_234_567,
     });
     expect(payload.playerInviteUrl).toBe(
-      `/game/${payload.roomId}?gt=player-token-xyz`,
+      `https://drawspell.space/game/${payload.roomId}?gt=player-token-xyz`,
     );
   });
 

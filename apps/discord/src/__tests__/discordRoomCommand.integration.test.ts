@@ -27,6 +27,21 @@ const interactionHeaders = {
   "x-signature-timestamp": "123",
 };
 
+const createExecutionContext = () => {
+  const pending: Promise<unknown>[] = [];
+  return {
+    executionCtx: {
+      waitUntil: (promise: Promise<unknown>) => {
+        pending.push(promise);
+      },
+      passThroughOnException: () => {},
+    },
+    waitForBackgroundTasks: async () => {
+      await Promise.allSettled(pending);
+    },
+  };
+};
+
 const createRoomInteraction = (overrides: Partial<Record<string, unknown>> = {}) =>
   ({
     id: "interaction-1",
@@ -71,7 +86,7 @@ describe("discord /drawspell room", () => {
       Response.json({
         roomId: "room-abc",
         playerToken: "player-token-abc",
-        playerInviteUrl: "/game/room-abc?gt=player-token-abc",
+        playerInviteUrl: "https://drawspell.space/game/room-abc?gt=player-token-abc",
         expiresAt: Date.now() + 600_000,
       }),
     );
@@ -83,6 +98,7 @@ describe("discord /drawspell room", () => {
       SERVER: { fetch: serverFetch },
     };
 
+    let interactionUpdateContent = "";
     const discordFetch = vi.fn(async (input: Request | URL | string, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
       if (url.endsWith("/users/@me/channels")) {
@@ -91,11 +107,17 @@ describe("discord /drawspell room", () => {
       if (url.endsWith("/channels/dm-channel-user-1/messages")) {
         return Response.json({ id: "message-1" });
       }
+      if (url.endsWith("/webhooks/app-1/interaction-token/messages/@original")) {
+        const payload = JSON.parse(String(init?.body)) as { content: string };
+        interactionUpdateContent = payload.content;
+        return Response.json({ id: "interaction-message-1" });
+      }
       throw new Error(`Unexpected Discord API call: ${url} ${init?.method ?? "GET"}`);
     });
     vi.stubGlobal("fetch", discordFetch as unknown as typeof fetch);
 
     const requestBody = createRoomInteraction();
+    const { executionCtx, waitForBackgroundTasks } = createExecutionContext();
     const response = await worker.fetch(
       new Request("https://discord-worker.test/interactions", {
         method: "POST",
@@ -103,16 +125,18 @@ describe("discord /drawspell room", () => {
         body: JSON.stringify(requestBody),
       }),
       env,
+      executionCtx as any,
     );
+    await waitForBackgroundTasks();
 
     expect(response.status).toBe(200);
     const payload = (await response.json()) as {
       type: number;
       data?: { content?: string; flags?: number };
     };
-    expect(payload.type).toBe(InteractionResponseType.ChannelMessageWithSource);
+    expect(payload.type).toBe(InteractionResponseType.DeferredChannelMessageWithSource);
     expect(payload.data?.flags).toBe(MessageFlags.Ephemeral);
-    expect(payload.data?.content).toContain("DM sent to 1 participant");
+    expect(payload.data?.content).toBeUndefined();
 
     expect(serverFetch).toHaveBeenCalledTimes(1);
     const provisionInit = serverFetch.mock.calls[0]![1] as RequestInit;
@@ -129,14 +153,15 @@ describe("discord /drawspell room", () => {
       participantDiscordUserIds: ["user-1"],
     });
 
-    expect(discordFetch).toHaveBeenCalledTimes(2);
+    expect(discordFetch).toHaveBeenCalledTimes(3);
     const dmMessageInit = discordFetch.mock.calls[1][1] as RequestInit;
     expect(dmMessageInit.method).toBe("POST");
     const dmPayload = JSON.parse(String(dmMessageInit.body)) as {
       content: string;
     };
-    expect(dmPayload.content).toContain("/game/room-abc?gt=player-token-abc");
+    expect(dmPayload.content).toContain("https://drawspell.space/game/room-abc?gt=player-token-abc");
     expect(dmPayload.content).toContain("Invoker");
+    expect(interactionUpdateContent).toContain("DM sent to 1 participant");
   });
 
   it("TO-02: sends identical DM content to invoker and tagged members", async () => {
@@ -145,7 +170,7 @@ describe("discord /drawspell room", () => {
       Response.json({
         roomId: "room-xyz",
         playerToken: "player-token-xyz",
-        playerInviteUrl: "/game/room-xyz?gt=player-token-xyz",
+        playerInviteUrl: "https://drawspell.space/game/room-xyz?gt=player-token-xyz",
         expiresAt: Date.now() + 600_000,
       }),
     );
@@ -158,6 +183,7 @@ describe("discord /drawspell room", () => {
     };
 
     const dmMessageBodies: string[] = [];
+    let interactionUpdateContent = "";
     const discordFetch = vi.fn(async (input: Request | URL | string, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
       if (url.endsWith("/users/@me/channels")) {
@@ -168,6 +194,11 @@ describe("discord /drawspell room", () => {
         const payload = JSON.parse(String(init?.body)) as { content: string };
         dmMessageBodies.push(payload.content);
         return Response.json({ id: `message-${dmMessageBodies.length}` });
+      }
+      if (url.endsWith("/webhooks/app-1/interaction-token/messages/@original")) {
+        const payload = JSON.parse(String(init?.body)) as { content: string };
+        interactionUpdateContent = payload.content;
+        return Response.json({ id: "interaction-message-1" });
       }
       throw new Error(`Unexpected Discord API call: ${url} ${init?.method ?? "GET"}`);
     });
@@ -202,6 +233,7 @@ describe("discord /drawspell room", () => {
       },
     });
 
+    const { executionCtx, waitForBackgroundTasks } = createExecutionContext();
     const response = await worker.fetch(
       new Request("https://discord-worker.test/interactions", {
         method: "POST",
@@ -209,7 +241,9 @@ describe("discord /drawspell room", () => {
         body: JSON.stringify(requestBody),
       }),
       env,
+      executionCtx as any,
     );
+    await waitForBackgroundTasks();
 
     expect(response.status).toBe(200);
     expect(serverFetch).toHaveBeenCalledTimes(1);
@@ -225,10 +259,13 @@ describe("discord /drawspell room", () => {
 
     expect(dmMessageBodies).toHaveLength(3);
     expect(new Set(dmMessageBodies).size).toBe(1);
-    expect(dmMessageBodies[0]).toContain("/game/room-xyz?gt=player-token-xyz");
+    expect(dmMessageBodies[0]).toContain(
+      "https://drawspell.space/game/room-xyz?gt=player-token-xyz",
+    );
     expect(dmMessageBodies[0]).toContain("Invoker");
     expect(dmMessageBodies[0]).toContain("TaggedOne");
     expect(dmMessageBodies[0]).toContain("TaggedTwo");
+    expect(interactionUpdateContent).toContain("DM sent to 3 participants.");
   });
 
   it("TO-03: includes only first three unique non-bot tagged members", async () => {
@@ -237,7 +274,7 @@ describe("discord /drawspell room", () => {
       Response.json({
         roomId: "room-prune",
         playerToken: "player-token-prune",
-        playerInviteUrl: "/game/room-prune?gt=player-token-prune",
+        playerInviteUrl: "https://drawspell.space/game/room-prune?gt=player-token-prune",
         expiresAt: Date.now() + 600_000,
       }),
     );
@@ -250,6 +287,7 @@ describe("discord /drawspell room", () => {
     };
 
     const dmRecipientIds: string[] = [];
+    let interactionUpdateContent = "";
     const discordFetch = vi.fn(async (input: Request | URL | string, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
       if (url.endsWith("/users/@me/channels")) {
@@ -259,6 +297,11 @@ describe("discord /drawspell room", () => {
       }
       if (url.includes("/channels/dm-channel-") && url.endsWith("/messages")) {
         return Response.json({ id: "message-id" });
+      }
+      if (url.endsWith("/webhooks/app-1/interaction-token/messages/@original")) {
+        const payload = JSON.parse(String(init?.body)) as { content: string };
+        interactionUpdateContent = payload.content;
+        return Response.json({ id: "interaction-message-1" });
       }
       throw new Error(`Unexpected Discord API call: ${url} ${init?.method ?? "GET"}`);
     });
@@ -294,6 +337,7 @@ describe("discord /drawspell room", () => {
       },
     });
 
+    const { executionCtx, waitForBackgroundTasks } = createExecutionContext();
     const response = await worker.fetch(
       new Request("https://discord-worker.test/interactions", {
         method: "POST",
@@ -301,7 +345,9 @@ describe("discord /drawspell room", () => {
         body: JSON.stringify(requestBody),
       }),
       env,
+      executionCtx as any,
     );
+    await waitForBackgroundTasks();
 
     expect(response.status).toBe(200);
     expect(serverFetch).toHaveBeenCalledTimes(1);
@@ -317,10 +363,7 @@ describe("discord /drawspell room", () => {
     ]);
     expect(dmRecipientIds).toEqual(["user-1", "user-2", "user-3", "user-4"]);
 
-    const payload = (await response.json()) as {
-      data?: { content?: string };
-    };
-    const confirmation = payload.data?.content ?? "";
+    const confirmation = interactionUpdateContent;
     expect(confirmation).toContain(
       "Included only the first 3 unique non-bot tagged members.",
     );
@@ -335,7 +378,7 @@ describe("discord /drawspell room", () => {
       Response.json({
         roomId: "room-fail",
         playerToken: "player-token-fail",
-        playerInviteUrl: "/game/room-fail?gt=player-token-fail",
+        playerInviteUrl: "https://drawspell.space/game/room-fail?gt=player-token-fail",
         expiresAt: Date.now() + 600_000,
       }),
     );
@@ -348,6 +391,7 @@ describe("discord /drawspell room", () => {
     };
 
     const successfulMessageTargets: string[] = [];
+    let interactionUpdateContent = "";
     const discordFetch = vi.fn(async (input: Request | URL | string, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
       if (url.endsWith("/users/@me/channels")) {
@@ -361,6 +405,11 @@ describe("discord /drawspell room", () => {
         const channelId = url.split("/channels/")[1]?.split("/messages")[0] ?? "unknown";
         successfulMessageTargets.push(channelId);
         return Response.json({ id: `message-${successfulMessageTargets.length}` });
+      }
+      if (url.endsWith("/webhooks/app-1/interaction-token/messages/@original")) {
+        const payload = JSON.parse(String(init?.body)) as { content: string };
+        interactionUpdateContent = payload.content;
+        return Response.json({ id: "interaction-message-1" });
       }
       throw new Error(`Unexpected Discord API call: ${url} ${init?.method ?? "GET"}`);
     });
@@ -389,6 +438,7 @@ describe("discord /drawspell room", () => {
       },
     });
 
+    const { executionCtx, waitForBackgroundTasks } = createExecutionContext();
     const response = await worker.fetch(
       new Request("https://discord-worker.test/interactions", {
         method: "POST",
@@ -396,15 +446,13 @@ describe("discord /drawspell room", () => {
         body: JSON.stringify(requestBody),
       }),
       env,
+      executionCtx as any,
     );
+    await waitForBackgroundTasks();
 
     expect(response.status).toBe(200);
     expect(successfulMessageTargets).toEqual(["dm-channel-user-1", "dm-channel-user-2"]);
-
-    const payload = (await response.json()) as {
-      data?: { content?: string };
-    };
-    const confirmation = payload.data?.content ?? "";
+    const confirmation = interactionUpdateContent;
     expect(confirmation).toContain("DM sent to 2 participants.");
     expect(confirmation).toContain("Failed to DM: TaggedTwo");
   });

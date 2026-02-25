@@ -43,6 +43,9 @@ const discordUserSchema = z.object({
 });
 
 const interactionSchema = z.object({
+  id: z.string().trim().optional(),
+  application_id: z.string().trim().optional(),
+  token: z.string().trim().optional(),
   type: z.number(),
   guild_id: z.string().trim().optional(),
   channel_id: z.string().trim().optional(),
@@ -95,6 +98,14 @@ const interactionResponse = (content: string) =>
     type: InteractionResponseType.ChannelMessageWithSource,
     data: {
       content,
+      flags: MessageFlags.Ephemeral,
+    },
+  });
+
+const deferredInteractionResponse = () =>
+  Response.json({
+    type: InteractionResponseType.DeferredChannelMessageWithSource,
+    data: {
       flags: MessageFlags.Ephemeral,
     },
   });
@@ -274,6 +285,36 @@ const fanOutDmMessage = async ({
   return failures;
 };
 
+const editOriginalInteractionResponse = async ({
+  apiBaseUrl,
+  applicationId,
+  interactionToken,
+  content,
+}: {
+  apiBaseUrl: string;
+  applicationId: string;
+  interactionToken: string;
+  content: string;
+}) => {
+  const response = await fetch(
+    `${apiBaseUrl}/webhooks/${encodeURIComponent(applicationId)}/${encodeURIComponent(
+      interactionToken,
+    )}/messages/@original`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ content }),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Edit original interaction response failed with status ${response.status}`,
+    );
+  }
+};
+
 const buildDmContent = ({
   inviteUrl,
   participantNames,
@@ -316,6 +357,62 @@ const buildCommandConfirmation = ({
     );
   }
   return sections.join("\n");
+};
+
+const runDrawspellRoomCommand = async ({
+  env,
+  interaction,
+  recipients,
+  provisioningPayload,
+  apiBaseUrl,
+}: {
+  env: z.infer<typeof envSchema>;
+  interaction: ParsedInteraction;
+  recipients: RecipientResolution;
+  provisioningPayload: ReturnType<typeof createProvisionRequest>;
+  apiBaseUrl: string;
+}) => {
+  const applicationId = interaction.application_id;
+  const interactionToken = interaction.token;
+  if (!applicationId || !interactionToken) {
+    return;
+  }
+
+  let confirmation = "Failed to provision a Drawspell room invite.";
+  try {
+    const provisionedRoom = await callProvisioningEndpoint(env, provisioningPayload);
+    const dmContent = buildDmContent({
+      inviteUrl: provisionedRoom.playerInviteUrl,
+      participantNames: recipients.recipientNames,
+    });
+    const failures = await fanOutDmMessage({
+      apiBaseUrl,
+      botToken: env.DISCORD_BOT_TOKEN,
+      recipientIds: recipients.recipientIds,
+      recipientNames: recipients.recipientNames,
+      content: dmContent,
+    });
+    const successCount = recipients.recipientIds.length - failures.length;
+    confirmation = buildCommandConfirmation({
+      successCount,
+      recipientNames: recipients.recipientNames,
+      failures,
+      truncatedTaggedUsers: recipients.truncatedTaggedUsers,
+    });
+  } catch (_error) {
+    confirmation = "Failed to provision a Drawspell room invite.";
+  }
+
+  try {
+    await editOriginalInteractionResponse({
+      apiBaseUrl,
+      applicationId,
+      interactionToken,
+      content: confirmation,
+    });
+  } catch (_error) {
+    console.error("[discord] failed to update deferred interaction response");
+  }
 };
 
 app.post("/interactions", async (c) => {
@@ -372,6 +469,9 @@ app.post("/interactions", async (c) => {
   if (!interaction.guild_id || !interaction.channel_id) {
     return interactionResponse("This command must be run in a server channel.");
   }
+  if (!interaction.application_id || !interaction.token) {
+    return interactionResponse("Could not resolve interaction token.");
+  }
 
   const recipients = resolveRoomRecipients(invoker, interaction);
   const provisioningPayload = createProvisionRequest(
@@ -379,35 +479,25 @@ app.post("/interactions", async (c) => {
     invoker,
     recipients.recipientIds,
   );
+  const apiBaseUrl = env.DISCORD_API_BASE_URL ?? DISCORD_API_DEFAULT_BASE_URL;
 
-  let provisionedRoom: z.infer<typeof provisionResponseSchema>;
-  try {
-    provisionedRoom = await callProvisioningEndpoint(env, provisioningPayload);
-  } catch (_error) {
-    return interactionResponse("Failed to provision a Drawspell room invite.");
+  const roomCommandTask = runDrawspellRoomCommand({
+    env,
+    interaction,
+    recipients,
+    provisioningPayload,
+    apiBaseUrl,
+  });
+  if (
+    c.executionCtx &&
+    typeof c.executionCtx.waitUntil === "function"
+  ) {
+    c.executionCtx.waitUntil(roomCommandTask);
+  } else {
+    void roomCommandTask;
   }
 
-  const dmContent = buildDmContent({
-    inviteUrl: provisionedRoom.playerInviteUrl,
-    participantNames: recipients.recipientNames,
-  });
-  const apiBaseUrl = env.DISCORD_API_BASE_URL ?? DISCORD_API_DEFAULT_BASE_URL;
-  const failures = await fanOutDmMessage({
-    apiBaseUrl,
-    botToken: env.DISCORD_BOT_TOKEN,
-    recipientIds: recipients.recipientIds,
-    recipientNames: recipients.recipientNames,
-    content: dmContent,
-  });
-  const successCount = recipients.recipientIds.length - failures.length;
-  const confirmation = buildCommandConfirmation({
-    successCount,
-    recipientNames: recipients.recipientNames,
-    failures,
-    truncatedTaggedUsers: recipients.truncatedTaggedUsers,
-  });
-
-  return interactionResponse(confirmation);
+  return deferredInteractionResponse();
 });
 
 export default app;

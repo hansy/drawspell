@@ -80,6 +80,7 @@ const SERVER_ALLOWED_ORIGINS = new Set([
   "http://localhost:5173",
 ]);
 const SERVER_ALLOWED_HOSTS = new Set(["ws.drawspell.space", "localhost:8787"]);
+const DRAWSPELL_PUBLIC_ORIGIN = "https://drawspell.space";
 const PERF_METRICS_ENABLED = false;
 const PERF_METRICS_ALLOW_PARAM = false;
 const JOIN_TOKEN_MAX_SKEW_MS = 30_000;
@@ -480,7 +481,7 @@ const handleDiscordRoomProvisioningRequest = async (
   return Response.json({
     roomId: parsedResult.roomId,
     playerToken: parsedResult.playerToken,
-    playerInviteUrl: `/game/${parsedResult.roomId}?gt=${parsedResult.playerToken}`,
+    playerInviteUrl: `${DRAWSPELL_PUBLIC_ORIGIN}/game/${parsedResult.roomId}?gt=${parsedResult.playerToken}`,
     expiresAt: parsedResult.expiresAt,
   });
 };
