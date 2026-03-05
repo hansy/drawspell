@@ -424,8 +424,6 @@ const validatePartyHandshake = async (
   return null;
 };
 
-console.log("hello world");
-
 const handleDiscordRoomProvisioningRequest = async (
   request: Request,
   env: Env,

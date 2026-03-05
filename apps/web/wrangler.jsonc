@@ -1,29 +1,30 @@
 {
+  // hello world
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "drawspell",
   "compatibility_date": "2026-03-05",
   "compatibility_flags": ["nodejs_compat"],
   "main": "@tanstack/react-start/server-entry",
   "observability": {
-    "enabled": true
+    "enabled": true,
   },
   "env": {
     "development": {
       "vars": {
-        "NODE_ENV": "development"
-      }
+        "NODE_ENV": "development",
+      },
     },
     "production": {
       "name": "drawspell",
       "vars": {
-        "NODE_ENV": "production"
-      }
-    }
+        "NODE_ENV": "production",
+      },
+    },
   },
   "routes": [
     {
       "pattern": "drawspell.space",
-      "custom_domain": true
-    }
-  ]
+      "custom_domain": true,
+    },
+  ],
 }
