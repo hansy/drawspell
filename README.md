@@ -68,8 +68,10 @@ bun install
 
 | Name | Used by | Description | Source |
 | --- | --- | --- | --- |
-| `VITE_SERVER_HOST` | `apps/web` | Overrides the PartyServer host (host or full URL). | `apps/web/wrangler.jsonc` or `.env*` loaded from repo root |
-| `JOIN_TOKEN_SECRET` | `apps/web`, `apps/server` | HMAC secret for join tokens; must match across web + server workers. | Cloudflare secret or local `.env`/`.dev.vars` |
+| `VITE_SERVER_HOST` | `apps/web` | Overrides the PartyServer host (host or full URL). | `apps/web/.env.development` and `apps/web/.env.production` |
+| `VITE_PUBLIC_POSTHOG_KEY` | `apps/web` | Public PostHog API key used by the web client. | `apps/web/.env` |
+| `VITE_PUBLIC_POSTHOG_HOST` | `apps/web` | Public PostHog host used by the web client. | `apps/web/.env` |
+| `JOIN_TOKEN_SECRET` | `apps/web`, `apps/server` | HMAC secret for join tokens; must match across web + server workers. | Cloudflare secret or local `.dev.vars` |
 | `DISCORD_PUBLIC_KEY` | `apps/discord` | Discord public key for interaction signature validation. | Cloudflare secret or `apps/discord/.dev.vars` |
 | `DISCORD_BOT_TOKEN` | `apps/discord` | Bot token for DM fanout and command registration. | Cloudflare secret or `apps/discord/.dev.vars` |
 | `DISCORD_SERVICE_AUTH_SECRET` | `apps/discord`, `apps/server` | Shared secret for internal provisioning auth. | Cloudflare secret or `.dev.vars` in each app |
@@ -80,8 +82,8 @@ bun install
 
 ### Env files and loading
 
-- Web: Vite loads `.env*` files from the repo root (see `apps/web/vite.config.ts`).
-- Web deploy values live in `apps/web/wrangler.jsonc` under `env`; secrets use `wrangler secret`.
+- Web: Vite loads `.env*` files from `apps/web` during `vite build` and `vite dev`.
+- Web: public `VITE_*` values belong in `apps/web/.env*`; runtime-only values and secrets belong in `apps/web/wrangler.jsonc` plus `wrangler secret`.
 - Server: Durable Object binding `rooms` is configured in `apps/server/wrangler.jsonc`; secrets use `wrangler secret` or `apps/server/.dev.vars`.
 - Discord: service binding `SERVER` is configured in `apps/discord/wrangler.jsonc`; default/prod binds to `drawspell-server`, and `env.development` binds to `drawspell-server-development` for local `wrangler dev --env development`.
 - Discord command registration script reads exported shell env values only (`DISCORD_BOT_TOKEN`, `DISCORD_APPLICATION_ID`, and optional `DISCORD_COMMAND_GUILD_ID`/`DISCORD_API_BASE_URL`).

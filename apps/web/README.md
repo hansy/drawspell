@@ -20,6 +20,7 @@ Run these from `apps/web` (or prefix with `bun run --cwd apps/web` from the repo
 ```bash
 bun run dev
 bun run build
+bun run build:production
 bun run preview
 bun run test
 bun run typecheck
@@ -28,10 +29,10 @@ bun run deploy
 ```
 
 ## Configuration
-- `VITE_SERVER_HOST`: optional override for the PartyServer host (host or full URL). If unset, the client defaults to `localhost:8787`.
-- `JOIN_TOKEN_SECRET`: required for issuing join tokens. Must match the secret used by `apps/server`.
-- Cloudflare env values for deploy live in `wrangler.jsonc`.
-- `.env*` files are loaded by Vite from the repo root (see `vite.config.ts`). If more env vars are added later, search for `import.meta.env`.
+- `VITE_SERVER_HOST`: optional override for the PartyServer host (host or full URL). Set in `apps/web/.env.development` and `apps/web/.env.production`. If unset, the client defaults to `localhost:8787`.
+- `VITE_PUBLIC_POSTHOG_KEY` and `VITE_PUBLIC_POSTHOG_HOST`: public analytics build vars loaded from `apps/web/.env`.
+- `JOIN_TOKEN_SECRET`: required runtime secret for issuing join tokens. Must match the secret used by `apps/server`. Set it with `wrangler secret put JOIN_TOKEN_SECRET` for production and `apps/web/.dev.vars` for local dev.
+- Worker runtime deploy config lives in `wrangler.jsonc`. Public `VITE_*` values should stay in `apps/web/.env*` because they are read via `import.meta.env` at build time.
 
 ## Key files
 - [src/routes/index.tsx](src/routes/index.tsx)

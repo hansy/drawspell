@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite dev",
     "deploy": "bun run build:production && wrangler deploy",
-    "preview": "bun run build && vite preview",
+    "preview": "bun run build:production && vite preview",
     "cf:typegen": "wrangler types",
     "build": "vite build",
     "build:production": "CLOUDFLARE_ENV=production vite build",
