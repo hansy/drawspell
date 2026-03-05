@@ -1,4 +1,4 @@
-export const DISCORD_ROOM_PROVISION_PATH = "/games";
+export const DISCORD_ROOM_PROVISION_PATH = "/rooms";
 
 export type DiscordRoomProvisionRequest = {
   interactionId: string;

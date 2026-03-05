@@ -27,7 +27,7 @@ flowchart LR
 | ------------- | --------------------------------------------------------------------------------------------------------------- |
 | `apps/web`    | Web client (TanStack React Start + Vite). See [apps/web/README.md](apps/web/README.md).                         |
 | `apps/server` | PartyServer backend (Cloudflare Workers + Durable Objects). See [apps/server/README.md](apps/server/README.md). |
-| `apps/discord` | Discord Interactions worker for `/drawspell room`. See [apps/discord/README.md](apps/discord/README.md). |
+| `apps/discord` | Discord Interactions worker for `/drawspell create`. See [apps/discord/README.md](apps/discord/README.md). |
 
 ## Getting started
 
@@ -57,7 +57,7 @@ bun install
 | Deploy: Discord worker | `bun run deploy:discord` | Deploys `apps/discord`. |
 | Register Discord commands (guild) | `bun run register:discord:commands -- --guild-id <GUILD_ID>` | Fast propagation for testing. |
 | Register Discord commands (global) | `bun run register:discord:commands:global` | Use after guild validation. |
-| Smoke test: Discord `/drawspell room` | `bun run test:discord:smoke` | Runs `TO-01` integration expectation used post-registration. |
+| Smoke test: Discord `/drawspell create` | `bun run test:discord:smoke` | Runs `TO-01` integration expectation used post-registration. |
 | Cloudflare types (web) | `bun run cf-typegen` | Generates Workers types for the web app. |
 | Cloudflare types (discord) | `bun run --cwd apps/discord cf:typegen` | Regenerates Discord worker `Env` types from `wrangler.jsonc` + `.dev.vars`. |
 | Lint | **TBD** | No `lint` script is defined in `package.json`. |
@@ -76,7 +76,7 @@ bun install
 | `DISCORD_APPLICATION_ID` | `apps/discord` registration script | Discord application ID used for slash-command registration. | Cloudflare secret/env var or `apps/discord/.dev.vars` |
 | `DISCORD_COMMAND_GUILD_ID` | `apps/discord` registration script | Optional default guild for faster command registration rollout. | Local env or shell export |
 | `DISCORD_API_BASE_URL` | `apps/discord` registration script | Optional Discord API base URL override for command registration. | Local env |
-| `DRAWSPELL_WEB_ORIGIN` | `apps/server` | Public web origin used to return absolute invite links from `POST /games` (`https://drawspell.space` default, `http://localhost:5173` in `env.development`). | Worker vars or local env |
+| `DRAWSPELL_WEB_ORIGIN` | `apps/server` | Public web origin used to return absolute invite links from `POST /rooms` (`https://drawspell.space` default, `http://localhost:5173` in `env.development`). | Worker vars or local env |
 
 ### Env files and loading
 

@@ -16,6 +16,7 @@ import {
   type DiscordRoomProvisionRequest,
 } from "@mtg/shared/discord/provisioning";
 import { verifyJoinToken } from "@mtg/shared/security/joinToken";
+import { env } from "cloudflare:workers";
 
 import {
   DISCORD_INVITE_METADATA_KEY,
@@ -548,7 +549,7 @@ const handleDiscordRoomProvisioningRequest = async (
     alreadyProvisioned: parsedResult.alreadyProvisioned,
     expiresAt: parsedResult.expiresAt,
   });
-  const playerInviteUrl = `${webOrigin}/game/${parsedResult.roomId}?gt=${parsedResult.playerToken}`;
+  const playerInviteUrl = `${webOrigin}/rooms/${parsedResult.roomId}?gt=${parsedResult.playerToken}`;
   return Response.json({
     roomId: parsedResult.roomId,
     playerToken: parsedResult.playerToken,
@@ -566,6 +567,8 @@ export default {
         if (request.method !== "POST") {
           return new Response("Method not allowed", { status: 405 });
         }
+
+        console.log("env", env);
         return handleDiscordRoomProvisioningRequest(request, env);
       }
       const isWsUpgrade =

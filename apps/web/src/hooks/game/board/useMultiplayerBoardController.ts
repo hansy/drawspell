@@ -226,7 +226,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     useGameStore.getState().leaveGame();
     const sessionId = createRoomId();
     markRoomAsHostPending(sessionId);
-    navigate({ to: "/game/$sessionId", params: { sessionId } });
+    navigate({ to: "/rooms/$sessionId", params: { sessionId } });
   }, [navigate]);
 
   const {

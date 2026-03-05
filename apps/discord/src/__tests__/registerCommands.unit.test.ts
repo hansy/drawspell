@@ -7,25 +7,30 @@ import {
 } from "../registerCommands";
 
 describe("discord command registration", () => {
-  it("builds the /drawspell room command payload with three optional player mentions", () => {
+  it("builds the /drawspell create command payload with three optional invite mentions", () => {
     const payload = buildDrawspellCommandPayload();
 
     expect(payload.name).toBe("drawspell");
-    const roomSubcommand = payload.options?.[0];
-    expect(roomSubcommand?.name).toBe("room");
-    expect(roomSubcommand?.type).toBe(1);
-    expect(roomSubcommand && "options" in roomSubcommand).toBe(true);
+    expect(
+      "description" in payload ? payload.description : undefined,
+    ).toBe(
+      "Create a Drawspell room for yourself and others you invite.",
+    );
+    const createSubcommand = payload.options?.[0];
+    expect(createSubcommand?.name).toBe("create");
+    expect(createSubcommand?.type).toBe(1);
+    expect(createSubcommand && "options" in createSubcommand).toBe(true);
 
-    const roomOptions =
-      roomSubcommand && "options" in roomSubcommand
-        ? (roomSubcommand.options ?? []) as Array<{ type: number; name: string }>
+    const createOptions =
+      createSubcommand && "options" in createSubcommand
+        ? (createSubcommand.options ?? []) as Array<{ type: number; name: string }>
         : [];
-    expect(roomOptions).toHaveLength(3);
-    expect(roomOptions.map((option) => option.type)).toEqual([6, 6, 6]);
-    expect(roomOptions.map((option) => option.name)).toEqual([
-      "player1",
-      "player2",
-      "player3",
+    expect(createOptions).toHaveLength(3);
+    expect(createOptions.map((option) => option.type)).toEqual([6, 6, 6]);
+    expect(createOptions.map((option) => option.name)).toEqual([
+      "invite1",
+      "invite2",
+      "invite3",
     ]);
   });
 

@@ -18,6 +18,8 @@ const MAX_TAGGED_RECIPIENTS = 3;
 const DISCORD_API_DEFAULT_BASE_URL = "https://discord.com/api/v10";
 const INTERACTIONS_LOG_PREFIX = "[discord-interactions]";
 const DISCORD_REQUEST_ID_HEADER = "x-discord-request-id";
+const DISCORD_SIGNATURE_MAX_AGE_MS = 5 * 60_000;
+const DISCORD_SIGNATURE_MAX_FUTURE_SKEW_MS = 30_000;
 
 const discordUserSchema = z.object({
   id: z.string().trim().min(1),
@@ -112,15 +114,15 @@ const collectTaggedUserIds = (options: unknown): string[] => {
   return taggedIds;
 };
 
-const hasRoomSubcommand = (options: unknown): boolean => {
-  let foundRoom = false;
+const hasCreateSubcommand = (options: unknown): boolean => {
+  let foundCreate = false;
   const visit = (nodes: unknown) => {
-    if (foundRoom || !Array.isArray(nodes)) return;
+    if (foundCreate || !Array.isArray(nodes)) return;
     for (const node of nodes) {
       if (!node || typeof node !== "object") continue;
       const record = node as Record<string, unknown>;
-      if (record.type === 1 && record.name === "room") {
-        foundRoom = true;
+      if (record.type === 1 && record.name === "create") {
+        foundCreate = true;
         return;
       }
       if (Array.isArray(record.options)) {
@@ -129,7 +131,7 @@ const hasRoomSubcommand = (options: unknown): boolean => {
     }
   };
   visit(options);
-  return foundRoom;
+  return foundCreate;
 };
 
 const resolveRoomRecipients = (
@@ -179,7 +181,7 @@ const createProvisionRequest = (
 
 const callProvisioningEndpoint = async (
   input: {
-    SERVER: Fetcher;
+    SERVER: Env["SERVER"];
     DISCORD_SERVICE_AUTH_SECRET: string;
     requestId: string;
   },
@@ -341,11 +343,15 @@ const buildDmContent = ({
   inviteUrl: string;
   participantNames: string[];
 }) => {
-  const participantList = participantNames.join(", ");
+  const participantList =
+    participantNames.length > 0 ? participantNames.join(", ") : "None";
   return [
-    "Drawspell room is ready.",
-    `Invite: ${inviteUrl}`,
-    `Participants: ${participantList}`,
+    `Room ready! Link: ${inviteUrl}`,
+    "",
+    "Participants:",
+    participantList,
+    "",
+    "Players and spectators can also be invited directly from the link.",
   ].join("\n");
 };
 
@@ -424,6 +430,23 @@ app.post("/interactions", async (c) => {
     });
     return new Response("Missing signature headers", { status: 401 });
   }
+  if (timestampSeconds === null) {
+    logInteractionEvent("invalid_timestamp", { requestId, timestamp });
+    return new Response("Invalid request timestamp", { status: 401 });
+  }
+  const signatureTimestampAgeMs = Date.now() - timestampSeconds * 1_000;
+  const isTimestampTooOld = signatureTimestampAgeMs > DISCORD_SIGNATURE_MAX_AGE_MS;
+  const isTimestampTooFarInFuture =
+    signatureTimestampAgeMs < -DISCORD_SIGNATURE_MAX_FUTURE_SKEW_MS;
+  if (isTimestampTooOld || isTimestampTooFarInFuture) {
+    logInteractionEvent("stale_or_future_timestamp", {
+      requestId,
+      signatureTimestampAgeMs,
+      maxAgeMs: DISCORD_SIGNATURE_MAX_AGE_MS,
+      maxFutureSkewMs: DISCORD_SIGNATURE_MAX_FUTURE_SKEW_MS,
+    });
+    return new Response("Invalid request timestamp", { status: 401 });
+  }
   const signatureHeaderLooksValid = hasExpectedLengthAndHex(signature, 128);
   const publicKeyLooksValid = hasExpectedLengthAndHex(discordPublicKey, 64);
   logInteractionEvent("signature_validation_context", {
@@ -486,7 +509,7 @@ app.post("/interactions", async (c) => {
   if (interaction.data?.name !== "drawspell") {
     return interactionResponse("Unsupported command.");
   }
-  if (!hasRoomSubcommand(interaction.data?.options)) {
+  if (!hasCreateSubcommand(interaction.data?.options)) {
     return interactionResponse("Unsupported command.");
   }
   const invoker = interaction.member?.user ?? interaction.user;
@@ -537,7 +560,7 @@ app.post("/interactions", async (c) => {
 
   if (provisionedRoom.alreadyProvisioned) {
     return interactionResponse(
-      `This /drawspell room request was already processed.\nInvite: ${provisionedRoom.playerInviteUrl}`,
+      `This /drawspell create request was already processed.\nInvite: ${provisionedRoom.playerInviteUrl}`,
     );
   }
 

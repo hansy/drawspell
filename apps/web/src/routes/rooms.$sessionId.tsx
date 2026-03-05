@@ -3,7 +3,7 @@ import { MultiplayerBoard } from "@/components/game/board/MultiplayerBoard";
 import { UsernamePromptScreen } from "@/components/username/UsernamePromptScreen";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
 
-export const Route = createFileRoute("/game/$sessionId")({
+export const Route = createFileRoute("/rooms/$sessionId")({
   component: GameRoute,
   head: () => ({
     meta: [

@@ -248,7 +248,7 @@ describe("useMultiplayerBoardController", () => {
       roomOverCapacity: false,
       activeModal: null,
     });
-    window.history.replaceState({}, "", "/game/room-1");
+    window.history.replaceState({}, "", "/rooms/room-1");
   });
 
   it("unlocks share links using stored tokens", async () => {

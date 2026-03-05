@@ -10,7 +10,7 @@ Drawspell's web client, built with TanStack React Start and Vite. It renders the
 - **Does not** apply authoritative game rules or permissions; that happens in `apps/server`.
 
 ## Public API
-- Routes: `/` and `/game/$sessionId` (see `src/routes`).
+- Routes: `/` and `/rooms/$sessionId` (see `src/routes`).
 - Invite tokens are accepted via query params `gt` (player) and `st` (spectator) on the game route (see `src/lib/partyKitToken.ts`).
 - PartyServer message types used by the client are defined in `src/partykit/messages.ts`.
 
@@ -35,7 +35,7 @@ bun run deploy
 
 ## Key files
 - [src/routes/index.tsx](src/routes/index.tsx)
-- [src/routes/game.$sessionId.tsx](src/routes/game.$sessionId.tsx)
+- [src/routes/rooms.$sessionId.tsx](src/routes/rooms.$sessionId.tsx)
 - [src/components/game/board/MultiplayerBoardView.tsx](src/components/game/board/MultiplayerBoardView.tsx)
 - [src/hooks/game/multiplayer-sync/sessionResources.ts](src/hooks/game/multiplayer-sync/sessionResources.ts)
 - [src/store/gameStore.ts](src/store/gameStore.ts)

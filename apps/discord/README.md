@@ -1,12 +1,12 @@
 # Discord Worker
 
 ## What is this?
-`apps/discord` is a Cloudflare Worker that handles Discord Interactions for `/drawspell room`, provisions room invites through the internal server binding, and fans out DM links to participants.
+`apps/discord` is a Cloudflare Worker that handles Discord Interactions for `/drawspell create`, provisions room invites through the internal server binding, and fans out DM links to participants.
 
 ## Responsibilities and boundaries
 - Verifies Discord interaction signatures.
-- Parses `/drawspell room` options and normalizes recipients.
-- Calls `POST /games` on `apps/server` through a Cloudflare Service Binding.
+- Parses `/drawspell create` options and normalizes recipients.
+- Calls `POST /rooms` on `apps/server` through a Cloudflare Service Binding.
 - Sends participant DMs through Discord REST APIs.
 - **Does not** manage room state directly; room lifecycle is handled by `apps/server`.
 
@@ -101,7 +101,7 @@ Guild registration propagates quickly for operator testing; global registration 
 After deployment and command registration:
 
 1. Run `bun run test:smoke` from `apps/discord`.
-2. In Discord, run `/drawspell room` without tags and confirm the invoker receives a DM with `<server DRAWSPELL_WEB_ORIGIN>/game/<roomId>?gt=<playerToken>`.
+2. In Discord, run `/drawspell create` without tags and confirm the invoker receives a DM with `<server DRAWSPELL_WEB_ORIGIN>/rooms/<roomId>?gt=<playerToken>`.
 
 ## Key files
 - [src/worker.ts](src/worker.ts)

@@ -12,7 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TosRouteImport } from './routes/tos'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as GameSessionIdRouteImport } from './routes/game.$sessionId'
+import { Route as RoomsSessionIdRouteImport } from './routes/rooms.$sessionId'
 
 const TosRoute = TosRouteImport.update({
   id: '/tos',
@@ -29,9 +29,9 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const GameSessionIdRoute = GameSessionIdRouteImport.update({
-  id: '/game/$sessionId',
-  path: '/game/$sessionId',
+const RoomsSessionIdRoute = RoomsSessionIdRouteImport.update({
+  id: '/rooms/$sessionId',
+  path: '/rooms/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -39,34 +39,34 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/privacy': typeof PrivacyRoute
   '/tos': typeof TosRoute
-  '/game/$sessionId': typeof GameSessionIdRoute
+  '/rooms/$sessionId': typeof RoomsSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/privacy': typeof PrivacyRoute
   '/tos': typeof TosRoute
-  '/game/$sessionId': typeof GameSessionIdRoute
+  '/rooms/$sessionId': typeof RoomsSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/privacy': typeof PrivacyRoute
   '/tos': typeof TosRoute
-  '/game/$sessionId': typeof GameSessionIdRoute
+  '/rooms/$sessionId': typeof RoomsSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/privacy' | '/tos' | '/game/$sessionId'
+  fullPaths: '/' | '/privacy' | '/tos' | '/rooms/$sessionId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/privacy' | '/tos' | '/game/$sessionId'
-  id: '__root__' | '/' | '/privacy' | '/tos' | '/game/$sessionId'
+  to: '/' | '/privacy' | '/tos' | '/rooms/$sessionId'
+  id: '__root__' | '/' | '/privacy' | '/tos' | '/rooms/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PrivacyRoute: typeof PrivacyRoute
   TosRoute: typeof TosRoute
-  GameSessionIdRoute: typeof GameSessionIdRoute
+  RoomsSessionIdRoute: typeof RoomsSessionIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -92,11 +92,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/game/$sessionId': {
-      id: '/game/$sessionId'
-      path: '/game/$sessionId'
-      fullPath: '/game/$sessionId'
-      preLoaderRoute: typeof GameSessionIdRouteImport
+    '/rooms/$sessionId': {
+      id: '/rooms/$sessionId'
+      path: '/rooms/$sessionId'
+      fullPath: '/rooms/$sessionId'
+      preLoaderRoute: typeof RoomsSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -106,7 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PrivacyRoute: PrivacyRoute,
   TosRoute: TosRoute,
-  GameSessionIdRoute: GameSessionIdRoute,
+  RoomsSessionIdRoute: RoomsSessionIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -62,7 +62,7 @@ const LandingPage = () => {
     try {
       const sessionId = createRoomId();
       markRoomAsHostPending(sessionId);
-      navigate({ to: "/game/$sessionId", params: { sessionId } });
+      navigate({ to: "/rooms/$sessionId", params: { sessionId } });
     } catch (error) {
       setIsCreating(false);
       throw error;
@@ -72,7 +72,7 @@ const LandingPage = () => {
   const handleReconnect = () => {
     if (!resumeSessionId) return;
     navigate({
-      to: "/game/$sessionId",
+      to: "/rooms/$sessionId",
       params: { sessionId: resumeSessionId },
     });
   };

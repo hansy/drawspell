@@ -20,11 +20,12 @@ type TestEnv = {
   SERVER: ServiceBinding;
 };
 
-const interactionHeaders = {
+const createInteractionHeaders = (overrides?: Record<string, string>) => ({
   "content-type": "application/json",
   "x-signature-ed25519": "sig",
-  "x-signature-timestamp": "123",
-};
+  "x-signature-timestamp": `${Math.floor(Date.now() / 1_000)}`,
+  ...(overrides ?? {}),
+});
 
 const createRoomInteraction = (overrides: Partial<Record<string, unknown>> = {}) =>
   ({
@@ -46,7 +47,7 @@ const createRoomInteraction = (overrides: Partial<Record<string, unknown>> = {})
       type: 1,
       options: [
         {
-          name: "room",
+          name: "create",
           type: 1,
         },
       ],
@@ -54,7 +55,7 @@ const createRoomInteraction = (overrides: Partial<Record<string, unknown>> = {})
     ...overrides,
   }) as Record<string, unknown>;
 
-describe("discord /drawspell room", () => {
+describe("discord /drawspell create", () => {
   beforeEach(() => {
     verifyKeyMock.mockReset();
     verifyKeyMock.mockReturnValue(true);
@@ -79,7 +80,7 @@ describe("discord /drawspell room", () => {
     const response = await worker.fetch(
       new Request("https://discord-worker.test/interactions", {
         method: "POST",
-        headers: interactionHeaders,
+        headers: createInteractionHeaders(),
         body: JSON.stringify({ type: 1 }),
       }),
       env,
@@ -109,7 +110,7 @@ describe("discord /drawspell room", () => {
     const response = await worker.fetch(
       new Request("https://discord-worker.test/interactions", {
         method: "POST",
-        headers: interactionHeaders,
+        headers: createInteractionHeaders(),
         body: JSON.stringify({ type: 1 }),
       }),
       env,
@@ -120,13 +121,42 @@ describe("discord /drawspell room", () => {
     expect(serverFetch).not.toHaveBeenCalled();
   });
 
+  it("rejects stale interaction timestamps before signature verification", async () => {
+    const serverFetch = vi.fn(
+      async (_input: Request | URL | string, _init?: RequestInit) =>
+        new Response("unexpected"),
+    );
+    const env: TestEnv = {
+      DISCORD_PUBLIC_KEY: "public-key",
+      DISCORD_BOT_TOKEN: "bot-token",
+      DISCORD_SERVICE_AUTH_SECRET: "service-secret",
+      SERVER: { fetch: serverFetch },
+    };
+
+    const response = await worker.fetch(
+      new Request("https://discord-worker.test/interactions", {
+        method: "POST",
+        headers: createInteractionHeaders({
+          "x-signature-timestamp": `${Math.floor(Date.now() / 1_000) - 10 * 60}`,
+        }),
+        body: JSON.stringify({ type: 1 }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.text()).resolves.toBe("Invalid request timestamp");
+    expect(verifyKeyMock).not.toHaveBeenCalled();
+    expect(serverFetch).not.toHaveBeenCalled();
+  });
+
   it("TO-01: sends invoker a DM with room invite when command has no tags", async () => {
     const serverFetch = vi.fn(
       async (_input: Request | URL | string, _init?: RequestInit) =>
       Response.json({
         roomId: "room-abc",
         playerToken: "player-token-abc",
-        playerInviteUrl: "https://drawspell.space/game/room-abc?gt=player-token-abc",
+        playerInviteUrl: "https://drawspell.space/rooms/room-abc?gt=player-token-abc",
         expiresAt: Date.now() + 600_000,
         alreadyProvisioned: false,
       }),
@@ -154,7 +184,7 @@ describe("discord /drawspell room", () => {
     const response = await worker.fetch(
       new Request("https://discord-worker.test/interactions", {
         method: "POST",
-        headers: interactionHeaders,
+        headers: createInteractionHeaders(),
         body: JSON.stringify(requestBody),
       }),
       env,
@@ -193,9 +223,13 @@ describe("discord /drawspell room", () => {
       content: string;
     };
     expect(dmPayload.content).toContain(
-      "https://drawspell.space/game/room-abc?gt=player-token-abc",
+      "Room ready! Link: https://drawspell.space/rooms/room-abc?gt=player-token-abc",
     );
+    expect(dmPayload.content).toContain("Participants:");
     expect(dmPayload.content).toContain("Invoker");
+    expect(dmPayload.content).toContain(
+      "Players and spectators can also be invited directly from the link.",
+    );
   });
 
   it("TO-02: sends identical DM content to invoker and tagged members", async () => {
@@ -204,7 +238,7 @@ describe("discord /drawspell room", () => {
       Response.json({
         roomId: "room-xyz",
         playerToken: "player-token-xyz",
-        playerInviteUrl: "https://drawspell.space/game/room-xyz?gt=player-token-xyz",
+        playerInviteUrl: "https://drawspell.space/rooms/room-xyz?gt=player-token-xyz",
         expiresAt: Date.now() + 600_000,
         alreadyProvisioned: false,
       }),
@@ -238,11 +272,11 @@ describe("discord /drawspell room", () => {
         type: 1,
         options: [
           {
-            name: "room",
+            name: "create",
             type: 1,
             options: [
-              { name: "player1", type: 6, value: "user-2" },
-              { name: "player2", type: 6, value: "user-3" },
+              { name: "invite1", type: 6, value: "user-2" },
+              { name: "invite2", type: 6, value: "user-3" },
             ],
           },
         ],
@@ -264,7 +298,7 @@ describe("discord /drawspell room", () => {
     const response = await worker.fetch(
       new Request("https://discord-worker.test/interactions", {
         method: "POST",
-        headers: interactionHeaders,
+        headers: createInteractionHeaders(),
         body: JSON.stringify(requestBody),
       }),
       env,
@@ -285,11 +319,15 @@ describe("discord /drawspell room", () => {
     expect(dmMessageBodies).toHaveLength(3);
     expect(new Set(dmMessageBodies).size).toBe(1);
     expect(dmMessageBodies[0]).toContain(
-      "https://drawspell.space/game/room-xyz?gt=player-token-xyz",
+      "Room ready! Link: https://drawspell.space/rooms/room-xyz?gt=player-token-xyz",
     );
+    expect(dmMessageBodies[0]).toContain("Participants:");
     expect(dmMessageBodies[0]).toContain("Invoker");
     expect(dmMessageBodies[0]).toContain("TaggedOne");
     expect(dmMessageBodies[0]).toContain("TaggedTwo");
+    expect(dmMessageBodies[0]).toContain(
+      "Players and spectators can also be invited directly from the link.",
+    );
   });
 
   it("TO-03: includes only first three unique non-bot tagged members", async () => {
@@ -298,7 +336,7 @@ describe("discord /drawspell room", () => {
       Response.json({
         roomId: "room-prune",
         playerToken: "player-token-prune",
-        playerInviteUrl: "https://drawspell.space/game/room-prune?gt=player-token-prune",
+        playerInviteUrl: "https://drawspell.space/rooms/room-prune?gt=player-token-prune",
         expiresAt: Date.now() + 600_000,
         alreadyProvisioned: false,
       }),
@@ -331,7 +369,7 @@ describe("discord /drawspell room", () => {
         type: 1,
         options: [
           {
-            name: "room",
+            name: "create",
             type: 1,
             options: [
               { name: "user1", type: 6, value: "user-2" },
@@ -358,7 +396,7 @@ describe("discord /drawspell room", () => {
     const response = await worker.fetch(
       new Request("https://discord-worker.test/interactions", {
         method: "POST",
-        headers: interactionHeaders,
+        headers: createInteractionHeaders(),
         body: JSON.stringify(requestBody),
       }),
       env,
@@ -396,7 +434,7 @@ describe("discord /drawspell room", () => {
       Response.json({
         roomId: "room-fail",
         playerToken: "player-token-fail",
-        playerInviteUrl: "https://drawspell.space/game/room-fail?gt=player-token-fail",
+        playerInviteUrl: "https://drawspell.space/rooms/room-fail?gt=player-token-fail",
         expiresAt: Date.now() + 600_000,
         alreadyProvisioned: false,
       }),
@@ -433,11 +471,11 @@ describe("discord /drawspell room", () => {
         type: 1,
         options: [
           {
-            name: "room",
+            name: "create",
             type: 1,
             options: [
-              { name: "player1", type: 6, value: "user-2" },
-              { name: "player2", type: 6, value: "user-3" },
+              { name: "invite1", type: 6, value: "user-2" },
+              { name: "invite2", type: 6, value: "user-3" },
             ],
           },
         ],
@@ -453,7 +491,7 @@ describe("discord /drawspell room", () => {
     const response = await worker.fetch(
       new Request("https://discord-worker.test/interactions", {
         method: "POST",
-        headers: interactionHeaders,
+        headers: createInteractionHeaders(),
         body: JSON.stringify(requestBody),
       }),
       env,
@@ -476,7 +514,7 @@ describe("discord /drawspell room", () => {
         Response.json({
           roomId: "room-repeat",
           playerToken: "player-token-repeat",
-          playerInviteUrl: "https://drawspell.space/game/room-repeat?gt=player-token-repeat",
+          playerInviteUrl: "https://drawspell.space/rooms/room-repeat?gt=player-token-repeat",
           expiresAt: Date.now() + 600_000,
           alreadyProvisioned: true,
         }),
@@ -495,7 +533,7 @@ describe("discord /drawspell room", () => {
     const response = await worker.fetch(
       new Request("https://discord-worker.test/interactions", {
         method: "POST",
-        headers: interactionHeaders,
+        headers: createInteractionHeaders(),
         body: JSON.stringify(requestBody),
       }),
       env,
@@ -506,9 +544,10 @@ describe("discord /drawspell room", () => {
     const payload = (await response.json()) as {
       data?: { content?: string };
     };
+    expect(payload.data?.content).toContain("/drawspell create request");
     expect(payload.data?.content).toContain("already processed");
     expect(payload.data?.content).toContain(
-      "https://drawspell.space/game/room-repeat?gt=player-token-repeat",
+      "https://drawspell.space/rooms/room-repeat?gt=player-token-repeat",
     );
   });
 });

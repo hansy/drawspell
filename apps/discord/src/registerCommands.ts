@@ -59,29 +59,29 @@ export const resolveRegistrationEnvironment = ({
 
 export const buildDrawspellCommandPayload = (): RESTPostAPIApplicationCommandsJSONBody => ({
   name: "drawspell",
-  description: "Create a Drawspell room and DM invite links.",
+  description: "Create a Drawspell room for yourself and others you invite.",
   type: ApplicationCommandType.ChatInput,
   options: [
     {
-      name: "room",
+      name: "create",
       description: "Create a room and DM participant invite links.",
       type: ApplicationCommandOptionType.Subcommand,
       options: [
         {
-          name: "player1",
-          description: "First player to include in the room invite.",
+          name: "invite1",
+          description: "First invite to include in the room.",
           type: ApplicationCommandOptionType.User,
           required: false,
         },
         {
-          name: "player2",
-          description: "Second player to include in the room invite.",
+          name: "invite2",
+          description: "Second invite to include in the room.",
           type: ApplicationCommandOptionType.User,
           required: false,
         },
         {
-          name: "player3",
-          description: "Third player to include in the room invite.",
+          name: "invite3",
+          description: "Third invite to include in the room.",
           type: ApplicationCommandOptionType.User,
           required: false,
         },
@@ -195,7 +195,7 @@ export const runRegistrationCli = async (
 
   // Keep output terse so CI logs remain readable.
   console.log(
-    `Registered /drawspell command (${result.scope}) via ${result.url} [status=${result.status}]`,
+    `Registered /drawspell create command (${result.scope}) via ${result.url} [status=${result.status}]`,
   );
 };
 

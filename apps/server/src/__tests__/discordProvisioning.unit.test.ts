@@ -71,7 +71,7 @@ describe("discord provisioning endpoint", () => {
     } as any;
 
     const response = await server.fetch(
-      new Request("https://example.test/games", {
+      new Request("https://example.test/rooms", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -108,7 +108,7 @@ describe("discord provisioning endpoint", () => {
     } as any;
 
     const response = await server.fetch(
-      new Request("https://example.test/games", {
+      new Request("https://example.test/rooms", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -131,7 +131,7 @@ describe("discord provisioning endpoint", () => {
     expect(roomFetch).not.toHaveBeenCalled();
   });
 
-  it("returns player invite link in /game/<roomId>?gt=<playerToken> format", async () => {
+  it("returns player invite link in /rooms/<roomId>?gt=<playerToken> format", async () => {
     const rooms = {
       idFromName: vi.fn((name: string) => ({ name })),
       get: vi.fn(() => ({
@@ -154,7 +154,7 @@ describe("discord provisioning endpoint", () => {
     } as any;
 
     const response = await server.fetch(
-      new Request("https://example.test/games", {
+      new Request("https://example.test/rooms", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -186,7 +186,7 @@ describe("discord provisioning endpoint", () => {
       alreadyProvisioned: false,
     });
     expect(payload.playerInviteUrl).toBe(
-      `https://drawspell.space/game/${payload.roomId}?gt=player-token-xyz`,
+      `https://drawspell.space/rooms/${payload.roomId}?gt=player-token-xyz`,
     );
   });
 
@@ -215,7 +215,7 @@ describe("discord provisioning endpoint", () => {
       );
 
       const response = await room.onRequest(
-        new Request("https://example.test/games", {
+        new Request("https://example.test/rooms", {
           method: "POST",
           headers: {
             "content-type": "application/json",
@@ -283,7 +283,7 @@ describe("discord provisioning endpoint", () => {
       );
 
       const request = () =>
-        new Request("https://example.test/games", {
+        new Request("https://example.test/rooms", {
           method: "POST",
           headers: {
             "content-type": "application/json",
