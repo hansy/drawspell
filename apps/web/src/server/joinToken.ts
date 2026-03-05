@@ -10,6 +10,11 @@ type JoinTokenResponse = {
   exp: number;
 };
 
+type ServerEnv = {
+  JOIN_TOKEN_SECRET?: string;
+  NODE_ENV?: string;
+};
+
 const CLIENT_ALLOWED_ORIGINS = new Set([
   "https://drawspell.space",
   "http://localhost:5173",
@@ -34,15 +39,15 @@ const isOriginAllowed = (origin: string | null, allowed: Set<string>) => {
   return allowed.has(normalized);
 };
 
-// const resolveServerEnv = (ctx: {
-//   context?: { env?: ServerEnv };
-// }): ServerEnv => {
-//   if (ctx.context?.env) return ctx.context.env;
-//   if (typeof process !== "undefined") {
-//     return process.env as ServerEnv;
-//   }
-//   return {};
-// };
+const resolveServerEnv = (ctx: {
+  context?: { env?: ServerEnv };
+}): ServerEnv => {
+  if (ctx.context?.env) return ctx.context.env;
+  if (typeof process !== "undefined") {
+    return process.env as ServerEnv;
+  }
+  return {};
+};
 
 export const getJoinToken = createServerFn({ method: "POST" })
   .inputValidator(joinTokenValidator)
@@ -55,7 +60,7 @@ export const getJoinToken = createServerFn({ method: "POST" })
         throw new Error("missing room");
       }
 
-      // const env = resolveServerEnv(ctx);
+      const env = resolveServerEnv(ctx as { context?: { env?: ServerEnv } });
       const request = (ctx as { request?: Request }).request;
       const origin = request?.headers?.get("Origin") ?? null;
       if (!isOriginAllowed(origin, CLIENT_ALLOWED_ORIGINS)) {
@@ -63,9 +68,13 @@ export const getJoinToken = createServerFn({ method: "POST" })
         throw new Error("origin not allowed");
       }
 
-      const secret = process.env.JOIN_TOKEN_SECRET;
+      const secret = env.JOIN_TOKEN_SECRET;
       if (!secret) {
-        console.error("[joinToken] secret missing", { roomId });
+        console.error("[joinToken] secret missing", {
+          roomId,
+          hasContextEnv: Boolean(env),
+          nodeEnv: env.NODE_ENV ?? process.env.NODE_ENV ?? null,
+        });
         throw new Error("join token secret missing");
       }
       const exp = Date.now() + JOIN_TOKEN_TTL_MS;

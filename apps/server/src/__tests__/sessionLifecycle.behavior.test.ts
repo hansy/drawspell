@@ -84,9 +84,12 @@ const createState = () => {
   } as any;
 };
 
-const createEnv = () => ({
+const createEnv = (): Env => ({
   rooms: {} as any,
   JOIN_TOKEN_SECRET: "test-secret",
+  NODE_ENV: "test",
+  DISCORD_SERVICE_AUTH_SECRET: "discord-secret",
+  DRAWSPELL_WEB_ORIGIN: "https://drawspell.space",
 });
 
 class TestConnection {

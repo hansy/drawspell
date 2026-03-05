@@ -1,0 +1,36 @@
+{
+  "name": "drawspell-discord",
+  "main": "src/worker.ts",
+  "compatibility_date": "2025-12-17",
+  "services": [
+    {
+      "binding": "SERVER",
+      "service": "drawspell-server",
+    },
+  ],
+  "env": {
+    "development": {
+      "services": [
+        {
+          "binding": "SERVER",
+          "service": "drawspell-server-development",
+        },
+      ],
+    },
+  },
+  "observability": {
+    "enabled": false,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true,
+    },
+  },
+  "routes": [
+    {
+      "pattern": "discord.drawspell.space",
+      "custom_domain": true,
+    },
+  ],
+}
