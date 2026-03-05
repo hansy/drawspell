@@ -16,7 +16,6 @@ import {
   type DiscordRoomProvisionRequest,
 } from "@mtg/shared/discord/provisioning";
 import { verifyJoinToken } from "@mtg/shared/security/joinToken";
-import { env } from "cloudflare:workers";
 
 import {
   DISCORD_INVITE_METADATA_KEY,

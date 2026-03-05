@@ -3,6 +3,7 @@ export * from "./constants/geometry";
 export * from "./constants/limits";
 export * from "./constants/room";
 export * from "./constants/zones";
+export * from "./discord/provisioning";
 export * from "./positions";
 export * from "./rules/types";
 export * from "./rules/permissions";
