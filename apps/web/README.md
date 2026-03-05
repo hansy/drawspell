@@ -20,12 +20,14 @@ Run these from `apps/web` (or prefix with `bun run --cwd apps/web` from the repo
 ```bash
 bun run dev
 bun run build
+bun run build:staging
 bun run build:production
 bun run preview
 bun run test
 bun run typecheck
 bun run cf-typegen
 bun run deploy
+bun run deploy:staging
 ```
 
 ## Configuration
@@ -33,6 +35,7 @@ bun run deploy
 - `VITE_PUBLIC_POSTHOG_KEY` and `VITE_PUBLIC_POSTHOG_HOST`: public analytics build vars loaded from `apps/web/.env`.
 - `JOIN_TOKEN_SECRET`: required runtime secret for issuing join tokens. Must match the secret used by `apps/server`. Set it with `wrangler secret put JOIN_TOKEN_SECRET` for production and `apps/web/.dev.vars` for local dev.
 - Worker runtime deploy config lives in `wrangler.jsonc`. Public `VITE_*` values should stay in `apps/web/.env*` because they are read via `import.meta.env` at build time.
+- `deploy:staging` defaults `VITE_SERVER_HOST` to `drawspell-server-staging.service-fff.workers.dev`. Override by exporting `VITE_SERVER_HOST` before running the script.
 
 ## Key files
 - [src/routes/index.tsx](src/routes/index.tsx)

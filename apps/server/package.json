@@ -6,6 +6,7 @@
     "dev": "wrangler dev --config wrangler.jsonc --env development",
     "build": "wrangler build --config wrangler.jsonc",
     "deploy": "wrangler deploy --config wrangler.jsonc --env production",
+    "deploy:staging": "wrangler deploy --config wrangler.jsonc --env staging",
     "test": "vitest run",
     "cf:typegen": "wrangler types",
     "typecheck": "tsc -p tsconfig.json --noEmit"

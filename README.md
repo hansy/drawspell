@@ -52,6 +52,9 @@ bun install
 | Preview | `bun run preview` | Builds + previews the web app. |
 | Test | `bun run test` | Runs tests for all workspaces. |
 | Typecheck | `bun run typecheck` | Runs typechecks for all workspaces. |
+| Deploy: staging (server + web) | `bun run deploy:staging` | Deploys dedicated staging workers. |
+| Deploy: staging server | `bun run deploy:server:staging` | Deploys `drawspell-server-staging`. |
+| Deploy: staging web | `bun run deploy:web:staging` | Builds with `CLOUDFLARE_ENV=staging` and deploys `drawspell-staging`. |
 | Deploy: web | `bun run deploy:web` | Deploys `apps/web`. |
 | Deploy: server | `bun run deploy:server` | Deploys `apps/server`. |
 | Deploy: Discord worker | `bun run deploy:discord` | Deploys `apps/discord`. |
@@ -79,6 +82,9 @@ bun install
 | `DISCORD_COMMAND_GUILD_ID` | `apps/discord` registration script | Optional default guild for faster command registration rollout. | Local env or shell export |
 | `DISCORD_API_BASE_URL` | `apps/discord` registration script | Optional Discord API base URL override for command registration. | Local env |
 | `DRAWSPELL_WEB_ORIGIN` | `apps/server` | Public web origin used to return absolute invite links from `POST /rooms` (`https://drawspell.space` default, `http://localhost:5173` in `env.development`). | Worker vars or local env |
+| `ALLOW_WORKERS_DEV_PREVIEWS` | `apps/server` | Optional handshake override that allows websocket `Origin`/`Host` on `*.workers.dev` for preview deployments. | Worker vars |
+| `DRAWSPELL_ALLOWED_ORIGINS` | `apps/server` | Optional comma-separated extra websocket origins for handshake allowlist. | Worker vars |
+| `DRAWSPELL_ALLOWED_HOSTS` | `apps/server` | Optional comma-separated extra websocket hosts for handshake allowlist. | Worker vars |
 
 ### Env files and loading
 
@@ -105,6 +111,8 @@ bun install
 
 ## Deployment / operations
 
+- Staging deploy target is `dev` branch by convention.
+- Staging deploy command: `bun run deploy:staging`.
 - Web deploy: `bun run deploy:web` (config: `apps/web/wrangler.jsonc`).
 - Server deploy: `bun run deploy:server` (config: `apps/server/wrangler.jsonc`, `apps/server/partykit.json`).
 - Discord deploy: `bun run deploy:discord` (config: `apps/discord/wrangler.jsonc`).

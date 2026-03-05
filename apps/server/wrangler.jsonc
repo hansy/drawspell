@@ -40,6 +40,24 @@
         "DRAWSPELL_WEB_ORIGIN": "http://localhost:5173",
       },
     },
+    "staging": {
+      "name": "drawspell-server-staging",
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "rooms",
+            "class_name": "Room",
+          },
+        ],
+      },
+      "vars": {
+        "NODE_ENV": "production",
+        "DRAWSPELL_WEB_ORIGIN": "https://drawspell-staging.service-fff.workers.dev",
+        "ALLOW_WORKERS_DEV_PREVIEWS": "true",
+        "DRAWSPELL_ALLOWED_ORIGINS": "https://drawspell-staging.service-fff.workers.dev",
+        "DRAWSPELL_ALLOWED_HOSTS": "drawspell-server-staging.service-fff.workers.dev",
+      },
+    },
     "production": {
       "name": "drawspell-server",
       "durable_objects": {

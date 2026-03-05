@@ -36,6 +36,7 @@ Run these from `apps/server` (or prefix with `bun run --cwd apps/server` from th
 bun run dev
 bun run build
 bun run deploy
+bun run deploy:staging
 bun run test
 bun run typecheck
 ```
@@ -47,6 +48,9 @@ bun run typecheck
   - `JOIN_TOKEN_SECRET` (required): HMAC secret used to validate join tokens. Must match `apps/web`.
   - `DISCORD_SERVICE_AUTH_SECRET` (required for Discord provisioning): shared secret used to authenticate internal `/rooms` calls.
   - `DRAWSPELL_WEB_ORIGIN` (required for Discord provisioning): public web origin used to return absolute invite URLs.
+  - `ALLOW_WORKERS_DEV_PREVIEWS` (optional): when `true`, allows websocket handshake `Origin`/`Host` on `*.workers.dev` for preview environments.
+  - `DRAWSPELL_ALLOWED_ORIGINS` (optional): comma-separated extra allowed websocket origins.
+  - `DRAWSPELL_ALLOWED_HOSTS` (optional): comma-separated extra allowed websocket hosts.
 
 For local dev, set secrets in `apps/server/.dev.vars` or via `wrangler secret put JOIN_TOKEN_SECRET`.
 
