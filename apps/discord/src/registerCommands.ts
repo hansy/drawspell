@@ -57,38 +57,40 @@ export const resolveRegistrationEnvironment = ({
   });
 };
 
-export const buildDrawspellCommandPayload = (): RESTPostAPIApplicationCommandsJSONBody => ({
-  name: "drawspell",
-  description: "Create a Drawspell room for yourself and others you invite.",
-  type: ApplicationCommandType.ChatInput,
-  options: [
-    {
-      name: "create",
-      description: "Create a room and DM participant invite links.",
-      type: ApplicationCommandOptionType.Subcommand,
-      options: [
-        {
-          name: "invite1",
-          description: "First invite to include in the room.",
-          type: ApplicationCommandOptionType.User,
-          required: false,
-        },
-        {
-          name: "invite2",
-          description: "Second invite to include in the room.",
-          type: ApplicationCommandOptionType.User,
-          required: false,
-        },
-        {
-          name: "invite3",
-          description: "Third invite to include in the room.",
-          type: ApplicationCommandOptionType.User,
-          required: false,
-        },
-      ],
-    },
-  ],
-});
+export const buildDrawspellCommandPayload =
+  (): RESTPostAPIApplicationCommandsJSONBody => ({
+    name: "drawspell",
+    description:
+      "Commands to interact with the Drawspell app (https://drawspell.space)",
+    type: ApplicationCommandType.ChatInput,
+    options: [
+      {
+        name: "create",
+        description: "Create a Drawspell room for you and others.",
+        type: ApplicationCommandOptionType.Subcommand,
+        options: [
+          {
+            name: "invite1",
+            description: "First person to invite",
+            type: ApplicationCommandOptionType.User,
+            required: false,
+          },
+          {
+            name: "invite2",
+            description: "Second person to invite",
+            type: ApplicationCommandOptionType.User,
+            required: false,
+          },
+          {
+            name: "invite3",
+            description: "Third person to invite",
+            type: ApplicationCommandOptionType.User,
+            required: false,
+          },
+        ],
+      },
+    ],
+  });
 
 export const createDiscordCommandRegistrationRequest = ({
   applicationId,
@@ -105,7 +107,9 @@ export const createDiscordCommandRegistrationRequest = ({
     apiBaseUrl ?? DISCORD_API_DEFAULT_BASE_URL,
   );
   const normalizedGuildId = guildId?.trim();
-  const scope: CommandRegistrationScope = normalizedGuildId ? "guild" : "global";
+  const scope: CommandRegistrationScope = normalizedGuildId
+    ? "guild"
+    : "global";
   const url =
     scope === "guild"
       ? `${normalizedApiBaseUrl}/applications/${applicationId}/guilds/${normalizedGuildId}/commands`
