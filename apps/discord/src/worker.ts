@@ -182,6 +182,7 @@ const createProvisionRequest = (
 const callProvisioningEndpoint = async (
   input: {
     SERVER: Env["SERVER"];
+    NODE_ENV: string;
     DISCORD_SERVICE_AUTH_SECRET: string;
     requestId: string;
   },
@@ -190,7 +191,7 @@ const callProvisioningEndpoint = async (
   let response: Response;
   try {
     response = await input.SERVER.fetch(
-      `https://drawspell-server${DISCORD_ROOM_PROVISION_PATH}`,
+      `https://drawspell-server${input.NODE_ENV === "development" ? "-development" : ""}${DISCORD_ROOM_PROVISION_PATH}`,
       {
         method: "POST",
         headers: {
@@ -435,7 +436,8 @@ app.post("/interactions", async (c) => {
     return new Response("Invalid request timestamp", { status: 401 });
   }
   const signatureTimestampAgeMs = Date.now() - timestampSeconds * 1_000;
-  const isTimestampTooOld = signatureTimestampAgeMs > DISCORD_SIGNATURE_MAX_AGE_MS;
+  const isTimestampTooOld =
+    signatureTimestampAgeMs > DISCORD_SIGNATURE_MAX_AGE_MS;
   const isTimestampTooFarInFuture =
     signatureTimestampAgeMs < -DISCORD_SIGNATURE_MAX_FUTURE_SKEW_MS;
   if (isTimestampTooOld || isTimestampTooFarInFuture) {
@@ -539,6 +541,7 @@ app.post("/interactions", async (c) => {
     provisionedRoom = await callProvisioningEndpoint(
       {
         SERVER: c.env.SERVER,
+        NODE_ENV: c.env.NODE_ENV,
         DISCORD_SERVICE_AUTH_SECRET: serviceAuthSecret,
         requestId,
       },
