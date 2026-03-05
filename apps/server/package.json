@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "wrangler dev --config wrangler.jsonc --env development",
     "build": "wrangler build --config wrangler.jsonc",
-    "deploy": "wrangler deploy --config wrangler.jsonc",
+    "deploy": "wrangler deploy --config wrangler.jsonc --env production",
     "test": "vitest run",
     "cf:typegen": "wrangler types",
     "typecheck": "tsc -p tsconfig.json --noEmit"
