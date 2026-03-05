@@ -568,7 +568,6 @@ export default {
           return new Response("Method not allowed", { status: 405 });
         }
 
-        console.log("env", env);
         return handleDiscordRoomProvisioningRequest(request, env);
       }
       const isWsUpgrade =
