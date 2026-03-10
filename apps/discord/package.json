@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --config wrangler.jsonc --env development",
-    "build": "wrangler build --config wrangler.jsonc",
-    "deploy": "wrangler deploy --config wrangler.jsonc --env production",
+    "dev": "wrangler dev",
+    "build": "wrangler build",
+    "deploy": "wrangler deploy --env production",
     "register:commands": "bun run src/registerCommands.ts",
     "register:commands:global": "bun --env-file=.env.production run src/registerCommands.ts --global",
     "test": "vitest run",
