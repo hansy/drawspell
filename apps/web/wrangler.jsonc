@@ -18,6 +18,12 @@
       "vars": {
         "VITE_ENV": "staging",
       },
+      "routes": [
+        {
+          "pattern": "staging.drawspell.space",
+          "custom_domain": true,
+        },
+      ],
     },
     "production": {
       "name": "drawspell-web-production",

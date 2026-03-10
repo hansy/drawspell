@@ -23,6 +23,12 @@
           "service": "drawspell-server-production",
         },
       ],
+      "routes": [
+        {
+          "pattern": "discord.drawspell.space",
+          "custom_domain": true,
+        },
+      ],
     },
   },
   "observability": {
@@ -34,10 +40,4 @@
       "invocation_logs": true,
     },
   },
-  "routes": [
-    {
-      "pattern": "discord.drawspell.space",
-      "custom_domain": true,
-    },
-  ],
 }
