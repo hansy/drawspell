@@ -2,8 +2,10 @@ import type * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
 import YPartyServerProvider from "y-partyserver/provider";
 import { toast } from "sonner";
+import { ORIGINS } from "@mtg/shared/constants/hosts";
 import { clearLogs, emitLog } from "@/logging/logStore";
 import { getPostHogDistinctId } from "@/lib/posthog";
+import { resolvePartyKitHost } from "@/lib/partyKitHost";
 import {
   clearInviteTokenFromUrl,
   clearRoomHostPending,
@@ -13,6 +15,10 @@ import {
   writeRoomTokensToStorage,
 } from "@/lib/partyKitToken";
 import { resolveJoinToken } from "@/lib/joinToken";
+import {
+  handoffDebugLog,
+  handoffDebugTokenSummary,
+} from "@/lib/debug";
 import {
   clearIntentTransport,
   createIntentTransport,
@@ -45,6 +51,15 @@ import type { SyncStatus } from "./useMultiplayerSync";
 import type { YSyncProvider } from "@/yjs/provider";
 import type { ViewerRole } from "@/types";
 
+const viteEnv =
+  import.meta.env.VITE_ENV ||
+  (import.meta.env.MODE === "test" ? "development" : import.meta.env.MODE);
+const origins = ORIGINS[viteEnv as keyof typeof ORIGINS];
+
+if (!origins) {
+  throw new Error(`Unsupported VITE_ENV: ${viteEnv}`);
+}
+
 export type SessionSetupResult = {
   awareness: Awareness;
   provider: YSyncProvider;
@@ -72,8 +87,7 @@ export function setupSessionResources({
   onIntentClose,
   joinToken,
 }: SessionSetupDeps): SessionSetupResult | null {
-  const partyHost =
-    (import.meta.env.VITE_SERVER_HOST as string) || "localhost:8787";
+  const partyHost = resolvePartyKitHost(origins.server) ?? "localhost:8787";
 
   cleanupStaleSessions();
   const handles = acquireSession(sessionId);
@@ -224,6 +238,23 @@ export function setupSessionResources({
   const tokenRole = resolvedIntentToken.tokenRole;
   const intentResumeToken = useGameStore.getState().roomTokens?.resumeToken;
 
+  handoffDebugLog("sessionResources.setup", {
+    sessionId,
+    ensuredPlayerId,
+    viewerRole: intentViewerRole,
+    hasStoredTokens: Boolean(
+      storedTokens?.playerToken || storedTokens?.spectatorToken,
+    ),
+    inviteRole: inviteToken.role ?? null,
+    hasInviteToken: Boolean(inviteToken.token),
+    hasValidResumeInvite,
+    hasMalformedResumeInvite,
+    tokenRole: tokenRole ?? null,
+    hasIntentToken: Boolean(token),
+    intentResumeToken: handoffDebugTokenSummary(intentResumeToken),
+    connectionGroupId,
+  });
+
   const awareness = new Awareness(doc);
   const provider: YSyncProvider = new YPartyServerProvider(
     partyHost,
@@ -338,6 +369,13 @@ export function setupSessionResources({
       }
       if (message.type === "roomTokens") {
         const payload = message.payload as RoomTokensPayload;
+        handoffDebugLog("sessionResources.roomTokens.received", {
+          sessionId,
+          hasPlayerToken: Boolean(payload.playerToken),
+          hasSpectatorToken: Boolean(payload.spectatorToken),
+          resumeToken: handoffDebugTokenSummary(payload.resumeToken),
+          pendingResumeInviteUrlClear,
+        });
         useGameStore.getState().setRoomTokens(payload);
         writeRoomTokensToStorage(
           sessionId,

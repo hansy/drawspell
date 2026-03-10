@@ -1,18 +1,12 @@
 import { defineConfig } from "vite";
-import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import viteTsConfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
 import { cloudflare } from "@cloudflare/vite-plugin";
 
-const config = defineConfig({
+const config = defineConfig(() => ({
   plugins: [
-    devtools({
-      eventBusConfig: {
-        enabled: false,
-      },
-    }),
     cloudflare({ viteEnvironment: { name: "ssr" } }),
     // this is the plugin that enables path aliases
     viteTsConfigPaths({
@@ -22,6 +16,6 @@ const config = defineConfig({
     tanstackStart(),
     viteReact(),
   ],
-});
+}));
 
 export default config;

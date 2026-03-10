@@ -14,6 +14,7 @@ type ServiceBinding = {
 };
 
 type TestEnv = {
+  NODE_ENV: string;
   DISCORD_PUBLIC_KEY: string;
   DISCORD_BOT_TOKEN: string;
   DISCORD_SERVICE_AUTH_SECRET: string;
@@ -71,6 +72,7 @@ describe("discord /drawspell create", () => {
         new Response("unexpected"),
     );
     const env: TestEnv = {
+      NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
       DISCORD_SERVICE_AUTH_SECRET: "service-secret",
@@ -101,6 +103,7 @@ describe("discord /drawspell create", () => {
         new Response("unexpected"),
     );
     const env: TestEnv = {
+      NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
       DISCORD_SERVICE_AUTH_SECRET: "service-secret",
@@ -127,6 +130,7 @@ describe("discord /drawspell create", () => {
         new Response("unexpected"),
     );
     const env: TestEnv = {
+      NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
       DISCORD_SERVICE_AUTH_SECRET: "service-secret",
@@ -162,6 +166,7 @@ describe("discord /drawspell create", () => {
       }),
     );
     const env: TestEnv = {
+      NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
       DISCORD_SERVICE_AUTH_SECRET: "service-secret",
@@ -244,6 +249,7 @@ describe("discord /drawspell create", () => {
       }),
     );
     const env: TestEnv = {
+      NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
       DISCORD_SERVICE_AUTH_SECRET: "service-secret",
@@ -342,6 +348,7 @@ describe("discord /drawspell create", () => {
       }),
     );
     const env: TestEnv = {
+      NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
       DISCORD_SERVICE_AUTH_SECRET: "service-secret",
@@ -440,6 +447,7 @@ describe("discord /drawspell create", () => {
       }),
     );
     const env: TestEnv = {
+      NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
       DISCORD_SERVICE_AUTH_SECRET: "service-secret",
@@ -520,6 +528,7 @@ describe("discord /drawspell create", () => {
         }),
     );
     const env: TestEnv = {
+      NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
       DISCORD_SERVICE_AUTH_SECRET: "service-secret",

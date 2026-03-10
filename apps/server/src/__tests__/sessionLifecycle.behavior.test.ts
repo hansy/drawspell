@@ -87,9 +87,8 @@ const createState = () => {
 const createEnv = (): Env => ({
   rooms: {} as any,
   JOIN_TOKEN_SECRET: "test-secret",
-  NODE_ENV: "test",
+  NODE_ENV: "development",
   DISCORD_SERVICE_AUTH_SECRET: "discord-secret",
-  DRAWSPELL_WEB_ORIGIN: "https://drawspell.space",
 });
 
 class TestConnection {
@@ -544,6 +543,40 @@ describe("server lifecycle guards", () => {
     expect(
       await (server as any).validatePlayerResumeToken("p1", initialResumeToken)
     ).toBe(true);
+  });
+
+  it("sends room tokens with a resume token for player intent connections", async () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const sent: string[] = [];
+
+    const conn = new TestConnection();
+    conn.id = "player-intent";
+    conn.send = (payload: string) => {
+      sent.push(payload);
+    };
+
+    const url = new URL(
+      "https://example.test/?role=intent&viewerRole=player&playerId=p1&cid=device-1"
+    );
+    await (server as any).bindIntentConnection(conn, url);
+
+    const roomTokensMessage = sent
+      .map((raw) => {
+        try {
+          return JSON.parse(raw) as {
+            type?: string;
+            payload?: Record<string, unknown>;
+          };
+        } catch (_err) {
+          return null;
+        }
+      })
+      .find((message) => message?.type === "roomTokens");
+
+    expect(roomTokensMessage?.payload?.playerToken).toBeTypeOf("string");
+    expect(roomTokensMessage?.payload?.spectatorToken).toBeTypeOf("string");
+    expect(roomTokensMessage?.payload?.resumeToken).toBeTypeOf("string");
   });
 
   it("cleans up registered intent connection when resume rotation fails", async () => {

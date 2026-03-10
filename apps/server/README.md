@@ -13,7 +13,7 @@ Drawspell's realtime backend, built on PartyServer and Cloudflare Durable Object
 - PartyServer room name: `rooms` (see `src/server.ts` and `apps/web/src/partykit/config.ts`).
 - Connection roles via query params: `role=sync` (Yjs provider) and `role=intent` (intent channel). Tokens are passed via `gt` (player) or `st` (spectator), along with optional `playerId` and `viewerRole` (see `apps/web/src/partykit/intentSocket.ts` and `apps/web/src/hooks/game/multiplayer-sync/sessionResources.ts`).
 - Message envelopes: `intent`, `ack`, `privateOverlay`, `logEvent`, `roomTokens` (see `apps/web/src/partykit/messages.ts` and `src/domain/types.ts`).
-- Internal provisioning endpoint: `POST /rooms` with bearer service auth; idempotent per `interactionId`, returns `{ roomId, playerToken, playerInviteUrl, expiresAt, alreadyProvisioned }` where `playerInviteUrl` is absolute (`<DRAWSPELL_WEB_ORIGIN>/rooms/<roomId>?gt=<playerToken>`), and stores pending Discord invite metadata in room Durable Object storage.
+- Internal provisioning endpoint: `POST /rooms` with bearer service auth; idempotent per `interactionId`, returns `{ roomId, playerToken, playerInviteUrl, expiresAt, alreadyProvisioned }` where `playerInviteUrl` is absolute (`<known web origin>/rooms/<roomId>?gt=<playerToken>`), and stores pending Discord invite metadata in room Durable Object storage.
 - Other non-Party requests return `404` (see `src/server.ts`).
 
 ### Internal Discord provisioning contract (`POST /rooms`)
@@ -45,12 +45,9 @@ bun run typecheck
 - Durable Object binding `rooms` is defined in `wrangler.jsonc` and is required for local/dev/prod.
 - Compatibility dates are set in `wrangler.jsonc` and `partykit.json`.
 - Env vars:
+  - `NODE_ENV` (required): must be `development`, `staging`, or `production`; used to resolve Drawspell hosts from `@mtg/shared/constants/hosts`.
   - `JOIN_TOKEN_SECRET` (required): HMAC secret used to validate join tokens. Must match `apps/web`.
   - `DISCORD_SERVICE_AUTH_SECRET` (required for Discord provisioning): shared secret used to authenticate internal `/rooms` calls.
-  - `DRAWSPELL_WEB_ORIGIN` (required for Discord provisioning): public web origin used to return absolute invite URLs.
-  - `ALLOW_WORKERS_DEV_PREVIEWS` (optional): when `true`, allows websocket handshake `Origin`/`Host` on `*.workers.dev` for preview environments.
-  - `DRAWSPELL_ALLOWED_ORIGINS` (optional): comma-separated extra allowed websocket origins.
-  - `DRAWSPELL_ALLOWED_HOSTS` (optional): comma-separated extra allowed websocket hosts.
 
 For local dev, set secrets in `apps/server/.dev.vars` or via `wrangler secret put JOIN_TOKEN_SECRET`.
 

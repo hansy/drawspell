@@ -71,7 +71,6 @@ bun install
 
 | Name | Used by | Description | Source |
 | --- | --- | --- | --- |
-| `VITE_SERVER_HOST` | `apps/web` | Overrides the PartyServer host (host or full URL). | `apps/web/.env.development` and `apps/web/.env.production` |
 | `VITE_PUBLIC_POSTHOG_KEY` | `apps/web` | Public PostHog API key used by the web client. | `apps/web/.env` |
 | `VITE_PUBLIC_POSTHOG_HOST` | `apps/web` | Public PostHog host used by the web client. | `apps/web/.env` |
 | `JOIN_TOKEN_SECRET` | `apps/web`, `apps/server` | HMAC secret for join tokens; must match across web + server workers. | Cloudflare secret or local `.dev.vars` |
@@ -81,16 +80,16 @@ bun install
 | `DISCORD_APPLICATION_ID` | `apps/discord` registration script | Discord application ID used for slash-command registration. | Cloudflare secret/env var or `apps/discord/.dev.vars` |
 | `DISCORD_COMMAND_GUILD_ID` | `apps/discord` registration script | Optional default guild for faster command registration rollout. | Local env or shell export |
 | `DISCORD_API_BASE_URL` | `apps/discord` registration script | Optional Discord API base URL override for command registration. | Local env |
-| `DRAWSPELL_WEB_ORIGIN` | `apps/server` | Public web origin used to return absolute invite links from `POST /rooms` (`https://drawspell.space` default, `http://localhost:5173` in `env.development`). | Worker vars or local env |
-| `ALLOW_WORKERS_DEV_PREVIEWS` | `apps/server` | Optional handshake override that allows websocket `Origin`/`Host` on `*.workers.dev` for preview deployments. | Worker vars |
-| `DRAWSPELL_ALLOWED_ORIGINS` | `apps/server` | Optional comma-separated extra websocket origins for handshake allowlist. | Worker vars |
-| `DRAWSPELL_ALLOWED_HOSTS` | `apps/server` | Optional comma-separated extra websocket hosts for handshake allowlist. | Worker vars |
+| `VITE_ENV` | `apps/web` | Build/runtime environment selector used by the web app to resolve Drawspell hosts. | `wrangler.jsonc` vars or Vite define |
+| `NODE_ENV` | `apps/server`, `apps/discord` | Runtime environment selector used for server host resolution and Discord-to-server routing. | `wrangler.jsonc` vars |
 
 ### Env files and loading
 
 - Web: Vite loads `.env*` files from `apps/web` during `vite build` and `vite dev`.
 - Web: public `VITE_*` values belong in `apps/web/.env*`; runtime-only values and secrets belong in `apps/web/wrangler.jsonc` plus `wrangler secret`.
 - Server: Durable Object binding `rooms` is configured in `apps/server/wrangler.jsonc`; secrets use `wrangler secret` or `apps/server/.dev.vars`.
+- Drawspell web/server origins are centralized in `packages/shared/src/constants/hosts.ts`.
+- `apps/web` selects hosts with `VITE_ENV`; `apps/server` and `apps/discord` select them with `NODE_ENV`.
 - Discord: service binding `SERVER` is configured in `apps/discord/wrangler.jsonc`; default/prod binds to `drawspell-server`, and `env.development` binds to `drawspell-server-development` for local `wrangler dev --env development`.
 - Discord command registration script reads exported shell env values only (`DISCORD_BOT_TOKEN`, `DISCORD_APPLICATION_ID`, and optional `DISCORD_COMMAND_GUILD_ID`/`DISCORD_API_BASE_URL`).
 - Discord worker `Env` type declarations are generated into `apps/discord/worker-configuration.d.ts`; rerun `bun run --cwd apps/discord cf:typegen` when Discord worker vars/bindings or `.dev.vars` keys change.

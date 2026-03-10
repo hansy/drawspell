@@ -5,11 +5,11 @@
   "scripts": {
     "dev": "vite dev",
     "deploy": "bun run build:production && wrangler deploy --config dist/server/wrangler.json",
-    "deploy:staging": "VITE_SERVER_HOST=${VITE_SERVER_HOST:-drawspell-server-staging.service-fff.workers.dev} bun run build:staging && wrangler deploy --config dist/server/wrangler.json",
+    "deploy:staging": "bun run build:staging && wrangler deploy --config dist/server/wrangler.json",
     "preview": "bun run build:production && vite preview",
     "cf:typegen": "wrangler types",
     "build": "vite build",
-    "build:staging": "CLOUDFLARE_ENV=staging vite build",
+    "build:staging": "CLOUDFLARE_ENV=staging vite build --mode staging",
     "build:production": "CLOUDFLARE_ENV=production vite build",
     "serve": "vite preview",
     "test": "vitest run",

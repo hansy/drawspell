@@ -191,7 +191,13 @@ const callProvisioningEndpoint = async (
   let response: Response;
   try {
     response = await input.SERVER.fetch(
-      `https://drawspell-server${input.NODE_ENV === "development" ? "-development" : ""}${DISCORD_ROOM_PROVISION_PATH}`,
+      `https://${
+        input.NODE_ENV === "development"
+          ? "drawspell-server-development"
+          : input.NODE_ENV === "staging"
+            ? "drawspell-server-staging"
+            : "drawspell-server"
+      }${DISCORD_ROOM_PROVISION_PATH}`,
       {
         method: "POST",
         headers: {

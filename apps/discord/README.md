@@ -58,7 +58,7 @@ wrangler secret put DISCORD_APPLICATION_ID
 
 For local development, use `apps/discord/.dev.vars` with equivalent keys for `wrangler dev`.
 The command registration CLI now reads process env only.
-Invite URL origin is now owned by `apps/server` via `DRAWSPELL_WEB_ORIGIN`.
+Invite URL origin comes from the shared host map in `packages/shared/src/constants/hosts.ts`, selected by `apps/server` `NODE_ENV`.
 
 Example local `apps/discord/.dev.vars`:
 
@@ -101,7 +101,7 @@ Guild registration propagates quickly for operator testing; global registration 
 After deployment and command registration:
 
 1. Run `bun run test:smoke` from `apps/discord`.
-2. In Discord, run `/drawspell create` without tags and confirm the invoker receives a DM with `<server DRAWSPELL_WEB_ORIGIN>/rooms/<roomId>?gt=<playerToken>`.
+2. In Discord, run `/drawspell create` without tags and confirm the invoker receives a DM with the expected environment-specific web origin (`http://localhost:5173`, `https://drawspell-staging.service-fff.workers.dev`, or `https://drawspell.space`) in `/rooms/<roomId>?gt=<playerToken>`.
 
 ## Key files
 - [src/worker.ts](src/worker.ts)

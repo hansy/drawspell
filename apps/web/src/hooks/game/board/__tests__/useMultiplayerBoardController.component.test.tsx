@@ -234,7 +234,6 @@ describe("useMultiplayerBoardController", () => {
     mockUseIdleTimeout.mockClear();
     mockReadRoomTokensFromStorage.mockReturnValue({
       playerToken: "token-123",
-      resumeToken: "resume-123",
     });
     Object.assign(mockGameState, {
       zones: {},
@@ -251,7 +250,13 @@ describe("useMultiplayerBoardController", () => {
     window.history.replaceState({}, "", "/rooms/room-1");
   });
 
-  it("unlocks share links using stored tokens", async () => {
+  it("uses in-memory resume token for new-device link", async () => {
+    mockGameState.roomTokens = {
+      playerToken: "token-123",
+      spectatorToken: "spectator-123",
+      resumeToken: "resume-123",
+    } as any;
+
     const { result } = renderHook(() => useMultiplayerBoardController("room-1"));
 
     expect(mockReadRoomTokensFromStorage).toHaveBeenCalledWith("room-1");
@@ -266,9 +271,36 @@ describe("useMultiplayerBoardController", () => {
     );
     expect(result.current.shareLinks.spectators).toContain("room-1");
     expect(result.current.shareLinks.spectators).not.toContain("gt=");
-    expect(result.current.shareLinks.spectators).not.toContain("st=");
+    expect(result.current.shareLinks.spectators).toContain("st=spectator-123");
     expect(result.current.shareLinks.resume).toContain("rt=resume-123");
     expect(result.current.shareLinks.resume).toContain("playerId=player-1");
+  });
+
+  it("shows new-device link after live roomTokens adds resume token", async () => {
+    const { result, rerender } = renderHook(() =>
+      useMultiplayerBoardController("room-1")
+    );
+
+    act(() => {
+      result.current.setIsShareDialogOpen(true);
+    });
+
+    await waitFor(() =>
+      expect(result.current.shareLinks.players).toContain("gt=token-123")
+    );
+    expect(result.current.shareLinks.resume).toBe("");
+
+    mockGameState.roomTokens = {
+      playerToken: "token-123",
+      spectatorToken: "spectator-123",
+      resumeToken: "resume-live-456",
+    } as any;
+    rerender();
+
+    await waitFor(() => {
+      expect(result.current.shareLinks.resume).toContain("rt=resume-live-456");
+      expect(result.current.shareLinks.resume).toContain("playerId=player-1");
+    });
   });
 
   it("keeps share links disabled when only a resume token is present", async () => {

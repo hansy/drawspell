@@ -13,10 +13,7 @@ import {
   DISCORD_ROOM_PROVISION_PATH,
   type DiscordRoomInternalProvisionPayload,
   type DiscordRoomInternalProvisionResponse,
-  type DiscordRoomProvisionRequest,
 } from "@mtg/shared/discord/provisioning";
-import { verifyJoinToken } from "@mtg/shared/security/joinToken";
-import { env } from "cloudflare:workers";
 
 import {
   DISCORD_INVITE_METADATA_KEY,
@@ -55,6 +52,22 @@ import {
   parseConnectionParams,
   resolveConnectionAuth,
 } from "./connection/auth";
+import {
+  createRoomIdFromSeed,
+  DISCORD_INVITE_TTL_MS,
+  DISCORD_REQUEST_ID_HEADER,
+  DISCORD_SERVICE_AUTH_HEADER,
+  logDiscordProvisionEvent,
+  parseBearerToken,
+  parseDiscordProvisionRequest,
+  parseDiscordRoomProvisionPayload,
+  parseDiscordRoomProvisionResponse,
+  resolveDiscordRequestId,
+  resolveDiscordServiceAuthSecret,
+  resolveDrawspellWebOrigin,
+  resolveErrorMessage,
+} from "./discord/provisioning";
+import { validatePartyHandshake } from "./http/partyHandshake";
 import { OverlayService, type OverlayBuildResult } from "./overlay/service";
 import { SnapshotStore, type SnapshotMeta } from "./storage/snapshotStore";
 
@@ -82,23 +95,11 @@ const PERF_METRICS_SAMPLE_LIMIT = 5000;
 const LIBRARY_VIEW_PING_TIMEOUT_MS = 45_000;
 const LIBRARY_VIEW_CLEANUP_INTERVAL_MS = 15_000;
 const OVERLAY_DIFF_CAPABILITY = "overlay-diff-v1";
-const SERVER_ALLOWED_ORIGINS = new Set([
-  "https://drawspell.space",
-  "http://localhost:5173",
-]);
-const SERVER_ALLOWED_HOSTS = new Set(["ws.drawspell.space", "localhost:8787"]);
 const PERF_METRICS_ENABLED = false;
 const PERF_METRICS_ALLOW_PARAM = false;
-const JOIN_TOKEN_MAX_SKEW_MS = 30_000;
 const CONNECT_RATE_WINDOW_MS = 60_000;
 const CONNECT_RATE_MAX_ATTEMPTS = 20;
 const CONNECT_RATE_BLOCK_MS = 120_000;
-const DISCORD_SERVICE_AUTH_HEADER = "x-drawspell-service-auth";
-const DISCORD_REQUEST_ID_HEADER = "x-discord-request-id";
-const DISCORD_INVITE_TTL_MS = 10 * 60_000;
-const ROOM_ID_ALPHABET =
-  "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const DISCORD_ROOM_ID_LENGTH = 10;
 
 type PlayerResumeTokenEntry = {
   token: string;
@@ -152,209 +153,23 @@ const computeMetricStats = (samples: number[]) => {
   return { avg: sum / count, p95, count };
 };
 
-const createRoomIdFromSeed = async (
-  seed: string,
-  length = DISCORD_ROOM_ID_LENGTH,
-): Promise<string> => {
-  const safeLength =
-    typeof length === "number" && Number.isFinite(length) && length > 0
-      ? Math.floor(length)
-      : DISCORD_ROOM_ID_LENGTH;
-  const alphabetLength = ROOM_ID_ALPHABET.length;
-  const seedBytes = new TextEncoder().encode(seed);
-  const hash = await crypto.subtle.digest("SHA-256", seedBytes);
-  const bytes = new Uint8Array(hash);
-
-  let result = "";
-  for (let i = 0; i < safeLength; i += 1) {
-    result += ROOM_ID_ALPHABET[bytes[i % bytes.length] % alphabetLength];
-  }
-  return result;
-};
-
-const parseBearerToken = (headerValue: string | null) => {
-  if (!headerValue) return null;
-  const [scheme, ...rest] = headerValue.trim().split(/\s+/);
-  if (!scheme || scheme.toLowerCase() !== "bearer") return null;
-  const token = rest.join(" ").trim();
-  return token || null;
-};
-
 const normalizeNonEmptyString = (value: unknown): string | null => {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 };
 
-const resolveDrawspellWebOrigin = (env: Env): string | null => {
-  const record = env as unknown as Record<string, unknown>;
-  const parsed = normalizeNonEmptyString(record.DRAWSPELL_WEB_ORIGIN);
-  if (!parsed) return null;
-  try {
-    return new URL(parsed).toString().replace(/\/+$/, "");
-  } catch (_error) {
-    return null;
-  }
-};
-
-const resolveErrorMessage = (error: unknown): string => {
-  if (typeof error === "string") return error;
-  if (typeof error === "object" && error && "message" in error) {
-    return String((error as { message?: unknown }).message);
-  }
-  return "unknown";
-};
-
-const resolveDiscordRequestId = (request: Request): string =>
-  normalizeNonEmptyString(request.headers.get(DISCORD_REQUEST_ID_HEADER)) ??
-  crypto.randomUUID();
-
-const logDiscordProvisionEvent = (
-  event: string,
-  details: Record<string, unknown>,
-) => {
-  console.info("[discord-provision]", event, details);
-};
-
-const normalizeParticipantDiscordUserIds = (
-  value: unknown,
-  invokerDiscordUserId: string,
-) => {
-  if (!Array.isArray(value)) return null;
-  const seen = new Set<string>();
-  const normalized: string[] = [];
-
-  for (const candidate of value) {
-    const parsed = normalizeNonEmptyString(candidate);
-    if (!parsed || seen.has(parsed)) continue;
-    seen.add(parsed);
-    normalized.push(parsed);
-  }
-
-  if (!seen.has(invokerDiscordUserId)) {
-    normalized.unshift(invokerDiscordUserId);
-  }
-  return normalized;
-};
-
-const parseDiscordProvisionRequest = (
-  rawBody: unknown,
-): DiscordRoomProvisionRequest | null => {
-  if (!rawBody || typeof rawBody !== "object") return null;
-  const record = rawBody as Record<string, unknown>;
-  const interactionId = normalizeNonEmptyString(record.interactionId);
-  const guildId = normalizeNonEmptyString(record.guildId);
-  const channelId = normalizeNonEmptyString(record.channelId);
-  const invokerDiscordUserId = normalizeNonEmptyString(
-    record.invokerDiscordUserId,
-  );
-  if (!interactionId || !guildId || !channelId || !invokerDiscordUserId) {
-    return null;
-  }
-  const participantDiscordUserIds = normalizeParticipantDiscordUserIds(
-    record.participantDiscordUserIds,
-    invokerDiscordUserId,
-  );
-  if (!participantDiscordUserIds || participantDiscordUserIds.length === 0) {
-    return null;
-  }
+const summarizeSecretToken = (value: string | undefined): {
+  length: number;
+  suffix: string;
+} | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
   return {
-    interactionId,
-    guildId,
-    channelId,
-    invokerDiscordUserId,
-    participantDiscordUserIds,
+    length: trimmed.length,
+    suffix: trimmed.length > 6 ? trimmed.slice(-6) : trimmed,
   };
-};
-
-const parseDiscordRoomProvisionPayload = (
-  rawBody: unknown,
-): DiscordRoomInternalProvisionPayload | null => {
-  const parsed = parseDiscordProvisionRequest(rawBody);
-  if (!parsed) return null;
-  const record = rawBody as Record<string, unknown>;
-  const inviteExpiresAtRaw = record.inviteExpiresAt;
-  if (
-    typeof inviteExpiresAtRaw !== "number" ||
-    !Number.isFinite(inviteExpiresAtRaw)
-  ) {
-    return null;
-  }
-  const inviteExpiresAt = Math.floor(inviteExpiresAtRaw);
-  if (inviteExpiresAt <= 0) return null;
-  return { ...parsed, inviteExpiresAt };
-};
-
-const parseDiscordRoomProvisionResponse = (
-  rawBody: unknown,
-): DiscordRoomInternalProvisionResponse | null => {
-  if (!rawBody || typeof rawBody !== "object") return null;
-  const record = rawBody as Record<string, unknown>;
-  const roomId = normalizeNonEmptyString(record.roomId);
-  const playerToken = normalizeNonEmptyString(record.playerToken);
-  const expiresAt = record.expiresAt;
-  const alreadyProvisioned = record.alreadyProvisioned;
-  if (!roomId || !playerToken) return null;
-  if (typeof expiresAt !== "number" || !Number.isFinite(expiresAt)) return null;
-  if (typeof alreadyProvisioned !== "boolean") return null;
-  return {
-    roomId,
-    playerToken,
-    expiresAt: Math.floor(expiresAt),
-    alreadyProvisioned,
-  };
-};
-
-const resolveDiscordServiceAuthSecret = (env: Env) => {
-  const raw = (env as Env & { DISCORD_SERVICE_AUTH_SECRET?: string })
-    .DISCORD_SERVICE_AUTH_SECRET;
-  return normalizeNonEmptyString(raw);
-};
-
-const normalizeOrigin = (value: string) => {
-  try {
-    return new URL(value).origin;
-  } catch (_err) {
-    return null;
-  }
-};
-
-const isOriginAllowed = (origin: string | null, allowed: Set<string>) => {
-  if (process.env.NODE_ENV === "development") return true;
-  if (!origin) return false;
-  const normalized = normalizeOrigin(origin);
-  if (!normalized) return false;
-  return allowed.has(normalized);
-};
-
-const isDefaultPortForProtocol = (port: number, protocol: string) => {
-  if (protocol === "https:" || protocol === "wss:") return port === 443;
-  if (protocol === "http:" || protocol === "ws:") return port === 80;
-  return false;
-};
-
-const isHostAllowed = (
-  hostHeader: string | null,
-  url: URL,
-  allowed: Set<string>,
-) => {
-  if (!hostHeader) return false;
-  const host = hostHeader.split(",")[0]?.trim().toLowerCase();
-  if (!host) return false;
-  if (allowed.has(host)) return true;
-  const [hostname, portRaw] = host.split(":");
-  if (!hostname || !portRaw) return false;
-  if (!allowed.has(hostname)) return false;
-  const port = Number(portRaw);
-  if (!Number.isFinite(port)) return false;
-  return isDefaultPortForProtocol(port, url.protocol);
-};
-
-const getPartyRequestInfo = (url: URL) => {
-  const parts = url.pathname.split("/").filter(Boolean);
-  if (parts.length < 3) return null;
-  if (parts[0] !== "parties") return null;
-  return { party: parts[1], roomId: parts[2] };
 };
 
 type IntentLogMeta = {
@@ -386,42 +201,6 @@ const isNetworkConnectionLost = (error: unknown) => {
     message.trim().replace(/\.$/, "").toLowerCase() ===
     "network connection lost"
   );
-};
-
-const validatePartyHandshake = async (
-  request: Request,
-  env: Env,
-  url: URL,
-): Promise<Response | null> => {
-  const info = getPartyRequestInfo(url);
-  if (!info) return null;
-
-  const origin = request.headers.get("Origin");
-  if (!isOriginAllowed(origin, SERVER_ALLOWED_ORIGINS)) {
-    return new Response("Origin not allowed", { status: 403 });
-  }
-  const host = request.headers.get("Host") ?? url.host;
-  if (!isHostAllowed(host, url, SERVER_ALLOWED_HOSTS)) {
-    return new Response("Host not allowed", { status: 403 });
-  }
-  const joinToken = url.searchParams.get("jt");
-  if (!joinToken) {
-    return new Response("Missing join token", { status: 403 });
-  }
-  if (!env.JOIN_TOKEN_SECRET) {
-    return new Response("Join token not configured", { status: 500 });
-  }
-  const result = await verifyJoinToken(joinToken, env.JOIN_TOKEN_SECRET, {
-    now: Date.now(),
-    maxSkewMs: JOIN_TOKEN_MAX_SKEW_MS,
-  });
-  if (!result.ok) {
-    return new Response("Invalid join token", { status: 403 });
-  }
-  if (result.payload.roomId !== info.roomId) {
-    return new Response("Invalid join token", { status: 403 });
-  }
-  return null;
 };
 
 const handleDiscordRoomProvisioningRequest = async (
@@ -2386,6 +2165,18 @@ export class Room extends YServer<Env> {
       } catch (_err) {}
     };
 
+    console.info("[handoff-debug] intent.auth.start", {
+      room: this.name,
+      connId: conn.id,
+      playerId: state.playerId ?? null,
+      viewerRole: state.viewerRole ?? null,
+      hasToken: Boolean(state.token),
+      hasResumeToken: Boolean(state.resumeToken),
+      resumeToken: summarizeSecretToken(state.resumeToken),
+      hasConnectionGroupId: Boolean(state.connectionGroupId),
+      connectionGroupId: state.connectionGroupId ?? null,
+    });
+
     const storedTokens = await this.loadRoomTokens();
     const auth = await this.resolveConnectionAuthWithResume(
       state,
@@ -2393,6 +2184,11 @@ export class Room extends YServer<Env> {
       { allowTokenCreation: true },
     );
     if (!auth.ok) {
+      console.info("[handoff-debug] intent.auth.rejected", {
+        room: this.name,
+        connId: conn.id,
+        reason: auth.reason,
+      });
       rejectConnection(auth.reason);
       return;
     }
@@ -2414,6 +2210,16 @@ export class Room extends YServer<Env> {
       if (!priorResumeToken || !resolvedPlayerId) return;
       await this.restorePlayerResumeToken(resolvedPlayerId, priorResumeToken);
     };
+    console.info("[handoff-debug] intent.auth.accepted", {
+      room: this.name,
+      connId: conn.id,
+      resolvedRole,
+      resolvedPlayerId: resolvedPlayerId ?? null,
+      resumed: auth.resumed,
+      hasActivePlayerToken: Boolean(activeTokens?.playerToken),
+      hasActiveSpectatorToken: Boolean(activeTokens?.spectatorToken),
+      priorResumeToken: summarizeSecretToken(priorResumeToken),
+    });
     if (connectionClosed) return;
     this.capturePerfMetricsFlag(url);
     conn.setState({
@@ -2463,6 +2269,17 @@ export class Room extends YServer<Env> {
       await rollbackResumeToken();
       return;
     }
+
+    console.info("[handoff-debug] intent.roomTokens.sending", {
+      room: this.name,
+      connId: conn.id,
+      resolvedRole,
+      resolvedPlayerId: resolvedPlayerId ?? null,
+      hasActiveTokens: Boolean(activeTokens),
+      hasPlayerToken: Boolean(activeTokens?.playerToken),
+      hasSpectatorToken: Boolean(activeTokens?.spectatorToken),
+      generatedResumeToken: summarizeSecretToken(resumeToken),
+    });
 
     if (activeTokens) {
       const sent = this.sendRoomTokens(
