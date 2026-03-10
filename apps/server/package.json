@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --config wrangler.jsonc --env development",
+    "dev": "wrangler dev",
     "build": "wrangler build",
     "deploy": "wrangler deploy --env production",
     "deploy:staging": "wrangler deploy --env staging",
