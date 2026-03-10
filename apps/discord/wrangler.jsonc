@@ -8,21 +8,10 @@
   "services": [
     {
       "binding": "SERVER",
-      "service": "drawspell-server-production",
+      "service": "drawspell-server-development",
     },
   ],
   "env": {
-    "development": {
-      "vars": {
-        "NODE_ENV": "development",
-      },
-      "services": [
-        {
-          "binding": "SERVER",
-          "service": "drawspell-server-development",
-        },
-      ],
-    },
     "production": {
       "name": "drawspell-discord-production",
       "vars": {

@@ -9,12 +9,10 @@
   "observability": {
     "enabled": true,
   },
+  "vars": {
+    "VITE_ENV": "development",
+  },
   "env": {
-    "development": {
-      "vars": {
-        "VITE_ENV": "development",
-      },
-    },
     "staging": {
       "name": "drawspell-web-staging",
       "vars": {
