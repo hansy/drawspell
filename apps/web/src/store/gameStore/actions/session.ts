@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import type { GameState } from "@/types";
 
 import { clearLogs } from "@/logging/logStore";
+import { handoffDebugLog, handoffDebugTokenSummary } from "@/lib/debug";
 import { destroyAllSessions, destroySession } from "@/yjs/docManager";
 import type { DispatchIntent } from "@/store/gameStore/dispatchIntent";
 import { resetIntentState } from "@/store/gameStore/dispatchIntent";
@@ -37,6 +38,7 @@ export const createSessionActions = (
   | "setOverlayCapabilities"
   | "roomTokens"
   | "setRoomTokens"
+  | "lastResumeTokenBySession"
 > => ({
   playerIdsBySession: {},
   sessionVersions: {},
@@ -46,11 +48,30 @@ export const createSessionActions = (
   viewerRole: "player",
   overlayCapabilities: [],
   roomTokens: null,
+  lastResumeTokenBySession: {},
 
   resetSession: (newSessionId, playerId) => {
+    const current = get();
     const freshSessionId = newSessionId ?? uuidv4();
     const freshPlayerId =
-      playerId ?? get().playerIdsBySession[freshSessionId] ?? uuidv4();
+      playerId ?? current.playerIdsBySession[freshSessionId] ?? uuidv4();
+
+    handoffDebugLog("session.reset", {
+      previousSessionId: current.sessionId,
+      nextSessionId: freshSessionId,
+      previousPlayerId: current.myPlayerId,
+      nextPlayerId: freshPlayerId,
+      sameSessionId: current.sessionId === freshSessionId,
+      samePlayerId: current.myPlayerId === freshPlayerId,
+      hadPlayerTokenBeforeReset: Boolean(current.roomTokens?.playerToken),
+      hadSpectatorTokenBeforeReset: Boolean(current.roomTokens?.spectatorToken),
+      hadResumeTokenBeforeReset: Boolean(current.roomTokens?.resumeToken),
+      playerTokenBeforeReset: handoffDebugTokenSummary(current.roomTokens?.playerToken),
+      spectatorTokenBeforeReset: handoffDebugTokenSummary(
+        current.roomTokens?.spectatorToken,
+      ),
+      resumeTokenBeforeReset: handoffDebugTokenSummary(current.roomTokens?.resumeToken),
+    });
 
     clearLogs();
     resetIntentState();
@@ -103,7 +124,13 @@ export const createSessionActions = (
       delete next[sessionId];
       const nextVersions = { ...state.sessionVersions };
       nextVersions[sessionId] = (nextVersions[sessionId] ?? 0) + 1;
-      return { playerIdsBySession: next, sessionVersions: nextVersions };
+      const nextResumeTokens = { ...state.lastResumeTokenBySession };
+      delete nextResumeTokens[sessionId];
+      return {
+        playerIdsBySession: next,
+        sessionVersions: nextVersions,
+        lastResumeTokenBySession: nextResumeTokens,
+      };
     });
   },
 
@@ -160,8 +187,20 @@ export const createSessionActions = (
   },
 
   setRoomTokens: (tokens) => {
-    set((state) => ({
-      roomTokens: tokens ? { ...state.roomTokens, ...tokens } : null,
-    }));
+    set((state) => {
+      const nextRoomTokens = tokens ? { ...state.roomTokens, ...tokens } : null;
+      const resumeToken = nextRoomTokens?.resumeToken;
+      const sessionId = state.sessionId;
+      if (resumeToken && sessionId) {
+        return {
+          roomTokens: nextRoomTokens,
+          lastResumeTokenBySession: {
+            ...state.lastResumeTokenBySession,
+            [sessionId]: resumeToken,
+          },
+        };
+      }
+      return { roomTokens: nextRoomTokens };
+    });
   },
 });

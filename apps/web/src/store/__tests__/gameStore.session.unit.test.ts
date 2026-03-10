@@ -96,6 +96,28 @@ describe('gameStore session actions', () => {
     expect(useGameStore.getState().ensureSessionVersion('s4')).toBe(5);
   });
 
+  it('tracks the last resume token per session and clears it when forgetting identity', () => {
+    useGameStore.setState({
+      sessionId: 's6',
+      lastResumeTokenBySession: { s5: 'resume-old' },
+    });
+
+    useGameStore.getState().setRoomTokens({
+      playerToken: 'player-token',
+      resumeToken: 'resume-s6',
+    });
+
+    expect(useGameStore.getState().lastResumeTokenBySession).toEqual({
+      s5: 'resume-old',
+      s6: 'resume-s6',
+    });
+
+    useGameStore.getState().forgetSessionIdentity('s6');
+
+    expect(useGameStore.getState().lastResumeTokenBySession.s6).toBeUndefined();
+    expect(useGameStore.getState().lastResumeTokenBySession.s5).toBe('resume-old');
+  });
+
   it('leaveGame forgets identity for current session and resets game state', () => {
     useGameStore.setState({
       sessionId: 's5',

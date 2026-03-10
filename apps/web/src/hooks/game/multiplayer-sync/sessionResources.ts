@@ -377,9 +377,16 @@ export function setupSessionResources({
           pendingResumeInviteUrlClear,
         });
         useGameStore.getState().setRoomTokens(payload);
+        const nextRoomTokens = useGameStore.getState().roomTokens;
+        handoffDebugLog("sessionResources.roomTokens.applied", {
+          sessionId,
+          hasPlayerToken: Boolean(nextRoomTokens?.playerToken),
+          hasSpectatorToken: Boolean(nextRoomTokens?.spectatorToken),
+          resumeToken: handoffDebugTokenSummary(nextRoomTokens?.resumeToken),
+        });
         writeRoomTokensToStorage(
           sessionId,
-          mergeRoomTokens(useGameStore.getState().roomTokens, payload),
+          mergeRoomTokens(nextRoomTokens, payload),
         );
         if (pendingResumeInviteUrlClear) {
           clearInviteTokenFromUrl();
