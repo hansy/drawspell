@@ -16,13 +16,13 @@
       },
     },
     "staging": {
-      "name": "drawspell-staging",
+      "name": "drawspell-web-staging",
       "vars": {
         "VITE_ENV": "staging",
       },
     },
     "production": {
-      "name": "drawspell",
+      "name": "drawspell-web-production",
       "vars": {
         "VITE_ENV": "production",
       },

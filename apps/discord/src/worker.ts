@@ -194,9 +194,7 @@ const callProvisioningEndpoint = async (
       `https://${
         input.NODE_ENV === "development"
           ? "drawspell-server-development"
-          : input.NODE_ENV === "staging"
-            ? "drawspell-server-staging"
-            : "drawspell-server"
+          : "drawspell-server-production"
       }${DISCORD_ROOM_PROVISION_PATH}`,
       {
         method: "POST",

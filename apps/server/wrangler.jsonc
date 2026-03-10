@@ -54,7 +54,7 @@
       },
     },
     "production": {
-      "name": "drawspell-server",
+      "name": "drawspell-server-production",
       "durable_objects": {
         "bindings": [
           {

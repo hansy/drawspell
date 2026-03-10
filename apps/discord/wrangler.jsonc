@@ -24,14 +24,14 @@
       ],
     },
     "production": {
-      "name": "drawspell-discord",
+      "name": "drawspell-discord-production",
       "vars": {
         "NODE_ENV": "production",
       },
       "services": [
         {
           "binding": "SERVER",
-          "service": "drawspell-server",
+          "service": "drawspell-server-production",
         },
       ],
     },
