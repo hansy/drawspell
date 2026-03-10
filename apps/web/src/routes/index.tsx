@@ -18,6 +18,14 @@ import { LandingBackground } from "@/components/landing/LandingBackground";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { OrbitAnimation } from "@/components/landing/OrbitAnimation";
 import { ResumeCard } from "@/components/landing/ResumeCard";
+import { ORIGINS } from "@mtg/shared/constants/hosts";
+
+const viteEnv = import.meta.env.VITE_ENV;
+const origins = ORIGINS[viteEnv as keyof typeof ORIGINS];
+
+if (!origins) {
+  throw new Error(`Unsupported VITE_ENV: ${viteEnv}`);
+}
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -148,11 +156,11 @@ export const Route = createFileRoute("/")({
       },
       {
         name: "og:image",
-        content: "https://drawspell.space/og-image.png",
+        content: `${origins.web}/og-image.png`,
       },
       {
         name: "og:url",
-        content: "https://drawspell.space",
+        content: origins.web,
       },
     ],
   }),

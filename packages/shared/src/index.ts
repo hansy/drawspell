@@ -1,5 +1,6 @@
 export * from "./types";
 export * from "./constants/geometry";
+export * from "./constants/hosts";
 export * from "./constants/limits";
 export * from "./constants/room";
 export * from "./constants/zones";

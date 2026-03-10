@@ -66,12 +66,12 @@ describe("discord provisioning endpoint", () => {
     const env = {
       JOIN_TOKEN_SECRET: "join-secret",
       DISCORD_SERVICE_AUTH_SECRET: "service-secret",
-      DRAWSPELL_WEB_ORIGIN: "https://drawspell.space",
+      NODE_ENV: "production",
       rooms,
     } as any;
 
     const response = await server.fetch(
-      new Request("https://example.test/rooms", {
+      new Request("https://drawspell-server/rooms", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -94,7 +94,7 @@ describe("discord provisioning endpoint", () => {
     expect(roomFetch).not.toHaveBeenCalled();
   });
 
-  it("fails when drawspell web origin is not configured", async () => {
+  it("fails when NODE_ENV is not configured", async () => {
     const roomFetch = vi.fn(async () => new Response("ok"));
     const rooms = {
       idFromName: vi.fn((name: string) => name),
@@ -149,12 +149,12 @@ describe("discord provisioning endpoint", () => {
     const env = {
       JOIN_TOKEN_SECRET: "join-secret",
       DISCORD_SERVICE_AUTH_SECRET: "service-secret",
-      DRAWSPELL_WEB_ORIGIN: "https://drawspell.space",
+      NODE_ENV: "production",
       rooms,
     } as any;
 
     const response = await server.fetch(
-      new Request("https://example.test/rooms", {
+      new Request("https://drawspell-server/rooms", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -187,6 +187,56 @@ describe("discord provisioning endpoint", () => {
     });
     expect(payload.playerInviteUrl).toBe(
       `https://drawspell.space/rooms/${payload.roomId}?gt=player-token-xyz`,
+    );
+  });
+
+  it("returns the staging invite origin for the staging server host", async () => {
+    const rooms = {
+      idFromName: vi.fn((name: string) => ({ name })),
+      get: vi.fn(() => ({
+        fetch: vi.fn(async (request: Request) =>
+          Response.json({
+            roomId: request.headers.get("x-partykit-room"),
+            playerToken: "player-token-staging",
+            expiresAt: 1_234_567,
+            alreadyProvisioned: false,
+          }),
+        ),
+      })),
+    };
+
+    const env = {
+      JOIN_TOKEN_SECRET: "join-secret",
+      DISCORD_SERVICE_AUTH_SECRET: "service-secret",
+      NODE_ENV: "staging",
+      rooms,
+    } as any;
+
+    const response = await server.fetch(
+      new Request("https://drawspell-server-staging/rooms", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer service-secret",
+        },
+        body: JSON.stringify({
+          interactionId: "interaction-staging",
+          guildId: "guild-1",
+          channelId: "channel-1",
+          invokerDiscordUserId: "user-1",
+          participantDiscordUserIds: ["user-1"],
+        }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      roomId: string;
+      playerInviteUrl: string;
+    };
+    expect(payload.playerInviteUrl).toBe(
+      `https://drawspell-staging.service-fff.workers.dev/rooms/${payload.roomId}?gt=player-token-staging`,
     );
   });
 

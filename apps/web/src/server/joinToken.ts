@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { ORIGINS } from "@mtg/shared/constants/hosts";
 import { createJoinToken } from "@mtg/shared/security/joinToken";
 
 type JoinTokenRequest = {
@@ -10,20 +11,18 @@ type JoinTokenResponse = {
   exp: number;
 };
 
-type ServerEnv = {
-  JOIN_TOKEN_SECRET?: string;
-  NODE_ENV?: string;
-};
-
-const CLIENT_ALLOWED_ORIGINS = new Set([
-  "https://drawspell.space",
-  "http://localhost:5173",
-]);
 const JOIN_TOKEN_TTL_MS = 5 * 60_000;
+const viteEnv = import.meta.env.VITE_ENV;
+const origins = ORIGINS[viteEnv as keyof typeof ORIGINS];
+
+if (!origins) {
+  throw new Error(`Unsupported VITE_ENV: ${viteEnv}`);
+}
 
 const joinTokenValidator = (input: JoinTokenRequest) => input;
 
-const normalizeOrigin = (value: string) => {
+const normalizeOrigin = (value: string | undefined) => {
+  if (!value) return null;
   try {
     return new URL(value).origin;
   } catch (_err) {
@@ -31,22 +30,15 @@ const normalizeOrigin = (value: string) => {
   }
 };
 
-const isOriginAllowed = (origin: string | null, allowed: Set<string>) => {
-  if (process.env.NODE_ENV === "development") return true;
+const isOriginAllowed = (
+  origin: string | null,
+  allowedOrigin: string | null,
+) => {
+  if (!allowedOrigin) return false;
   if (!origin) return false;
   const normalized = normalizeOrigin(origin);
   if (!normalized) return false;
-  return allowed.has(normalized);
-};
-
-const resolveServerEnv = (ctx: {
-  context?: { env?: ServerEnv };
-}): ServerEnv => {
-  if (ctx.context?.env) return ctx.context.env;
-  if (typeof process !== "undefined") {
-    return process.env as ServerEnv;
-  }
-  return {};
+  return normalized === allowedOrigin;
 };
 
 export const getJoinToken = createServerFn({ method: "POST" })
@@ -60,10 +52,11 @@ export const getJoinToken = createServerFn({ method: "POST" })
         throw new Error("missing room");
       }
 
-      const env = resolveServerEnv(ctx as { context?: { env?: ServerEnv } });
+      const env = process.env;
       const request = (ctx as { request?: Request }).request;
       const origin = request?.headers?.get("Origin") ?? null;
-      if (!isOriginAllowed(origin, CLIENT_ALLOWED_ORIGINS)) {
+      const allowedOrigin = normalizeOrigin(origins.web);
+      if (!isOriginAllowed(origin, allowedOrigin)) {
         console.error("[joinToken] origin not allowed", { origin, roomId });
         throw new Error("origin not allowed");
       }
@@ -73,7 +66,6 @@ export const getJoinToken = createServerFn({ method: "POST" })
         console.error("[joinToken] secret missing", {
           roomId,
           hasContextEnv: Boolean(env),
-          nodeEnv: env.NODE_ENV ?? process.env.NODE_ENV ?? null,
         });
         throw new Error("join token secret missing");
       }

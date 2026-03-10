@@ -20,19 +20,21 @@ Run these from `apps/web` (or prefix with `bun run --cwd apps/web` from the repo
 ```bash
 bun run dev
 bun run build
+bun run build:staging
 bun run build:production
 bun run preview
 bun run test
 bun run typecheck
 bun run cf-typegen
 bun run deploy
+bun run deploy:staging
 ```
 
 ## Configuration
-- `VITE_SERVER_HOST`: optional override for the PartyServer host (host or full URL). Set in `apps/web/.env.development` and `apps/web/.env.production`. If unset, the client defaults to `localhost:8787`.
-- `VITE_PUBLIC_POSTHOG_KEY` and `VITE_PUBLIC_POSTHOG_HOST`: public analytics build vars loaded from `apps/web/.env`.
+- Drawspell web/server origins are resolved from `@mtg/shared/constants/hosts` using `import.meta.env.VITE_ENV`.
+- `VITE_PUBLIC_POSTHOG_KEY` and `VITE_PUBLIC_POSTHOG_HOST`: public analytics build vars loaded from `apps/web/.env*`.
 - `JOIN_TOKEN_SECRET`: required runtime secret for issuing join tokens. Must match the secret used by `apps/server`. Set it with `wrangler secret put JOIN_TOKEN_SECRET` for production and `apps/web/.dev.vars` for local dev.
-- Worker runtime deploy config lives in `wrangler.jsonc`. Public `VITE_*` values should stay in `apps/web/.env*` because they are read via `import.meta.env` at build time.
+- Worker runtime deploy config lives in `wrangler.jsonc`. `VITE_ENV` is injected from Vite mode for browser code and also set in Cloudflare worker vars.
 
 ## Key files
 - [src/routes/index.tsx](src/routes/index.tsx)

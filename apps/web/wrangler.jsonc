@@ -2,7 +2,8 @@
   // hello world
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "drawspell",
-  "compatibility_date": "2026-03-05",
+  "workers_dev": true,
+  "compatibility_date": "2026-03-01",
   "compatibility_flags": ["nodejs_compat"],
   "main": "@tanstack/react-start/server-entry",
   "observability": {
@@ -11,20 +12,26 @@
   "env": {
     "development": {
       "vars": {
-        "NODE_ENV": "development",
+        "VITE_ENV": "development",
+      },
+    },
+    "staging": {
+      "name": "drawspell-web-staging",
+      "vars": {
+        "VITE_ENV": "staging",
       },
     },
     "production": {
-      "name": "drawspell",
+      "name": "drawspell-web-production",
       "vars": {
-        "NODE_ENV": "production",
+        "VITE_ENV": "production",
       },
+      "routes": [
+        {
+          "pattern": "drawspell.space",
+          "custom_domain": true,
+        },
+      ],
     },
   },
-  "routes": [
-    {
-      "pattern": "drawspell.space",
-      "custom_domain": true,
-    },
-  ],
 }

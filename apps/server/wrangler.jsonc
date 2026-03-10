@@ -37,11 +37,24 @@
       },
       "vars": {
         "NODE_ENV": "development",
-        "DRAWSPELL_WEB_ORIGIN": "http://localhost:5173",
+      },
+    },
+    "staging": {
+      "name": "drawspell-server-staging",
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "rooms",
+            "class_name": "Room",
+          },
+        ],
+      },
+      "vars": {
+        "NODE_ENV": "staging",
       },
     },
     "production": {
-      "name": "drawspell-server",
+      "name": "drawspell-server-production",
       "durable_objects": {
         "bindings": [
           {
@@ -52,7 +65,6 @@
       },
       "vars": {
         "NODE_ENV": "production",
-        "DRAWSPELL_WEB_ORIGIN": "https://drawspell.space",
         "POSTHOG_API_KEY": "phc_oYFcMPG9V4ARE4INIzfQQnLmADFN2GRLaYfDFiLSaQ6",
         "POSTHOG_API_HOST": "https://us.i.posthog.com",
       },

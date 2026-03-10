@@ -26,6 +26,7 @@ import { usePlayerLayout, type LayoutMode } from "../player/usePlayerLayout";
 import { resolveSelectedCardIds } from "@/models/game/selection/selectionModel";
 import { MAX_PLAYERS } from "@/lib/room";
 import { useIdleTimeout } from "@/hooks/shared/useIdleTimeout";
+import { handoffDebugLog, handoffDebugTokenSummary } from "@/lib/debug";
 
 const IDLE_TIMEOUT_MS = 10 * 60_000;
 const IDLE_POLL_MS = 30_000;
@@ -301,6 +302,18 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   React.useEffect(() => {
     if (!isShareDialogOpen) return;
     if (!shareLinksReady) {
+      handoffDebugLog("shareDialog.linksBlocked", {
+        sessionId,
+        shareLinksReady,
+        hasRoomTokens: Boolean(
+          roomTokens?.playerToken ||
+            roomTokens?.spectatorToken ||
+            roomTokens?.resumeToken,
+        ),
+        hasStoredTokens: Boolean(
+          storedTokens?.playerToken || storedTokens?.spectatorToken,
+        ),
+      });
       setShareLinks({ players: "", spectators: "", resume: "" });
       return;
     }
@@ -322,15 +335,31 @@ export const useMultiplayerBoardController = (sessionId: string) => {
             playerId: myPlayerId,
           })
         : "";
+    handoffDebugLog("shareDialog.linksResolved", {
+      sessionId,
+      viewerRole,
+      myPlayerId,
+      hasPlayerToken: Boolean(shareTokenSource?.playerToken),
+      hasSpectatorToken: Boolean(shareTokenSource?.spectatorToken),
+      resumeToken: handoffDebugTokenSummary(shareTokenSource?.resumeToken),
+      hasResumeLink: Boolean(resumeLink),
+    });
     setShareLinks({ players: playerLink, spectators: spectatorLink, resume: resumeLink });
   }, [
     buildShareLink,
     isShareDialogOpen,
     myPlayerId,
+    roomTokens?.playerToken,
+    roomTokens?.spectatorToken,
+    roomTokens?.resumeToken,
     shareLinksReady,
+    sessionId,
     shareTokenSource?.playerToken,
     shareTokenSource?.spectatorToken,
     shareTokenSource?.resumeToken,
+    storedTokens?.playerToken,
+    storedTokens?.spectatorToken,
+    viewerRole,
   ]);
 
   const preferredUsername = useClientPrefsStore((state) => state.username);

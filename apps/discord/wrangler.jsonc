@@ -1,14 +1,14 @@
 {
   "name": "drawspell-discord",
   "main": "src/worker.ts",
-  "compatibility_date": "2025-12-17",
+  "compatibility_date": "2026-03-01",
   "vars": {
     "NODE_ENV": "development",
   },
   "services": [
     {
       "binding": "SERVER",
-      "service": "drawspell-server",
+      "service": "drawspell-server-production",
     },
   ],
   "env": {
@@ -24,14 +24,14 @@
       ],
     },
     "production": {
-      "name": "drawspell-discord",
+      "name": "drawspell-discord-production",
       "vars": {
         "NODE_ENV": "production",
       },
       "services": [
         {
           "binding": "SERVER",
-          "service": "drawspell-server",
+          "service": "drawspell-server-production",
         },
       ],
     },

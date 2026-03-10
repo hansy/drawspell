@@ -1,10 +1,22 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
-
 import { Toaster } from "sonner";
 import { PostHogProvider } from "posthog-js/react";
-import type { PostHogConfig } from "posthog-js";
-
 import appCss from "../styles.css?url";
+
+const RootDocument = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <html lang="en">
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        <PHProvider>{children}</PHProvider>
+        <Toaster />
+        <Scripts />
+      </body>
+    </html>
+  );
+};
 
 export const Route = createRootRoute({
   head: () => ({
@@ -29,38 +41,20 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 });
 
-const posthogOptions: Partial<PostHogConfig> = {
-  api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
-  defaults: "2025-11-30",
-};
+const PHProvider = ({ children }: { children: React.ReactNode }) => {
+  if (import.meta.env.VITE_ENV !== "production") {
+    return children;
+  }
 
-function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <PostHogProvider
-          apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
-          options={posthogOptions}
-        >
-          {children}
-          <Toaster />
-          {/* <TanStackDevtools
-          config={{
-            position: 'bottom-right',
-          }}
-          plugins={[
-            {
-              name: 'Tanstack Router',
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        /> */}
-        </PostHogProvider>
-        <Scripts />
-      </body>
-    </html>
+    <PostHogProvider
+      apiKey={"phc_oYFcMPG9V4ARE4INIzfQQnLmADFN2GRLaYfDFiLSaQ6"}
+      options={{
+        api_host: "https://us.i.posthog.com",
+        defaults: "2025-11-30",
+      }}
+    >
+      {children}
+    </PostHogProvider>
   );
-}
+};
