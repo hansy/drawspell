@@ -9,8 +9,8 @@ export const ORIGINS: Record<"development" | "staging" | "production", APPS> = {
     server: "http://localhost:8787",
   },
   staging: {
-    web: "https://drawspell-staging.service-fff.workers.dev",
-    server: "https://drawspell-server-staging.service-fff.workers.dev",
+    web: "https://staging.drawspell.space",
+    server: "https://staging.ws.drawspell.space",
   },
   production: {
     web: "https://drawspell.space",
