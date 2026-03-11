@@ -46,6 +46,7 @@ type IntentTransportOptions = {
 };
 
 let activeTransport: IntentTransport | null = null;
+const intentMetaListeners = new Set<() => void>();
 const initialIntentMeta = (): IntentConnectionMeta => ({
   isOpen: false,
   everConnected: false,
@@ -53,6 +54,9 @@ const initialIntentMeta = (): IntentConnectionMeta => ({
   lastCloseAt: null,
 });
 let activeIntentMeta: IntentConnectionMeta = initialIntentMeta();
+const emitIntentMetaChange = () => {
+  intentMetaListeners.forEach((listener) => listener());
+};
 const syncIntentMeta = () => {
   if (!activeTransport?.isOpen) return;
   const isOpen = activeTransport.isOpen();
@@ -65,6 +69,7 @@ const syncIntentMeta = () => {
     activeIntentMeta.isOpen = false;
     activeIntentMeta.lastCloseAt = Date.now();
   }
+  emitIntentMetaChange();
 };
 
 export const createIntentTransport = ({
@@ -93,6 +98,7 @@ export const createIntentTransport = ({
       activeIntentMeta.isOpen = true;
       activeIntentMeta.everConnected = true;
       activeIntentMeta.lastOpenAt = Date.now();
+      emitIntentMetaChange();
     }
     onOpen?.();
   };
@@ -100,6 +106,7 @@ export const createIntentTransport = ({
     if (transport && activeTransport === transport) {
       activeIntentMeta.isOpen = false;
       activeIntentMeta.lastCloseAt = Date.now();
+      emitIntentMetaChange();
     }
     onClose?.(event);
   };
@@ -186,6 +193,7 @@ export const setIntentTransport = (transport: IntentTransport | null) => {
     activeIntentMeta.everConnected = true;
     activeIntentMeta.lastOpenAt = Date.now();
   }
+  emitIntentMetaChange();
 };
 
 export const clearIntentTransport = () => {
@@ -194,6 +202,14 @@ export const clearIntentTransport = () => {
   }
   activeTransport = null;
   activeIntentMeta = initialIntentMeta();
+  emitIntentMetaChange();
+};
+
+export const subscribeIntentConnectionMeta = (listener: () => void) => {
+  intentMetaListeners.add(listener);
+  return () => {
+    intentMetaListeners.delete(listener);
+  };
 };
 
 export const getIntentConnectionMeta = (): IntentConnectionMeta => {

@@ -53,6 +53,12 @@ const mockUseIdleTimeout = vi.hoisted(() =>
 const mockNavigate = vi.hoisted(() => vi.fn());
 const mockSendPartyMessage = vi.hoisted(() => vi.fn());
 const mockRequestShareLinks = vi.hoisted(() => vi.fn());
+const mockIntentConnectionMeta = vi.hoisted(() => ({
+  isOpen: true,
+  everConnected: true,
+  lastOpenAt: 1,
+  lastCloseAt: null as number | null,
+}));
 const mockSyncState = vi.hoisted(() => ({
   status: "connected",
   peerCounts: { total: 1, players: 1, spectators: 0 },
@@ -175,6 +181,8 @@ vi.mock("uuid", () => ({
 vi.mock("@/partykit/intentTransport", () => ({
   sendIntent: vi.fn(),
   sendPartyMessage: mockSendPartyMessage,
+  getIntentConnectionMeta: () => mockIntentConnectionMeta,
+  subscribeIntentConnectionMeta: () => () => {},
 }));
 
 vi.mock("@/partykit/shareLinksClient", () => ({
@@ -277,6 +285,12 @@ describe("useMultiplayerBoardController", () => {
     mockSendPartyMessage.mockReset();
     mockSendPartyMessage.mockReturnValue(true);
     mockRequestShareLinks.mockReset();
+    Object.assign(mockIntentConnectionMeta, {
+      isOpen: true,
+      everConnected: true,
+      lastOpenAt: 1,
+      lastCloseAt: null,
+    });
     Object.assign(mockGameState, {
       zones: {},
       cards: {},
@@ -382,6 +396,23 @@ describe("useMultiplayerBoardController", () => {
 
   it("does not request share links while room connection is pending", () => {
     mockSyncState.status = "connecting";
+
+    const { result } = renderHook(() => useMultiplayerBoardController("room-1"));
+
+    expect(result.current.canShareRoom).toBe(false);
+
+    act(() => {
+      result.current.setIsShareDialogOpen(true);
+    });
+
+    expect(mockRequestShareLinks).not.toHaveBeenCalled();
+    expect(result.current.shareLinksReady).toBe(false);
+    expect(result.current.shareDialogError).toBe("");
+  });
+
+  it("does not request share links while the intent transport is closed", () => {
+    mockIntentConnectionMeta.isOpen = false;
+    mockIntentConnectionMeta.lastCloseAt = 10;
 
     const { result } = renderHook(() => useMultiplayerBoardController("room-1"));
 

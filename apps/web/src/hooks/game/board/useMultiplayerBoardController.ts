@@ -10,7 +10,11 @@ import { resolvePlayerColors } from "@/lib/playerColors";
 import { ZONE } from "@/constants/zones";
 import { useScryfallCards } from "@/hooks/scryfall/useScryfallCard";
 import { v4 as uuidv4 } from "uuid";
-import { sendIntent } from "@/partykit/intentTransport";
+import {
+  getIntentConnectionMeta,
+  sendIntent,
+  subscribeIntentConnectionMeta,
+} from "@/partykit/intentTransport";
 import { markRoomAsHostPending } from "@/lib/partyKitToken";
 import { createRoomId } from "@/lib/roomId";
 import { useGameContextMenu } from "../context-menu/useGameContextMenu";
@@ -257,8 +261,15 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [shareDialogError, setShareDialogError] = React.useState("");
+  const intentConnectionMeta = React.useSyncExternalStore(
+    subscribeIntentConnectionMeta,
+    getIntentConnectionMeta,
+    getIntentConnectionMeta,
+  );
   const canShareRoom =
-    viewerRole !== "spectator" && syncStatus === "connected";
+    viewerRole !== "spectator" &&
+    syncStatus === "connected" &&
+    intentConnectionMeta.isOpen;
   const shareLinksReady = shareDialogStatus === "ready";
 
   React.useEffect(() => {
