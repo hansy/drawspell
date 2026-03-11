@@ -83,6 +83,7 @@ const buildBaseState = (): GameState =>
     applyPrivateOverlay: (() => {}) as any,
     applyPrivateOverlayDiff: (() => true) as any,
     setOverlayCapabilities: (() => {}) as any,
+    cacheResumeTokenForSession: (() => {}) as any,
     setRoomTokens: (() => {}) as any,
     hasHydrated: false,
     setHasHydrated: (() => {}) as any,

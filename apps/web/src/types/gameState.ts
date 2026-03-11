@@ -183,6 +183,7 @@ export interface GameState {
   applyPrivateOverlay: (overlay: PrivateOverlayPayload) => void;
   applyPrivateOverlayDiff: (diff: PrivateOverlayDiffPayload) => boolean;
   setOverlayCapabilities: (capabilities: string[]) => void;
+  cacheResumeTokenForSession: (sessionId: string, resumeToken: string) => void;
   setRoomTokens: (tokens: RoomTokensPayload | null) => void;
   lastResumeTokenBySession: Record<string, string>;
 
