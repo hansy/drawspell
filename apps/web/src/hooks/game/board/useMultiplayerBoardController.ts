@@ -273,11 +273,28 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const shareLinksReady = shareDialogStatus === "ready";
 
   React.useEffect(() => {
+    if (isShareDialogOpen) return;
+    setShareDialogStatus("idle");
+    setShareDialogError("");
+    setShareLinks(EMPTY_SHARE_LINKS);
+  }, [isShareDialogOpen]);
+
+  React.useEffect(() => {
     if (!isShareDialogOpen) return;
     if (!canShareRoom) {
-      setShareDialogStatus("loading");
-      setShareDialogError("");
-      setShareLinks(EMPTY_SHARE_LINKS);
+      if (!shareLinksReady) {
+        setShareDialogStatus("loading");
+        setShareDialogError("");
+      }
+      handoffDebugLog("shareDialog.linksBlocked", {
+        sessionId,
+        viewerRole,
+        myPlayerId,
+        shareLinksReady,
+      });
+      return;
+    }
+    if (shareLinksReady) {
       return;
     }
     const abortController = new AbortController();
@@ -335,6 +352,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     isShareDialogOpen,
     myPlayerId,
     sessionId,
+    shareLinksReady,
     viewerRole,
   ]);
 
