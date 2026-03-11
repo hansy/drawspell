@@ -45,7 +45,7 @@ describe("Sidenav", () => {
     expect(onOpenShareDialog).toHaveBeenCalledTimes(1);
   });
 
-  it("disables the share button when sharing is unavailable", () => {
+  it("disables the share button before invite links are ready", () => {
     const onOpenShareDialog = vi.fn();
 
     render(
@@ -53,7 +53,7 @@ describe("Sidenav", () => {
         onOpenCoinFlipper={vi.fn()}
         onOpenDiceRoller={vi.fn()}
         onOpenShareDialog={onOpenShareDialog}
-        canShareRoom={false}
+        shareLinksReady={false}
       />,
     );
 

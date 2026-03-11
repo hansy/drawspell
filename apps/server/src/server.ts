@@ -122,12 +122,6 @@ type ConnectionAuthWithResumeResult =
       reason: AuthRejectReason;
     };
 
-type ShareLinksPayload = {
-  playerInviteUrl: string;
-  spectatorInviteUrl: string;
-  resumeInviteUrl?: string;
-};
-
 const nowMs = () =>
   typeof performance !== "undefined" && typeof performance.now === "function"
     ? performance.now()
@@ -1286,118 +1280,6 @@ export class Room extends YServer<Env> {
     }
   }
 
-  private buildRoomInviteUrl(
-    webOrigin: string,
-    params: {
-      tokenParam?: { name: "gt" | "st" | "rt"; value: string };
-      playerId?: string;
-    } = {},
-  ): string {
-    const url = new URL(`/rooms/${this.name}`, webOrigin);
-    if (params.tokenParam) {
-      url.searchParams.set(params.tokenParam.name, params.tokenParam.value);
-    }
-    if (params.playerId) {
-      url.searchParams.set("playerId", params.playerId);
-    }
-    return url.toString();
-  }
-
-  private sendShareLinksResponse(
-    conn: Connection,
-    response:
-      | {
-          requestId: string;
-          ok: true;
-          payload: ShareLinksPayload;
-        }
-      | {
-          requestId: string;
-          ok: false;
-          error: string;
-        },
-  ): void {
-    try {
-      conn.send(
-        JSON.stringify({
-          type: "shareLinksResponse",
-          ...response,
-        }),
-      );
-    } catch (_err) {}
-  }
-
-  private async handleShareLinksRequest(
-    conn: Connection,
-    rawRequestId: unknown,
-  ): Promise<void> {
-    const requestId = normalizeNonEmptyString(rawRequestId);
-    if (!requestId) return;
-
-    const state = (conn.state ?? {}) as IntentConnectionState;
-    if (state.viewerRole === "spectator") {
-      this.sendShareLinksResponse(conn, {
-        requestId,
-        ok: false,
-        error: "Spectators cannot request invite links.",
-      });
-      return;
-    }
-
-    const playerId = normalizeNonEmptyString(state.playerId);
-    if (!playerId) {
-      this.sendShareLinksResponse(conn, {
-        requestId,
-        ok: false,
-        error: "Player identity is not available for this connection.",
-      });
-      return;
-    }
-
-    const webOrigin = resolveDrawspellWebOrigin(this.env);
-    if (!webOrigin) {
-      this.sendShareLinksResponse(conn, {
-        requestId,
-        ok: false,
-        error: "Drawspell web origin is not configured.",
-      });
-      return;
-    }
-
-    try {
-      const tokens = await this.ensureRoomTokens();
-      const resumeToken = await this.ensurePlayerResumeToken(playerId);
-      this.sendShareLinksResponse(conn, {
-        requestId,
-        ok: true,
-        payload: {
-          playerInviteUrl: this.buildRoomInviteUrl(webOrigin, {
-            tokenParam: { name: "gt", value: tokens.playerToken },
-          }),
-          spectatorInviteUrl: this.buildRoomInviteUrl(webOrigin, {
-            tokenParam: { name: "st", value: tokens.spectatorToken },
-          }),
-          resumeInviteUrl: this.buildRoomInviteUrl(webOrigin, {
-            tokenParam: { name: "rt", value: resumeToken },
-            playerId,
-          }),
-        },
-      });
-    } catch (error) {
-      console.error("[party] failed to build share links", {
-        room: this.name,
-        connId: conn.id,
-        playerId,
-        message: resolveErrorMessage(error),
-      });
-      this.sendShareLinksResponse(conn, {
-        requestId,
-        ok: false,
-        error: "Unable to generate invite links right now.",
-      });
-    }
-  }
-
   private async restorePlayerResumeToken(
     playerId: string,
     resumeToken: string,
@@ -2457,10 +2339,6 @@ export class Room extends YServer<Env> {
       }
       if (parsed.type === "overlayResync") {
         void this.handleOverlayResync(conn, parsed.payload);
-        return;
-      }
-      if (parsed.type === "shareLinksRequest") {
-        void this.handleShareLinksRequest(conn, parsed.requestId);
         return;
       }
       if (parsed.type !== "intent") return;
