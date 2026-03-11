@@ -36,6 +36,8 @@ const mockGameState = vi.hoisted(() => ({
   playerOrder: [],
   battlefieldViewScale: {},
   battlefieldGridSizing: {},
+  sessionId: "room-1",
+  lastResumeTokenBySession: {} as Record<string, string>,
   viewerRole: "player" as "player" | "spectator",
   setViewerRole: vi.fn(),
   roomHostId: "player-1",
@@ -241,6 +243,8 @@ describe("useMultiplayerBoardController", () => {
       players: {},
       playerOrder: [],
       battlefieldViewScale: {},
+      sessionId: "room-1",
+      lastResumeTokenBySession: {},
       viewerRole: "player",
       roomTokens: null,
       roomLockedByHost: false,
@@ -301,6 +305,27 @@ describe("useMultiplayerBoardController", () => {
       expect(result.current.shareLinks.resume).toContain("rt=resume-live-456");
       expect(result.current.shareLinks.resume).toContain("playerId=player-1");
     });
+  });
+
+  it("uses the cached resume token for the active route session", async () => {
+    mockGameState.sessionId = "other-room";
+    mockGameState.lastResumeTokenBySession = {
+      "room-1": "resume-route-123",
+      "other-room": "resume-other-456",
+    };
+
+    const { result } = renderHook(() => useMultiplayerBoardController("room-1"));
+
+    act(() => {
+      result.current.setIsShareDialogOpen(true);
+    });
+
+    await waitFor(() =>
+      expect(result.current.shareLinks.players).toContain("gt=token-123")
+    );
+    expect(result.current.shareLinks.resume).toContain("rt=resume-route-123");
+    expect(result.current.shareLinks.resume).not.toContain("resume-other-456");
+    expect(result.current.shareLinks.resume).toContain("playerId=player-1");
   });
 
   it("keeps share links disabled when only a resume token is present", async () => {

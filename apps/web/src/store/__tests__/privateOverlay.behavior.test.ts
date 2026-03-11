@@ -37,6 +37,7 @@ const buildBaseState = (): GameState =>
     privateOverlay: null,
     overlayCapabilities: [],
     roomTokens: null,
+    lastResumeTokenBySession: {},
     sessionId: "s",
     myPlayerId: "p1",
     positionFormat: "normalized",

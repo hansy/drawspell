@@ -184,6 +184,7 @@ export interface GameState {
   applyPrivateOverlayDiff: (diff: PrivateOverlayDiffPayload) => boolean;
   setOverlayCapabilities: (capabilities: string[]) => void;
   setRoomTokens: (tokens: RoomTokensPayload | null) => void;
+  lastResumeTokenBySession: Record<string, string>;
 
   // Hydration
   hasHydrated: boolean;
