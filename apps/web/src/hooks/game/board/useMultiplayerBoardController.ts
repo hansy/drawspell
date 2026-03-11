@@ -309,6 +309,18 @@ export const useMultiplayerBoardController = (sessionId: string) => {
 
   React.useEffect(() => {
     if (!isShareDialogOpen) return;
+    const liveState = useGameStore.getState();
+    const liveRoomTokens = liveState.roomTokens;
+    const liveStoredTokens = readRoomTokensFromStorage(sessionId);
+    const liveLastResumeToken = liveState.lastResumeTokenBySession?.[sessionId];
+    const liveShareTokenSource = liveRoomTokens ?? liveStoredTokens;
+    const liveShareTokenSourceKind = liveRoomTokens
+      ? "memory"
+      : liveStoredTokens
+        ? "storage"
+        : "none";
+    const liveEffectiveResumeToken =
+      liveShareTokenSource?.resumeToken ?? liveLastResumeToken;
     if (!shareLinksReady) {
       handoffDebugLog("shareDialog.linksBlocked", {
         sessionId,
@@ -322,6 +334,17 @@ export const useMultiplayerBoardController = (sessionId: string) => {
         hasStoredTokens: Boolean(
           storedTokens?.playerToken || storedTokens?.spectatorToken,
         ),
+        liveStoreSessionId: liveState.sessionId,
+        liveShareTokenSource: liveShareTokenSourceKind,
+        liveHasRoomTokens: Boolean(
+          liveRoomTokens?.playerToken ||
+            liveRoomTokens?.spectatorToken ||
+            liveRoomTokens?.resumeToken,
+        ),
+        liveHasStoredTokens: Boolean(
+          liveStoredTokens?.playerToken || liveStoredTokens?.spectatorToken,
+        ),
+        liveLastResumeToken: handoffDebugTokenSummary(liveLastResumeToken),
       });
       setShareLinks({ players: "", spectators: "", resume: "" });
       return;
@@ -351,12 +374,24 @@ export const useMultiplayerBoardController = (sessionId: string) => {
         viewerRole,
         myPlayerId,
         shareTokenSource: shareTokenSourceKind,
+        liveStoreSessionId: liveState.sessionId,
+        liveShareTokenSource: liveShareTokenSourceKind,
         memoryResumeToken: handoffDebugTokenSummary(roomTokens?.resumeToken),
         storedResumeToken: handoffDebugTokenSummary(storedTokens?.resumeToken),
         lastResumeToken: handoffDebugTokenSummary(lastResumeToken),
         effectiveResumeToken: handoffDebugTokenSummary(effectiveResumeToken),
+        liveMemoryResumeToken: handoffDebugTokenSummary(liveRoomTokens?.resumeToken),
+        liveStoredResumeToken: handoffDebugTokenSummary(
+          liveStoredTokens?.resumeToken,
+        ),
+        liveLastResumeToken: handoffDebugTokenSummary(liveLastResumeToken),
+        liveEffectiveResumeToken: handoffDebugTokenSummary(
+          liveEffectiveResumeToken,
+        ),
         hasPlayerToken: Boolean(shareTokenSource?.playerToken),
         hasSpectatorToken: Boolean(shareTokenSource?.spectatorToken),
+        liveHasPlayerToken: Boolean(liveShareTokenSource?.playerToken),
+        liveHasSpectatorToken: Boolean(liveShareTokenSource?.spectatorToken),
         hasResumeLink: Boolean(resumeLink),
       });
     setShareLinks({ players: playerLink, spectators: spectatorLink, resume: resumeLink });
