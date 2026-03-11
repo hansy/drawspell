@@ -10,7 +10,11 @@ import { resolvePlayerColors } from "@/lib/playerColors";
 import { ZONE } from "@/constants/zones";
 import { useScryfallCards } from "@/hooks/scryfall/useScryfallCard";
 import { v4 as uuidv4 } from "uuid";
-import { sendIntent } from "@/partykit/intentTransport";
+import {
+  getIntentConnectionMeta,
+  sendIntent,
+  subscribeIntentConnectionMeta,
+} from "@/partykit/intentTransport";
 import { markRoomAsHostPending } from "@/lib/partyKitToken";
 import { createRoomId } from "@/lib/roomId";
 import { useGameContextMenu } from "../context-menu/useGameContextMenu";
@@ -257,26 +261,61 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [shareDialogError, setShareDialogError] = React.useState("");
+  const [shareLinksConnectionOpenedAt, setShareLinksConnectionOpenedAt] =
+    React.useState<number | null>(null);
+  const intentConnectionMeta = React.useSyncExternalStore(
+    subscribeIntentConnectionMeta,
+    getIntentConnectionMeta,
+    getIntentConnectionMeta,
+  );
   const canShareRoom =
-    viewerRole !== "spectator" && syncStatus === "connected";
+    viewerRole !== "spectator" &&
+    syncStatus === "connected" &&
+    intentConnectionMeta.isOpen;
   const shareLinksReady = shareDialogStatus === "ready";
+
+  React.useEffect(() => {
+    if (isShareDialogOpen) return;
+    setShareDialogStatus("idle");
+    setShareDialogError("");
+    setShareLinks(EMPTY_SHARE_LINKS);
+    setShareLinksConnectionOpenedAt(null);
+  }, [isShareDialogOpen]);
 
   React.useEffect(() => {
     if (!isShareDialogOpen) return;
     if (!canShareRoom) {
-      setShareDialogStatus("loading");
-      setShareDialogError("");
-      setShareLinks(EMPTY_SHARE_LINKS);
+      if (!shareLinksReady) {
+        setShareDialogStatus("loading");
+        setShareDialogError("");
+      }
+      handoffDebugLog("shareDialog.linksBlocked", {
+        sessionId,
+        viewerRole,
+        myPlayerId,
+        shareLinksReady,
+      });
+      return;
+    }
+    const activeConnectionOpenedAt = intentConnectionMeta.lastOpenAt;
+    const shouldRefreshLoadedLinks =
+      shareLinksReady &&
+      activeConnectionOpenedAt !== null &&
+      shareLinksConnectionOpenedAt !== activeConnectionOpenedAt;
+    if (shareLinksReady && !shouldRefreshLoadedLinks) {
       return;
     }
     const abortController = new AbortController();
-    setShareDialogStatus("loading");
+    if (!shareLinksReady) {
+      setShareDialogStatus("loading");
+      setShareLinks(EMPTY_SHARE_LINKS);
+    }
     setShareDialogError("");
-    setShareLinks(EMPTY_SHARE_LINKS);
     handoffDebugLog("shareDialog.linksRequested", {
       sessionId,
       viewerRole,
       myPlayerId,
+      refresh: shouldRefreshLoadedLinks,
     });
     requestShareLinks({ signal: abortController.signal })
       .then((payload) => {
@@ -288,6 +327,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
         };
         setShareLinks(nextLinks);
         setShareDialogStatus("ready");
+        setShareLinksConnectionOpenedAt(activeConnectionOpenedAt);
         handoffDebugLog("shareDialog.linksResolved", {
           sessionId,
           viewerRole,
@@ -299,17 +339,23 @@ export const useMultiplayerBoardController = (sessionId: string) => {
       })
       .catch((error) => {
         if (isAbortedShareLinksRequest(error)) return;
-        setShareLinks(EMPTY_SHARE_LINKS);
-        setShareDialogStatus("error");
-        setShareDialogError(
+        const nextErrorMessage =
           error instanceof Error && error.message
             ? error.message
-            : "Unable to load invite links.",
-        );
+            : "Unable to load invite links.";
+        if (shouldRefreshLoadedLinks) {
+          setShareDialogStatus("ready");
+          setShareDialogError(nextErrorMessage);
+        } else {
+          setShareLinks(EMPTY_SHARE_LINKS);
+          setShareDialogStatus("error");
+          setShareDialogError(nextErrorMessage);
+        }
         handoffDebugLog("shareDialog.linksFailed", {
           sessionId,
           viewerRole,
           myPlayerId,
+          refresh: shouldRefreshLoadedLinks,
           error:
             error instanceof Error && error.message
               ? error.message
@@ -322,8 +368,11 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   }, [
     canShareRoom,
     isShareDialogOpen,
+    intentConnectionMeta.lastOpenAt,
     myPlayerId,
     sessionId,
+    shareLinksConnectionOpenedAt,
+    shareLinksReady,
     viewerRole,
   ]);
 
