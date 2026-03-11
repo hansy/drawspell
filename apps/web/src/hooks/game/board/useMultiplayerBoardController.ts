@@ -339,17 +339,23 @@ export const useMultiplayerBoardController = (sessionId: string) => {
       })
       .catch((error) => {
         if (isAbortedShareLinksRequest(error)) return;
-        setShareLinks(EMPTY_SHARE_LINKS);
-        setShareDialogStatus("error");
-        setShareDialogError(
+        const nextErrorMessage =
           error instanceof Error && error.message
             ? error.message
-            : "Unable to load invite links.",
-        );
+            : "Unable to load invite links.";
+        if (shouldRefreshLoadedLinks) {
+          setShareDialogStatus("ready");
+          setShareDialogError(nextErrorMessage);
+        } else {
+          setShareLinks(EMPTY_SHARE_LINKS);
+          setShareDialogStatus("error");
+          setShareDialogError(nextErrorMessage);
+        }
         handoffDebugLog("shareDialog.linksFailed", {
           sessionId,
           viewerRole,
           myPlayerId,
+          refresh: shouldRefreshLoadedLinks,
           error:
             error instanceof Error && error.message
               ? error.message

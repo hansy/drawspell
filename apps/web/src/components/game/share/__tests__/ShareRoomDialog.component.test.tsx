@@ -102,6 +102,24 @@ describe("ShareRoomDialog", () => {
     expect(screen.getAllByRole("textbox")).toHaveLength(3);
   });
 
+  it("shows a non-blocking refresh warning while keeping loaded links visible", () => {
+    const resumeLink = "https://example.com/room?playerId=p1&rt=resume";
+    renderDialog({
+      resumeLink,
+      errorMessage: "Unable to refresh invite links.",
+    });
+
+    expect(
+      screen.getByText("Invite links could not be refreshed.")
+    ).toBeTruthy();
+    expect(screen.getByText("Unable to refresh invite links.")).toBeTruthy();
+    expect(screen.getByText("Player invite link")).toBeTruthy();
+    expect(
+      screen.getByDisplayValue("https://example.com/room")
+    ).toBeTruthy();
+    expect(screen.getByDisplayValue(resumeLink)).toBeTruthy();
+  });
+
   it("shows a loading state before links are ready", () => {
     renderDialog({ linksReady: false });
 

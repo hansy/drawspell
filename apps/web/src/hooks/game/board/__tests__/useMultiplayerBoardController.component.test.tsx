@@ -497,6 +497,66 @@ describe("useMultiplayerBoardController", () => {
     });
   });
 
+  it("preserves loaded share links when a reconnect refresh fails", async () => {
+    const refreshedRequest = createDeferredShareLinksRequest();
+    mockRequestShareLinks
+      .mockResolvedValueOnce({
+        playerInviteUrl: "https://example.com/rooms/room-1?gt=token-123",
+        spectatorInviteUrl: "https://example.com/rooms/room-1?st=spectator-123",
+        resumeInviteUrl:
+          "https://example.com/rooms/room-1?rt=resume-123&playerId=player-1",
+      })
+      .mockReturnValueOnce(refreshedRequest.promise);
+
+    const { result, rerender } = renderHook(() =>
+      useMultiplayerBoardController("room-1")
+    );
+
+    act(() => {
+      result.current.setIsShareDialogOpen(true);
+    });
+
+    await waitFor(() => {
+      expect(result.current.shareLinksReady).toBe(true);
+    });
+
+    expect(result.current.shareLinks.players).toContain("gt=token-123");
+    expect(result.current.shareLinks.spectators).toContain("st=spectator-123");
+    expect(result.current.shareLinks.resume).toContain("rt=resume-123");
+
+    act(() => {
+      mockIntentConnectionMeta.isOpen = false;
+      mockIntentConnectionMeta.lastCloseAt = 10;
+    });
+    rerender();
+
+    act(() => {
+      mockIntentConnectionMeta.isOpen = true;
+      mockIntentConnectionMeta.lastOpenAt = 20;
+      mockIntentConnectionMeta.lastCloseAt = 10;
+    });
+    rerender();
+
+    await waitFor(() => {
+      expect(mockRequestShareLinks).toHaveBeenCalledTimes(2);
+    });
+
+    act(() => {
+      refreshedRequest.reject(new Error("Unable to refresh invite links."));
+    });
+
+    await waitFor(() => {
+      expect(result.current.shareLinksReady).toBe(true);
+      expect(result.current.shareDialogError).toBe(
+        "Unable to refresh invite links.",
+      );
+    });
+
+    expect(result.current.shareLinks.players).toContain("gt=token-123");
+    expect(result.current.shareLinks.spectators).toContain("st=spectator-123");
+    expect(result.current.shareLinks.resume).toContain("rt=resume-123");
+  });
+
   it("disables idle timeout for spectators", () => {
     mockGameState.viewerRole = "spectator";
 

@@ -191,6 +191,14 @@ export const ShareRoomDialog: React.FC<ShareRoomDialogProps> = ({
             <div className="border-t border-zinc-800 pt-4 space-y-4">
               {linksReady ? (
                 <>
+                  {errorMessage ? (
+                    <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+                      <p className="font-medium">
+                        Invite links could not be refreshed.
+                      </p>
+                      <p className="text-amber-100/80">{errorMessage}</p>
+                    </div>
+                  ) : null}
                   <ShareLinkField
                     label="Player invite link"
                     value={resolvedPlayerLink}
