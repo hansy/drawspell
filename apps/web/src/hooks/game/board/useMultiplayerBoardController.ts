@@ -11,10 +11,7 @@ import { ZONE } from "@/constants/zones";
 import { useScryfallCards } from "@/hooks/scryfall/useScryfallCard";
 import { v4 as uuidv4 } from "uuid";
 import { sendIntent } from "@/partykit/intentTransport";
-import {
-  markRoomAsHostPending,
-  readRoomTokensFromStorage,
-} from "@/lib/partyKitToken";
+import { markRoomAsHostPending } from "@/lib/partyKitToken";
 import { createRoomId } from "@/lib/roomId";
 import { useGameContextMenu } from "../context-menu/useGameContextMenu";
 import { useGameDnD } from "../dnd/useGameDnD";
@@ -26,10 +23,15 @@ import { usePlayerLayout, type LayoutMode } from "../player/usePlayerLayout";
 import { resolveSelectedCardIds } from "@/models/game/selection/selectionModel";
 import { MAX_PLAYERS } from "@/lib/room";
 import { useIdleTimeout } from "@/hooks/shared/useIdleTimeout";
-import { handoffDebugLog, handoffDebugTokenSummary } from "@/lib/debug";
+import { handoffDebugLog } from "@/lib/debug";
+import {
+  isAbortedShareLinksRequest,
+  requestShareLinks,
+} from "@/partykit/shareLinksClient";
 
 const IDLE_TIMEOUT_MS = 10 * 60_000;
 const IDLE_POLL_MS = 30_000;
+const EMPTY_SHARE_LINKS = { players: "", spectators: "", resume: "" };
 
 const getGridClass = (layoutMode: LayoutMode) => {
   switch (layoutMode) {
@@ -81,30 +83,11 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const roomHostId = useGameStore((state) => state.roomHostId);
   const roomLockedByHost = useGameStore((state) => state.roomLockedByHost);
   const roomOverCapacity = useGameStore((state) => state.roomOverCapacity);
-  const roomTokens = useGameStore((state) => state.roomTokens);
-  const lastResumeToken = useGameStore(
-    (state) => state.lastResumeTokenBySession?.[sessionId],
-  );
-  const storedTokens = React.useMemo(
-    () => readRoomTokensFromStorage(sessionId),
-    [sessionId, roomTokens?.playerToken, roomTokens?.spectatorToken],
-  );
-  const shareTokenSource = roomTokens ?? storedTokens;
-  const shareTokenSourceKind = roomTokens
-    ? "memory"
-    : storedTokens
-      ? "storage"
-      : "none";
   const setRoomLockedByHost = useGameStore(
     (state) => state.setRoomLockedByHost,
   );
   const activeModal = useGameStore((state) => state.activeModal);
   const setActiveModal = useGameStore((state) => state.setActiveModal);
-  const shareLinksReady = Boolean(
-    shareTokenSource?.playerToken ||
-      shareTokenSource?.spectatorToken,
-  );
-
   const overCardScale = useDragStore((state) => state.overCardScale);
   const activeCardId = useDragStore((state) => state.activeCardId);
   const activeCardScale = useDragStore((state) => state.activeCardScale);
@@ -269,149 +252,77 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const [revealedLibraryZoneId, setRevealedLibraryZoneId] = React.useState<
     string | null
   >(null);
-  const [shareLinks, setShareLinks] = React.useState({
-    players: "",
-    spectators: "",
-    resume: "",
-  });
-  const buildShareLink = React.useCallback(
-    ({
-      tokenParam,
-      playerId,
-    }: {
-      tokenParam?: { name: "gt" | "st" | "rt"; value: string };
-      playerId?: string;
-    } = {}) => {
-      if (typeof window === "undefined") return "";
-      const url = new URL(window.location.href);
-      url.searchParams.delete("gt");
-      url.searchParams.delete("st");
-      url.searchParams.delete("rt");
-      url.searchParams.delete("viewerRole");
-      url.searchParams.delete("playerToken");
-      url.searchParams.delete("spectatorToken");
-      url.searchParams.delete("resumeToken");
-      url.searchParams.delete("connectionGroupId");
-      url.searchParams.delete("cid");
-      url.searchParams.delete("token");
-      url.searchParams.delete("role");
-      url.searchParams.delete("playerId");
-      if (tokenParam) {
-        url.searchParams.set(tokenParam.name, tokenParam.value);
-      }
-      if (playerId) {
-        url.searchParams.set("playerId", playerId);
-      }
-      return url.toString();
-    },
-    [],
-  );
+  const [shareLinks, setShareLinks] = React.useState(EMPTY_SHARE_LINKS);
+  const [shareDialogStatus, setShareDialogStatus] = React.useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [shareDialogError, setShareDialogError] = React.useState("");
+  const canShareRoom = viewerRole !== "spectator";
+  const shareLinksReady = shareDialogStatus === "ready";
 
   React.useEffect(() => {
     if (!isShareDialogOpen) return;
-    const liveState = useGameStore.getState();
-    const liveRoomTokens = liveState.roomTokens;
-    const liveStoredTokens = readRoomTokensFromStorage(sessionId);
-    const liveLastResumeToken = liveState.lastResumeTokenBySession?.[sessionId];
-    const liveShareTokenSource = liveRoomTokens ?? liveStoredTokens;
-    const liveShareTokenSourceKind = liveRoomTokens
-      ? "memory"
-      : liveStoredTokens
-        ? "storage"
-        : "none";
-    const liveEffectiveResumeToken =
-      liveShareTokenSource?.resumeToken ?? liveLastResumeToken;
-    if (!shareLinksReady) {
-      handoffDebugLog("shareDialog.linksBlocked", {
-        sessionId,
-        shareLinksReady,
-        shareTokenSource: shareTokenSourceKind,
-        hasRoomTokens: Boolean(
-          roomTokens?.playerToken ||
-            roomTokens?.spectatorToken ||
-            roomTokens?.resumeToken,
-        ),
-        hasStoredTokens: Boolean(
-          storedTokens?.playerToken || storedTokens?.spectatorToken,
-        ),
-        liveStoreSessionId: liveState.sessionId,
-        liveShareTokenSource: liveShareTokenSourceKind,
-        liveHasRoomTokens: Boolean(
-          liveRoomTokens?.playerToken ||
-            liveRoomTokens?.spectatorToken ||
-            liveRoomTokens?.resumeToken,
-        ),
-        liveHasStoredTokens: Boolean(
-          liveStoredTokens?.playerToken || liveStoredTokens?.spectatorToken,
-        ),
-        liveLastResumeToken: handoffDebugTokenSummary(liveLastResumeToken),
-      });
-      setShareLinks({ players: "", spectators: "", resume: "" });
+    if (!canShareRoom) {
+      setShareDialogStatus("loading");
+      setShareDialogError("");
+      setShareLinks(EMPTY_SHARE_LINKS);
       return;
     }
-    const base = buildShareLink();
-    const playerLink = shareTokenSource?.playerToken
-      ? buildShareLink({
-          tokenParam: { name: "gt", value: shareTokenSource.playerToken },
-        })
-      : base;
-    const spectatorLink = shareTokenSource?.spectatorToken
-      ? buildShareLink({
-          tokenParam: { name: "st", value: shareTokenSource.spectatorToken },
-        })
-      : base;
-    const effectiveResumeToken =
-      shareTokenSource?.resumeToken ?? lastResumeToken;
-    const resumeLink =
-      effectiveResumeToken && myPlayerId
-        ? buildShareLink({
-            tokenParam: { name: "rt", value: effectiveResumeToken },
-            playerId: myPlayerId,
-          })
-        : "";
-    handoffDebugLog("shareDialog.linksResolved", {
-        sessionId,
-        viewerRole,
-        myPlayerId,
-        shareTokenSource: shareTokenSourceKind,
-        liveStoreSessionId: liveState.sessionId,
-        liveShareTokenSource: liveShareTokenSourceKind,
-        memoryResumeToken: handoffDebugTokenSummary(roomTokens?.resumeToken),
-        storedResumeToken: handoffDebugTokenSummary(storedTokens?.resumeToken),
-        lastResumeToken: handoffDebugTokenSummary(lastResumeToken),
-        effectiveResumeToken: handoffDebugTokenSummary(effectiveResumeToken),
-        liveMemoryResumeToken: handoffDebugTokenSummary(liveRoomTokens?.resumeToken),
-        liveStoredResumeToken: handoffDebugTokenSummary(
-          liveStoredTokens?.resumeToken,
-        ),
-        liveLastResumeToken: handoffDebugTokenSummary(liveLastResumeToken),
-        liveEffectiveResumeToken: handoffDebugTokenSummary(
-          liveEffectiveResumeToken,
-        ),
-        hasPlayerToken: Boolean(shareTokenSource?.playerToken),
-        hasSpectatorToken: Boolean(shareTokenSource?.spectatorToken),
-        liveHasPlayerToken: Boolean(liveShareTokenSource?.playerToken),
-        liveHasSpectatorToken: Boolean(liveShareTokenSource?.spectatorToken),
-        hasResumeLink: Boolean(resumeLink),
+    const abortController = new AbortController();
+    setShareDialogStatus("loading");
+    setShareDialogError("");
+    setShareLinks(EMPTY_SHARE_LINKS);
+    handoffDebugLog("shareDialog.linksRequested", {
+      sessionId,
+      viewerRole,
+      myPlayerId,
+    });
+    requestShareLinks({ signal: abortController.signal })
+      .then((payload) => {
+        if (abortController.signal.aborted) return;
+        const nextLinks = {
+          players: payload.playerInviteUrl,
+          spectators: payload.spectatorInviteUrl,
+          resume: payload.resumeInviteUrl ?? "",
+        };
+        setShareLinks(nextLinks);
+        setShareDialogStatus("ready");
+        handoffDebugLog("shareDialog.linksResolved", {
+          sessionId,
+          viewerRole,
+          myPlayerId,
+          hasPlayerLink: Boolean(nextLinks.players),
+          hasSpectatorLink: Boolean(nextLinks.spectators),
+          hasResumeLink: Boolean(nextLinks.resume),
+        });
+      })
+      .catch((error) => {
+        if (isAbortedShareLinksRequest(error)) return;
+        setShareLinks(EMPTY_SHARE_LINKS);
+        setShareDialogStatus("error");
+        setShareDialogError(
+          error instanceof Error && error.message
+            ? error.message
+            : "Unable to load invite links.",
+        );
+        handoffDebugLog("shareDialog.linksFailed", {
+          sessionId,
+          viewerRole,
+          myPlayerId,
+          error:
+            error instanceof Error && error.message
+              ? error.message
+              : "unknown",
+        });
       });
-    setShareLinks({ players: playerLink, spectators: spectatorLink, resume: resumeLink });
+    return () => {
+      abortController.abort();
+    };
   }, [
-    buildShareLink,
+    canShareRoom,
     isShareDialogOpen,
-    lastResumeToken,
     myPlayerId,
-    roomTokens?.playerToken,
-    roomTokens?.spectatorToken,
-    roomTokens?.resumeToken,
-    shareLinksReady,
     sessionId,
-    shareTokenSourceKind,
-    shareTokenSource?.playerToken,
-    shareTokenSource?.spectatorToken,
-    shareTokenSource?.resumeToken,
-    storedTokens?.playerToken,
-    storedTokens?.spectatorToken,
-    storedTokens?.resumeToken,
     viewerRole,
   ]);
 
@@ -645,6 +556,8 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     handleCreateNewGame,
     shareLinks,
     shareLinksReady,
+    shareDialogError,
+    canShareRoom,
     isHost,
     roomLockedByHost,
     roomLocked,

@@ -6,7 +6,7 @@
     "dev": "vite dev",
     "deploy": "bun run build:production && wrangler deploy --config dist/server/wrangler.json",
     "deploy:staging": "bun run build:staging && wrangler deploy --config dist/server/wrangler.json",
-    "preview": "bun run build:production && vite preview",
+    "preview": "VITE_ENV=development vite build --mode development && vite preview --port 5173",
     "cf:typegen": "wrangler types",
     "build": "vite build",
     "build:staging": "CLOUDFLARE_ENV=staging vite build --mode staging",

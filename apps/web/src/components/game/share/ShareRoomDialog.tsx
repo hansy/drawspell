@@ -22,6 +22,7 @@ type ShareRoomDialogProps = {
   spectatorLink: string;
   resumeLink?: string;
   linksReady?: boolean;
+  errorMessage?: string;
   players: Record<PlayerId, Player>;
   isHost: boolean;
   roomLockedByHost: boolean;
@@ -83,6 +84,7 @@ export const ShareRoomDialog: React.FC<ShareRoomDialogProps> = ({
   spectatorLink,
   resumeLink = "",
   linksReady = true,
+  errorMessage = "",
   players,
   isHost,
   roomLockedByHost,
@@ -212,6 +214,11 @@ export const ShareRoomDialog: React.FC<ShareRoomDialogProps> = ({
                     </div>
                   ) : null}
                 </>
+              ) : errorMessage ? (
+                <div className="space-y-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+                  <p className="font-medium">Unable to load invite links.</p>
+                  <p className="text-red-100/80">{errorMessage}</p>
+                </div>
               ) : (
                 <div className="flex items-center gap-2 text-sm text-zinc-400">
                   <Loader2 size={16} className="animate-spin" />
