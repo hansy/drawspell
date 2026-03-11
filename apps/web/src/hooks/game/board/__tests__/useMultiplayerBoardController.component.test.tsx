@@ -13,36 +13,6 @@ type IdleTimeoutOptions = {
   subscribe?: (markActivity: () => void) => () => void;
 };
 
-type DeferredShareLinksRequest = {
-  promise: Promise<{
-    playerInviteUrl: string;
-    spectatorInviteUrl: string;
-    resumeInviteUrl?: string | null;
-  }>;
-  resolve: (
-    value: {
-      playerInviteUrl: string;
-      spectatorInviteUrl: string;
-      resumeInviteUrl?: string | null;
-    },
-  ) => void;
-  reject: (reason?: unknown) => void;
-};
-
-const createDeferredShareLinksRequest = (): DeferredShareLinksRequest => {
-  let resolve!: DeferredShareLinksRequest["resolve"];
-  let reject!: DeferredShareLinksRequest["reject"];
-  const promise = new Promise<{
-    playerInviteUrl: string;
-    spectatorInviteUrl: string;
-    resumeInviteUrl?: string | null;
-  }>((nextResolve, nextReject) => {
-    resolve = nextResolve;
-    reject = nextReject;
-  });
-  return { promise, resolve, reject };
-};
-
 const mockReadRoomTokensFromStorage = vi.hoisted(() => vi.fn());
 const mockUseIdleTimeout = vi.hoisted(() =>
   vi.fn((_options: IdleTimeoutOptions) => ({
@@ -51,8 +21,6 @@ const mockUseIdleTimeout = vi.hoisted(() =>
   })),
 );
 const mockNavigate = vi.hoisted(() => vi.fn());
-const mockSendPartyMessage = vi.hoisted(() => vi.fn());
-const mockRequestShareLinks = vi.hoisted(() => vi.fn());
 const mockSyncState = vi.hoisted(() => ({
   status: "connected",
   peerCounts: { total: 1, players: 1, spectators: 0 },
@@ -174,13 +142,6 @@ vi.mock("uuid", () => ({
 
 vi.mock("@/partykit/intentTransport", () => ({
   sendIntent: vi.fn(),
-  sendPartyMessage: mockSendPartyMessage,
-}));
-
-vi.mock("@/partykit/shareLinksClient", () => ({
-  requestShareLinks: mockRequestShareLinks,
-  isAbortedShareLinksRequest: (error: unknown) =>
-    error instanceof Error && error.message === "share links request aborted",
 }));
 
 vi.mock("@/lib/partyKitToken", () => ({
@@ -199,7 +160,7 @@ vi.mock("../useBoardScale", () => ({
   useBoardScale: () => 1,
 }));
 
-vi.mock("../../context-menu/useGameContextMenu", () => ({
+vi.mock("../context-menu/useGameContextMenu", () => ({
   useGameContextMenu: () => ({
     contextMenu: null,
     handleCardContextMenu: vi.fn(),
@@ -215,7 +176,7 @@ vi.mock("../../context-menu/useGameContextMenu", () => ({
   }),
 }));
 
-vi.mock("../../dnd/useGameDnD", () => ({
+vi.mock("../dnd/useGameDnD", () => ({
   useGameDnD: () => ({
     sensors: [],
     handleDragStart: vi.fn(),
@@ -224,23 +185,23 @@ vi.mock("../../dnd/useGameDnD", () => ({
   }),
 }));
 
-vi.mock("../../selection/useSelectionSync", () => ({
+vi.mock("../selection/useSelectionSync", () => ({
   useSelectionSync: vi.fn(),
 }));
 
-vi.mock("../../shortcuts/useGameShortcuts", () => ({
+vi.mock("../shortcuts/useGameShortcuts", () => ({
   useGameShortcuts: vi.fn(),
 }));
 
-vi.mock("../../shortcuts/model", () => ({
+vi.mock("../shortcuts/model", () => ({
   areShortcutsBlockedByUi: () => false,
 }));
 
-vi.mock("../../multiplayer-sync/useMultiplayerSync", () => ({
+vi.mock("../multiplayer-sync/useMultiplayerSync", () => ({
   useMultiplayerSync: () => mockSyncState,
 }));
 
-vi.mock("../../player/usePlayerLayout", () => ({
+vi.mock("../player/usePlayerLayout", () => ({
   usePlayerLayout: () => ({
     slots: [],
     layoutMode: "single",
@@ -273,10 +234,9 @@ describe("useMultiplayerBoardController", () => {
       joinBlockedReason: null,
     });
     mockUseIdleTimeout.mockClear();
-    mockReadRoomTokensFromStorage.mockReset();
-    mockSendPartyMessage.mockReset();
-    mockSendPartyMessage.mockReturnValue(true);
-    mockRequestShareLinks.mockReset();
+    mockReadRoomTokensFromStorage.mockReturnValue({
+      playerToken: "token-123",
+    });
     Object.assign(mockGameState, {
       zones: {},
       cards: {},
@@ -294,42 +254,34 @@ describe("useMultiplayerBoardController", () => {
     window.history.replaceState({}, "", "/rooms/room-1");
   });
 
-  it("requests share links from the server when the dialog opens", async () => {
-    mockRequestShareLinks.mockResolvedValue({
-      playerInviteUrl: "https://example.com/rooms/room-1?gt=token-123",
-      spectatorInviteUrl: "https://example.com/rooms/room-1?st=spectator-123",
-      resumeInviteUrl:
-        "https://example.com/rooms/room-1?rt=resume-123&playerId=player-1",
-    });
+  it("uses in-memory resume token for new-device link", async () => {
+    mockGameState.roomTokens = {
+      playerToken: "token-123",
+      spectatorToken: "spectator-123",
+      resumeToken: "resume-123",
+    } as any;
 
     const { result } = renderHook(() => useMultiplayerBoardController("room-1"));
 
-    expect(result.current.canShareRoom).toBe(true);
+    expect(mockReadRoomTokensFromStorage).toHaveBeenCalledWith("room-1");
+    expect(result.current.shareLinksReady).toBe(true);
 
     act(() => {
       result.current.setIsShareDialogOpen(true);
     });
 
-    await waitFor(() => {
-      expect(mockRequestShareLinks).toHaveBeenCalledTimes(1);
-      expect(mockRequestShareLinks).toHaveBeenCalledWith({
-        signal: expect.any(AbortSignal),
-      });
-    });
-
-    await waitFor(() => expect(result.current.shareLinksReady).toBe(true));
-    expect(result.current.shareLinks.players).toContain("gt=token-123");
+    await waitFor(() =>
+      expect(result.current.shareLinks.players).toContain("gt=token-123")
+    );
+    expect(result.current.shareLinks.spectators).toContain("room-1");
+    expect(result.current.shareLinks.spectators).not.toContain("gt=");
     expect(result.current.shareLinks.spectators).toContain("st=spectator-123");
     expect(result.current.shareLinks.resume).toContain("rt=resume-123");
     expect(result.current.shareLinks.resume).toContain("playerId=player-1");
   });
 
-  it("renders an error when the share links request fails", async () => {
-    mockRequestShareLinks.mockRejectedValue(
-      new Error("Unable to load invite links."),
-    );
-
-    const { result } = renderHook(() =>
+  it("shows new-device link after live roomTokens adds resume token", async () => {
+    const { result, rerender } = renderHook(() =>
       useMultiplayerBoardController("room-1")
     );
 
@@ -337,21 +289,30 @@ describe("useMultiplayerBoardController", () => {
       result.current.setIsShareDialogOpen(true);
     });
 
-    await waitFor(() => {
-      expect(mockRequestShareLinks).toHaveBeenCalledTimes(1);
-    });
+    await waitFor(() =>
+      expect(result.current.shareLinks.players).toContain("gt=token-123")
+    );
+    expect(result.current.shareLinks.resume).toBe("");
+
+    mockGameState.roomTokens = {
+      playerToken: "token-123",
+      spectatorToken: "spectator-123",
+      resumeToken: "resume-live-456",
+    } as any;
+    rerender();
 
     await waitFor(() => {
-      expect(result.current.shareLinksReady).toBe(false);
-      expect(result.current.shareDialogError).toBe(
-        "Unable to load invite links.",
-      );
+      expect(result.current.shareLinks.resume).toContain("rt=resume-live-456");
+      expect(result.current.shareLinks.resume).toContain("playerId=player-1");
     });
   });
 
-  it("keeps share links disabled until the dialog request resolves", async () => {
-    const deferredRequest = createDeferredShareLinksRequest();
-    mockRequestShareLinks.mockReturnValue(deferredRequest.promise);
+  it("uses the cached resume token for the active route session", async () => {
+    mockGameState.sessionId = "other-room";
+    mockGameState.lastResumeTokenBySession = {
+      "room-1": "resume-route-123",
+      "other-room": "resume-other-456",
+    };
 
     const { result } = renderHook(() => useMultiplayerBoardController("room-1"));
 
@@ -359,41 +320,34 @@ describe("useMultiplayerBoardController", () => {
       result.current.setIsShareDialogOpen(true);
     });
 
-    await waitFor(() => {
-      expect(mockRequestShareLinks).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(result.current.shareLinks.players).toContain("gt=token-123")
+    );
+    expect(result.current.shareLinks.resume).toContain("rt=resume-route-123");
+    expect(result.current.shareLinks.resume).not.toContain("resume-other-456");
+    expect(result.current.shareLinks.resume).toContain("playerId=player-1");
+  });
+
+  it("keeps share links disabled when only a resume token is present", async () => {
+    mockReadRoomTokensFromStorage.mockReturnValue({
+      resumeToken: "resume-only-token",
     });
+
+    const { result } = renderHook(() => useMultiplayerBoardController("room-1"));
 
     expect(result.current.shareLinksReady).toBe(false);
 
     act(() => {
-      deferredRequest.resolve({
-        playerInviteUrl: "https://example.com/rooms/room-1?gt=token-123",
-        spectatorInviteUrl: "https://example.com/rooms/room-1?st=spectator-123",
-        resumeInviteUrl:
-          "https://example.com/rooms/room-1?rt=resume-live-456&playerId=player-1",
+      result.current.setIsShareDialogOpen(true);
+    });
+
+    await waitFor(() => {
+      expect(result.current.shareLinks).toEqual({
+        players: "",
+        spectators: "",
+        resume: "",
       });
     });
-
-    await waitFor(() => {
-      expect(result.current.shareLinksReady).toBe(true);
-      expect(result.current.shareLinks.resume).toContain("rt=resume-live-456");
-    });
-  });
-
-  it("does not request share links while room connection is pending", () => {
-    mockSyncState.status = "connecting";
-
-    const { result } = renderHook(() => useMultiplayerBoardController("room-1"));
-
-    expect(result.current.canShareRoom).toBe(false);
-
-    act(() => {
-      result.current.setIsShareDialogOpen(true);
-    });
-
-    expect(mockRequestShareLinks).not.toHaveBeenCalled();
-    expect(result.current.shareLinksReady).toBe(false);
-    expect(result.current.shareDialogError).toBe("");
   });
 
   it("disables idle timeout for spectators", () => {

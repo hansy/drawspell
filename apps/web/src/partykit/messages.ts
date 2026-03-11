@@ -52,25 +52,6 @@ export type RoomTokensMessage = {
   payload: RoomTokensPayload;
 };
 
-export type ShareLinksPayload = {
-  playerInviteUrl: string;
-  spectatorInviteUrl: string;
-  resumeInviteUrl?: string;
-};
-
-export type ShareLinksRequestMessage = {
-  type: "shareLinksRequest";
-  requestId: string;
-};
-
-export type ShareLinksResponseMessage = {
-  type: "shareLinksResponse";
-  requestId: string;
-  ok: boolean;
-  payload?: ShareLinksPayload;
-  error?: string;
-};
-
 export type PartyMessage =
   | IntentMessage
   | IntentAck
@@ -78,8 +59,7 @@ export type PartyMessage =
   | PrivateOverlayDiffMessage
   | HelloAckMessage
   | LogEventMessage
-  | RoomTokensMessage
-  | ShareLinksResponseMessage;
+  | RoomTokensMessage;
 
 export type OverlayMeta = {
   cardCount: number;

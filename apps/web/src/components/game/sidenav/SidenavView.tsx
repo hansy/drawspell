@@ -76,7 +76,7 @@ export const SidenavView: React.FC<SidenavController> = ({
   onOpenDiceRoller,
   onToggleLog,
   onOpenShareDialog,
-  canShareRoom,
+  shareLinksReady,
   onLeaveGame,
   syncStatus,
   peerCounts,
@@ -131,12 +131,12 @@ export const SidenavView: React.FC<SidenavController> = ({
     }
     return parts.join(", ");
   }, [peerCounts.players, peerCounts.spectators]);
-  const shareDisabled = !canShareRoom;
-  const shareTooltip = canShareRoom
+  const shareDisabled = !shareLinksReady;
+  const shareTooltip = shareLinksReady
     ? "Share room"
     : syncStatus !== "connected"
       ? "Connecting to room"
-      : "Share links are only available to players";
+      : "Loading auth tokens for sharing";
   const { refs: menuRefs, floatingStyles: menuFloatingStyles } = useFloating({
     open: isMenuOpen,
     onOpenChange: (next) => {

@@ -15,9 +15,6 @@ import { clearIntentTransport } from "@/partykit/intentTransport";
 type SetState = StoreApi<GameState>["setState"];
 type GetState = StoreApi<GameState>["getState"];
 
-const INITIAL_SESSION_ID = "";
-const INITIAL_PLAYER_ID = "";
-
 export const createSessionActions = (
   set: SetState,
   get: GetState,
@@ -46,8 +43,8 @@ export const createSessionActions = (
 > => ({
   playerIdsBySession: {},
   sessionVersions: {},
-  sessionId: INITIAL_SESSION_ID,
-  myPlayerId: INITIAL_PLAYER_ID,
+  sessionId: uuidv4(),
+  myPlayerId: uuidv4(),
   hasHydrated: false,
   viewerRole: "player",
   overlayCapabilities: [],
