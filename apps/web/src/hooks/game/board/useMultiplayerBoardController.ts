@@ -263,58 +263,90 @@ export const useMultiplayerBoardController = (sessionId: string) => {
 
   React.useEffect(() => {
     if (!isShareDialogOpen) return;
-    if (!canShareRoom) {
-      setShareDialogStatus("loading");
-      setShareDialogError("");
-      setShareLinks(EMPTY_SHARE_LINKS);
+    const liveState = useGameStore.getState();
+    const liveRoomTokens = liveState.roomTokens;
+    const liveStoredTokens = readRoomTokensFromStorage(sessionId);
+    const liveLastResumeToken = liveState.lastResumeTokenBySession?.[sessionId];
+    const liveShareTokenSource = liveRoomTokens ?? liveStoredTokens;
+    const liveShareTokenSourceKind = liveRoomTokens
+      ? "memory"
+      : liveStoredTokens
+        ? "storage"
+        : "none";
+    const liveEffectiveResumeToken =
+      liveShareTokenSource?.resumeToken ?? liveLastResumeToken;
+    if (!shareLinksReady) {
+      handoffDebugLog("shareDialog.linksBlocked", {
+        sessionId,
+        shareLinksReady,
+        shareTokenSource: shareTokenSourceKind,
+        hasRoomTokens: Boolean(
+          roomTokens?.playerToken ||
+            roomTokens?.spectatorToken ||
+            roomTokens?.resumeToken,
+        ),
+        hasStoredTokens: Boolean(
+          storedTokens?.playerToken || storedTokens?.spectatorToken,
+        ),
+        liveStoreSessionId: liveState.sessionId,
+        liveShareTokenSource: liveShareTokenSourceKind,
+        liveHasRoomTokens: Boolean(
+          liveRoomTokens?.playerToken ||
+            liveRoomTokens?.spectatorToken ||
+            liveRoomTokens?.resumeToken,
+        ),
+        liveHasStoredTokens: Boolean(
+          liveStoredTokens?.playerToken || liveStoredTokens?.spectatorToken,
+        ),
+        liveLastResumeToken: handoffDebugTokenSummary(liveLastResumeToken),
+      });
+      setShareLinks({ players: "", spectators: "", resume: "" });
       return;
     }
-    const abortController = new AbortController();
-    setShareDialogStatus("loading");
-    setShareDialogError("");
-    setShareLinks(EMPTY_SHARE_LINKS);
-    handoffDebugLog("shareDialog.linksRequested", {
-      sessionId,
-      viewerRole,
-      myPlayerId,
-    });
-    requestShareLinks({ signal: abortController.signal })
-      .then((payload) => {
-        if (abortController.signal.aborted) return;
-        const nextLinks = {
-          players: payload.playerInviteUrl,
-          spectators: payload.spectatorInviteUrl,
-          resume: payload.resumeInviteUrl ?? "",
-        };
-        setShareLinks(nextLinks);
-        setShareDialogStatus("ready");
-        handoffDebugLog("shareDialog.linksResolved", {
-          sessionId,
-          viewerRole,
-          myPlayerId,
-          hasPlayerLink: Boolean(nextLinks.players),
-          hasSpectatorLink: Boolean(nextLinks.spectators),
-          hasResumeLink: Boolean(nextLinks.resume),
-        });
-      })
-      .catch((error) => {
-        if (isAbortedShareLinksRequest(error)) return;
-        setShareLinks(EMPTY_SHARE_LINKS);
-        setShareDialogStatus("error");
-        setShareDialogError(
-          error instanceof Error && error.message
-            ? error.message
-            : "Unable to load invite links.",
-        );
-        handoffDebugLog("shareDialog.linksFailed", {
-          sessionId,
-          viewerRole,
-          myPlayerId,
-          error:
-            error instanceof Error && error.message
-              ? error.message
-              : "unknown",
-        });
+    const base = buildShareLink();
+    const playerLink = shareTokenSource?.playerToken
+      ? buildShareLink({
+          tokenParam: { name: "gt", value: shareTokenSource.playerToken },
+        })
+      : base;
+    const spectatorLink = shareTokenSource?.spectatorToken
+      ? buildShareLink({
+          tokenParam: { name: "st", value: shareTokenSource.spectatorToken },
+        })
+      : base;
+    const effectiveResumeToken =
+      shareTokenSource?.resumeToken ?? lastResumeToken;
+    const resumeLink =
+      effectiveResumeToken && myPlayerId
+        ? buildShareLink({
+            tokenParam: { name: "rt", value: effectiveResumeToken },
+            playerId: myPlayerId,
+          })
+        : "";
+    handoffDebugLog("shareDialog.linksResolved", {
+        sessionId,
+        viewerRole,
+        myPlayerId,
+        shareTokenSource: shareTokenSourceKind,
+        liveStoreSessionId: liveState.sessionId,
+        liveShareTokenSource: liveShareTokenSourceKind,
+        memoryResumeToken: handoffDebugTokenSummary(roomTokens?.resumeToken),
+        storedResumeToken: handoffDebugTokenSummary(storedTokens?.resumeToken),
+        lastResumeToken: handoffDebugTokenSummary(lastResumeToken),
+        effectiveResumeToken: handoffDebugTokenSummary(effectiveResumeToken),
+        liveMemoryResumeToken: handoffDebugTokenSummary(liveRoomTokens?.resumeToken),
+        liveStoredResumeToken: handoffDebugTokenSummary(
+          liveStoredTokens?.resumeToken,
+        ),
+        liveLastResumeToken: handoffDebugTokenSummary(liveLastResumeToken),
+        liveEffectiveResumeToken: handoffDebugTokenSummary(
+          liveEffectiveResumeToken,
+        ),
+        hasPlayerToken: Boolean(shareTokenSource?.playerToken),
+        hasSpectatorToken: Boolean(shareTokenSource?.spectatorToken),
+        liveHasPlayerToken: Boolean(liveShareTokenSource?.playerToken),
+        liveHasSpectatorToken: Boolean(liveShareTokenSource?.spectatorToken),
+        hasResumeLink: Boolean(resumeLink),
       });
     return () => {
       abortController.abort();
