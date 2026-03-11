@@ -12,7 +12,7 @@ export type SidenavControllerInput = {
   onToggleLog?: () => void;
   isLogOpen?: boolean;
   onOpenShareDialog?: () => void;
-  shareLinksReady?: boolean;
+  canShareRoom?: boolean;
   onLeaveGame?: () => void;
   onOpenShortcuts?: () => void;
   syncStatus?: SyncStatus;
@@ -28,7 +28,7 @@ export const useSidenavController = ({
   onToggleLog,
   isLogOpen = false,
   onOpenShareDialog,
-  shareLinksReady = true,
+  canShareRoom = true,
   onLeaveGame,
   onOpenShortcuts,
   syncStatus = "connecting",
@@ -61,7 +61,7 @@ export const useSidenavController = ({
     onToggleLog,
     isLogOpen,
     onOpenShareDialog,
-    shareLinksReady,
+    canShareRoom,
     onLeaveGame,
     syncStatus,
     peerCounts,

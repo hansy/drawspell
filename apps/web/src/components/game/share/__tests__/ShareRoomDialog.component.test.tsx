@@ -111,6 +111,17 @@ describe("ShareRoomDialog", () => {
     expect(screen.queryByDisplayValue("https://example.com/room")).toBeNull();
   });
 
+  it("shows an error state when invite links fail to load", () => {
+    renderDialog({
+      linksReady: false,
+      errorMessage: "Network unavailable.",
+    });
+
+    expect(screen.getByText("Unable to load invite links.")).toBeTruthy();
+    expect(screen.getByText("Network unavailable.")).toBeTruthy();
+    expect(screen.queryByText("Generating invite links...")).toBeNull();
+  });
+
   it("disables lock controls for non-hosts", () => {
     renderDialog({ isHost: false });
 

@@ -225,6 +225,8 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   handleLeave,
   shareLinks,
   shareLinksReady,
+  shareDialogError,
+  canShareRoom,
 }) => {
   const suppressSingleOverlay = isGroupDragging && !showGroupDragOverlay;
   const showConnectingOverlay = syncStatus === "connecting";
@@ -601,7 +603,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                     syncStatus={syncStatus}
                     peerCounts={peerCounts}
                     isSpectator={viewerRole === "spectator"}
-                    shareLinksReady={shareLinksReady}
+                    canShareRoom={canShareRoom}
                   />
                 </div>
                 {indicatorSeats.length > 1 && !hasActiveOverlayUi && (
@@ -668,7 +670,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                 syncStatus={syncStatus}
                 peerCounts={peerCounts}
                 isSpectator={viewerRole === "spectator"}
-                shareLinksReady={shareLinksReady}
+                canShareRoom={canShareRoom}
               />
               <div className={`min-w-0 h-full grid ${gridClass}`}>
                 {slots.map((slot, index) => renderSeat(slot, index))}
@@ -765,6 +767,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           spectatorLink={shareLinks.spectators}
           resumeLink={shareLinks.resume}
           linksReady={shareLinksReady}
+          errorMessage={shareDialogError}
           players={players}
           isHost={isHost}
           roomLockedByHost={roomLockedByHost}
