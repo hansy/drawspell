@@ -57,19 +57,38 @@ let activeIntentMeta: IntentConnectionMeta = initialIntentMeta();
 const emitIntentMetaChange = () => {
   intentMetaListeners.forEach((listener) => listener());
 };
+const updateIntentMeta = (patch: Partial<IntentConnectionMeta>) => {
+  const nextMeta = {
+    ...activeIntentMeta,
+    ...patch,
+  };
+  if (
+    nextMeta.isOpen === activeIntentMeta.isOpen &&
+    nextMeta.everConnected === activeIntentMeta.everConnected &&
+    nextMeta.lastOpenAt === activeIntentMeta.lastOpenAt &&
+    nextMeta.lastCloseAt === activeIntentMeta.lastCloseAt
+  ) {
+    return;
+  }
+  activeIntentMeta = nextMeta;
+  emitIntentMetaChange();
+};
 const syncIntentMeta = () => {
   if (!activeTransport?.isOpen) return;
   const isOpen = activeTransport.isOpen();
   if (isOpen === activeIntentMeta.isOpen) return;
   if (isOpen) {
-    activeIntentMeta.isOpen = true;
-    activeIntentMeta.everConnected = true;
-    activeIntentMeta.lastOpenAt = Date.now();
+    updateIntentMeta({
+      isOpen: true,
+      everConnected: true,
+      lastOpenAt: Date.now(),
+    });
   } else {
-    activeIntentMeta.isOpen = false;
-    activeIntentMeta.lastCloseAt = Date.now();
+    updateIntentMeta({
+      isOpen: false,
+      lastCloseAt: Date.now(),
+    });
   }
-  emitIntentMetaChange();
 };
 
 export const createIntentTransport = ({
@@ -95,18 +114,20 @@ export const createIntentTransport = ({
 
   const handleOpen = () => {
     if (transport && activeTransport === transport) {
-      activeIntentMeta.isOpen = true;
-      activeIntentMeta.everConnected = true;
-      activeIntentMeta.lastOpenAt = Date.now();
-      emitIntentMetaChange();
+      updateIntentMeta({
+        isOpen: true,
+        everConnected: true,
+        lastOpenAt: Date.now(),
+      });
     }
     onOpen?.();
   };
   const handleClose = (event: CloseEvent) => {
     if (transport && activeTransport === transport) {
-      activeIntentMeta.isOpen = false;
-      activeIntentMeta.lastCloseAt = Date.now();
-      emitIntentMetaChange();
+      updateIntentMeta({
+        isOpen: false,
+        lastCloseAt: Date.now(),
+      });
     }
     onClose?.(event);
   };
@@ -187,12 +208,16 @@ export const setIntentTransport = (transport: IntentTransport | null) => {
     activeTransport.close();
   }
   activeTransport = transport;
-  activeIntentMeta = initialIntentMeta();
+  let nextMeta = initialIntentMeta();
   if (activeTransport?.isOpen && activeTransport.isOpen()) {
-    activeIntentMeta.isOpen = true;
-    activeIntentMeta.everConnected = true;
-    activeIntentMeta.lastOpenAt = Date.now();
+    nextMeta = {
+      ...nextMeta,
+      isOpen: true,
+      everConnected: true,
+      lastOpenAt: Date.now(),
+    };
   }
+  activeIntentMeta = nextMeta;
   emitIntentMetaChange();
 };
 
@@ -214,7 +239,7 @@ export const subscribeIntentConnectionMeta = (listener: () => void) => {
 
 export const getIntentConnectionMeta = (): IntentConnectionMeta => {
   syncIntentMeta();
-  return { ...activeIntentMeta };
+  return activeIntentMeta;
 };
 
 export const sendIntent = (intent: Intent): boolean => {

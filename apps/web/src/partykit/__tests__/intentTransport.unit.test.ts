@@ -28,18 +28,23 @@ describe("intentTransport meta", () => {
 
     setIntentTransport(transport);
     const initial = getIntentConnectionMeta();
+    const stableInitial = getIntentConnectionMeta();
 
     expect(initial.isOpen).toBe(true);
     expect(initial.everConnected).toBe(true);
     expect(initial.lastOpenAt).toBeTypeOf("number");
     expect(initial.lastCloseAt).toBeNull();
+    expect(stableInitial).toBe(initial);
 
     open = false;
     vi.advanceTimersByTime(2000);
 
     const updated = getIntentConnectionMeta();
+    const stableUpdated = getIntentConnectionMeta();
     expect(updated.isOpen).toBe(false);
     expect(updated.lastCloseAt).toBeTypeOf("number");
     expect(updated.lastCloseAt).toBeGreaterThanOrEqual(initial.lastOpenAt as number);
+    expect(updated).not.toBe(initial);
+    expect(stableUpdated).toBe(updated);
   });
 });
