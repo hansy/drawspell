@@ -183,6 +183,11 @@ export function setupSessionResources({
     });
     if (nextTokens) {
       useGameStore.getState().setRoomTokens(nextTokens);
+      if (nextTokens.resumeToken) {
+        useGameStore
+          .getState()
+          .cacheResumeTokenForSession(sessionId, nextTokens.resumeToken);
+      }
       writeRoomTokensToStorage(sessionId, nextTokens);
     }
   }
@@ -377,12 +382,21 @@ export function setupSessionResources({
           pendingResumeInviteUrlClear,
         });
         useGameStore.getState().setRoomTokens(payload);
-        const nextRoomTokens = useGameStore.getState().roomTokens;
+        if (payload.resumeToken) {
+          useGameStore
+            .getState()
+            .cacheResumeTokenForSession(sessionId, payload.resumeToken);
+        }
+        const nextState = useGameStore.getState();
+        const nextRoomTokens = nextState.roomTokens;
         handoffDebugLog("sessionResources.roomTokens.applied", {
           sessionId,
           hasPlayerToken: Boolean(nextRoomTokens?.playerToken),
           hasSpectatorToken: Boolean(nextRoomTokens?.spectatorToken),
           resumeToken: handoffDebugTokenSummary(nextRoomTokens?.resumeToken),
+          cachedResumeToken: handoffDebugTokenSummary(
+            nextState.lastResumeTokenBySession?.[sessionId],
+          ),
         });
         writeRoomTokensToStorage(
           sessionId,

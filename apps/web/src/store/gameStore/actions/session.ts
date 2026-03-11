@@ -39,6 +39,7 @@ export const createSessionActions = (
   | "roomTokens"
   | "setRoomTokens"
   | "lastResumeTokenBySession"
+  | "cacheResumeTokenForSession"
 > => ({
   playerIdsBySession: {},
   sessionVersions: {},
@@ -186,19 +187,52 @@ export const createSessionActions = (
     set({ overlayCapabilities: [...capabilities] });
   },
 
+  cacheResumeTokenForSession: (sessionId, resumeToken) => {
+    const normalizedSessionId = sessionId.trim();
+    const normalizedResumeToken = resumeToken.trim();
+    if (!normalizedSessionId || !normalizedResumeToken) return;
+    set((state) => {
+      const nextResumeTokens = {
+        ...state.lastResumeTokenBySession,
+        [normalizedSessionId]: normalizedResumeToken,
+      };
+      handoffDebugLog("session.resumeToken.cached", {
+        storeSessionId: state.sessionId,
+        cacheSessionId: normalizedSessionId,
+        resumeToken: handoffDebugTokenSummary(normalizedResumeToken),
+        cachedResumeToken: handoffDebugTokenSummary(
+          nextResumeTokens[normalizedSessionId],
+        ),
+      });
+      return {
+        lastResumeTokenBySession: nextResumeTokens,
+      };
+    });
+  },
+
   setRoomTokens: (tokens) => {
     set((state) => {
       const nextRoomTokens = tokens ? { ...state.roomTokens, ...tokens } : null;
-      const resumeToken = nextRoomTokens?.resumeToken;
-      const sessionId = state.sessionId;
-      if (resumeToken && sessionId) {
-        return {
-          roomTokens: nextRoomTokens,
-          lastResumeTokenBySession: {
-            ...state.lastResumeTokenBySession,
-            [sessionId]: resumeToken,
-          },
-        };
+      const shouldLogTransition =
+        Boolean(state.roomTokens?.resumeToken) ||
+        Boolean(nextRoomTokens?.resumeToken) ||
+        (Boolean(state.roomTokens) && !nextRoomTokens);
+      if (shouldLogTransition) {
+        handoffDebugLog("session.roomTokens.updated", {
+          sessionId: state.sessionId,
+          hadPlayerToken: Boolean(state.roomTokens?.playerToken),
+          hadSpectatorToken: Boolean(state.roomTokens?.spectatorToken),
+          previousResumeToken: handoffDebugTokenSummary(
+            state.roomTokens?.resumeToken,
+          ),
+          hasPlayerToken: Boolean(nextRoomTokens?.playerToken),
+          hasSpectatorToken: Boolean(nextRoomTokens?.spectatorToken),
+          nextResumeToken: handoffDebugTokenSummary(nextRoomTokens?.resumeToken),
+          clearedRoomTokens: Boolean(state.roomTokens) && !nextRoomTokens,
+          cachedResumeToken: handoffDebugTokenSummary(
+            state.lastResumeTokenBySession?.[state.sessionId],
+          ),
+        });
       }
       return { roomTokens: nextRoomTokens };
     });

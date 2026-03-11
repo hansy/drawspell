@@ -98,14 +98,11 @@ describe('gameStore session actions', () => {
 
   it('tracks the last resume token per session and clears it when forgetting identity', () => {
     useGameStore.setState({
-      sessionId: 's6',
+      sessionId: 'other-session',
       lastResumeTokenBySession: { s5: 'resume-old' },
     });
 
-    useGameStore.getState().setRoomTokens({
-      playerToken: 'player-token',
-      resumeToken: 'resume-s6',
-    });
+    useGameStore.getState().cacheResumeTokenForSession('s6', 'resume-s6');
 
     expect(useGameStore.getState().lastResumeTokenBySession).toEqual({
       s5: 'resume-old',
