@@ -261,6 +261,8 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [shareDialogError, setShareDialogError] = React.useState("");
+  const [shareLinksConnectionOpenedAt, setShareLinksConnectionOpenedAt] =
+    React.useState<number | null>(null);
   const intentConnectionMeta = React.useSyncExternalStore(
     subscribeIntentConnectionMeta,
     getIntentConnectionMeta,
@@ -277,6 +279,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     setShareDialogStatus("idle");
     setShareDialogError("");
     setShareLinks(EMPTY_SHARE_LINKS);
+    setShareLinksConnectionOpenedAt(null);
   }, [isShareDialogOpen]);
 
   React.useEffect(() => {
@@ -294,17 +297,25 @@ export const useMultiplayerBoardController = (sessionId: string) => {
       });
       return;
     }
-    if (shareLinksReady) {
+    const activeConnectionOpenedAt = intentConnectionMeta.lastOpenAt;
+    const shouldRefreshLoadedLinks =
+      shareLinksReady &&
+      activeConnectionOpenedAt !== null &&
+      shareLinksConnectionOpenedAt !== activeConnectionOpenedAt;
+    if (shareLinksReady && !shouldRefreshLoadedLinks) {
       return;
     }
     const abortController = new AbortController();
-    setShareDialogStatus("loading");
+    if (!shareLinksReady) {
+      setShareDialogStatus("loading");
+      setShareLinks(EMPTY_SHARE_LINKS);
+    }
     setShareDialogError("");
-    setShareLinks(EMPTY_SHARE_LINKS);
     handoffDebugLog("shareDialog.linksRequested", {
       sessionId,
       viewerRole,
       myPlayerId,
+      refresh: shouldRefreshLoadedLinks,
     });
     requestShareLinks({ signal: abortController.signal })
       .then((payload) => {
@@ -316,6 +327,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
         };
         setShareLinks(nextLinks);
         setShareDialogStatus("ready");
+        setShareLinksConnectionOpenedAt(activeConnectionOpenedAt);
         handoffDebugLog("shareDialog.linksResolved", {
           sessionId,
           viewerRole,
@@ -350,8 +362,10 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   }, [
     canShareRoom,
     isShareDialogOpen,
+    intentConnectionMeta.lastOpenAt,
     myPlayerId,
     sessionId,
+    shareLinksConnectionOpenedAt,
     shareLinksReady,
     viewerRole,
   ]);

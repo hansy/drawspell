@@ -427,13 +427,16 @@ describe("useMultiplayerBoardController", () => {
     expect(result.current.shareDialogError).toBe("");
   });
 
-  it("preserves loaded share links while the intent transport reconnects", async () => {
-    mockRequestShareLinks.mockResolvedValue({
-      playerInviteUrl: "https://example.com/rooms/room-1?gt=token-123",
-      spectatorInviteUrl: "https://example.com/rooms/room-1?st=spectator-123",
-      resumeInviteUrl:
-        "https://example.com/rooms/room-1?rt=resume-123&playerId=player-1",
-    });
+  it("preserves loaded share links during reconnects and refreshes them after reconnect", async () => {
+    const refreshedRequest = createDeferredShareLinksRequest();
+    mockRequestShareLinks
+      .mockResolvedValueOnce({
+        playerInviteUrl: "https://example.com/rooms/room-1?gt=token-123",
+        spectatorInviteUrl: "https://example.com/rooms/room-1?st=spectator-123",
+        resumeInviteUrl:
+          "https://example.com/rooms/room-1?rt=resume-123&playerId=player-1",
+      })
+      .mockReturnValueOnce(refreshedRequest.promise);
 
     const { result, rerender } = renderHook(() =>
       useMultiplayerBoardController("room-1")
@@ -462,6 +465,36 @@ describe("useMultiplayerBoardController", () => {
     expect(result.current.shareLinks.spectators).toContain("st=spectator-123");
     expect(result.current.shareLinks.resume).toContain("rt=resume-123");
     expect(mockRequestShareLinks).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      mockIntentConnectionMeta.isOpen = true;
+      mockIntentConnectionMeta.lastOpenAt = 20;
+      mockIntentConnectionMeta.lastCloseAt = 10;
+    });
+    rerender();
+
+    await waitFor(() => {
+      expect(mockRequestShareLinks).toHaveBeenCalledTimes(2);
+    });
+
+    expect(result.current.canShareRoom).toBe(true);
+    expect(result.current.shareLinksReady).toBe(true);
+    expect(result.current.shareLinks.resume).toContain("rt=resume-123");
+
+    act(() => {
+      refreshedRequest.resolve({
+        playerInviteUrl: "https://example.com/rooms/room-1?gt=token-456",
+        spectatorInviteUrl: "https://example.com/rooms/room-1?st=spectator-456",
+        resumeInviteUrl:
+          "https://example.com/rooms/room-1?rt=resume-456&playerId=player-1",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.shareLinks.players).toContain("gt=token-456");
+      expect(result.current.shareLinks.spectators).toContain("st=spectator-456");
+      expect(result.current.shareLinks.resume).toContain("rt=resume-456");
+    });
   });
 
   it("disables idle timeout for spectators", () => {
