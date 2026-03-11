@@ -13,6 +13,7 @@ import { Route as TosRouteImport } from './routes/tos'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RoomsSessionIdRouteImport } from './routes/rooms.$sessionId'
+import { Route as DiscordInstallRouteImport } from './routes/discord.install'
 
 const TosRoute = TosRouteImport.update({
   id: '/tos',
@@ -34,17 +35,24 @@ const RoomsSessionIdRoute = RoomsSessionIdRouteImport.update({
   path: '/rooms/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DiscordInstallRoute = DiscordInstallRouteImport.update({
+  id: '/discord/install',
+  path: '/discord/install',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/privacy': typeof PrivacyRoute
   '/tos': typeof TosRoute
+  '/discord/install': typeof DiscordInstallRoute
   '/rooms/$sessionId': typeof RoomsSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/privacy': typeof PrivacyRoute
   '/tos': typeof TosRoute
+  '/discord/install': typeof DiscordInstallRoute
   '/rooms/$sessionId': typeof RoomsSessionIdRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,33 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/privacy': typeof PrivacyRoute
   '/tos': typeof TosRoute
+  '/discord/install': typeof DiscordInstallRoute
   '/rooms/$sessionId': typeof RoomsSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/privacy' | '/tos' | '/rooms/$sessionId'
+  fullPaths:
+    | '/'
+    | '/privacy'
+    | '/tos'
+    | '/discord/install'
+    | '/rooms/$sessionId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/privacy' | '/tos' | '/rooms/$sessionId'
-  id: '__root__' | '/' | '/privacy' | '/tos' | '/rooms/$sessionId'
+  to: '/' | '/privacy' | '/tos' | '/discord/install' | '/rooms/$sessionId'
+  id:
+    | '__root__'
+    | '/'
+    | '/privacy'
+    | '/tos'
+    | '/discord/install'
+    | '/rooms/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PrivacyRoute: typeof PrivacyRoute
   TosRoute: typeof TosRoute
+  DiscordInstallRoute: typeof DiscordInstallRoute
   RoomsSessionIdRoute: typeof RoomsSessionIdRoute
 }
 
@@ -99,6 +120,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RoomsSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/discord/install': {
+      id: '/discord/install'
+      path: '/discord/install'
+      fullPath: '/discord/install'
+      preLoaderRoute: typeof DiscordInstallRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -106,6 +134,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PrivacyRoute: PrivacyRoute,
   TosRoute: TosRoute,
+  DiscordInstallRoute: DiscordInstallRoute,
   RoomsSessionIdRoute: RoomsSessionIdRoute,
 }
 export const routeTree = rootRouteImport
