@@ -257,7 +257,8 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [shareDialogError, setShareDialogError] = React.useState("");
-  const canShareRoom = viewerRole !== "spectator";
+  const canShareRoom =
+    viewerRole !== "spectator" && syncStatus === "connected";
   const shareLinksReady = shareDialogStatus === "ready";
 
   React.useEffect(() => {
