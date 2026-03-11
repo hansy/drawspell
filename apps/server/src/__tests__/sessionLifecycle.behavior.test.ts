@@ -116,6 +116,12 @@ class TestConnection {
   setState(nextState: unknown) {
     this.state = nextState;
   }
+
+  emitMessage(payload: string) {
+    const handlers = this.listeners.get("message");
+    if (!handlers) return;
+    handlers.forEach((handler) => handler({ data: payload }));
+  }
 }
 
 describe("server lifecycle guards", () => {
@@ -577,6 +583,119 @@ describe("server lifecycle guards", () => {
     expect(roomTokensMessage?.payload?.playerToken).toBeTypeOf("string");
     expect(roomTokensMessage?.payload?.spectatorToken).toBeTypeOf("string");
     expect(roomTokensMessage?.payload?.resumeToken).toBeTypeOf("string");
+  });
+
+  it("returns canonical share links for authenticated player connections", async () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const sent: string[] = [];
+
+    const conn = new TestConnection();
+    conn.id = "player-intent";
+    conn.send = (payload: string) => {
+      sent.push(payload);
+    };
+
+    const url = new URL(
+      "https://example.test/?role=intent&viewerRole=player&playerId=p1&cid=device-1"
+    );
+    await (server as any).bindIntentConnection(conn, url);
+
+    conn.emitMessage(
+      JSON.stringify({
+        type: "shareLinksRequest",
+        requestId: "share-request-1",
+      }),
+    );
+
+    await vi.waitFor(() => {
+      expect(
+        sent.some((raw) => raw.includes('"type":"shareLinksResponse"')),
+      ).toBe(true);
+    });
+
+    const shareLinksMessage = sent
+      .map((raw) => {
+        try {
+          return JSON.parse(raw) as {
+            type?: string;
+            ok?: boolean;
+            requestId?: string;
+            payload?: Record<string, unknown>;
+          };
+        } catch (_err) {
+          return null;
+        }
+      })
+      .find((message) => message?.type === "shareLinksResponse");
+
+    expect(shareLinksMessage?.ok).toBe(true);
+    expect(shareLinksMessage?.requestId).toBe("share-request-1");
+    expect(String(shareLinksMessage?.payload?.playerInviteUrl)).toContain(
+      "http://localhost:5173/rooms/room-test?gt="
+    );
+    expect(String(shareLinksMessage?.payload?.spectatorInviteUrl)).toContain(
+      "http://localhost:5173/rooms/room-test?st="
+    );
+    expect(String(shareLinksMessage?.payload?.resumeInviteUrl)).toContain(
+      "http://localhost:5173/rooms/room-test?rt="
+    );
+    expect(String(shareLinksMessage?.payload?.resumeInviteUrl)).toContain(
+      "playerId=p1"
+    );
+  });
+
+  it("rejects share-link requests from spectators", async () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const sent: string[] = [];
+    const tokens = await (server as any).ensureRoomTokens();
+
+    const conn = new TestConnection();
+    conn.id = "spectator-intent";
+    conn.send = (payload: string) => {
+      sent.push(payload);
+    };
+
+    const url = new URL(
+      `https://example.test/?role=intent&viewerRole=spectator&st=${tokens.spectatorToken}&cid=device-1`
+    );
+    await (server as any).bindIntentConnection(conn, url);
+
+    conn.emitMessage(
+      JSON.stringify({
+        type: "shareLinksRequest",
+        requestId: "share-request-2",
+      }),
+    );
+
+    await vi.waitFor(() => {
+      expect(
+        sent.some((raw) => raw.includes('"type":"shareLinksResponse"')),
+      ).toBe(true);
+    });
+
+    const shareLinksMessage = sent
+      .map((raw) => {
+        try {
+          return JSON.parse(raw) as {
+            type?: string;
+            ok?: boolean;
+            requestId?: string;
+            error?: string;
+          };
+        } catch (_err) {
+          return null;
+        }
+      })
+      .find((message) => message?.type === "shareLinksResponse");
+
+    expect(shareLinksMessage).toEqual({
+      type: "shareLinksResponse",
+      requestId: "share-request-2",
+      ok: false,
+      error: "Spectators cannot request invite links.",
+    });
   });
 
   it("cleans up registered intent connection when resume rotation fails", async () => {

@@ -32,6 +32,7 @@ import type {
   PrivateOverlayPayload,
   RoomTokensPayload,
 } from "@/partykit/messages";
+import { handleShareLinksResponse } from "@/partykit/shareLinksClient";
 import { useGameStore } from "@/store/gameStore";
 import { handleIntentAck } from "@/store/gameStore/dispatchIntent";
 import {
@@ -407,6 +408,10 @@ export function setupSessionResources({
           pendingResumeInviteUrlClear = false;
         }
         clearRoomHostPending(sessionId);
+        return;
+      }
+      if (message.type === "shareLinksResponse") {
+        handleShareLinksResponse(message);
         return;
       }
       if (message.type === "helloAck") {
