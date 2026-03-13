@@ -12,6 +12,7 @@ export type ResolvedInviteToken = {
 const TOKEN_STORAGE_PREFIX = "drawspell:roomTokens:";
 const PENDING_HOST_PREFIX = "drawspell:pendingHost:";
 const ROOM_UNAVAILABLE_PREFIX = "drawspell:roomUnavailable:";
+const DEVICE_ID_KEY = "drawspell:deviceId";
 const storage = createSafeStorage();
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -73,6 +74,25 @@ const tokenKey = (sessionId: string) => `${TOKEN_STORAGE_PREFIX}${sessionId}`;
 const pendingHostKey = (sessionId: string) => `${PENDING_HOST_PREFIX}${sessionId}`;
 const roomUnavailableKey = (sessionId: string) =>
   `${ROOM_UNAVAILABLE_PREFIX}${sessionId}`;
+
+const createDeviceId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+export const ensureClientDeviceId = (): string => {
+  try {
+    const existing = storage.getItem(DEVICE_ID_KEY)?.trim();
+    if (existing) return existing;
+    const created = createDeviceId();
+    storage.setItem(DEVICE_ID_KEY, created);
+    return created;
+  } catch (_err) {
+    return createDeviceId();
+  }
+};
 
 export const readRoomTokensFromStorage = (
   sessionId: string

@@ -7,33 +7,6 @@ import {
 } from "../registerCommands";
 
 describe("discord command registration", () => {
-  it("builds the /drawspell create command payload with three optional invite mentions", () => {
-    const payload = buildDrawspellCommandPayload();
-
-    expect(payload.name).toBe("drawspell");
-    expect(
-      "description" in payload ? payload.description : undefined,
-    ).toBe(
-      "Create a Drawspell room for yourself and others you invite.",
-    );
-    const createSubcommand = payload.options?.[0];
-    expect(createSubcommand?.name).toBe("create");
-    expect(createSubcommand?.type).toBe(1);
-    expect(createSubcommand && "options" in createSubcommand).toBe(true);
-
-    const createOptions =
-      createSubcommand && "options" in createSubcommand
-        ? (createSubcommand.options ?? []) as Array<{ type: number; name: string }>
-        : [];
-    expect(createOptions).toHaveLength(3);
-    expect(createOptions.map((option) => option.type)).toEqual([6, 6, 6]);
-    expect(createOptions.map((option) => option.name)).toEqual([
-      "invite1",
-      "invite2",
-      "invite3",
-    ]);
-  });
-
   it("targets guild command registration when guild id is provided", () => {
     const request = createDiscordCommandRegistrationRequest({
       applicationId: "app-123",

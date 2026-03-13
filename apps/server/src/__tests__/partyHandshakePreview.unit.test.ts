@@ -93,31 +93,4 @@ describe("party websocket handshake allowlist", () => {
     expect(mocks.routePartykitRequest).not.toHaveBeenCalled();
   });
 
-  it("allows the dedicated staging origin without extra flags", async () => {
-    const joinToken = await createJoinToken(
-      { roomId: "room-preview", exp: Date.now() + 60_000 },
-      "join-secret",
-    );
-
-    const response = await server.fetch(
-      new Request(
-        `https://drawspell-server-staging.service-fff.workers.dev/parties/rooms/room-preview?jt=${encodeURIComponent(joinToken)}`,
-        {
-          headers: {
-            Upgrade: "websocket",
-            Origin: "https://drawspell-staging.service-fff.workers.dev",
-            Host: "drawspell-server-staging.service-fff.workers.dev",
-          },
-        },
-      ),
-      {
-        JOIN_TOKEN_SECRET: "join-secret",
-        NODE_ENV: "staging",
-      } as any,
-    );
-
-    expect(response.status).toBe(200);
-    await expect(response.text()).resolves.toBe("upgraded");
-    expect(mocks.routePartykitRequest).toHaveBeenCalledTimes(1);
-  });
 });

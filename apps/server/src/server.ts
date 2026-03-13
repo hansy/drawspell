@@ -72,7 +72,8 @@ import { OverlayService, type OverlayBuildResult } from "./overlay/service";
 import { SnapshotStore, type SnapshotMeta } from "./storage/snapshotStore";
 
 const INTENT_ROLE = "intent";
-const EMPTY_ROOM_GRACE_MS = 120_000;
+const EMPTY_ROOM_IDLE_GRACE_MS = 120_000;
+const EMPTY_ROOM_HARD_RESET_MS = 30 * 60_000;
 const ROOM_TEARDOWN_CLOSE_CODE = 1013;
 const PLAYER_TAKEOVER_CLOSE_CODE = 1008;
 const PLAYER_TAKEOVER_CLOSE_REASON = "session moved to another device";
@@ -100,6 +101,9 @@ const PERF_METRICS_ALLOW_PARAM = false;
 const CONNECT_RATE_WINDOW_MS = 60_000;
 const CONNECT_RATE_MAX_ATTEMPTS = 20;
 const CONNECT_RATE_BLOCK_MS = 120_000;
+const CONNECT_RATE_PAIR_WINDOW_MS = 5_000;
+const CONNECT_RATE_CHANNEL_SYNC = 1;
+const CONNECT_RATE_CHANNEL_INTENT = 1 << 1;
 
 type PlayerResumeTokenEntry = {
   token: string;
@@ -107,6 +111,20 @@ type PlayerResumeTokenEntry = {
 };
 
 type PlayerResumeTokens = Record<string, PlayerResumeTokenEntry>;
+
+type ConnectionRateEntry = {
+  windowStart: number;
+  attempts: number;
+  blockedUntil: number;
+  lastSeen: number;
+  recentAttempts: Map<
+    string,
+    {
+      seenAt: number;
+      channels: number;
+    }
+  >;
+};
 
 type ConnectionAuthWithResumeResult =
   | {
@@ -414,7 +432,9 @@ export class Room extends YServer<Env> {
   private connectionGroups = new Map<Connection, string>();
   private roomAnalytics: RoomAnalyticsTracker | null = null;
   private pendingPlayerConnections = 0;
-  private emptyRoomTimer: number | null = null;
+  private emptyRoomIdleTimer: number | null = null;
+  private emptyRoomHardResetTimer: number | null = null;
+  private emptyRoomDormantAt: number | null = null;
   private teardownGeneration = 0;
   private resetGeneration = 0;
   private teardownInProgress = false;
@@ -447,15 +467,7 @@ export class Room extends YServer<Env> {
   private lastIntentMetricsAt = 0;
   private yjsUpdateBytes = 0;
   private yjsUpdateCount = 0;
-  private connectionRate = new Map<
-    string,
-    {
-      windowStart: number;
-      attempts: number;
-      blockedUntil: number;
-      lastSeen: number;
-    }
-  >();
+  private connectionRate = new Map<string, ConnectionRateEntry>();
   private lastConnectionRateCleanupAt = 0;
 
   async onStart() {
@@ -1400,12 +1412,17 @@ export class Room extends YServer<Env> {
 
   private async restorePlayerResumeToken(
     playerId: string,
-    resumeToken: string,
+    resumeToken?: string,
   ): Promise<void> {
     const normalizedPlayerId = playerId.trim();
-    const normalizedToken = resumeToken.trim();
-    if (!normalizedPlayerId || !normalizedToken) return;
+    if (!normalizedPlayerId) return;
+    const normalizedToken =
+      typeof resumeToken === "string" ? resumeToken.trim() : "";
     await this.mutatePlayerResumeTokens((tokens) => {
+      if (!normalizedToken) {
+        const { [normalizedPlayerId]: _removed, ...nextTokens } = tokens;
+        return { result: undefined, nextTokens };
+      }
       const expiresAt =
         tokens[normalizedPlayerId]?.expiresAt ??
         Date.now() + RESUME_TOKEN_TTL_MS;
@@ -1428,11 +1445,24 @@ export class Room extends YServer<Env> {
     return false;
   }
 
-  private clearEmptyRoomTimer() {
-    if (this.emptyRoomTimer !== null) {
-      clearTimeout(this.emptyRoomTimer);
-      this.emptyRoomTimer = null;
+  private clearEmptyRoomIdleTimer() {
+    if (this.emptyRoomIdleTimer !== null) {
+      clearTimeout(this.emptyRoomIdleTimer);
+      this.emptyRoomIdleTimer = null;
     }
+  }
+
+  private clearEmptyRoomHardResetTimer() {
+    if (this.emptyRoomHardResetTimer !== null) {
+      clearTimeout(this.emptyRoomHardResetTimer);
+      this.emptyRoomHardResetTimer = null;
+    }
+  }
+
+  private markRoomActive() {
+    this.emptyRoomDormantAt = null;
+    this.clearEmptyRoomIdleTimer();
+    this.clearEmptyRoomHardResetTimer();
   }
 
   private clearHiddenStatePersistTimer() {
@@ -1470,7 +1500,29 @@ export class Room extends YServer<Env> {
       windowMs: CONNECT_RATE_WINDOW_MS,
       maxAttempts: CONNECT_RATE_MAX_ATTEMPTS,
       blockMs: CONNECT_RATE_BLOCK_MS,
+      pairWindowMs: CONNECT_RATE_PAIR_WINDOW_MS,
     };
+  }
+
+  private getConnectionRateChannel(url: URL): number {
+    return url.searchParams.get("role") === INTENT_ROLE
+      ? CONNECT_RATE_CHANNEL_INTENT
+      : CONNECT_RATE_CHANNEL_SYNC;
+  }
+
+  private getConnectionRateAttemptKey(url: URL): string | null {
+    const state = parseConnectionParams(url);
+    const joinToken = normalizeNonEmptyString(url.searchParams.get("jt"));
+    const identity =
+      normalizeNonEmptyString(state.connectionGroupId) ??
+      normalizeNonEmptyString(state.playerId) ??
+      normalizeNonEmptyString(state.userId) ??
+      joinToken ??
+      normalizeNonEmptyString(state.resumeToken) ??
+      normalizeNonEmptyString(state.token);
+    if (!identity) return null;
+    const viewerRole = state.viewerRole ?? "player";
+    return `${this.name}:${viewerRole}:${identity}`;
   }
 
   private getClientIp(request: Request): string | null {
@@ -1481,7 +1533,7 @@ export class Room extends YServer<Env> {
     return raw.split(",")[0]?.trim() ?? null;
   }
 
-  private shouldRateLimitConnection(request: Request): boolean {
+  private shouldRateLimitConnection(request: Request, url: URL): boolean {
     const ip = this.getClientIp(request);
     if (!ip) return false;
     const now = Date.now();
@@ -1491,6 +1543,7 @@ export class Room extends YServer<Env> {
       attempts: 0,
       blockedUntil: 0,
       lastSeen: 0,
+      recentAttempts: new Map(),
     };
     if (entry.blockedUntil > now) {
       this.connectionRate.set(ip, entry);
@@ -1500,11 +1553,38 @@ export class Room extends YServer<Env> {
       entry.windowStart = now;
       entry.attempts = 0;
     }
-    entry.attempts += 1;
     entry.lastSeen = now;
+    const attemptKey = this.getConnectionRateAttemptKey(url);
+    const channel = this.getConnectionRateChannel(url);
+    let shouldCountAttempt = true;
+    if (attemptKey) {
+      const recent = entry.recentAttempts.get(attemptKey);
+      if (
+        recent &&
+        now - recent.seenAt <= config.pairWindowMs &&
+        (recent.channels & channel) === 0
+      ) {
+        recent.channels |= channel;
+        recent.seenAt = now;
+        shouldCountAttempt = false;
+      } else {
+        entry.recentAttempts.set(attemptKey, {
+          seenAt: now,
+          channels: channel,
+        });
+      }
+    }
+    if (shouldCountAttempt) {
+      entry.attempts += 1;
+    }
     if (entry.attempts > config.maxAttempts) {
       entry.blockedUntil = now + config.blockMs;
       entry.attempts = 0;
+    }
+    for (const [key, value] of entry.recentAttempts.entries()) {
+      if (now - value.seenAt > config.pairWindowMs) {
+        entry.recentAttempts.delete(key);
+      }
     }
     this.connectionRate.set(ip, entry);
 
@@ -1943,7 +2023,7 @@ export class Room extends YServer<Env> {
 
   private beginPendingPlayerConnection() {
     this.pendingPlayerConnections += 1;
-    this.clearEmptyRoomTimer();
+    this.markRoomActive();
     let released = false;
     return () => {
       if (released) return;
@@ -1959,15 +2039,43 @@ export class Room extends YServer<Env> {
   private scheduleEmptyRoomTeardown() {
     if (this.teardownInProgress) return;
     if (this.hasPlayerConnections()) {
-      this.clearEmptyRoomTimer();
+      this.markRoomActive();
       return;
     }
-    if (this.emptyRoomTimer !== null) return;
+    if (this.emptyRoomDormantAt !== null) {
+      if (this.emptyRoomHardResetTimer !== null) return;
+      const generation = this.teardownGeneration;
+      const elapsed = Date.now() - this.emptyRoomDormantAt;
+      const delay = Math.max(0, EMPTY_ROOM_HARD_RESET_MS - elapsed);
+      this.emptyRoomHardResetTimer = setTimeout(() => {
+        this.emptyRoomHardResetTimer = null;
+        void this.teardownRoomIfEmpty(generation);
+      }, delay) as unknown as number;
+      return;
+    }
+    if (this.emptyRoomIdleTimer !== null) return;
     const generation = this.teardownGeneration;
-    this.emptyRoomTimer = setTimeout(() => {
-      this.emptyRoomTimer = null;
-      void this.teardownRoomIfEmpty(generation);
-    }, EMPTY_ROOM_GRACE_MS) as unknown as number;
+    this.emptyRoomIdleTimer = setTimeout(() => {
+      this.emptyRoomIdleTimer = null;
+      void this.markRoomDormantIfEmpty(generation);
+    }, EMPTY_ROOM_IDLE_GRACE_MS) as unknown as number;
+  }
+
+  private async markRoomDormantIfEmpty(expectedGeneration: number) {
+    if (this.teardownInProgress) return;
+    if (expectedGeneration !== this.teardownGeneration) return;
+    if (this.hasPlayerConnections()) return;
+    if (this.emptyRoomDormantAt !== null) {
+      this.scheduleEmptyRoomTeardown();
+      return;
+    }
+
+    this.emptyRoomDormantAt = Date.now();
+    this.clearPerfMetricsTimer();
+    if (this.isHiddenStateDirty()) {
+      await this.flushHiddenStatePersist(this.resetGeneration);
+    }
+    this.scheduleEmptyRoomTeardown();
   }
 
   private registerConnection(
@@ -1988,7 +2096,7 @@ export class Room extends YServer<Env> {
     }
     if (role === "player") {
       this.teardownGeneration += 1;
-      this.clearEmptyRoomTimer();
+      this.markRoomActive();
     }
     this.scheduleEmptyRoomTeardown();
   }
@@ -2010,8 +2118,9 @@ export class Room extends YServer<Env> {
     playerId: string,
     connectionGroupId: string | undefined,
     currentConnection: Connection,
+    currentResumeToken?: string,
   ) {
-    if (!connectionGroupId) return;
+    const normalizedResumeToken = normalizeNonEmptyString(currentResumeToken);
     for (const [
       connection,
       connectedPlayerId,
@@ -2020,13 +2129,84 @@ export class Room extends YServer<Env> {
         continue;
       }
       const existingGroupId = this.connectionGroups.get(connection);
-      if (existingGroupId === connectionGroupId) continue;
+      const existingState = (connection.state ?? null) as
+        | IntentConnectionState
+        | null;
+      const existingResumeToken = normalizeNonEmptyString(
+        existingState?.resumeToken,
+      );
+      const isSameGroupedSession =
+        Boolean(connectionGroupId) && existingGroupId === connectionGroupId;
+      const isSameLegacySyncSession =
+        !connectionGroupId &&
+        !this.intentConnections.has(connection) &&
+        Boolean(normalizedResumeToken) &&
+        existingResumeToken === normalizedResumeToken;
+      if (isSameGroupedSession || isSameLegacySyncSession) continue;
       try {
         connection.close(
           PLAYER_TAKEOVER_CLOSE_CODE,
           PLAYER_TAKEOVER_CLOSE_REASON,
         );
       } catch (_err) {}
+    }
+  }
+
+  private updateConnectionResumeToken(
+    connection: Connection,
+    resumeToken?: string,
+  ) {
+    const normalizedResumeToken = normalizeNonEmptyString(resumeToken);
+    if (!normalizedResumeToken) return;
+    const existingState = (connection.state ?? null) as
+      | IntentConnectionState
+      | null;
+    try {
+      connection.setState({
+        ...(existingState ?? {}),
+        resumeToken: normalizedResumeToken,
+      });
+    } catch (_err) {}
+  }
+
+  private refreshLegacyResumeTokens(
+    playerId: string,
+    priorResumeToken: string | undefined,
+    nextResumeToken: string | undefined,
+    currentConnection: Connection,
+    connectionGroupId: string | undefined,
+  ) {
+    const normalizedNextResumeToken = normalizeNonEmptyString(nextResumeToken);
+    if (!normalizedNextResumeToken) return;
+
+    this.updateConnectionResumeToken(currentConnection, normalizedNextResumeToken);
+
+    if (connectionGroupId) return;
+
+    const normalizedPriorResumeToken = normalizeNonEmptyString(priorResumeToken);
+    if (
+      !normalizedPriorResumeToken ||
+      normalizedPriorResumeToken === normalizedNextResumeToken
+    ) {
+      return;
+    }
+
+    for (const [
+      connection,
+      connectedPlayerId,
+    ] of this.connectionPlayers.entries()) {
+      if (connectedPlayerId !== playerId || connection === currentConnection) {
+        continue;
+      }
+      if (this.intentConnections.has(connection)) continue;
+      const existingState = (connection.state ?? null) as
+        | IntentConnectionState
+        | null;
+      const existingResumeToken = normalizeNonEmptyString(
+        existingState?.resumeToken,
+      );
+      if (existingResumeToken !== normalizedPriorResumeToken) continue;
+      this.updateConnectionResumeToken(connection, normalizedNextResumeToken);
     }
   }
 
@@ -2088,6 +2268,9 @@ export class Room extends YServer<Env> {
     if (this.hasPlayerConnections()) return;
 
     this.teardownInProgress = true;
+    this.emptyRoomDormantAt = null;
+    this.clearEmptyRoomIdleTimer();
+    this.clearEmptyRoomHardResetTimer();
     this.clearHiddenStatePersistTimer();
     this.clearPerfMetricsTimer();
     this.resetGeneration += 1;
@@ -2131,19 +2314,19 @@ export class Room extends YServer<Env> {
 
   onConnect(conn: Connection, ctx: ConnectionContext) {
     this.ensureYjsMetricsListener();
+    const url = new URL(ctx.request.url);
     if (this.teardownInProgress) {
       try {
         conn.close(ROOM_TEARDOWN_CLOSE_CODE, "room reset");
       } catch (_err) {}
       return;
     }
-    if (this.shouldRateLimitConnection(ctx.request)) {
+    if (this.shouldRateLimitConnection(ctx.request, url)) {
       try {
         conn.close(1013, "rate limited");
       } catch (_err) {}
       return;
     }
-    const url = new URL(ctx.request.url);
     const role = url.searchParams.get("role");
     if (role === INTENT_ROLE) {
       void this.bindIntentConnection(conn, url);
@@ -2206,11 +2389,6 @@ export class Room extends YServer<Env> {
       // If a request carries both resume and room tokens, prioritize resume
       // takeover, but fall back to standard token auth when resume validation
       // fails to avoid lockouts on stale/rotated resume tokens.
-      if (!state.connectionGroupId) {
-        return state.token
-          ? finalizeInviteState(resolveStandardAuth())
-          : { ok: false, reason: "invalid token" };
-      }
       const canResume = await this.validatePlayerResumeToken(
         resumePlayerId,
         resumeToken,
@@ -2378,9 +2556,17 @@ export class Room extends YServer<Env> {
       });
       try {
         await rollbackResumeToken();
-      } catch (_rollbackErr) {}
-      rejectConnection("internal error", 1011);
-      return;
+        resumeToken = priorResumeToken;
+      } catch (_rollbackErr) {
+        rejectConnection("internal error", 1011);
+        return;
+      }
+      console.warn("[party] continuing without rotating resume token", {
+        room: this.name,
+        connId: conn.id,
+        playerId: resolvedPlayerId,
+        reusedPriorToken: Boolean(priorResumeToken),
+      });
     }
 
     if (connectionClosed) {
@@ -2420,6 +2606,17 @@ export class Room extends YServer<Env> {
         resolvedPlayerId,
         state.connectionGroupId,
         conn,
+        state.resumeToken,
+      );
+    }
+
+    if (resolvedRole === "player" && resolvedPlayerId && resumeToken) {
+      this.refreshLegacyResumeTokens(
+        resolvedPlayerId,
+        priorResumeToken,
+        resumeToken,
+        conn,
+        state.connectionGroupId,
       );
     }
 

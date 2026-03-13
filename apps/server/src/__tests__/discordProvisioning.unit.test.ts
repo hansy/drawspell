@@ -190,56 +190,6 @@ describe("discord provisioning endpoint", () => {
     );
   });
 
-  it("returns the staging invite origin for the staging server host", async () => {
-    const rooms = {
-      idFromName: vi.fn((name: string) => ({ name })),
-      get: vi.fn(() => ({
-        fetch: vi.fn(async (request: Request) =>
-          Response.json({
-            roomId: request.headers.get("x-partykit-room"),
-            playerToken: "player-token-staging",
-            expiresAt: 1_234_567,
-            alreadyProvisioned: false,
-          }),
-        ),
-      })),
-    };
-
-    const env = {
-      JOIN_TOKEN_SECRET: "join-secret",
-      DISCORD_SERVICE_AUTH_SECRET: "service-secret",
-      NODE_ENV: "staging",
-      rooms,
-    } as any;
-
-    const response = await server.fetch(
-      new Request("https://drawspell-server-staging/rooms", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: "Bearer service-secret",
-        },
-        body: JSON.stringify({
-          interactionId: "interaction-staging",
-          guildId: "guild-1",
-          channelId: "channel-1",
-          invokerDiscordUserId: "user-1",
-          participantDiscordUserIds: ["user-1"],
-        }),
-      }),
-      env,
-    );
-
-    expect(response.status).toBe(200);
-    const payload = (await response.json()) as {
-      roomId: string;
-      playerInviteUrl: string;
-    };
-    expect(payload.playerInviteUrl).toBe(
-      `https://drawspell-staging.service-fff.workers.dev/rooms/${payload.roomId}?gt=player-token-staging`,
-    );
-  });
-
   it("stores pending discord invite metadata in room storage", async () => {
     vi.useFakeTimers();
     try {

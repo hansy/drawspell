@@ -30,6 +30,8 @@ const mockGameState = vi.hoisted(() => ({
   sessionId: null as string | null,
   myPlayerId: null as string | null,
   playerIdsBySession: {} as Record<string, string>,
+  sessionVersions: {} as Record<string, number>,
+  lastResumeTokenBySession: {} as Record<string, string>,
   players: {},
   playerOrder: [],
   zones: {},
@@ -38,13 +40,69 @@ const mockGameState = vi.hoisted(() => ({
   roomLockedByHost: false,
   roomOverCapacity: false,
   roomTokens: null as any,
-  setRoomTokens: vi.fn(),
+  setRoomTokens: vi.fn((tokens: any) => {
+    mockGameState.roomTokens = tokens
+      ? { ...(mockGameState.roomTokens ?? {}), ...tokens }
+      : null;
+  }),
   setViewerRole: vi.fn((role: "player" | "spectator") => {
     mockGameState.viewerRole = role;
   }),
-  ensurePlayerIdForSession: vi.fn(() => "player-1"),
-  resetSession: vi.fn(),
-  ensureSessionVersion: vi.fn(() => 1),
+  setHasHydrated: vi.fn((next: boolean) => {
+    mockGameState.hasHydrated = next;
+  }),
+  ensurePlayerIdForSession: vi.fn((sessionId: string) => {
+    const existing = mockGameState.playerIdsBySession[sessionId];
+    if (existing) return existing;
+    mockGameState.playerIdsBySession = {
+      ...mockGameState.playerIdsBySession,
+      [sessionId]: "player-1",
+    };
+    return "player-1";
+  }),
+  resetSession: vi.fn((newSessionId?: string, playerId?: string) => {
+    const nextSessionId = newSessionId ?? "session-reset";
+    const nextPlayerId = playerId ?? "player-1";
+    mockGameState.sessionId = nextSessionId;
+    mockGameState.myPlayerId = nextPlayerId;
+    mockGameState.viewerRole = "player";
+    mockGameState.roomTokens = null;
+    mockGameState.playerIdsBySession = {
+      ...mockGameState.playerIdsBySession,
+      [nextSessionId]: nextPlayerId,
+    };
+    mockGameState.sessionVersions = {
+      ...mockGameState.sessionVersions,
+      [nextSessionId]: (mockGameState.sessionVersions[nextSessionId] ?? 0) + 1,
+    };
+  }),
+  forgetSessionIdentity: vi.fn((sessionId: string) => {
+    const nextPlayerIds = { ...mockGameState.playerIdsBySession };
+    delete nextPlayerIds[sessionId];
+    const nextResumeTokens = { ...mockGameState.lastResumeTokenBySession };
+    delete nextResumeTokens[sessionId];
+    mockGameState.playerIdsBySession = nextPlayerIds;
+    mockGameState.lastResumeTokenBySession = nextResumeTokens;
+    mockGameState.sessionVersions = {
+      ...mockGameState.sessionVersions,
+      [sessionId]: (mockGameState.sessionVersions[sessionId] ?? 0) + 1,
+    };
+  }),
+  ensureSessionVersion: vi.fn((sessionId: string) => {
+    const existing = mockGameState.sessionVersions[sessionId];
+    if (typeof existing === "number") return existing;
+    mockGameState.sessionVersions = {
+      ...mockGameState.sessionVersions,
+      [sessionId]: 1,
+    };
+    return 1;
+  }),
+  cacheResumeTokenForSession: vi.fn((sessionId: string, resumeToken: string) => {
+    mockGameState.lastResumeTokenBySession = {
+      ...mockGameState.lastResumeTokenBySession,
+      [sessionId]: resumeToken,
+    };
+  }),
   addPlayer: vi.fn(),
   updatePlayer: vi.fn(),
   addZone: vi.fn(),
@@ -94,9 +152,11 @@ vi.mock("y-partyserver/provider", () => {
   class MockPartyKitProvider {
     callbacks = new Map<string, (payload: any) => void>();
     awareness: any;
+    opts: any;
 
     constructor(_host: string, _room: string, _doc: any, opts: any) {
       this.awareness = opts.awareness;
+      this.opts = opts;
       providerInstances.push(this);
     }
 
@@ -174,6 +234,7 @@ vi.mock("@/lib/partyKitToken", () => ({
   clearInviteTokenFromUrl: vi.fn(),
   clearRoomHostPending: vi.fn(),
   clearRoomUnavailable: vi.fn(),
+  ensureClientDeviceId: vi.fn(() => "device-1"),
   isRoomHostPending: vi.fn(() => true),
   isRoomUnavailable: vi.fn(() => false),
   markRoomUnavailable: vi.fn(),
@@ -205,6 +266,7 @@ vi.mock("../disposeSessionTransport", () => ({ disposeSessionTransport }));
 import {
   clearInviteTokenFromUrl,
   clearRoomUnavailable,
+  ensureClientDeviceId,
   isRoomHostPending,
   isRoomUnavailable,
   markRoomUnavailable,
@@ -223,13 +285,21 @@ describe("useMultiplayerSync", () => {
     logStoreMocks.emitLog.mockClear();
     vi.mocked(resolveJoinToken).mockResolvedValue("test-join-token");
     vi.mocked(readRoomTokensFromStorage).mockReturnValue(null);
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({});
+    vi.mocked(isRoomHostPending).mockReturnValue(true);
+    vi.mocked(isRoomUnavailable).mockReturnValue(false);
+    vi.mocked(ensureClientDeviceId).mockReturnValue("device-1");
     Object.assign(mockGameState, {
       hasHydrated: true,
       viewerRole: "player" as ViewerRole,
       sessionId: null as string | null,
       myPlayerId: null as string | null,
       playerIdsBySession: {},
+      sessionVersions: {},
+      lastResumeTokenBySession: {},
+      roomTokens: null,
     });
+    mockGameState.setRoomTokens.mockClear();
     mockGameState.setViewerRole.mockClear();
   });
 
@@ -324,7 +394,10 @@ describe("useMultiplayerSync", () => {
     renderHook(() => useMultiplayerSync("session-upgrade"));
 
     await waitFor(() => {
-      expect(mockGameState.setViewerRole).toHaveBeenCalledWith("player");
+      expect(docManagerMocks.setSessionProvider).toHaveBeenCalledWith(
+        "session-upgrade",
+        expect.any(Object),
+      );
       expect(mockGameState.viewerRole).toBe("player");
     });
   });
@@ -728,6 +801,74 @@ describe("useMultiplayerSync", () => {
       });
 
       expect(intentTransportMocks.createIntentTransport).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("configures provider resyncs to keep idle sockets alive", async () => {
+    renderHook(() => useMultiplayerSync("session-resync"));
+
+    await waitFor(() => {
+      expect(providerInstances).toHaveLength(1);
+    });
+
+    expect(providerInstances[0].opts.resyncInterval).toBe(15_000);
+  });
+
+  it("reuses a stable device id across sync and intent connections", async () => {
+    renderHook(() => useMultiplayerSync("session-device-id"));
+
+    await waitFor(() => {
+      expect(providerInstances).toHaveLength(1);
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalledTimes(1);
+    });
+
+    const syncParams = await providerInstances[0].opts.params();
+    const [transportConfig] =
+      intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+
+    expect(ensureClientDeviceId).toHaveBeenCalled();
+    expect(syncParams.cid).toBe("device-1");
+    expect(transportConfig.connectionGroupId).toBe("device-1");
+  });
+
+  it("ignores stale auth failures from an older reconnect generation", async () => {
+    const { result } = renderHook(() => useMultiplayerSync("session-stale-auth"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalledTimes(1);
+    });
+
+    const [{ onClose: firstOnClose }] =
+      intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2024-01-01T00:00:00.000Z"));
+
+      act(() => {
+        firstOnClose({ code: 1006, reason: "abnormal" });
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(15_000);
+      });
+      await act(async () => {
+        vi.runOnlyPendingTimers();
+      });
+
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalledTimes(2);
+
+      act(() => {
+        firstOnClose({
+          code: 1008,
+          reason: "session moved to another device",
+        });
+      });
+
+      expect(result.current.joinBlocked).toBe(false);
+      expect(result.current.joinBlockedReason).toBeNull();
     } finally {
       vi.useRealTimers();
     }

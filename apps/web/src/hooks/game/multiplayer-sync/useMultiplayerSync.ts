@@ -561,6 +561,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         onIntentOpen: handleIntentOpen,
         joinToken,
         onAuthFailure: (reason) => {
+          if (!shouldHandleDisconnect()) return;
           if (authFailureHandled.current) return;
           authFailureHandled.current = true;
           emitConnectionLog("connection.authFailure", { reason });
