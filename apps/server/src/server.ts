@@ -2034,6 +2034,64 @@ export class Room extends YServer<Env> {
     }
   }
 
+  private updateConnectionResumeToken(
+    connection: Connection,
+    resumeToken?: string,
+  ) {
+    const normalizedResumeToken = normalizeNonEmptyString(resumeToken);
+    if (!normalizedResumeToken) return;
+    const existingState = (connection.state ?? null) as
+      | IntentConnectionState
+      | null;
+    try {
+      connection.setState({
+        ...(existingState ?? {}),
+        resumeToken: normalizedResumeToken,
+      });
+    } catch (_err) {}
+  }
+
+  private refreshLegacyResumeTokens(
+    playerId: string,
+    priorResumeToken: string | undefined,
+    nextResumeToken: string | undefined,
+    currentConnection: Connection,
+    connectionGroupId: string | undefined,
+  ) {
+    const normalizedNextResumeToken = normalizeNonEmptyString(nextResumeToken);
+    if (!normalizedNextResumeToken) return;
+
+    this.updateConnectionResumeToken(currentConnection, normalizedNextResumeToken);
+
+    if (connectionGroupId) return;
+
+    const normalizedPriorResumeToken = normalizeNonEmptyString(priorResumeToken);
+    if (
+      !normalizedPriorResumeToken ||
+      normalizedPriorResumeToken === normalizedNextResumeToken
+    ) {
+      return;
+    }
+
+    for (const [
+      connection,
+      connectedPlayerId,
+    ] of this.connectionPlayers.entries()) {
+      if (connectedPlayerId !== playerId || connection === currentConnection) {
+        continue;
+      }
+      if (this.intentConnections.has(connection)) continue;
+      const existingState = (connection.state ?? null) as
+        | IntentConnectionState
+        | null;
+      const existingResumeToken = normalizeNonEmptyString(
+        existingState?.resumeToken,
+      );
+      if (existingResumeToken !== normalizedPriorResumeToken) continue;
+      this.updateConnectionResumeToken(connection, normalizedNextResumeToken);
+    }
+  }
+
   private async clearRoomStorage() {
     const storage = this.ctx.storage as unknown as {
       deleteAll?: () => Promise<void>;
@@ -2431,6 +2489,16 @@ export class Room extends YServer<Env> {
         state.connectionGroupId,
         conn,
         state.resumeToken,
+      );
+    }
+
+    if (resolvedRole === "player" && resolvedPlayerId && resumeToken) {
+      this.refreshLegacyResumeTokens(
+        resolvedPlayerId,
+        priorResumeToken,
+        resumeToken,
+        conn,
+        state.connectionGroupId,
       );
     }
 

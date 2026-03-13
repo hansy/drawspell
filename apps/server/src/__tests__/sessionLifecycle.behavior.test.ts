@@ -1001,4 +1001,60 @@ describe("server lifecycle guards", () => {
       reason: "session moved to another device",
     });
   });
+
+  it("preserves legacy sync exemption across repeated resume token rotations", () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+
+    const current = new TestConnection();
+    current.id = "current";
+    current.state = {
+      playerId: "p1",
+      viewerRole: "player",
+      resumeToken: "resume-token-1",
+    };
+    const legacySync = new TestConnection();
+    legacySync.id = "legacy-sync";
+    legacySync.state = {
+      playerId: "p1",
+      viewerRole: "player",
+      resumeToken: "resume-token-1",
+    };
+
+    (server as any).connectionPlayers.set(legacySync, "p1");
+
+    (server as any).closeConnectionsForResumedPlayer(
+      "p1",
+      undefined,
+      current,
+      "resume-token-1",
+    );
+    (server as any).refreshLegacyResumeTokens(
+      "p1",
+      "resume-token-1",
+      "resume-token-2",
+      current,
+      undefined,
+    );
+
+    expect(legacySync.closed).toEqual([]);
+    expect((legacySync.state as any).resumeToken).toBe("resume-token-2");
+
+    const nextCurrent = new TestConnection();
+    nextCurrent.id = "next-current";
+    nextCurrent.state = {
+      playerId: "p1",
+      viewerRole: "player",
+      resumeToken: "resume-token-2",
+    };
+
+    (server as any).closeConnectionsForResumedPlayer(
+      "p1",
+      undefined,
+      nextCurrent,
+      "resume-token-2",
+    );
+
+    expect(legacySync.closed).toEqual([]);
+  });
 });
