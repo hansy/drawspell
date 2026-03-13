@@ -950,4 +950,55 @@ describe("server lifecycle guards", () => {
     });
     expect(sameGroup.closed).toEqual([]);
   });
+
+  it("closes legacy intent controllers when resumed takeover omits a connection group id", () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+
+    const current = new TestConnection();
+    current.id = "current";
+    const matchingLegacySync = new TestConnection();
+    matchingLegacySync.id = "matching-legacy-sync";
+    matchingLegacySync.state = {
+      playerId: "p1",
+      viewerRole: "player",
+      resumeToken: "resume-token",
+    };
+    const matchingLegacyIntent = new TestConnection();
+    matchingLegacyIntent.id = "matching-legacy-intent";
+    matchingLegacyIntent.state = {
+      playerId: "p1",
+      viewerRole: "player",
+      resumeToken: "resume-token",
+    };
+    const staleLegacySync = new TestConnection();
+    staleLegacySync.id = "stale-legacy-sync";
+    staleLegacySync.state = {
+      playerId: "p1",
+      viewerRole: "player",
+      resumeToken: "stale-token",
+    };
+
+    (server as any).connectionPlayers.set(matchingLegacySync, "p1");
+    (server as any).connectionPlayers.set(matchingLegacyIntent, "p1");
+    (server as any).intentConnections.add(matchingLegacyIntent);
+    (server as any).connectionPlayers.set(staleLegacySync, "p1");
+
+    (server as any).closeConnectionsForResumedPlayer(
+      "p1",
+      undefined,
+      current,
+      "resume-token",
+    );
+
+    expect(matchingLegacySync.closed).toEqual([]);
+    expect(matchingLegacyIntent.closed.at(0)).toEqual({
+      code: 1008,
+      reason: "session moved to another device",
+    });
+    expect(staleLegacySync.closed.at(0)).toEqual({
+      code: 1008,
+      reason: "session moved to another device",
+    });
+  });
 });

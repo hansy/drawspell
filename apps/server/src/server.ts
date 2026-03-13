@@ -2000,8 +2000,9 @@ export class Room extends YServer<Env> {
     playerId: string,
     connectionGroupId: string | undefined,
     currentConnection: Connection,
+    currentResumeToken?: string,
   ) {
-    if (!connectionGroupId) return;
+    const normalizedResumeToken = normalizeNonEmptyString(currentResumeToken);
     for (const [
       connection,
       connectedPlayerId,
@@ -2010,7 +2011,20 @@ export class Room extends YServer<Env> {
         continue;
       }
       const existingGroupId = this.connectionGroups.get(connection);
-      if (existingGroupId === connectionGroupId) continue;
+      const existingState = (connection.state ?? null) as
+        | IntentConnectionState
+        | null;
+      const existingResumeToken = normalizeNonEmptyString(
+        existingState?.resumeToken,
+      );
+      const isSameGroupedSession =
+        Boolean(connectionGroupId) && existingGroupId === connectionGroupId;
+      const isSameLegacySyncSession =
+        !connectionGroupId &&
+        !this.intentConnections.has(connection) &&
+        Boolean(normalizedResumeToken) &&
+        existingResumeToken === normalizedResumeToken;
+      if (isSameGroupedSession || isSameLegacySyncSession) continue;
       try {
         connection.close(
           PLAYER_TAKEOVER_CLOSE_CODE,
@@ -2416,6 +2430,7 @@ export class Room extends YServer<Env> {
         resolvedPlayerId,
         state.connectionGroupId,
         conn,
+        state.resumeToken,
       );
     }
 
