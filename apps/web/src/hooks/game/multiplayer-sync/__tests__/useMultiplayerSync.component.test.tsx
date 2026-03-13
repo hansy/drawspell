@@ -227,12 +227,17 @@ describe("useMultiplayerSync", () => {
     logStoreMocks.emitLog.mockClear();
     vi.mocked(resolveJoinToken).mockResolvedValue("test-join-token");
     vi.mocked(readRoomTokensFromStorage).mockReturnValue(null);
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({});
+    vi.mocked(isRoomHostPending).mockReturnValue(true);
+    vi.mocked(isRoomUnavailable).mockReturnValue(false);
+    vi.mocked(ensureClientDeviceId).mockReturnValue("device-1");
     Object.assign(mockGameState, {
       hasHydrated: true,
       viewerRole: "player" as ViewerRole,
       sessionId: null as string | null,
       myPlayerId: null as string | null,
       playerIdsBySession: {},
+      roomTokens: null,
     });
     mockGameState.setViewerRole.mockClear();
   });
