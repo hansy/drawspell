@@ -579,7 +579,7 @@ describe("server lifecycle guards", () => {
     expect(roomTokensMessage?.payload?.resumeToken).toBeTypeOf("string");
   });
 
-  it("cleans up registered intent connection when resume rotation fails", async () => {
+  it("reuses the prior resume token when resumed rotation fails", async () => {
     const state = createState();
     const server = new Room(state, createEnv());
     const initialResumeToken = await (server as any).ensurePlayerResumeToken("p1");
@@ -595,18 +595,36 @@ describe("server lifecycle guards", () => {
 
     const conn = new TestConnection();
     conn.id = "new-device-intent";
+    const sent: string[] = [];
+    conn.send = (payload: string) => {
+      sent.push(payload);
+    };
     const url = new URL(
       `https://example.test/?role=intent&playerId=p1&rt=${initialResumeToken}&cid=new-device&gt=player-token`
     );
 
     await (server as any).bindIntentConnection(conn, url);
 
-    expect(conn.closed.at(-1)).toEqual({
-      code: 1011,
-      reason: "internal error",
-    });
-    expect(((server as any).connectionRoles as Map<unknown, unknown>).size).toBe(0);
-    expect(((server as any).intentConnections as Set<unknown>).size).toBe(0);
+    const roomTokensMessage = sent
+      .map((raw) => {
+        try {
+          return JSON.parse(raw) as {
+            type?: string;
+            payload?: Record<string, unknown>;
+          };
+        } catch (_err) {
+          return null;
+        }
+      })
+      .find((message) => message?.type === "roomTokens");
+
+    expect(conn.closed).toEqual([]);
+    expect(roomTokensMessage?.payload?.resumeToken).toBe(initialResumeToken);
+    expect(await (server as any).validatePlayerResumeToken("p1", initialResumeToken)).toBe(
+      true
+    );
+    expect(((server as any).connectionRoles as Map<unknown, unknown>).size).toBe(1);
+    expect(((server as any).intentConnections as Set<unknown>).size).toBe(1);
   });
 
   it("does not kick old connections if resumed intent closes during token rotation", async () => {
@@ -716,7 +734,87 @@ describe("server lifecycle guards", () => {
     expect(Object.keys(tokens).sort()).toEqual(["p1", "p2"]);
   });
 
-  it("rejects resume auth without a connection group id", async () => {
+  it("dedupes sync and intent socket pairs in the IP rate limiter", () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const ip = "203.0.113.10";
+    const makeUrl = (deviceId: string, role?: "intent") =>
+      new URL(
+        `https://example.test/?playerId=p1&viewerRole=player&cid=${deviceId}${
+          role ? `&role=${role}` : ""
+        }`
+      );
+    const makeRequest = (url: URL) =>
+      new Request(url.toString(), {
+        headers: { "cf-connecting-ip": ip },
+      });
+
+    const syncUrl = makeUrl("device-1");
+    const intentUrl = makeUrl("device-1", "intent");
+
+    expect((server as any).shouldRateLimitConnection(makeRequest(syncUrl), syncUrl)).toBe(
+      false
+    );
+    expect(
+      (server as any).shouldRateLimitConnection(makeRequest(intentUrl), intentUrl)
+    ).toBe(false);
+    expect((server as any).connectionRate.get(ip)?.attempts).toBe(1);
+
+    for (let index = 2; index <= 20; index += 1) {
+      const nextSyncUrl = makeUrl(`device-${index}`);
+      const nextIntentUrl = makeUrl(`device-${index}`, "intent");
+      expect(
+        (server as any).shouldRateLimitConnection(
+          makeRequest(nextSyncUrl),
+          nextSyncUrl
+        )
+      ).toBe(false);
+      expect(
+        (server as any).shouldRateLimitConnection(
+          makeRequest(nextIntentUrl),
+          nextIntentUrl
+        )
+      ).toBe(false);
+    }
+
+    const blockedUrl = makeUrl("device-21");
+    expect(
+      (server as any).shouldRateLimitConnection(makeRequest(blockedUrl), blockedUrl)
+    ).toBe(true);
+  });
+
+  it("keeps empty rooms dormant before hard-resetting them", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = createState();
+      const server = new Room(state, createEnv());
+      const clearRoomStorage = vi
+        .spyOn(server as any, "clearRoomStorage")
+        .mockResolvedValue(undefined);
+      (server as any).roomTokens = {
+        playerToken: "player-token",
+        spectatorToken: "spectator-token",
+      };
+
+      (server as any).scheduleEmptyRoomTeardown();
+
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(clearRoomStorage).not.toHaveBeenCalled();
+      expect((server as any).emptyRoomDormantAt).not.toBeNull();
+      expect((server as any).roomTokens).toEqual({
+        playerToken: "player-token",
+        spectatorToken: "spectator-token",
+      });
+
+      await vi.advanceTimersByTimeAsync(30 * 60_000);
+      expect(clearRoomStorage).toHaveBeenCalled();
+      expect((server as any).roomTokens).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("accepts resume auth without a connection group id", async () => {
     const state = createState();
     const server = new Room(state, createEnv());
     const resumeToken = await (server as any).ensurePlayerResumeToken("p1");
@@ -734,7 +832,17 @@ describe("server lifecycle guards", () => {
       { allowTokenCreation: false },
     );
 
-    expect(result).toEqual({ ok: false, reason: "invalid token" });
+    expect(result).toEqual({
+      ok: true,
+      resolvedRole: "player",
+      playerId: "p1",
+      token: "player-token",
+      tokens: {
+        playerToken: "player-token",
+        spectatorToken: "spectator-token",
+      },
+      resumed: true,
+    });
   });
 
   it("falls back to player token auth when resume validation fails", async () => {

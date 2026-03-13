@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+  ensureClientDeviceId,
   mergeRoomTokens,
   readRoomTokensFromStorage,
   writeRoomTokensToStorage,
 } from "../partyKitToken";
 
 const keyFor = (sessionId: string) => `drawspell:roomTokens:${sessionId}`;
+const deviceKey = "drawspell:deviceId";
 
 describe("partyKitToken storage", () => {
   beforeEach(() => {
@@ -66,5 +68,14 @@ describe("partyKitToken storage", () => {
       playerToken: "player-token",
       resumeToken: "resume-token",
     });
+  });
+
+  it("persists and reuses a stable client device id", () => {
+    const first = ensureClientDeviceId();
+    const second = ensureClientDeviceId();
+
+    expect(first).toBeTruthy();
+    expect(second).toBe(first);
+    expect(window.localStorage.getItem(deviceKey)).toBe(first);
   });
 });

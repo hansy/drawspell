@@ -9,6 +9,7 @@ import { resolvePartyKitHost } from "@/lib/partyKitHost";
 import {
   clearInviteTokenFromUrl,
   clearRoomHostPending,
+  ensureClientDeviceId,
   mergeRoomTokens,
   readRoomTokensFromStorage,
   resolveInviteTokenFromUrl,
@@ -79,6 +80,8 @@ export type SessionSetupDeps = {
   joinToken?: string;
 };
 
+const PROVIDER_RESYNC_INTERVAL_MS = 15_000;
+
 export function setupSessionResources({
   sessionId,
   statusSetter,
@@ -134,10 +137,7 @@ export function setupSessionResources({
   );
   let pendingResumeInviteUrlClear = hasValidResumeInvite;
   const resumePlayerId = hasValidResumeInvite ? inviteToken.playerId : undefined;
-  const connectionGroupId =
-    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const connectionGroupId = ensureClientDeviceId();
 
   // Setup store
   const store = useGameStore.getState();
@@ -264,6 +264,7 @@ export function setupSessionResources({
       party: PARTY_NAME,
       awareness,
       connect: false,
+      resyncInterval: PROVIDER_RESYNC_INTERVAL_MS,
       params: async () => {
         const state = useGameStore.getState();
         const role = state.viewerRole;
