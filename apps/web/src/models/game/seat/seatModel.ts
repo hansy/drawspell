@@ -11,6 +11,10 @@ import type {
 
 import { getCardsInZone, getPlayerZones } from '@/lib/gameSelectors';
 import { canViewerSeeLibraryCardByReveal } from '@/lib/reveal';
+import {
+  libraryTopRevealIncludesPlayer,
+  libraryTopRevealIsSelfOnly,
+} from '@mtg/shared/types/players';
 
 export type SeatPosition = 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
 
@@ -122,7 +126,12 @@ export const createSeatModel = (params: {
   if (
     (!zones.library || zones.library.cardIds.length === 0) &&
     params.isMe &&
-    params.libraryTopReveal === "self"
+    libraryTopRevealIncludesPlayer(
+      params.libraryTopReveal,
+      params.viewerPlayerId,
+      params.playerId,
+      params.viewerRole,
+    )
   ) {
     const libraryZoneId = zones.library?.id;
     const visibleLibraryCards = libraryZoneId
@@ -157,7 +166,10 @@ export const createSeatModel = (params: {
     if (privateVisible.length === 1) {
       // Prefer a single private-visible card to honor self top-reveal.
       topCard = privateVisible[0];
-    } else if (topRevealedToAllCard) {
+    } else if (
+      libraryTopRevealIsSelfOnly(params.libraryTopReveal, params.playerId) &&
+      topRevealedToAllCard
+    ) {
       topCard = topRevealedToAllCard;
     } else if (visibleLibraryCards.length === 1) {
       topCard = visibleLibraryCards[0];

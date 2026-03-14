@@ -161,6 +161,7 @@ export const useGameContextMenu = (
             zone,
             myPlayerId,
             viewerRole,
+            players: store.players,
             onViewZone,
             openCountPrompt,
             libraryTopReveal,

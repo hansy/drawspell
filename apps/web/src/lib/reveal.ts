@@ -1,6 +1,9 @@
 import type { Card, LibraryTopRevealMode, PlayerId, ViewerRole, ZoneType } from "@/types";
 import { ZONE } from "@/constants/zones";
 import { isHiddenZoneType } from "@mtg/shared/constants/zones";
+import {
+  libraryTopRevealIncludesPlayer,
+} from "@mtg/shared/types/players";
 
 export const canViewerSeeLibraryCardByReveal = (
   card: Pick<Card, "knownToAll" | "revealedToAll" | "revealedTo">,
@@ -16,11 +19,15 @@ export const canViewerSeeLibraryCardByReveal = (
 export const canViewerSeeLibraryTopCard = (params: {
   viewerId: PlayerId;
   ownerId: PlayerId;
+  viewerRole?: ViewerRole;
   mode?: LibraryTopRevealMode | null;
 }) => {
-  if (params.mode === "all") return true;
-  if (params.mode === "self") return params.viewerId === params.ownerId;
-  return false;
+  return libraryTopRevealIncludesPlayer(
+    params.mode,
+    params.viewerId,
+    params.ownerId,
+    params.viewerRole,
+  );
 };
 
 export const canViewerPeekBattlefieldFaceDown = (

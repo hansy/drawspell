@@ -11,6 +11,7 @@ import {
 import { requestCardPreviewLock } from "@/lib/cardPreviewLock";
 import { cn } from "@/lib/utils";
 import type { Card as CardType, Player, ViewerRole, ZoneId } from "@/types";
+import { useCardPreview } from "@/components/game/card/CardPreviewProvider";
 
 import { LifeBox } from "../player/LifeBox";
 import { Battlefield } from "./Battlefield";
@@ -84,6 +85,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
   layoutVariant = "default",
   onPortraitCommanderDrawerOpenChange,
 }) => {
+  const { showPreview, hidePreview } = useCardPreview();
   const [handHeight, setHandHeight] = React.useState(HAND_DEFAULT_HEIGHT);
   const [hasHandOverride, setHasHandOverride] = React.useState(false);
   const {
@@ -192,10 +194,37 @@ export const SeatView: React.FC<SeatViewProps> = ({
         canViewerSeeLibraryTopCard({
           viewerId: viewerPlayerId,
           ownerId: library?.ownerId ?? player.id,
+          viewerRole,
           mode: player.libraryTopReveal,
         })
       : false;
   const libraryFaceDown = libraryTopCard ? !canSeeLibraryTop : true;
+  const graveyardTopCard = graveyardCards[graveyardCards.length - 1];
+  const exileTopCard = exileCards[exileCards.length - 1];
+  const libraryPreviewCard =
+    isLg && libraryTopCard && !libraryFaceDown && !libraryTopIsPlaceholder
+      ? libraryTopCard
+      : undefined;
+  const graveyardPreviewCard =
+    isLg && graveyardTopCard && !graveyardTopCard.faceDown
+      ? graveyardTopCard
+      : undefined;
+  const exilePreviewCard =
+    isLg && exileTopCard && !exileTopCard.faceDown ? exileTopCard : undefined;
+  const getSideZonePreviewProps = React.useCallback(
+    (previewCard?: CardType) => {
+      if (!previewCard) return {};
+      return {
+        onMouseEnter: (event: React.MouseEvent<HTMLDivElement>) => {
+          showPreview(previewCard, event.currentTarget);
+        },
+        onMouseLeave: () => {
+          hidePreview(previewCard.id);
+        },
+      };
+    },
+    [hidePreview, showPreview],
+  );
   const mobileZoneStripStyle = React.useMemo(
     () =>
       ({
@@ -251,6 +280,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                   </div>
                 ) : undefined
               }
+              {...getSideZonePreviewProps(libraryPreviewCard)}
               onDoubleClick={
                 isMe && onDrawCard
                   ? (e) => {
@@ -279,6 +309,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               }
               faceDown={graveyardCards[graveyardCards.length - 1]?.faceDown}
               showContextMenuCursor={false}
+              {...getSideZonePreviewProps(graveyardPreviewCard)}
             />
           ) : (
             <div className="h-full w-full" />
@@ -300,6 +331,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               cardClassName="opacity-60 grayscale"
               faceDown={exileCards[exileCards.length - 1]?.faceDown}
               showContextMenuCursor={false}
+              {...getSideZonePreviewProps(exilePreviewCard)}
             />
           ) : (
             <div className="h-full w-full" />
@@ -327,6 +359,10 @@ export const SeatView: React.FC<SeatViewProps> = ({
       opponentLibraryRevealCount,
       player.deckLoaded,
       player.id,
+      getSideZonePreviewProps,
+      libraryPreviewCard,
+      graveyardPreviewCard,
+      exilePreviewCard,
     ],
   );
   const [isCommanderDrawerOpen, setIsCommanderDrawerOpen] = React.useState(false);
@@ -549,6 +585,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                     </div>
                   ) : undefined
                 }
+                {...getSideZonePreviewProps(libraryPreviewCard)}
                 onDoubleClick={
                   isMe && onDrawCard
                     ? (e) => {
@@ -587,6 +624,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 }
                 faceDown={graveyardCards[graveyardCards.length - 1]?.faceDown}
                 showContextMenuCursor={false}
+                {...getSideZonePreviewProps(graveyardPreviewCard)}
               />
             )}
 
@@ -605,6 +643,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 cardClassName="opacity-60 grayscale"
                 faceDown={exileCards[exileCards.length - 1]?.faceDown}
                 showContextMenuCursor={false}
+                {...getSideZonePreviewProps(exilePreviewCard)}
               />
             )}
           </div>

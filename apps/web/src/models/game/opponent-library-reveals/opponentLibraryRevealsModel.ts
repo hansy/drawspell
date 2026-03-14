@@ -8,6 +8,7 @@ import type {
 } from "@/types";
 
 import { ZONE } from "@/constants/zones";
+import { libraryTopRevealIsAllPlayers } from "@mtg/shared/types/players";
 
 export const resolveZoneOwnerName = (params: {
   zone: Pick<Zone, "ownerId"> | null;
@@ -74,7 +75,7 @@ export const computeRevealedOpponentLibraryCards = (params: {
     .sort((a, b) => a.entry.orderKey.localeCompare(b.entry.orderKey));
 
   const actualTopCardId =
-    params.libraryTopReveal === "all" && entries.length
+    libraryTopRevealIsAllPlayers(params.libraryTopReveal) && entries.length
       ? entries[entries.length - 1]?.cardId ?? null
       : null;
 

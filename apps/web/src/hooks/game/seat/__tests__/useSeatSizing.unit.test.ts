@@ -80,19 +80,19 @@ describe("computeSeatSizing", () => {
     expect(result.previewWidthPx).toBe(PREVIEW_MAX_WIDTH_PX);
   });
 
-  it("uses an 80px floor when 10vw is smaller", () => {
+  it("uses an 80px floor when 15vw is smaller", () => {
     const result = computeSeatSizing({
       seatWidth: 600,
       seatHeight: 400,
       previewScale: 1,
-      viewportWidthPx: 600,
+      viewportWidthPx: 500,
     });
 
-    expect(getPreviewMinWidthPx(600)).toBe(PREVIEW_MIN_WIDTH_PX);
+    expect(getPreviewMinWidthPx(500)).toBe(PREVIEW_MIN_WIDTH_PX);
     expect(result.previewWidthPx).toBe(PREVIEW_MIN_WIDTH_PX);
   });
 
-  it("uses 10vw when it exceeds the floor", () => {
+  it("uses 15vw when it exceeds the floor", () => {
     const result = computeSeatSizing({
       seatWidth: 600,
       seatHeight: 400,
@@ -100,8 +100,8 @@ describe("computeSeatSizing", () => {
       viewportWidthPx: 1200,
     });
 
-    expect(getPreviewMinWidthPx(1200)).toBe(120);
-    expect(result.previewWidthPx).toBe(120);
+    expect(getPreviewMinWidthPx(1200)).toBe(180);
+    expect(result.previewWidthPx).toBe(180);
   });
 
   it("keeps side zones aspect-locked while fitting vertically", () => {

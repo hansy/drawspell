@@ -115,6 +115,7 @@ export const useCardController = (props: CardProps): CardController => {
       canViewerSeeLibraryTopCard({
         viewerId: myPlayerId,
         ownerId: zoneOwnerId ?? card.ownerId,
+        viewerRole,
         mode: libraryTopReveal,
       }));
   const canPeek = React.useMemo(

@@ -188,7 +188,6 @@ export const syncLibraryRevealsToAllForPlayer = (
   const order = hidden.libraryOrder[playerId] ?? [];
   const orderIndexById = new Map<string, number>();
   const toAllIds = new Set<string>();
-  const topCardId = order.length ? order[order.length - 1] : null;
 
   order.forEach((cardId, index) => {
     orderIndexById.set(cardId, index);
@@ -196,10 +195,6 @@ export const syncLibraryRevealsToAllForPlayer = (
       toAllIds.add(cardId);
     }
   });
-
-  if (player.libraryTopReveal === "all" && topCardId) {
-    toAllIds.add(topCardId);
-  }
 
   let resolvedLibraryZoneId = libraryZoneId;
     if (!resolvedLibraryZoneId) {

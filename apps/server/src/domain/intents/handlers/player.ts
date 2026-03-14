@@ -1,5 +1,9 @@
 import type { Card } from "@mtg/shared/types/cards";
 import type { Player } from "@mtg/shared/types/players";
+import {
+  libraryTopRevealIsAllPlayers,
+  libraryTopRevealSelectedIds,
+} from "@mtg/shared/types/players";
 import type { Zone } from "@mtg/shared/types/zones";
 import { MAX_PLAYERS } from "@mtg/shared/constants/room";
 
@@ -13,6 +17,7 @@ import {
   writePlayer,
 } from "../../yjsStore";
 import { syncLibraryRevealsToAllForPlayer, updatePlayerCounts } from "../../hiddenState";
+import { buildLibraryTopRevealScope } from "../../libraryTopReveal";
 import { canUpdatePlayer } from "../../permissions";
 import {
   ensurePermission,
@@ -96,20 +101,27 @@ const handlePlayerUpdate: IntentHandler = ({ actorId, maps, hidden, payload, pus
   ) {
     const previousMode = current.libraryTopReveal;
     const nextMode = (updates as Record<string, unknown>).libraryTopReveal;
-    const enabled = Boolean(nextMode);
-    const mode = enabled ? nextMode : previousMode;
-    if (typeof mode === "string") {
-      pushLogEvent("library.topReveal", {
-        actorId,
+    const allPlayerIds = Array.from(maps.players.keys()).map(String);
+    pushLogEvent("library.topReveal", {
+      actorId,
+      playerId,
+      recipientIds: libraryTopRevealSelectedIds(
+        nextMode as Player["libraryTopReveal"],
         playerId,
-        enabled,
-        mode,
-      });
-    }
+        allPlayerIds,
+      ),
+      toAllPlayers: libraryTopRevealIsAllPlayers(
+        nextMode as Player["libraryTopReveal"],
+      ),
+    });
     writePlayer(maps, { ...current, ...updates, id: playerId });
     syncLibraryRevealsToAllForPlayer(maps, hidden, playerId);
-    const prevReveal = previousMode === "all" ? { toAll: true } : undefined;
-    const nextReveal = nextMode === "all" ? { toAll: true } : undefined;
+    const prevReveal = buildLibraryTopRevealScope(maps, playerId, previousMode);
+    const nextReveal = buildLibraryTopRevealScope(
+      maps,
+      playerId,
+      nextMode as Player["libraryTopReveal"],
+    );
     markHiddenChanged({
       ownerId: playerId,
       ...(nextReveal ? { reveal: nextReveal } : null),
