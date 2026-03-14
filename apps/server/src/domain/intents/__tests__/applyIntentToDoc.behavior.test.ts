@@ -112,6 +112,7 @@ describe("applyIntentToDoc", () => {
     hidden.libraryOrder.p1 = ["c1", "c2"];
     hidden.cards.c1 = makeCard("c1", "p1", "lib-p1");
     hidden.cards.c2 = makeCard("c2", "p1", "lib-p1");
+    hidden.libraryReveals.c1 = { toAll: true };
 
     const result = applyIntentToDoc(doc, {
       id: "intent-3",
@@ -129,13 +130,24 @@ describe("applyIntentToDoc", () => {
       expect(result.logEvents).toEqual([
         {
           eventId: "library.topReveal",
-          payload: { actorId: "p1", playerId: "p1", enabled: true, mode: "all" },
+          payload: {
+            actorId: "p1",
+            playerId: "p1",
+            recipientIds: ["p1"],
+            toAllPlayers: true,
+          },
         },
       ]);
     }
 
+    const revealEntry = maps.libraryRevealsToAll.get("c1") as {
+      orderKey: string;
+      ownerId?: string;
+    };
     const topEntry = maps.libraryRevealsToAll.get("c2");
+    expect(revealEntry).toMatchObject({ ownerId: "p1" });
     expect(topEntry).toMatchObject({ ownerId: "p1" });
+    expect(revealEntry.orderKey < (topEntry as { orderKey: string }).orderKey).toBe(true);
     const player = readPlayer(maps, "p1");
     expect(player?.libraryTopReveal).toBe("all");
   });

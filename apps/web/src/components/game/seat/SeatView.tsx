@@ -216,10 +216,13 @@ export const SeatView: React.FC<SeatViewProps> = ({
       if (!previewCard) return {};
       return {
         onMouseEnter: (event: React.MouseEvent<HTMLDivElement>) => {
+          event.currentTarget.dataset.previewCardId = previewCard.id;
           showPreview(previewCard, event.currentTarget);
         },
-        onMouseLeave: () => {
-          hidePreview(previewCard.id);
+        onMouseLeave: (event: React.MouseEvent<HTMLDivElement>) => {
+          const previewCardId = event.currentTarget.dataset.previewCardId;
+          delete event.currentTarget.dataset.previewCardId;
+          hidePreview(previewCardId || undefined);
         },
       };
     },

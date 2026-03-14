@@ -131,4 +131,71 @@ describe("SeatView desktop side-zone previews", () => {
     hoverZone(graveyardZone.id);
     hoverZone(exileZone.id);
   });
+
+  it("closes the active side-zone preview after the hovered top card changes", () => {
+    const graveyardZone = makeZone("graveyard-p1", "graveyard", ["c-graveyard-1"]);
+    const firstCard = makeCard("c-graveyard-1", graveyardZone.id, "First Card");
+    const secondCard = makeCard("c-graveyard-2", graveyardZone.id, "Second Card");
+
+    const buildModel = (card: Card) =>
+      ({
+        isTop: false,
+        isRight: false,
+        mirrorBattlefieldY: false,
+        inverseScalePercent: 100,
+        zones: {
+          graveyard: graveyardZone,
+        },
+        cards: {
+          library: [],
+          graveyard: [card],
+          exile: [],
+          battlefield: [],
+          commander: [],
+          hand: [],
+        },
+        opponentLibraryRevealCount: 0,
+      }) as const;
+
+    const { container, rerender } = render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer()}
+            color="sky"
+            isMe
+            viewerPlayerId="p1"
+            opponentColors={{ p1: "sky" }}
+            model={buildModel(firstCard) as any}
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    const zone = container.querySelector(`[data-zone-id="${graveyardZone.id}"]`);
+    if (!(zone instanceof HTMLElement)) {
+      throw new Error(`Expected zone ${graveyardZone.id}`);
+    }
+
+    fireEvent.mouseEnter(zone);
+    expect(container.querySelector("[data-card-preview]")).not.toBeNull();
+
+    rerender(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer()}
+            color="sky"
+            isMe
+            viewerPlayerId="p1"
+            opponentColors={{ p1: "sky" }}
+            model={buildModel(secondCard) as any}
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    fireEvent.mouseLeave(zone);
+    expect(container.querySelector("[data-card-preview]")).toBeNull();
+  });
 });
