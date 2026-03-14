@@ -1,5 +1,4 @@
 import type { Card, CardIdentity } from "@mtg/shared/types/cards";
-import { libraryTopRevealIsAllPlayers } from "@mtg/shared/types/players";
 import type { Zone } from "@mtg/shared/types/zones";
 
 import { isHiddenZoneType, ZONE, MAX_HIDDEN_STATE_CHUNK_SIZE, MAX_REVEALED_TO } from "./constants";
@@ -196,12 +195,6 @@ export const syncLibraryRevealsToAllForPlayer = (
       toAllIds.add(cardId);
     }
   });
-  if (libraryTopRevealIsAllPlayers(player.libraryTopReveal) && order.length) {
-    const topCardId = order[order.length - 1];
-    if (topCardId) {
-      toAllIds.add(topCardId);
-    }
-  }
 
   let resolvedLibraryZoneId = libraryZoneId;
     if (!resolvedLibraryZoneId) {

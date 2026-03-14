@@ -146,8 +146,7 @@ describe("applyIntentToDoc", () => {
     };
     const topEntry = maps.libraryRevealsToAll.get("c2");
     expect(revealEntry).toMatchObject({ ownerId: "p1" });
-    expect(topEntry).toMatchObject({ ownerId: "p1" });
-    expect(revealEntry.orderKey < (topEntry as { orderKey: string }).orderKey).toBe(true);
+    expect(topEntry).toBeUndefined();
     const player = readPlayer(maps, "p1");
     expect(player?.libraryTopReveal).toBe("all");
   });
