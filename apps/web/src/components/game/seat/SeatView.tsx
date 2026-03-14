@@ -211,6 +211,11 @@ export const SeatView: React.FC<SeatViewProps> = ({
       : undefined;
   const exilePreviewCard =
     isLg && exileTopCard && !exileTopCard.faceDown ? exileTopCard : undefined;
+  const sideZonePreviewCardIdsRef = React.useRef<{
+    library?: string;
+    graveyard?: string;
+    exile?: string;
+  }>({});
   const getSideZonePreviewProps = React.useCallback(
     (previewCard?: CardType) => {
       if (!previewCard) return {};
@@ -228,6 +233,29 @@ export const SeatView: React.FC<SeatViewProps> = ({
     },
     [hidePreview, showPreview],
   );
+  React.useEffect(() => {
+    const previousPreviewCardIds = sideZonePreviewCardIdsRef.current;
+    const nextPreviewCardIds = {
+      library: libraryPreviewCard?.id,
+      graveyard: graveyardPreviewCard?.id,
+      exile: exilePreviewCard?.id,
+    };
+    (Object.keys(previousPreviewCardIds) as Array<keyof typeof nextPreviewCardIds>).forEach(
+      (zoneKey) => {
+        const previousCardId = previousPreviewCardIds[zoneKey];
+        const nextCardId = nextPreviewCardIds[zoneKey];
+        if (previousCardId && previousCardId !== nextCardId) {
+          hidePreview(previousCardId);
+        }
+      },
+    );
+    sideZonePreviewCardIdsRef.current = nextPreviewCardIds;
+  }, [
+    exilePreviewCard?.id,
+    graveyardPreviewCard?.id,
+    hidePreview,
+    libraryPreviewCard?.id,
+  ]);
   const mobileZoneStripStyle = React.useMemo(
     () =>
       ({

@@ -101,6 +101,26 @@ describe("applyIntentToDoc", () => {
     expect(hidden.sideboardOrder.p1).toEqual([]);
   });
 
+  it("normalizes library top reveal recipients when a player joins", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-2a",
+      type: "player.join",
+      payload: {
+        actorId: "p1",
+        player: makePlayer("p1", {
+          libraryTopReveal: { to: ["p1", "ghost", "p1"] } as any,
+        }),
+      },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(readPlayer(maps, "p1")?.libraryTopReveal).toEqual({ to: ["p1"] });
+  });
+
   it("should reveal the library top card to all when top reveal is enabled", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
@@ -149,6 +169,45 @@ describe("applyIntentToDoc", () => {
     expect(topEntry).toBeUndefined();
     const player = readPlayer(maps, "p1");
     expect(player?.libraryTopReveal).toBe("all");
+  });
+
+  it("normalizes library top reveal recipients before persisting updates", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    writePlayer(maps, makePlayer("p1"));
+    writePlayer(maps, makePlayer("p2"));
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-3a",
+      type: "player.update",
+      payload: {
+        actorId: "p1",
+        playerId: "p1",
+        updates: {
+          libraryTopReveal: {
+            to: ["p2", "ghost", "p2", "ghost-2"],
+          },
+        },
+      },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.logEvents).toEqual([
+        {
+          eventId: "library.topReveal",
+          payload: {
+            actorId: "p1",
+            playerId: "p1",
+            recipientIds: ["p2"],
+            toAllPlayers: false,
+          },
+        },
+      ]);
+    }
+    expect(readPlayer(maps, "p1")?.libraryTopReveal).toEqual({ to: ["p2"] });
   });
 
   it("should add cards to a hidden zone for the owning player", () => {

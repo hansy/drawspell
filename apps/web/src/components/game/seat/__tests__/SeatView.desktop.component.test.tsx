@@ -198,4 +198,73 @@ describe("SeatView desktop side-zone previews", () => {
     fireEvent.mouseLeave(zone);
     expect(container.querySelector("[data-card-preview]")).toBeNull();
   });
+
+  it("closes a side-zone preview when the preview target disappears", () => {
+    const graveyardZone = makeZone("graveyard-p1", "graveyard", ["c-graveyard-1"]);
+    const previewableCard = makeCard("c-graveyard-1", graveyardZone.id, "Previewable Card");
+    const hiddenCard = {
+      ...makeCard("c-graveyard-1", graveyardZone.id, "Hidden Card"),
+      faceDown: true,
+    } as Card;
+
+    const buildModel = (card: Card) =>
+      ({
+        isTop: false,
+        isRight: false,
+        mirrorBattlefieldY: false,
+        inverseScalePercent: 100,
+        zones: {
+          graveyard: graveyardZone,
+        },
+        cards: {
+          library: [],
+          graveyard: [card],
+          exile: [],
+          battlefield: [],
+          commander: [],
+          hand: [],
+        },
+        opponentLibraryRevealCount: 0,
+      }) as const;
+
+    const { container, rerender } = render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer()}
+            color="sky"
+            isMe
+            viewerPlayerId="p1"
+            opponentColors={{ p1: "sky" }}
+            model={buildModel(previewableCard) as any}
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    const zone = container.querySelector(`[data-zone-id="${graveyardZone.id}"]`);
+    if (!(zone instanceof HTMLElement)) {
+      throw new Error(`Expected zone ${graveyardZone.id}`);
+    }
+
+    fireEvent.mouseEnter(zone);
+    expect(container.querySelector("[data-card-preview]")).not.toBeNull();
+
+    rerender(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer()}
+            color="sky"
+            isMe
+            viewerPlayerId="p1"
+            opponentColors={{ p1: "sky" }}
+            model={buildModel(hiddenCard) as any}
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    expect(container.querySelector("[data-card-preview]")).toBeNull();
+  });
 });
