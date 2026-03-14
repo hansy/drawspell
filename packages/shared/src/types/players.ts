@@ -12,12 +12,14 @@ export type LibraryTopRevealMode =
   | LegacyLibraryTopRevealMode
   | LibraryTopReveal;
 
-const uniquePlayerIds = (value: unknown[]): PlayerId[] =>
-  Array.from(
+const uniquePlayerIds = (value: unknown): PlayerId[] => {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
     new Set(
       value.filter((entry): entry is PlayerId => typeof entry === "string"),
     ),
   );
+};
 
 export const isLibraryTopRevealMode = (
   value: unknown,
@@ -101,7 +103,7 @@ export const libraryTopRevealIncludesPlayer = (
   if (reveal === "others") return playerId !== ownerId;
   if (reveal === "all") return true;
   if (reveal.toAll) return true;
-  return Boolean(reveal.to?.includes(playerId));
+  return uniquePlayerIds(reveal.to).includes(playerId);
 };
 
 export const libraryTopRevealIsSelfOnly = (
