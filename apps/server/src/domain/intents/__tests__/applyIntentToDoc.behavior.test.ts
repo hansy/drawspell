@@ -121,6 +121,26 @@ describe("applyIntentToDoc", () => {
     expect(readPlayer(maps, "p1")?.libraryTopReveal).toEqual({ to: ["p1"] });
   });
 
+  it("preserves explicit toAll library top reveal when a player joins alone", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-2b",
+      type: "player.join",
+      payload: {
+        actorId: "p1",
+        player: makePlayer("p1", {
+          libraryTopReveal: { toAll: true },
+        }),
+      },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(readPlayer(maps, "p1")?.libraryTopReveal).toEqual({ toAll: true });
+  });
+
   it("should reveal the library top card to all when top reveal is enabled", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
@@ -208,6 +228,42 @@ describe("applyIntentToDoc", () => {
       ]);
     }
     expect(readPlayer(maps, "p1")?.libraryTopReveal).toEqual({ to: ["p2"] });
+  });
+
+  it("preserves explicit toAll library top reveal when normalizing updates", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    writePlayer(maps, makePlayer("p1"));
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-3b",
+      type: "player.update",
+      payload: {
+        actorId: "p1",
+        playerId: "p1",
+        updates: {
+          libraryTopReveal: { toAll: true },
+        },
+      },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.logEvents).toEqual([
+        {
+          eventId: "library.topReveal",
+          payload: {
+            actorId: "p1",
+            playerId: "p1",
+            recipientIds: ["p1"],
+            toAllPlayers: true,
+          },
+        },
+      ]);
+    }
+    expect(readPlayer(maps, "p1")?.libraryTopReveal).toEqual({ toAll: true });
   });
 
   it("should add cards to a hidden zone for the owning player", () => {

@@ -37,6 +37,7 @@ const normalizePersistedLibraryTopReveal = (
   const normalized = normalizeLibraryTopRevealMode(value);
   if (!normalized) return undefined;
   if (typeof normalized === "string") return normalized;
+  if (normalized.toAll) return { toAll: true };
   return (
     buildLibraryTopRevealFromSelectedIds(
       libraryTopRevealSelectedIds(normalized, playerId, allPlayerIds),
