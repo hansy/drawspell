@@ -247,6 +247,7 @@ describe("server migration behavior", () => {
     });
 
     expect(p2Overlay.cards.map((card) => card.id)).toEqual(["l2"]);
+    expect(p2Overlay.zoneCardOrders?.[library.id]).toEqual(["l2"]);
   });
 
 
@@ -399,6 +400,7 @@ describe("server migration behavior", () => {
       viewerRole: "player",
     });
     expect(otherOverlay.cards.map((card) => card.id)).toEqual(["c2"]);
+    expect(otherOverlay.zoneCardOrders?.[library.id]).toEqual(["c2"]);
 
     const spectatorOverlayAllPlayers = buildOverlayForViewer({
       maps,
@@ -417,6 +419,7 @@ describe("server migration behavior", () => {
       viewerRole: "player",
     });
     expect(otherOverlaySelf.cards).toHaveLength(0);
+    expect(otherOverlaySelf.zoneCardOrders).toBeUndefined();
 
     const ownerOverlaySelf = buildOverlayForViewer({
       maps: getMaps(doc),
@@ -425,6 +428,7 @@ describe("server migration behavior", () => {
       viewerRole: "player",
     });
     expect(ownerOverlaySelf.cards.map((card) => card.id)).toEqual(["c2"]);
+    expect(ownerOverlaySelf.zoneCardOrders?.[library.id]).toEqual(["c2"]);
 
     playersMap.set("p1", { ...p1, libraryTopReveal: { to: ["p2"] } });
 
@@ -435,6 +439,7 @@ describe("server migration behavior", () => {
       viewerRole: "player",
     });
     expect(otherOverlaySpecific.cards.map((card) => card.id)).toEqual(["c2"]);
+    expect(otherOverlaySpecific.zoneCardOrders?.[library.id]).toEqual(["c2"]);
 
     const ownerOverlaySpecific = buildOverlayForViewer({
       maps: getMaps(doc),
@@ -451,6 +456,7 @@ describe("server migration behavior", () => {
       viewerRole: "player",
     });
     expect(unselectedOverlaySpecific.cards).toHaveLength(0);
+    expect(unselectedOverlaySpecific.zoneCardOrders).toBeUndefined();
   });
 
   it("denies reveal intent from non-owner and publishes to-all reveals", () => {

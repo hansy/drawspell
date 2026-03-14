@@ -105,6 +105,7 @@ export const buildOverlayForViewer = (params: OverlayParams): OverlaySnapshotDat
     if (!topCardId) return;
     const card = params.hidden.cards[topCardId];
     if (!card) return;
+    const libraryZoneId = libraryZoneIds[ownerId];
     const baseReveal = params.hidden.libraryReveals[topCardId];
     const allPlayerIds = Object.keys(snapshot.players);
     const topRevealRecipients = libraryTopRevealSelectedIds(
@@ -132,8 +133,11 @@ export const buildOverlayForViewer = (params: OverlayParams): OverlaySnapshotDat
     const nextCard = applyRevealToCard(card, mergedReveal);
     addOverlayCard({
       ...nextCard,
-      zoneId: libraryZoneIds[ownerId] ?? nextCard.zoneId,
+      zoneId: libraryZoneId ?? nextCard.zoneId,
     });
+    if (libraryZoneId && !zoneCardOrders[libraryZoneId]) {
+      zoneCardOrders[libraryZoneId] = [topCardId];
+    }
   });
 
   Object.entries(params.hidden.libraryOrder).forEach(([ownerId, order]) => {
