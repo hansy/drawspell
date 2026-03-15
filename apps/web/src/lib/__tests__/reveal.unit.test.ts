@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { ZONE } from "@/constants/zones";
-import { canViewerSeeCardIdentity, shouldRenderFaceDown } from "../reveal";
+import {
+  canViewerSeeCardIdentity,
+  canViewerSeeLibraryTopCard,
+  shouldRenderFaceDown,
+} from "../reveal";
 
 describe("reveal", () => {
   it("lets the owner always see card identity", () => {
@@ -119,6 +123,31 @@ describe("reveal", () => {
         "spectator"
       )
     ).toBe(true);
+  });
+
+  it("supports revealing the top library card to specific players only", () => {
+    expect(
+      canViewerSeeLibraryTopCard({
+        viewerId: "p2",
+        ownerId: "p1",
+        mode: { to: ["p2"] },
+      }),
+    ).toBe(true);
+    expect(
+      canViewerSeeLibraryTopCard({
+        viewerId: "p1",
+        ownerId: "p1",
+        mode: { to: ["p2"] },
+      }),
+    ).toBe(false);
+    expect(
+      canViewerSeeLibraryTopCard({
+        viewerId: "spec",
+        ownerId: "p1",
+        viewerRole: "spectator",
+        mode: { toAll: true },
+      }),
+    ).toBe(false);
   });
 
   it("allows spectator peek on face-down battlefield cards", () => {

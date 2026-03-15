@@ -71,11 +71,43 @@ describe("opponentLibraryRevealsModel", () => {
     expect(result.cards.map((card) => card.id)).toEqual(["c2", "c1"]);
   });
 
-  it("marks the top card when top reveal is set to all", () => {
+  it("prepends the visible top card when top reveal is set to all", () => {
+    const zone = { id: "lib", type: ZONE.LIBRARY, ownerId: "p1", cardIds: ["c2"] } as any;
+    const libraryRevealsToAll = {
+      c1: { card: { name: "Bottom" }, orderKey: "000001", ownerId: "p1" },
+    } as any;
+
+    const result = computeRevealedOpponentLibraryCards({
+      zone,
+      cardsById: {
+        c2: {
+          id: "c2",
+          name: "Top",
+          ownerId: "p1",
+          controllerId: "p1",
+          zoneId: "lib",
+          tapped: false,
+          faceDown: false,
+          position: { x: 0.5, y: 0.5 },
+          rotation: 0,
+          counters: [],
+          revealedTo: ["me"],
+          revealedToAll: false,
+        },
+      } as any,
+      viewerId: "me",
+      libraryRevealsToAll,
+      libraryTopReveal: "all",
+    });
+
+    expect(result.cards.map((card) => card.id)).toEqual(["c2", "c1"]);
+    expect(result.actualTopCardId).toBe("c2");
+  });
+
+  it("does not infer a top card from public reveals alone", () => {
     const zone = { id: "lib", type: ZONE.LIBRARY, ownerId: "p1", cardIds: [] } as any;
     const libraryRevealsToAll = {
       c1: { card: { name: "Bottom" }, orderKey: "000001", ownerId: "p1" },
-      c2: { card: { name: "Top" }, orderKey: "000002", ownerId: "p1" },
     } as any;
 
     const result = computeRevealedOpponentLibraryCards({
@@ -86,6 +118,7 @@ describe("opponentLibraryRevealsModel", () => {
       libraryTopReveal: "all",
     });
 
-    expect(result.actualTopCardId).toBe("c2");
+    expect(result.cards.map((card) => card.id)).toEqual(["c1"]);
+    expect(result.actualTopCardId).toBeNull();
   });
 });

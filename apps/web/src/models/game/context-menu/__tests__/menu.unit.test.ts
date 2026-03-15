@@ -318,6 +318,60 @@ describe("buildZoneViewActions", () => {
     );
     expect(discardX?.disabledReason).toBeUndefined();
   });
+
+  it("builds checkbox-style top card reveal controls", () => {
+    const zone = makeZone("lib", ZONE.LIBRARY, "owner");
+    const setLibraryTopReveal = vi.fn();
+    const players = {
+      owner: makePlayer("owner", "Owner"),
+      p2: makePlayer("p2", "Alice"),
+      p3: makePlayer("p3", "Bob"),
+    };
+    const items = buildZoneViewActions({
+      zone,
+      myPlayerId: "owner",
+      viewerRole: "player",
+      drawCard: vi.fn(),
+      discardFromLibrary: vi.fn(),
+      shuffleLibrary: vi.fn(),
+      resetDeck: vi.fn(),
+      mulligan: vi.fn(),
+      unloadDeck: vi.fn(),
+      players,
+      libraryTopReveal: { to: ["p2"] },
+      setLibraryTopReveal,
+    });
+
+    const revealMenu = items.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "Top card reveal ..."
+    );
+    expect(revealMenu?.submenu).toBeTruthy();
+
+    const revealToSelf = revealMenu?.submenu?.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "To me"
+    );
+    expect(revealToSelf?.checked).toBe(false);
+    revealToSelf?.onSelect();
+    expect(setLibraryTopReveal).toHaveBeenCalledWith({ to: ["p2", "owner"] });
+
+    const revealToAlice = revealMenu?.submenu?.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "To Alice"
+    );
+    expect(revealToAlice?.checked).toBe(true);
+    revealToAlice?.onSelect();
+    expect(setLibraryTopReveal).toHaveBeenCalledWith(null);
+
+    const revealToAll = revealMenu?.submenu?.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "To all players"
+    );
+    expect(revealToAll?.checked).toBe(false);
+    revealToAll?.onSelect();
+    expect(setLibraryTopReveal).toHaveBeenCalledWith({ toAll: true });
+  });
 });
 
 describe("buildCardActions", () => {

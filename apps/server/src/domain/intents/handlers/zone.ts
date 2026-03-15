@@ -2,6 +2,7 @@ import type { Zone } from "@mtg/shared/types/zones";
 
 import { ZONE, isHiddenZoneType } from "../../constants";
 import { updatePlayerCounts, syncLibraryRevealsToAllForPlayer } from "../../hiddenState";
+import { buildLibraryTopRevealScope } from "../../libraryTopReveal";
 import { hasSameMembers } from "../../lists";
 import { readPlayer, readZone, uniqueStrings, writeZone } from "../../yjsStore";
 import { readRecordValue, requireNonEmptyStringProp } from "../validation";
@@ -84,7 +85,9 @@ const handleZoneReorder: IntentHandler = ({ actorId, maps, hidden, payload, mark
     markHiddenChanged({
       ownerId: zone.ownerId,
       zoneId: zone.id,
-      ...(player?.libraryTopReveal === "all" ? { reveal: { toAll: true } } : null),
+      ...(player?.libraryTopReveal
+        ? { reveal: buildLibraryTopRevealScope(maps, zone.ownerId, player.libraryTopReveal) }
+        : null),
     });
     return { ok: true };
   }

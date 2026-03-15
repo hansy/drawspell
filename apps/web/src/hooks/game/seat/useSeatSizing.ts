@@ -13,7 +13,7 @@ export const SEAT_HAND_MAX_PCT = 0.4;
 
 export const PREVIEW_SCALE_K = 1.6;
 export const PREVIEW_MIN_WIDTH_PX = 80;
-export const PREVIEW_MIN_WIDTH_VIEWPORT_RATIO = 0.1;
+export const PREVIEW_MIN_WIDTH_VIEWPORT_RATIO = 0.15;
 export const PREVIEW_MAX_WIDTH_PX = 400;
 export const MIN_CARD_HEIGHT_PX = 80;
 export const SIDEBAR_MIN_WIDTH_PX = 120;

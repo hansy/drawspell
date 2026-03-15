@@ -1,5 +1,6 @@
 import { ZONE } from "../../constants";
 import { syncLibraryRevealsToAllForPlayer, updatePlayerCounts } from "../../hiddenState";
+import { buildLibraryTopRevealScope } from "../../libraryTopReveal";
 import { applyMulligan, applyResetDeck, applyUnloadDeck } from "../../deck";
 import { shuffle } from "../../random";
 import { findZoneByTypeInMaps } from "../../zones";
@@ -95,7 +96,9 @@ const handleLibraryShuffle: IntentHandler = ({ actorId, maps, hidden, payload, p
   markHiddenChanged({
     ownerId: playerId,
     zoneId: libraryZone.id,
-    ...(player?.libraryTopReveal === "all" ? { reveal: { toAll: true } } : null),
+    ...(player?.libraryTopReveal
+      ? { reveal: buildLibraryTopRevealScope(maps, playerId, player.libraryTopReveal) }
+      : null),
   });
   pushLogEvent("library.shuffle", {
     actorId,
@@ -118,7 +121,9 @@ const handleDeckReset: IntentHandler = ({ actorId, maps, hidden, payload, pushLo
   markHiddenChanged({
     ownerId: playerId,
     zoneId: libraryZone.id,
-    ...(player?.libraryTopReveal === "all" ? { reveal: { toAll: true } } : null),
+    ...(player?.libraryTopReveal
+      ? { reveal: buildLibraryTopRevealScope(maps, playerId, player.libraryTopReveal) }
+      : null),
   });
   pushLogEvent("deck.reset", {
     actorId,
@@ -141,7 +146,9 @@ const handleDeckUnload: IntentHandler = ({ actorId, maps, hidden, payload, pushL
   markHiddenChanged({
     ownerId: playerId,
     zoneId: libraryZone.id,
-    ...(player?.libraryTopReveal === "all" ? { reveal: { toAll: true } } : null),
+    ...(player?.libraryTopReveal
+      ? { reveal: buildLibraryTopRevealScope(maps, playerId, player.libraryTopReveal) }
+      : null),
   });
   pushLogEvent("deck.unload", {
     actorId,
@@ -165,7 +172,9 @@ const handleDeckMulligan: IntentHandler = ({ actorId, maps, hidden, payload, pus
   markHiddenChanged({
     ownerId: playerId,
     zoneId: libraryZone.id,
-    ...(player?.libraryTopReveal === "all" ? { reveal: { toAll: true } } : null),
+    ...(player?.libraryTopReveal
+      ? { reveal: buildLibraryTopRevealScope(maps, playerId, player.libraryTopReveal) }
+      : null),
   });
   pushLogEvent("deck.reset", {
     actorId,

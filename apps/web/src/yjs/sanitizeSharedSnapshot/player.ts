@@ -1,4 +1,5 @@
 import type { Player } from "@/types";
+import { normalizeLibraryTopRevealMode } from "@mtg/shared/types/players";
 import { MAX_PLAYER_LIFE, MIN_PLAYER_LIFE } from "@/lib/limits";
 
 import { MAX_NAME_LENGTH } from "../sanitizeLimits";
@@ -21,10 +22,9 @@ export const sanitizePlayer = (value: any): Player | null => {
       }
     });
   }
-  const libraryTopReveal =
-    value.libraryTopReveal === "self" || value.libraryTopReveal === "all"
-      ? value.libraryTopReveal
-      : undefined;
+  const libraryTopReveal = normalizeLibraryTopRevealMode(
+    value.libraryTopReveal,
+  );
   const handCount =
     typeof value.handCount === "number"
       ? clampNumber(value.handCount, 0, 999, 0)

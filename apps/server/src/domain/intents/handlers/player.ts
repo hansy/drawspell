@@ -1,5 +1,11 @@
 import type { Card } from "@mtg/shared/types/cards";
 import type { Player } from "@mtg/shared/types/players";
+import {
+  buildLibraryTopRevealFromSelectedIds,
+  libraryTopRevealIsAllPlayers,
+  normalizeLibraryTopRevealMode,
+  libraryTopRevealSelectedIds,
+} from "@mtg/shared/types/players";
 import type { Zone } from "@mtg/shared/types/zones";
 import { MAX_PLAYERS } from "@mtg/shared/constants/room";
 
@@ -13,6 +19,7 @@ import {
   writePlayer,
 } from "../../yjsStore";
 import { syncLibraryRevealsToAllForPlayer, updatePlayerCounts } from "../../hiddenState";
+import { buildLibraryTopRevealScope } from "../../libraryTopReveal";
 import { canUpdatePlayer } from "../../permissions";
 import {
   ensurePermission,
@@ -21,6 +28,23 @@ import {
   requireRecordProp,
 } from "../validation";
 import type { IntentHandler } from "./types";
+
+const normalizePersistedLibraryTopReveal = (
+  value: unknown,
+  playerId: string,
+  allPlayerIds: string[],
+): Player["libraryTopReveal"] | undefined => {
+  const normalized = normalizeLibraryTopRevealMode(value);
+  if (!normalized) return undefined;
+  if (typeof normalized === "string") return normalized;
+  if (normalized.toAll) return { toAll: true };
+  return (
+    buildLibraryTopRevealFromSelectedIds(
+      libraryTopRevealSelectedIds(normalized, playerId, allPlayerIds),
+      allPlayerIds,
+    ) ?? undefined
+  );
+};
 
 const handlePlayerJoin: IntentHandler = ({ actorId, maps, hidden, payload, markHiddenChanged }) => {
   const playerResult = requireRecordProp(payload, "player", "invalid player");
@@ -32,6 +56,17 @@ const handlePlayerJoin: IntentHandler = ({ actorId, maps, hidden, payload, markH
   if (player.id !== actorId) {
     return { ok: false, error: "actor mismatch" };
   }
+  const allPlayerIds = Array.from(
+    new Set([...Array.from(maps.players.keys()).map(String), player.id]),
+  );
+  const nextPlayer = {
+    ...player,
+    libraryTopReveal: normalizePersistedLibraryTopReveal(
+      player.libraryTopReveal,
+      player.id,
+      allPlayerIds,
+    ),
+  };
 
   const existing = readPlayer(maps, player.id);
   if (!existing) {
@@ -40,7 +75,7 @@ const handlePlayerJoin: IntentHandler = ({ actorId, maps, hidden, payload, markH
     if (maps.players.size >= MAX_PLAYERS) {
       return { ok: false, error: "room full" };
     }
-    writePlayer(maps, player);
+    writePlayer(maps, nextPlayer);
   }
 
   let initializedHidden = false;
@@ -95,21 +130,37 @@ const handlePlayerUpdate: IntentHandler = ({ actorId, maps, hidden, payload, pus
     (updates as Record<string, unknown>).libraryTopReveal !== current.libraryTopReveal
   ) {
     const previousMode = current.libraryTopReveal;
-    const nextMode = (updates as Record<string, unknown>).libraryTopReveal;
-    const enabled = Boolean(nextMode);
-    const mode = enabled ? nextMode : previousMode;
-    if (typeof mode === "string") {
-      pushLogEvent("library.topReveal", {
-        actorId,
+    const allPlayerIds = Array.from(maps.players.keys()).map(String);
+    const nextMode = normalizePersistedLibraryTopReveal(
+      (updates as Record<string, unknown>).libraryTopReveal,
+      playerId,
+      allPlayerIds,
+    );
+    pushLogEvent("library.topReveal", {
+      actorId,
+      playerId,
+      recipientIds: libraryTopRevealSelectedIds(
+        nextMode as Player["libraryTopReveal"],
         playerId,
-        enabled,
-        mode,
-      });
-    }
-    writePlayer(maps, { ...current, ...updates, id: playerId });
+        allPlayerIds,
+      ),
+      toAllPlayers: libraryTopRevealIsAllPlayers(
+        nextMode as Player["libraryTopReveal"],
+      ),
+    });
+    writePlayer(maps, {
+      ...current,
+      ...updates,
+      id: playerId,
+      libraryTopReveal: nextMode,
+    });
     syncLibraryRevealsToAllForPlayer(maps, hidden, playerId);
-    const prevReveal = previousMode === "all" ? { toAll: true } : undefined;
-    const nextReveal = nextMode === "all" ? { toAll: true } : undefined;
+    const prevReveal = buildLibraryTopRevealScope(maps, playerId, previousMode);
+    const nextReveal = buildLibraryTopRevealScope(
+      maps,
+      playerId,
+      nextMode as Player["libraryTopReveal"],
+    );
     markHiddenChanged({
       ownerId: playerId,
       ...(nextReveal ? { reveal: nextReveal } : null),

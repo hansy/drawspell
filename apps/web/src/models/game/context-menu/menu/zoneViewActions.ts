@@ -1,6 +1,7 @@
 import type {
   LibraryTopRevealMode,
   PlayerId,
+  Player,
   ViewerRole,
   Zone,
   ZoneId,
@@ -9,6 +10,10 @@ import type {
 import { ZONE } from "@/constants/zones";
 import { canViewZone } from "@/rules/permissions";
 import { getShortcutLabel } from "@/models/game/shortcuts/gameShortcuts";
+import {
+  buildLibraryTopRevealFromSelectedIds,
+  libraryTopRevealSelectedIds,
+} from "@mtg/shared/types/players";
 
 import type { ContextMenuItem } from "./types";
 
@@ -25,6 +30,7 @@ interface ZoneActionBuilderParams {
   unloadDeck: (playerId: PlayerId) => void;
   libraryTopReveal?: LibraryTopRevealMode | null;
   setLibraryTopReveal?: (mode: LibraryTopRevealMode | null) => void;
+  players?: Record<PlayerId, Player>;
   openCountPrompt?: (opts: {
     title: string;
     message: string;
@@ -173,6 +179,7 @@ export const buildZoneViewActions = ({
   unloadDeck,
   libraryTopReveal,
   setLibraryTopReveal,
+  players,
   openCountPrompt,
 }: ZoneActionBuilderParams): ContextMenuItem[] => {
   const items: ContextMenuItem[] = [];
@@ -202,32 +209,70 @@ export const buildZoneViewActions = ({
     }
 
     if (setLibraryTopReveal) {
-      if (libraryTopReveal) {
-        items.push({
+      const orderedPlayers = Object.values(players ?? {})
+        .sort((left, right) => left.name.localeCompare(right.name));
+      const fallbackPlayers =
+        orderedPlayers.length > 0
+          ? orderedPlayers
+          : [{ id: myPlayerId, name: "Me" } as Player];
+      const allPlayerIds = fallbackPlayers.map((player) => player.id);
+      const selectedIds = libraryTopRevealSelectedIds(
+        libraryTopReveal,
+        zone.ownerId,
+        allPlayerIds,
+      );
+      const selectedIdSet = new Set<PlayerId>(selectedIds);
+      const otherPlayers = fallbackPlayers.filter(
+        (player) => player.id !== myPlayerId,
+      );
+      const updateSelection = (nextSelectedIds: PlayerId[]) =>
+        setLibraryTopReveal(
+          buildLibraryTopRevealFromSelectedIds(nextSelectedIds, allPlayerIds),
+        );
+      const submenu: ContextMenuItem[] = [
+        {
           type: "action",
-          label: "Hide top card",
-          onSelect: () => setLibraryTopReveal(null),
+          label: "To me",
+          checked: selectedIdSet.has(myPlayerId),
+          onSelect: () => {
+            const nextSelectedIds = selectedIdSet.has(myPlayerId)
+              ? selectedIds.filter((id) => id !== myPlayerId)
+              : [...selectedIds, myPlayerId];
+            updateSelection(nextSelectedIds);
+          },
+        },
+      ];
+      otherPlayers.forEach((player) => {
+        submenu.push({
+          type: "action",
+          label: `To ${player.name || player.id}`,
+          checked: selectedIdSet.has(player.id),
+          onSelect: () => {
+            const nextSelectedIds = selectedIdSet.has(player.id)
+              ? selectedIds.filter((id) => id !== player.id)
+              : [...selectedIds, player.id];
+            updateSelection(nextSelectedIds);
+          },
         });
-      } else {
-        const submenu: ContextMenuItem[] = [
-          {
-            type: "action",
-            label: "To me only",
-            onSelect: () => setLibraryTopReveal("self"),
-          },
-          {
-            type: "action",
-            label: "To everybody",
-            onSelect: () => setLibraryTopReveal("all"),
-          },
-        ];
-        items.push({
+      });
+      if (otherPlayers.length > 0) {
+        submenu.push({ type: "separator" });
+        submenu.push({
           type: "action",
-          label: "Toggle top card reveal ...",
-          onSelect: () => {},
-          submenu,
+          label: "To all players",
+          checked: allPlayerIds.every((id) => selectedIdSet.has(id)),
+          onSelect: () => {
+            const isChecked = allPlayerIds.every((id) => selectedIdSet.has(id));
+            updateSelection(isChecked ? [] : allPlayerIds);
+          },
         });
       }
+      items.push({
+        type: "action",
+        label: "Top card reveal ...",
+        onSelect: () => {},
+        submenu,
+      });
     }
 
     items.push({
