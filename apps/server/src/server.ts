@@ -39,6 +39,7 @@ import {
   createEmptyHiddenState,
   migrateHiddenStateFromSnapshot,
   normalizeHiddenState,
+  syncPublicRevealsToAllFromHiddenState,
 } from "./domain/hiddenState";
 import {
   buildSnapshot,
@@ -675,6 +676,9 @@ export class Room extends YServer<Env> {
         }
       }
     }
+    if (!this.hiddenState) {
+      this.hiddenState = await this.loadPersistedHiddenState();
+    }
 
     const logMeta = await this.ensureIntentLogMeta(snapshotMeta ?? undefined);
     const replayStart = Math.max(
@@ -708,6 +712,12 @@ export class Room extends YServer<Env> {
     }
 
     if (this.hiddenState) {
+      this.document.transact(() => {
+        syncPublicRevealsToAllFromHiddenState(
+          getMaps(this.document),
+          this.hiddenState as HiddenState,
+        );
+      });
       const now = Date.now();
       this.lastHiddenStatePersistAt = now;
       this.hiddenStateLastChangeAt = now;
@@ -728,6 +738,17 @@ export class Room extends YServer<Env> {
     }
     const { cardChunkKeys: _keys, ...rest } = meta;
     return normalizeHiddenState({ ...rest, cards });
+  }
+
+  private async loadPersistedHiddenState() {
+    const storedMeta = await this.ctx.storage.get<HiddenStateMeta>(
+      HIDDEN_STATE_META_KEY,
+    );
+    if (storedMeta) {
+      return this.loadHiddenStateFromMeta(storedMeta);
+    }
+    const stored = await this.ctx.storage.get<HiddenState>(HIDDEN_STATE_KEY);
+    return stored ? normalizeHiddenState(stored) : null;
   }
 
   private async ensureIntentLogMeta(
@@ -809,31 +830,18 @@ export class Room extends YServer<Env> {
       );
       if (restored) {
         this.hiddenState = restored;
+        doc.transact(() => {
+          syncPublicRevealsToAllFromHiddenState(getMaps(doc), this.hiddenState as HiddenState);
+        });
         return this.hiddenState;
       }
     }
-    const storedMeta = await this.ctx.storage.get<HiddenStateMeta>(
-      HIDDEN_STATE_META_KEY,
-    );
-    if (storedMeta) {
-      const cards: Record<string, Card> = {};
-      const chunkKeys = Array.isArray(storedMeta.cardChunkKeys)
-        ? storedMeta.cardChunkKeys
-        : [];
-      for (const key of chunkKeys) {
-        const chunk = await this.ctx.storage.get<Record<string, Card>>(key);
-        if (chunk && isRecord(chunk)) {
-          Object.assign(cards, chunk as Record<string, Card>);
-        }
-      }
-      const { cardChunkKeys: _keys, ...rest } = storedMeta;
-      this.hiddenState = normalizeHiddenState({ ...rest, cards });
-      return this.hiddenState;
-    }
-
-    const stored = await this.ctx.storage.get<HiddenState>(HIDDEN_STATE_KEY);
-    if (stored) {
-      this.hiddenState = normalizeHiddenState(stored);
+    const restored = await this.loadPersistedHiddenState();
+    if (restored) {
+      this.hiddenState = restored;
+      doc.transact(() => {
+        syncPublicRevealsToAllFromHiddenState(getMaps(doc), this.hiddenState as HiddenState);
+      });
       return this.hiddenState;
     }
     let migrated: HiddenState | null = null;

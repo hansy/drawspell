@@ -240,6 +240,43 @@ export const syncLibraryRevealsToAllForPlayer = (
   });
 };
 
+export const syncPublicRevealsToAllFromHiddenState = (
+  maps: Maps,
+  hidden: HiddenState
+) => {
+  clearYMap(maps.handRevealsToAll);
+  clearYMap(maps.libraryRevealsToAll);
+  clearYMap(maps.faceDownRevealsToAll);
+
+  Object.entries(hidden.handReveals).forEach(([cardId, reveal]) => {
+    if (!reveal?.toAll) return;
+    const card = hidden.cards[cardId];
+    if (!card) return;
+    maps.handRevealsToAll.set(cardId, buildCardIdentity(card));
+  });
+
+  Object.entries(hidden.libraryReveals).forEach(([cardId, reveal]) => {
+    if (!reveal?.toAll) return;
+    const card = hidden.cards[cardId];
+    if (!card) return;
+    const order = hidden.libraryOrder[card.ownerId] ?? [];
+    const index = order.indexOf(cardId);
+    const orderKey = buildLibraryOrderKey(index >= 0 ? index : order.length);
+    maps.libraryRevealsToAll.set(cardId, {
+      card: buildCardIdentity(card),
+      orderKey,
+      ownerId: card.ownerId,
+    });
+  });
+
+  Object.entries(hidden.faceDownReveals).forEach(([cardId, reveal]) => {
+    if (!reveal?.toAll) return;
+    const identity = hidden.faceDownBattlefield[cardId];
+    if (!identity) return;
+    maps.faceDownRevealsToAll.set(cardId, identity);
+  });
+};
+
 
 export const migrateHiddenStateFromSnapshot = (maps: Maps): HiddenState => {
   const snapshot = buildSnapshot(maps);
@@ -255,13 +292,6 @@ export const migrateHiddenStateFromSnapshot = (maps: Maps): HiddenState => {
     }
   });
 
-  const handRevealsToAll: Record<string, CardIdentity> = {};
-  const libraryRevealsToAll: Record<
-    string,
-    { card: CardIdentity; orderKey: string; ownerId?: string }
-  > = {};
-  const faceDownRevealsToAll: Record<string, CardIdentity> = {};
-
   Object.values(snapshot.cards).forEach((card) => {
     const zone = snapshot.zones[card.zoneId];
     if (zone && isHiddenZoneType(zone.type)) {
@@ -270,19 +300,8 @@ export const migrateHiddenStateFromSnapshot = (maps: Maps): HiddenState => {
       if (reveal.toAll || (reveal.toPlayers && reveal.toPlayers.length)) {
         if (zone.type === ZONE.HAND) {
           hidden.handReveals[card.id] = reveal;
-          if (reveal.toAll) handRevealsToAll[card.id] = buildCardIdentity(card);
         } else if (zone.type === ZONE.LIBRARY) {
           hidden.libraryReveals[card.id] = reveal;
-          if (reveal.toAll) {
-            const order = hidden.libraryOrder[zone.ownerId] ?? [];
-            const index = order.indexOf(card.id);
-            const orderKey = buildLibraryOrderKey(index >= 0 ? index : order.length);
-            libraryRevealsToAll[card.id] = {
-              card: buildCardIdentity(card),
-              orderKey,
-              ownerId: card.ownerId,
-            };
-          }
         }
       }
       maps.cards.delete(card.id);
@@ -296,9 +315,6 @@ export const migrateHiddenStateFromSnapshot = (maps: Maps): HiddenState => {
       const reveal = extractReveal(card);
       if (reveal.toAll || (reveal.toPlayers && reveal.toPlayers.length)) {
         hidden.faceDownReveals[card.id] = reveal;
-        if (reveal.toAll) {
-          faceDownRevealsToAll[card.id] = buildCardIdentity(card);
-        }
       }
       nextCard = stripCardIdentity({
         ...card,
@@ -335,18 +351,7 @@ export const migrateHiddenStateFromSnapshot = (maps: Maps): HiddenState => {
     updatePlayerCounts(maps, hidden, playerId);
   });
 
-  clearYMap(maps.handRevealsToAll);
-  clearYMap(maps.libraryRevealsToAll);
-  clearYMap(maps.faceDownRevealsToAll);
-  Object.entries(handRevealsToAll).forEach(([cardId, identity]) => {
-    maps.handRevealsToAll.set(cardId, identity);
-  });
-  Object.entries(libraryRevealsToAll).forEach(([cardId, entry]) => {
-    maps.libraryRevealsToAll.set(cardId, entry);
-  });
-  Object.entries(faceDownRevealsToAll).forEach(([cardId, identity]) => {
-    maps.faceDownRevealsToAll.set(cardId, identity);
-  });
+  syncPublicRevealsToAllFromHiddenState(maps, hidden);
 
   return hidden;
 };

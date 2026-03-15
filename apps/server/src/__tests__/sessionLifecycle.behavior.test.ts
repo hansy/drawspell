@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as Y from "yjs";
+import { HIDDEN_STATE_META_KEY } from "../domain/constants";
 
 const superOnConnect = vi.fn();
 
@@ -89,6 +90,19 @@ const createEnv = (): Env => ({
   JOIN_TOKEN_SECRET: "test-secret",
   NODE_ENV: "development",
   DISCORD_SERVICE_AUTH_SECRET: "discord-secret",
+});
+
+const createHiddenLibraryCard = () => ({
+  id: "c1",
+  name: "Card c1",
+  ownerId: "p1",
+  controllerId: "p1",
+  zoneId: "library-p1",
+  tapped: false,
+  faceDown: false,
+  position: { x: 0.5, y: 0.5 },
+  rotation: 0,
+  counters: [],
 });
 
 class TestConnection {
@@ -438,6 +452,101 @@ describe("server lifecycle guards", () => {
     expect(applyMock.mock.calls[0]?.[1]?.type).toBe("player.join");
     const hidden = (server as any).hiddenState;
     expect(hidden).toBeTruthy();
+  });
+
+  it("purges stale legacy library reveals during snapshot restore", async () => {
+    const store = new Map<string, unknown>();
+    const storage = {
+      get: vi.fn(async (key: string) => store.get(key)),
+      put: vi.fn(async (key: string, value: unknown) => {
+        store.set(key, value);
+      }),
+      delete: vi.fn(async (key: string) => {
+        store.delete(key);
+      }),
+      list: vi.fn(async () => store.entries()),
+    };
+    const state = {
+      id: { name: "room-test" },
+      storage,
+    } as any;
+
+    const legacyDoc = new Y.Doc();
+    legacyDoc.getMap("libraryRevealsToAll").set("c1", {
+      card: { name: "Card c1" },
+      orderKey: "000000",
+      ownerId: "p1",
+    });
+    store.set("yjs:doc", Y.encodeStateAsUpdate(legacyDoc).buffer);
+
+    const chunkKey = "snapshot:hidden:snap-1:0";
+    const hiddenCard = createHiddenLibraryCard();
+    store.set("snapshot:meta", {
+      id: "snap-1",
+      createdAt: 123,
+      lastIntentIndex: -1,
+      hiddenStateMeta: {
+        handOrder: {},
+        libraryOrder: { p1: ["c1"] },
+        sideboardOrder: {},
+        faceDownBattlefield: {},
+        handReveals: {},
+        libraryReveals: { c1: { toPlayers: ["p2"] } },
+        faceDownReveals: {},
+        cardChunkKeys: [chunkKey],
+      },
+    });
+    store.set(chunkKey, { c1: hiddenCard });
+
+    const server = new Room(state, createEnv());
+    await server.onLoad();
+
+    expect(server.document.getMap("libraryRevealsToAll").size).toBe(0);
+  });
+
+  it("purges stale legacy library reveals during startup from persisted hidden-state meta", async () => {
+    const store = new Map<string, unknown>();
+    const storage = {
+      get: vi.fn(async (key: string) => store.get(key)),
+      put: vi.fn(async (key: string, value: unknown) => {
+        store.set(key, value);
+      }),
+      delete: vi.fn(async (key: string) => {
+        store.delete(key);
+      }),
+      list: vi.fn(async () => store.entries()),
+    };
+    const state = {
+      id: { name: "room-test" },
+      storage,
+    } as any;
+
+    const chunkKey = "hiddenState:v2:cards:restore:0";
+    const hiddenCard = createHiddenLibraryCard();
+    store.set(HIDDEN_STATE_META_KEY, {
+      handOrder: {},
+      libraryOrder: { p1: ["c1"] },
+      sideboardOrder: {},
+      faceDownBattlefield: {},
+      handReveals: {},
+      libraryReveals: { c1: { toPlayers: ["p2"] } },
+      faceDownReveals: {},
+      cardChunkKeys: [chunkKey],
+    });
+    store.set(chunkKey, { c1: hiddenCard });
+
+    const legacyDoc = new Y.Doc();
+    legacyDoc.getMap("libraryRevealsToAll").set("c1", {
+      card: { name: "Card c1" },
+      orderKey: "000000",
+      ownerId: "p1",
+    });
+    store.set("yjs:doc", Y.encodeStateAsUpdate(legacyDoc).buffer);
+
+    const server = new Room(state, createEnv());
+    await server.onLoad();
+
+    expect(server.document.getMap("libraryRevealsToAll").size).toBe(0);
   });
 
   it("does not register sync connections that close before auth resolves", async () => {
