@@ -454,6 +454,81 @@ describe("server lifecycle guards", () => {
     expect(hidden).toBeTruthy();
   });
 
+  it("does not preload persisted hidden state before replaying legacy intent logs", async () => {
+    const store = new Map<string, unknown>();
+    const storage = {
+      get: vi.fn(async (key: string) => store.get(key)),
+      put: vi.fn(async (key: string, value: unknown) => {
+        store.set(key, value);
+      }),
+      delete: vi.fn(async (key: string) => {
+        store.delete(key);
+      }),
+      list: vi.fn(async () => store.entries()),
+    };
+    const { applyIntentToDoc } = await import("../domain/intents/applyIntentToDoc");
+    const applyMock = vi.mocked(applyIntentToDoc);
+    applyMock.mockClear();
+    const state = {
+      id: { name: "room-test" },
+      storage,
+    } as any;
+
+    const chunkKey = "hiddenState:v2:cards:legacy:0";
+    const hiddenCard = createHiddenLibraryCard();
+    store.set(HIDDEN_STATE_META_KEY, {
+      handOrder: {},
+      libraryOrder: { p1: ["c1"] },
+      sideboardOrder: {},
+      faceDownBattlefield: {},
+      handReveals: {},
+      libraryReveals: { c1: { toPlayers: ["p2"] } },
+      faceDownReveals: {},
+      cardChunkKeys: [chunkKey],
+    });
+    store.set(chunkKey, { c1: hiddenCard });
+    store.set(INTENT_LOG_META_KEY, {
+      nextIndex: 1,
+      logStartIndex: 0,
+      snapshotIndex: -1,
+      lastSnapshotAt: 0,
+    });
+    store.set(`${INTENT_LOG_PREFIX}0`, {
+      index: 0,
+      ts: 0,
+      intent: {
+        id: "intent-1",
+        type: "player.join",
+        payload: {
+          actorId: "p1",
+          player: {
+            id: "p1",
+            name: "P1",
+            life: 20,
+            counters: [],
+            commanderDamage: {},
+            commanderTax: 0,
+          },
+        },
+      },
+    });
+
+    const server = new Room(state, createEnv());
+    const loadPersistedHiddenStateSpy = vi.spyOn(
+      server as any,
+      "loadPersistedHiddenState",
+    );
+
+    await (server as any).onLoad();
+
+    expect(applyMock).toHaveBeenCalledTimes(1);
+    expect(loadPersistedHiddenStateSpy).not.toHaveBeenCalled();
+    expect(applyMock.mock.calls[0]?.[2]).toMatchObject({
+      cards: {},
+      libraryOrder: {},
+    });
+  });
+
   it("purges stale legacy library reveals during snapshot restore", async () => {
     const store = new Map<string, unknown>();
     const storage = {

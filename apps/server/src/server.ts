@@ -676,10 +676,6 @@ export class Room extends YServer<Env> {
         }
       }
     }
-    if (!this.hiddenState) {
-      this.hiddenState = await this.loadPersistedHiddenState();
-    }
-
     const logMeta = await this.ensureIntentLogMeta(snapshotMeta ?? undefined);
     const replayStart = Math.max(
       logMeta.logStartIndex,
@@ -709,6 +705,9 @@ export class Room extends YServer<Env> {
           });
         }
       }
+    }
+    if (!this.hiddenState) {
+      this.hiddenState = await this.loadPersistedHiddenState();
     }
 
     if (this.hiddenState) {
