@@ -1,4 +1,5 @@
-import type { LibraryTopRevealMode, Player } from '@/types';
+import type { Player } from '@/types';
+import { normalizeLibraryTopRevealMode } from '@mtg/shared/types/players';
 
 import { MAX_PLAYER_COLOR_LENGTH, MAX_PLAYER_NAME_LENGTH } from '../sanitizeLimits';
 
@@ -33,11 +34,6 @@ const removePlayerFromOrder = (maps: SharedMaps, playerId: string) => {
   }
 };
 
-const normalizeLibraryTopReveal = (value: unknown): LibraryTopRevealMode | undefined => {
-  if (value === "self" || value === "all") return value;
-  return undefined;
-};
-
 const writePlayer = (maps: SharedMaps, player: Player) => {
   const target = ensureChildMap(maps.players, player.id);
   target.set('id', player.id);
@@ -62,7 +58,7 @@ const writePlayer = (maps: SharedMaps, player: Player) => {
   } else {
     target.delete("sideboardCount");
   }
-  const libraryTopReveal = normalizeLibraryTopReveal(player.libraryTopReveal);
+  const libraryTopReveal = normalizeLibraryTopRevealMode(player.libraryTopReveal);
   if (libraryTopReveal) {
     target.set('libraryTopReveal', libraryTopReveal);
   } else {
@@ -87,7 +83,7 @@ export const readPlayer = (maps: SharedMaps, playerId: string): Player | null =>
   const getVal = (key: string) => readValue(target, key);
   const commanderDamageSource = getVal('commanderDamage');
   const commanderDamage = readCommanderDamage(commanderDamageSource);
-  const libraryTopReveal = normalizeLibraryTopReveal(getVal('libraryTopReveal'));
+  const libraryTopReveal = normalizeLibraryTopRevealMode(getVal('libraryTopReveal'));
   return {
     id: playerId,
     name: getVal('name'),

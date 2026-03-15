@@ -302,27 +302,41 @@ describe("logEventRegistry", () => {
     expect(viewAll.map((p) => p.text).join("")).toBe("Alice viewed all cards of Library");
   });
 
-  it("formats top card reveal toggles", () => {
+  it("formats top card reveal updates", () => {
     const ctx: LogContext = {
-      players: { p1: makePlayer("p1", "Alice") },
+      players: { p1: makePlayer("p1", "Alice"), p2: makePlayer("p2", "Bob") },
       cards: {},
       zones: {},
     };
 
-    const enabled = logEventRegistry["library.topReveal"].format(
-      { playerId: "p1", enabled: true, mode: "self" },
+    const self = logEventRegistry["library.topReveal"].format(
+      { playerId: "p1", recipientIds: ["p1"] },
       ctx
     );
-    const disabled = logEventRegistry["library.topReveal"].format(
-      { playerId: "p1", enabled: false, mode: "all" },
+    const allPlayers = logEventRegistry["library.topReveal"].format(
+      { playerId: "p1", recipientIds: ["p1", "p2"], toAllPlayers: true },
+      ctx
+    );
+    const specificPlayers = logEventRegistry["library.topReveal"].format(
+      { playerId: "p1", recipientIds: ["p1", "p2"] },
+      ctx
+    );
+    const hidden = logEventRegistry["library.topReveal"].format(
+      { playerId: "p1", recipientIds: [] },
       ctx
     );
 
-    expect(enabled.map((p) => p.text).join("")).toBe(
-      "Alice toggled ON top card reveal for self"
+    expect(self.map((p) => p.text).join("")).toBe(
+      "Alice revealed top card to self"
     );
-    expect(disabled.map((p) => p.text).join("")).toBe(
-      "Alice toggled OFF top card reveal for everyone"
+    expect(allPlayers.map((p) => p.text).join("")).toBe(
+      "Alice revealed top card to all players"
+    );
+    expect(specificPlayers.map((p) => p.text).join("")).toBe(
+      "Alice revealed top card to self, Bob"
+    );
+    expect(hidden.map((p) => p.text).join("")).toBe(
+      "Alice hid top card reveal"
     );
   });
 });

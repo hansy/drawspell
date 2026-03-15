@@ -101,6 +101,46 @@ describe("applyIntentToDoc", () => {
     expect(hidden.sideboardOrder.p1).toEqual([]);
   });
 
+  it("normalizes library top reveal recipients when a player joins", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-2a",
+      type: "player.join",
+      payload: {
+        actorId: "p1",
+        player: makePlayer("p1", {
+          libraryTopReveal: { to: ["p1", "ghost", "p1"] } as any,
+        }),
+      },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(readPlayer(maps, "p1")?.libraryTopReveal).toEqual({ to: ["p1"] });
+  });
+
+  it("preserves explicit toAll library top reveal when a player joins alone", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-2b",
+      type: "player.join",
+      payload: {
+        actorId: "p1",
+        player: makePlayer("p1", {
+          libraryTopReveal: { toAll: true },
+        }),
+      },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(readPlayer(maps, "p1")?.libraryTopReveal).toEqual({ toAll: true });
+  });
+
   it("should reveal the library top card to all when top reveal is enabled", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
@@ -112,6 +152,7 @@ describe("applyIntentToDoc", () => {
     hidden.libraryOrder.p1 = ["c1", "c2"];
     hidden.cards.c1 = makeCard("c1", "p1", "lib-p1");
     hidden.cards.c2 = makeCard("c2", "p1", "lib-p1");
+    hidden.libraryReveals.c1 = { toAll: true };
 
     const result = applyIntentToDoc(doc, {
       id: "intent-3",
@@ -129,15 +170,100 @@ describe("applyIntentToDoc", () => {
       expect(result.logEvents).toEqual([
         {
           eventId: "library.topReveal",
-          payload: { actorId: "p1", playerId: "p1", enabled: true, mode: "all" },
+          payload: {
+            actorId: "p1",
+            playerId: "p1",
+            recipientIds: ["p1"],
+            toAllPlayers: true,
+          },
         },
       ]);
     }
 
+    const revealEntry = maps.libraryRevealsToAll.get("c1") as {
+      orderKey: string;
+      ownerId?: string;
+    };
     const topEntry = maps.libraryRevealsToAll.get("c2");
-    expect(topEntry).toMatchObject({ ownerId: "p1" });
+    expect(revealEntry).toMatchObject({ ownerId: "p1" });
+    expect(topEntry).toBeUndefined();
     const player = readPlayer(maps, "p1");
     expect(player?.libraryTopReveal).toBe("all");
+  });
+
+  it("normalizes library top reveal recipients before persisting updates", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    writePlayer(maps, makePlayer("p1"));
+    writePlayer(maps, makePlayer("p2"));
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-3a",
+      type: "player.update",
+      payload: {
+        actorId: "p1",
+        playerId: "p1",
+        updates: {
+          libraryTopReveal: {
+            to: ["p2", "ghost", "p2", "ghost-2"],
+          },
+        },
+      },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.logEvents).toEqual([
+        {
+          eventId: "library.topReveal",
+          payload: {
+            actorId: "p1",
+            playerId: "p1",
+            recipientIds: ["p2"],
+            toAllPlayers: false,
+          },
+        },
+      ]);
+    }
+    expect(readPlayer(maps, "p1")?.libraryTopReveal).toEqual({ to: ["p2"] });
+  });
+
+  it("preserves explicit toAll library top reveal when normalizing updates", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    writePlayer(maps, makePlayer("p1"));
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-3b",
+      type: "player.update",
+      payload: {
+        actorId: "p1",
+        playerId: "p1",
+        updates: {
+          libraryTopReveal: { toAll: true },
+        },
+      },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.logEvents).toEqual([
+        {
+          eventId: "library.topReveal",
+          payload: {
+            actorId: "p1",
+            playerId: "p1",
+            recipientIds: ["p1"],
+            toAllPlayers: true,
+          },
+        },
+      ]);
+    }
+    expect(readPlayer(maps, "p1")?.libraryTopReveal).toEqual({ toAll: true });
   });
 
   it("should add cards to a hidden zone for the owning player", () => {

@@ -24,11 +24,13 @@ interface ZoneProps {
     onPointerUp?: (e: React.PointerEvent<HTMLDivElement>) => void;
     onPointerCancel?: (e: React.PointerEvent<HTMLDivElement>) => void;
     onPointerLeave?: (e: React.PointerEvent<HTMLDivElement>) => void;
+    onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void;
+    onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>) => void;
     innerRef?: (node: HTMLDivElement | null) => void;
     disabled?: boolean;
 }
 
-const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, cardScale = 1, cardBaseHeight, cardBaseWidth, mirrorY = false, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onPointerLeave, innerRef, disabled = false }) => {
+const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, cardScale = 1, cardBaseHeight, cardBaseWidth, mirrorY = false, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onPointerLeave, onMouseEnter, onMouseLeave, innerRef, disabled = false }) => {
     const myPlayerId = useGameStore((state) => state.myPlayerId);
     const viewerRole = useGameStore((state) => state.viewerRole);
 
@@ -105,6 +107,8 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 's
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerCancel}
             onPointerLeave={onPointerLeave}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
         >
             {children}
             {ghostPosition && (() => {

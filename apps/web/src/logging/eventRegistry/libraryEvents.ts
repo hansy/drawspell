@@ -1,6 +1,5 @@
 import { buildPlayerPart } from "../helpers";
 import type { LogEventDefinition, LogEventId } from "@/logging/types";
-import type { LibraryTopRevealMode } from "@/types";
 
 import { DEFAULT_AGGREGATE_WINDOW_MS } from "./constants";
 
@@ -11,8 +10,8 @@ export type LibraryViewPayload = { playerId: string; actorId?: string; count?: n
 export type LibraryTopRevealPayload = {
   playerId: string;
   actorId?: string;
-  enabled: boolean;
-  mode: LibraryTopRevealMode;
+  recipientIds?: string[];
+  toAllPlayers?: boolean;
 };
 
 const formatDraw: LogEventDefinition<DrawPayload>["format"] = (payload, ctx) => {
@@ -49,12 +48,17 @@ const formatLibraryTopReveal: LogEventDefinition<LibraryTopRevealPayload>["forma
   ctx
 ) => {
   const player = buildPlayerPart(ctx, payload.playerId);
-  const toggle = payload.enabled ? "ON" : "OFF";
-  const audience = payload.mode === "all" ? "everyone" : "self";
-  return [
-    player,
-    { kind: "text", text: ` toggled ${toggle} top card reveal for ${audience}` },
-  ];
+  const recipientIds = payload.recipientIds ?? [];
+  if (recipientIds.length === 0) {
+    return [player, { kind: "text", text: " hid top card reveal" }];
+  }
+  if (payload.toAllPlayers) {
+    return [player, { kind: "text", text: " revealed top card to all players" }];
+  }
+  const audience = recipientIds
+    .map((id) => (id === payload.playerId ? "self" : ctx.players[id]?.name ?? id))
+    .join(", ");
+  return [player, { kind: "text", text: ` revealed top card to ${audience}` }];
 };
 
 export const libraryEvents = {

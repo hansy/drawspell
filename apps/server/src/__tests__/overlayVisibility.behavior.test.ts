@@ -247,6 +247,7 @@ describe("server migration behavior", () => {
     });
 
     expect(p2Overlay.cards.map((card) => card.id)).toEqual(["l2"]);
+    expect(p2Overlay.zoneCardOrders?.[library.id]).toEqual(["l2"]);
   });
 
 
@@ -377,9 +378,10 @@ describe("server migration behavior", () => {
 
   it("respects library top reveal modes", () => {
     const doc = createDoc();
-    const p1 = createPlayer("p1", { libraryTopReveal: "all" });
+    const p1 = createPlayer("p1", { libraryTopReveal: { toAll: true } });
     const p2 = createPlayer("p2");
-    seedPlayers(doc, [p1, p2]);
+    const p3 = createPlayer("p3");
+    seedPlayers(doc, [p1, p2, p3]);
     const library = createZone("library-p1", "library", "p1");
     seedZones(doc, [library]);
 
@@ -398,9 +400,17 @@ describe("server migration behavior", () => {
       viewerRole: "player",
     });
     expect(otherOverlay.cards.map((card) => card.id)).toEqual(["c2"]);
+    expect(otherOverlay.zoneCardOrders?.[library.id]).toEqual(["c2"]);
+
+    const spectatorOverlayAllPlayers = buildOverlayForViewer({
+      maps,
+      hidden,
+      viewerRole: "spectator",
+    });
+    expect(spectatorOverlayAllPlayers.cards).toHaveLength(0);
 
     const playersMap = doc.getMap("players");
-    playersMap.set("p1", { ...p1, libraryTopReveal: "self" });
+    playersMap.set("p1", { ...p1, libraryTopReveal: { to: ["p1"] } });
 
     const otherOverlaySelf = buildOverlayForViewer({
       maps: getMaps(doc),
@@ -409,6 +419,7 @@ describe("server migration behavior", () => {
       viewerRole: "player",
     });
     expect(otherOverlaySelf.cards).toHaveLength(0);
+    expect(otherOverlaySelf.zoneCardOrders).toBeUndefined();
 
     const ownerOverlaySelf = buildOverlayForViewer({
       maps: getMaps(doc),
@@ -417,6 +428,35 @@ describe("server migration behavior", () => {
       viewerRole: "player",
     });
     expect(ownerOverlaySelf.cards.map((card) => card.id)).toEqual(["c2"]);
+    expect(ownerOverlaySelf.zoneCardOrders?.[library.id]).toEqual(["c2"]);
+
+    playersMap.set("p1", { ...p1, libraryTopReveal: { to: ["p2"] } });
+
+    const otherOverlaySpecific = buildOverlayForViewer({
+      maps: getMaps(doc),
+      hidden,
+      viewerId: "p2",
+      viewerRole: "player",
+    });
+    expect(otherOverlaySpecific.cards.map((card) => card.id)).toEqual(["c2"]);
+    expect(otherOverlaySpecific.zoneCardOrders?.[library.id]).toEqual(["c2"]);
+
+    const ownerOverlaySpecific = buildOverlayForViewer({
+      maps: getMaps(doc),
+      hidden,
+      viewerId: "p1",
+      viewerRole: "player",
+    });
+    expect(ownerOverlaySpecific.cards).toHaveLength(0);
+
+    const unselectedOverlaySpecific = buildOverlayForViewer({
+      maps: getMaps(doc),
+      hidden,
+      viewerId: "p3",
+      viewerRole: "player",
+    });
+    expect(unselectedOverlaySpecific.cards).toHaveLength(0);
+    expect(unselectedOverlaySpecific.zoneCardOrders).toBeUndefined();
   });
 
   it("denies reveal intent from non-owner and publishes to-all reveals", () => {

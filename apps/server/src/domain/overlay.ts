@@ -1,10 +1,12 @@
 import type { Card } from "@mtg/shared/types/cards";
+import { libraryTopRevealSelectedIds } from "@mtg/shared/types/players";
 
 import { ZONE } from "./constants";
 import { toCardLite } from "./cards";
 import type { HiddenState, Maps, OverlaySnapshotData, Snapshot } from "./types";
 import { buildSnapshot, uniqueStrings } from "./yjsStore";
 import { applyRevealToCard } from "./hiddenState";
+import { canViewerSeeLibraryTopForMode } from "./libraryTopReveal";
 
 export type OverlayZoneLookup = {
   handZoneIds: Record<string, string>;
@@ -92,23 +94,32 @@ export const buildOverlayForViewer = (params: OverlayParams): OverlaySnapshotDat
   Object.entries(params.hidden.libraryOrder).forEach(([ownerId, order]) => {
     const mode = snapshot.players[ownerId]?.libraryTopReveal;
     if (!mode) return;
-    const canSeeTop =
-      mode === "all" || (viewerRole !== "spectator" && viewerId && viewerId === ownerId);
+    const canSeeTop = canViewerSeeLibraryTopForMode({
+      viewerId,
+      viewerRole,
+      ownerId,
+      mode,
+    });
     if (!canSeeTop) return;
     const topCardId = order.length ? order[order.length - 1] : null;
     if (!topCardId) return;
     const card = params.hidden.cards[topCardId];
     if (!card) return;
+    const libraryZoneId = libraryZoneIds[ownerId];
     const baseReveal = params.hidden.libraryReveals[topCardId];
+    const allPlayerIds = Object.keys(snapshot.players);
+    const topRevealRecipients = libraryTopRevealSelectedIds(
+      mode,
+      ownerId,
+      allPlayerIds,
+    );
     const topReveal =
-      mode === "all"
-        ? { toAll: true }
-        : viewerId
-          ? { toPlayers: [viewerId] }
-          : undefined;
+      topRevealRecipients.length
+        ? { toPlayers: topRevealRecipients }
+        : undefined;
     const mergedReveal = baseReveal || topReveal
       ? {
-          ...(baseReveal?.toAll || topReveal?.toAll ? { toAll: true } : null),
+          ...(baseReveal?.toAll ? { toAll: true } : null),
           ...(baseReveal?.toPlayers?.length || topReveal?.toPlayers?.length
             ? {
                 toPlayers: uniqueStrings([
@@ -122,8 +133,11 @@ export const buildOverlayForViewer = (params: OverlayParams): OverlaySnapshotDat
     const nextCard = applyRevealToCard(card, mergedReveal);
     addOverlayCard({
       ...nextCard,
-      zoneId: libraryZoneIds[ownerId] ?? nextCard.zoneId,
+      zoneId: libraryZoneId ?? nextCard.zoneId,
     });
+    if (libraryZoneId && !zoneCardOrders[libraryZoneId]) {
+      zoneCardOrders[libraryZoneId] = [topCardId];
+    }
   });
 
   Object.entries(params.hidden.libraryOrder).forEach(([ownerId, order]) => {

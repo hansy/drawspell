@@ -8,6 +8,8 @@ import type {
 } from "@/types";
 
 import { ZONE } from "@/constants/zones";
+import { canViewerSeeLibraryCardByReveal } from "@/lib/reveal";
+import { libraryTopRevealIsAllPlayers } from "@mtg/shared/types/players";
 
 export const resolveZoneOwnerName = (params: {
   zone: Pick<Zone, "ownerId"> | null;
@@ -73,9 +75,15 @@ export const computeRevealedOpponentLibraryCards = (params: {
     .filter((entry) => entry.ownerId === zone.ownerId)
     .sort((a, b) => a.entry.orderKey.localeCompare(b.entry.orderKey));
 
+  const topVisibleCardId = zone.cardIds[zone.cardIds.length - 1];
+  const topVisibleCard =
+    libraryTopRevealIsAllPlayers(params.libraryTopReveal) && topVisibleCardId
+      ? params.cardsById[topVisibleCardId]
+      : undefined;
   const actualTopCardId =
-    params.libraryTopReveal === "all" && entries.length
-      ? entries[entries.length - 1]?.cardId ?? null
+    topVisibleCard &&
+    canViewerSeeLibraryCardByReveal(topVisibleCard, params.viewerId)
+      ? topVisibleCard.id
       : null;
 
   const cards = entries
@@ -88,6 +96,14 @@ export const computeRevealedOpponentLibraryCards = (params: {
       })
     )
     .reverse();
+
+  if (
+    topVisibleCard &&
+    actualTopCardId &&
+    !cards.some((card) => card.id === topVisibleCard.id)
+  ) {
+    cards.unshift(topVisibleCard);
+  }
 
   return { cards, actualTopCardId };
 };

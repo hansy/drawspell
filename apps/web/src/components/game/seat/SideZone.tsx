@@ -36,6 +36,8 @@ interface SideZoneProps {
   showContextMenuCursor?: boolean;
   rightIndicator?: React.ReactNode;
   indicatorSide?: "left" | "right";
+  onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 // Shared rendering for vertical sidebar zones (library/graveyard/exile).
@@ -54,6 +56,8 @@ export const SideZone: React.FC<SideZoneProps> = ({
   showContextMenuCursor,
   rightIndicator,
   indicatorSide = "right",
+  onMouseEnter,
+  onMouseLeave,
 }) => {
   const touchPressTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
@@ -270,6 +274,8 @@ export const SideZone: React.FC<SideZoneProps> = ({
             ? "cursor-context-menu"
             : onClick && "cursor-pointer",
         )}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
       >
         {rightIndicator && (
           <div
