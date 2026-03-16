@@ -1,6 +1,10 @@
 import React from "react";
 import { Card as CardType } from "@/types";
 import { useGameStore } from "@/store/gameStore";
+import {
+  peekCachedCard,
+  subscribeCachedCards,
+} from "@/services/scryfall/scryfallCache";
 
 import { getNextCardStatUpdate } from "@/lib/cardPT";
 import {
@@ -55,6 +59,24 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
   const myPlayerId = useGameStore((state) => state.myPlayerId);
   const players = useGameStore((state) => state.players);
   const zoneType = useGameStore((state) => state.zones[card.zoneId]?.type);
+  const [scryfallCacheTick, setScryfallCacheTick] = React.useState(0);
+
+  React.useEffect(() => {
+    const scryfallId = card.scryfallId;
+    if (card.scryfall || !scryfallId) return;
+    if (peekCachedCard(scryfallId)) return;
+
+    const unsubscribe = subscribeCachedCards((scryfallIds) => {
+      if (!scryfallIds.includes(scryfallId)) return;
+      setScryfallCacheTick((tick) => tick + 1);
+    });
+
+    if (peekCachedCard(scryfallId)) {
+      setScryfallCacheTick((tick) => tick + 1);
+    }
+
+    return unsubscribe;
+  }, [card.scryfall, card.scryfallId]);
 
   const faceCount = card.scryfall?.card_faces?.length ?? 0;
   const isFlipLayout = card.scryfall?.layout === "flip";
@@ -105,6 +127,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
       myPlayerId,
       preferArtCrop,
       revealToNames,
+      scryfallCacheTick,
       showNameLabel,
       zoneType,
     ]
@@ -143,6 +166,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
       myPlayerId,
       preferArtCrop,
       revealToNames,
+      scryfallCacheTick,
       showNameLabel,
       zoneType,
     ]

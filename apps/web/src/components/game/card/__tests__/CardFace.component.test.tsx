@@ -1,11 +1,26 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Card, Player, Zone } from "@/types";
 import { useGameStore } from "@/store/gameStore";
 import { ZONE } from "@/constants/zones";
 
 import { CardFace } from "../CardFace";
+
+const cachedCards = vi.hoisted(() => new Map<string, any>());
+const cacheListeners = vi.hoisted(
+  () => new Set<(scryfallIds: readonly string[]) => void>(),
+);
+
+vi.mock("@/services/scryfall/scryfallCache", () => ({
+  peekCachedCard: (scryfallId: string) => cachedCards.get(scryfallId) ?? null,
+  subscribeCachedCards: (listener: (scryfallIds: readonly string[]) => void) => {
+    cacheListeners.add(listener);
+    return () => {
+      cacheListeners.delete(listener);
+    };
+  },
+}));
 
 const buildZone = (id: string, type: keyof typeof ZONE, ownerId: string): Zone => ({
   id,
@@ -51,6 +66,8 @@ const buildTransformCard = (zoneId: string): Card => ({
 
 describe("CardFace", () => {
   beforeEach(() => {
+    cachedCards.clear();
+    cacheListeners.clear();
     useGameStore.setState({
       zones: {},
       cards: {},
@@ -97,5 +114,47 @@ describe("CardFace", () => {
 
     expect(screen.getByText("9")).toBeTruthy();
     expect(screen.getByText("8")).toBeTruthy();
+  });
+
+  it("rerenders artwork when the scryfall cache fills after mount", async () => {
+    const zone = buildZone("hand-me", "HAND", "me");
+    const card: Card = {
+      id: "c-cache",
+      name: "Cache Test",
+      ownerId: "me",
+      controllerId: "me",
+      zoneId: zone.id,
+      tapped: false,
+      faceDown: false,
+      position: { x: 0.5, y: 0.5 },
+      rotation: 0,
+      counters: [],
+      scryfallId: "s-cache",
+    };
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { ...state.zones, [zone.id]: zone },
+      cards: { ...state.cards, [card.id]: card },
+      players: { me: buildPlayer("me", "Me") },
+    }));
+
+    render(<CardFace card={card} />);
+
+    expect(screen.getByText("Cache Test")).toBeTruthy();
+
+    act(() => {
+      cachedCards.set("s-cache", {
+        id: "s-cache",
+        name: "Cache Test",
+        image_uris: {
+          normal: "https://example.com/cache-test.jpg",
+        },
+      });
+      cacheListeners.forEach((listener) => listener(["s-cache"]));
+    });
+
+    const img = await screen.findByRole("img", { name: "Cache Test" });
+    expect(img.getAttribute("src")).toBe("https://example.com/cache-test.jpg");
   });
 });

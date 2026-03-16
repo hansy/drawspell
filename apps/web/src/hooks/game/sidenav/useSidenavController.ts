@@ -19,6 +19,7 @@ export type SidenavControllerInput = {
   peerCounts?: PeerCounts;
   isSpectator?: boolean;
   orientation?: "vertical" | "horizontal";
+  onMenuOpenChange?: (open: boolean) => void;
 };
 
 export const useSidenavController = ({
@@ -35,6 +36,7 @@ export const useSidenavController = ({
   peerCounts = { total: 1, players: 1, spectators: 0 },
   isSpectator = false,
   orientation = "vertical",
+  onMenuOpenChange,
 }: SidenavControllerInput) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
@@ -53,6 +55,16 @@ export const useSidenavController = ({
     onOpenShortcuts?.();
     setIsMenuOpen(false);
   }, [onOpenShortcuts]);
+
+  React.useEffect(() => {
+    onMenuOpenChange?.(isMenuOpen);
+  }, [isMenuOpen, onMenuOpenChange]);
+
+  React.useEffect(() => {
+    return () => {
+      onMenuOpenChange?.(false);
+    };
+  }, [onMenuOpenChange]);
 
   return {
     onCreateToken,

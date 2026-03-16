@@ -26,6 +26,7 @@ const store = createIndexedDbStore({
   dbVersion: DB_VERSION,
   storeName: STORE_NAME,
 });
+const cacheListeners = new Set<(scryfallIds: readonly string[]) => void>();
 
 const cache = createScryfallCache({
   memory,
@@ -34,14 +35,46 @@ const cache = createScryfallCache({
   rateLimitMs: SCRYFALL_RATE_LIMIT_MS,
 });
 
+const notifyCacheListeners = (scryfallIds: Iterable<string>) => {
+  const ids = Array.from(new Set(Array.from(scryfallIds).filter(Boolean)));
+  if (!ids.length) return;
+  cacheListeners.forEach((listener) => listener(ids));
+};
+
 export const peekCachedCard = (scryfallId: string) => {
   if (!scryfallId) return null;
   return memory.get(scryfallId) ?? null;
 };
 
-export const getCard = cache.getCard;
-export const getCards = cache.getCards;
-export const cacheCards = cache.cacheCards;
+export const subscribeCachedCards = (
+  listener: (scryfallIds: readonly string[]) => void,
+) => {
+  cacheListeners.add(listener);
+  return () => {
+    cacheListeners.delete(listener);
+  };
+};
+
+export const getCard: typeof cache.getCard = async (scryfallId) => {
+  const result = await cache.getCard(scryfallId);
+  if (result.card) {
+    notifyCacheListeners([result.card.id]);
+  }
+  return result;
+};
+
+export const getCards: typeof cache.getCards = async (scryfallIds) => {
+  const result = await cache.getCards(scryfallIds);
+  if (result.cards.size > 0) {
+    notifyCacheListeners(result.cards.keys());
+  }
+  return result;
+};
+
+export const cacheCards: typeof cache.cacheCards = async (cards) => {
+  await cache.cacheCards(cards);
+  notifyCacheListeners(cards.map((card) => card.id));
+};
 export const cleanupExpired = cache.cleanupExpired;
 export const clearCache = cache.clearCache;
 export const getCacheStats = cache.getCacheStats;
