@@ -66,9 +66,33 @@ const SEAT_COLOR_CLASS: Record<string, string> = {
   sky: "bg-sky-400",
   amber: "bg-amber-400",
 };
+const PORTRAIT_VERTICAL_POSITIONS: SeatPosition[] = ["top-left", "bottom-left"];
+const PORTRAIT_SQUARE_POSITIONS: SeatPosition[] = [
+  "top-left",
+  "top-right",
+  "bottom-left",
+  "bottom-right",
+];
 
 const isOccupiedSeat = (slot: SeatSlot): slot is OccupiedSeatSlot =>
   Boolean(slot.player);
+
+const getSeatDisplayName = (
+  player: OccupiedSeatSlot["player"],
+  myPlayerId: string,
+) => {
+  if (player.id === myPlayerId) return "You";
+  const trimmed = player.name.trim();
+  return trimmed.length > 0 ? trimmed : "Player";
+};
+
+const getSeatAriaLabel = (
+  player: OccupiedSeatSlot["player"],
+  myPlayerId: string,
+) => {
+  if (player.id === myPlayerId) return "Switch to your seat";
+  return `Switch to ${getSeatDisplayName(player, myPlayerId)}'s seat`;
+};
 
 const resolveSwipeTargetSeat = (
   activeSeat: OccupiedSeatSlot,
@@ -154,76 +178,143 @@ const usePortraitViewport = () => {
   return matches;
 };
 
-const getPortraitIndicatorPointStyle = (
-  position: SeatPosition,
-  isVertical: boolean,
-): React.CSSProperties => {
-  const coords = SEAT_COORDS[position];
-  if (isVertical) {
-    return {
-      left: "50%",
-      top: coords.y === 0 ? "0.75rem" : "calc(100% - 0.75rem)",
-      transform: "translate(-50%, -50%)",
-    };
-  }
-  return {
-    left: coords.x === 0 ? "0.8rem" : "calc(100% - 0.8rem)",
-    top: coords.y === 0 ? "0.8rem" : "calc(100% - 0.8rem)",
-    transform: "translate(-50%, -50%)",
-  };
-};
-
 const PortraitSeatIndicator: React.FC<{
   seats: OccupiedSeatSlot[];
   activeSeatPlayerId: string | null;
+  myPlayerId: string;
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
   onSelectSeat: (playerId: string) => void;
-}> = ({ seats, activeSeatPlayerId, onSelectSeat }) => {
+}> = ({
+  seats,
+  activeSeatPlayerId,
+  myPlayerId,
+  isExpanded,
+  onToggleExpanded,
+  onSelectSeat,
+}) => {
   const isVertical = seats.length === 2;
+  const positions = isVertical
+    ? PORTRAIT_VERTICAL_POSITIONS
+    : PORTRAIT_SQUARE_POSITIONS;
+  const seatByPosition = new Map(seats.map((slot) => [slot.position, slot]));
+
+  if (!isExpanded) {
+    return (
+      <button
+        type="button"
+        aria-label="Expand seat picker"
+        onClick={onToggleExpanded}
+        className={cn(
+          "grid rounded-[1.15rem] border border-zinc-700/70 bg-zinc-950/88 p-1.5 shadow-[0_10px_24px_rgba(0,0,0,0.32)] backdrop-blur transition-transform duration-150 active:scale-[0.97]",
+          isVertical ? "h-14 w-8 grid-cols-1 grid-rows-2 gap-1" : "h-11 w-11 grid-cols-2 grid-rows-2 gap-1",
+        )}
+        data-testid="portrait-seat-indicator"
+        data-layout={isVertical ? "vertical" : "square"}
+        data-state="collapsed"
+        data-no-seat-swipe="true"
+      >
+        {positions.map((position) => {
+          const slot = seatByPosition.get(position);
+          const isActive = slot?.player.id === activeSeatPlayerId;
+          const seatColorClass = slot ? SEAT_COLOR_CLASS[slot.color] : undefined;
+          const fallbackColorStyle =
+            slot && !seatColorClass ? { backgroundColor: slot.color } : undefined;
+
+          return (
+            <span
+              key={position}
+              className={cn(
+                "flex items-center justify-center rounded-md border border-zinc-800/80 bg-zinc-900/65",
+                !slot && "opacity-30",
+              )}
+              data-seat-position={slot?.position ?? position}
+              data-active={isActive ? "true" : "false"}
+            >
+              {slot ? (
+                <span
+                  className={cn(
+                    "block rounded-full border",
+                    isVertical ? "h-2.5 w-2.5" : "h-2 w-2",
+                    seatColorClass ?? "bg-white",
+                    isActive
+                      ? "border-white/90 ring-2 ring-white/25"
+                      : "border-white/35 opacity-75",
+                  )}
+                  style={fallbackColorStyle}
+                />
+              ) : null}
+            </span>
+          );
+        })}
+      </button>
+    );
+  }
 
   return (
     <div
       className={cn(
-        "relative rounded-[1.35rem] border border-zinc-700/70 bg-zinc-950/85 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur",
-        isVertical ? "h-20 w-10" : "h-16 w-16",
+        "grid rounded-[1.5rem] border border-zinc-700/70 bg-zinc-950/95 p-2 shadow-[0_16px_40px_rgba(0,0,0,0.42)] backdrop-blur",
+        isVertical
+          ? "h-28 w-24 grid-cols-1 grid-rows-2 gap-2"
+          : "h-28 w-28 grid-cols-2 grid-rows-2 gap-2",
       )}
       data-testid="portrait-seat-indicator"
       data-layout={isVertical ? "vertical" : "square"}
+      data-state="expanded"
+      data-no-seat-swipe="true"
     >
-      {isVertical ? (
-        <div className="absolute bottom-3 left-1/2 top-3 w-px -translate-x-1/2 bg-zinc-700/90" />
-      ) : (
-        <div className="absolute inset-3 rounded-lg border border-zinc-700/90" />
-      )}
-
-      {seats.map((slot) => {
+      {positions.map((position) => {
+        const slot = seatByPosition.get(position);
+        if (!slot) {
+          return (
+            <div
+              key={position}
+              className="rounded-[1rem] border border-zinc-800/80 bg-zinc-900/30"
+              aria-hidden="true"
+            />
+          );
+        }
         const isActive = slot.player.id === activeSeatPlayerId;
         const seatColorClass = SEAT_COLOR_CLASS[slot.color];
         const fallbackColorStyle = !seatColorClass
           ? { backgroundColor: slot.color }
           : undefined;
+        const seatDisplayName = getSeatDisplayName(slot.player, myPlayerId);
 
         return (
           <button
             type="button"
-            key={slot.player.id}
-            aria-label={`Switch to ${slot.player.name}'s seat`}
-            disabled={isActive}
+            key={`${slot.player.id}-content`}
+            aria-label={getSeatAriaLabel(slot.player, myPlayerId)}
             onClick={() => onSelectSeat(slot.player.id)}
             className={cn(
-              "absolute block rounded-full border transition-all duration-150",
-              isVertical ? "h-3.5 w-3.5" : "h-3 w-3",
-              seatColorClass ?? "bg-white",
+              "relative flex min-h-0 flex-col items-start rounded-[1rem] border bg-zinc-900/88 p-2 text-left transition-all duration-150",
+              "focus:outline-none focus:ring-2 focus:ring-sky-300/50 active:scale-[0.98]",
               isActive
-                ? "cursor-default border-white/90 ring-2 ring-white/30 scale-110 opacity-100"
-                : "cursor-pointer border-white/35 opacity-60 hover:opacity-100",
+                ? "border-white/80 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18)]"
+                : "border-zinc-700/80",
             )}
-            style={{
-              ...fallbackColorStyle,
-              ...getPortraitIndicatorPointStyle(slot.position, isVertical),
-            }}
             data-seat-position={slot.position}
             data-active={isActive ? "true" : "false"}
-          />
+          >
+            <span
+              className={cn(
+                "block h-4 w-4 rounded-full border",
+                seatColorClass ?? "bg-white",
+                isActive ? "border-white/90 ring-2 ring-white/25" : "border-white/30",
+              )}
+              style={fallbackColorStyle}
+            />
+            <span
+              className={cn(
+                "mt-auto w-full truncate text-[10px] font-semibold uppercase tracking-[0.16em]",
+                isActive ? "text-zinc-50" : "text-zinc-300",
+              )}
+            >
+              {seatDisplayName}
+            </span>
+          </button>
         );
       })}
     </div>
@@ -380,6 +471,8 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   const [activeSeatPlayerId, setActiveSeatPlayerId] = React.useState<string | null>(
     defaultSeat?.player.id ?? null,
   );
+  const [isPortraitSeatPickerExpanded, setIsPortraitSeatPickerExpanded] =
+    React.useState(false);
   const [isPortraitCommanderDrawerOpen, setIsPortraitCommanderDrawerOpen] =
     React.useState(false);
   const [seatSwitchBanner, setSeatSwitchBanner] = React.useState<string | null>(null);
@@ -395,9 +488,9 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   }, []);
 
   const showSeatSwitchBanner = React.useCallback(
-    (playerName: string) => {
+    (playerLabel: string) => {
       clearSeatSwitchBannerTimer();
-      setSeatSwitchBanner(playerName);
+      setSeatSwitchBanner(playerLabel);
       seatSwitchBannerTimerRef.current = setTimeout(() => {
         seatSwitchBannerTimerRef.current = null;
         setSeatSwitchBanner(null);
@@ -439,14 +532,13 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
       if (playerId === activeSeatPlayerId) return;
       if (announce) {
         const nextSeat = occupiedSlots.find((slot) => slot.player.id === playerId);
-        const nextName = nextSeat?.player.name?.trim();
-        if (nextName) {
-          showSeatSwitchBanner(nextName);
+        if (nextSeat) {
+          showSeatSwitchBanner(getSeatDisplayName(nextSeat.player, myPlayerId));
         }
       }
       setActiveSeatPlayerId(playerId);
     },
-    [activeSeatPlayerId, occupiedSlots, showSeatSwitchBanner],
+    [activeSeatPlayerId, myPlayerId, occupiedSlots, showSeatSwitchBanner],
   );
 
   React.useEffect(() => {
@@ -656,6 +748,20 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
       isPortraitCommanderDrawerOpen,
   );
 
+  React.useEffect(() => {
+    if (!isPortraitViewport || indicatorSeats.length <= 1 || hasActiveOverlayUi) {
+      setIsPortraitSeatPickerExpanded(false);
+    }
+  }, [hasActiveOverlayUi, indicatorSeats.length, isPortraitViewport]);
+
+  const handlePortraitSeatSelect = React.useCallback(
+    (playerId: string) => {
+      activateSeat(playerId, true);
+      setIsPortraitSeatPickerExpanded(false);
+    },
+    [activateSeat],
+  );
+
   return (
     <CardPreviewProvider>
       <DndContext
@@ -740,19 +846,34 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                   />
                 </div>
                 {indicatorSeats.length > 1 && !hasActiveOverlayUi && (
-                  <div
-                    className={`absolute inset-x-0 z-[62] flex justify-center ${
-                      isPortraitCommanderDrawerOpen
-                        ? "bottom-[0.4rem]"
-                        : "bottom-[calc(var(--mobile-sidenav-h)+0.5rem)]"
-                    }`}
-                  >
-                    <PortraitSeatIndicator
-                      seats={indicatorSeats}
-                      activeSeatPlayerId={activeSeat?.player.id ?? null}
-                      onSelectSeat={(playerId) => activateSeat(playerId, true)}
-                    />
-                  </div>
+                  <>
+                    {isPortraitSeatPickerExpanded && (
+                      <button
+                        type="button"
+                        aria-label="Collapse seat picker"
+                        className="absolute inset-0 z-[61] bg-transparent"
+                        onClick={() => setIsPortraitSeatPickerExpanded(false)}
+                        data-testid="portrait-seat-indicator-backdrop"
+                        data-no-seat-swipe="true"
+                      />
+                    )}
+                    <div
+                      className={`absolute inset-x-0 z-[62] flex justify-center ${
+                        isPortraitCommanderDrawerOpen
+                          ? "bottom-[0.4rem]"
+                          : "bottom-[calc(var(--mobile-sidenav-h)+0.5rem)]"
+                      }`}
+                    >
+                      <PortraitSeatIndicator
+                        seats={indicatorSeats}
+                        activeSeatPlayerId={activeSeat?.player.id ?? null}
+                        myPlayerId={myPlayerId}
+                        isExpanded={isPortraitSeatPickerExpanded}
+                        onToggleExpanded={() => setIsPortraitSeatPickerExpanded(true)}
+                        onSelectSeat={handlePortraitSeatSelect}
+                      />
+                    </div>
+                  </>
                 )}
               </div>
               <LogDrawer
