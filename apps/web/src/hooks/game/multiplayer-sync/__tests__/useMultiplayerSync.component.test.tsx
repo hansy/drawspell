@@ -33,7 +33,7 @@ const mockGameState = vi.hoisted(() => ({
   sessionVersions: {} as Record<string, number>,
   lastResumeTokenBySession: {} as Record<string, string>,
   players: {},
-  playerOrder: [],
+  playerOrder: [] as string[],
   zones: {},
   cards: {},
   battlefieldGridSizing: {},
@@ -139,6 +139,7 @@ const intentTransportMocks = vi.hoisted(() => ({
   createIntentTransport: vi.fn(() => ({ sendIntent: vi.fn(), close: vi.fn() })),
   setIntentTransport: vi.fn(),
   clearIntentTransport: vi.fn(),
+  sendPartyMessage: vi.fn(() => true),
   getIntentConnectionMeta: vi.fn(() => ({
     isOpen: false,
     everConnected: true,
@@ -469,6 +470,100 @@ describe("useMultiplayerSync", () => {
     });
   });
 
+  it("waits for the initial sync before initializing a resumed player", async () => {
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      playerId: "resume-player",
+      resumeToken: "resume-token",
+    });
+
+    renderHook(() => useMultiplayerSync("session-resume-gated"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+      expect(providerInstances).toHaveLength(1);
+    });
+    expect(ensureLocalPlayerInitialized).not.toHaveBeenCalled();
+
+    const [{ onOpen }] = intentTransportMocks.createIntentTransport.mock
+      .calls[0] as any;
+
+    act(() => {
+      onOpen();
+    });
+
+    expect(ensureLocalPlayerInitialized).not.toHaveBeenCalled();
+
+    act(() => {
+      providerInstances[0].emit("sync", true);
+    });
+
+    await waitFor(() => {
+      expect(ensureLocalPlayerInitialized).toHaveBeenCalledWith(
+        expect.objectContaining({
+          playerId: "resume-player",
+        }),
+      );
+    });
+  });
+
+  it("applies the initial shared snapshot before resumed initialization runs", async () => {
+    createFullSyncToStore.mockImplementationOnce(
+      (() => () => {
+        mockGameState.players = {
+          "resume-player": {
+            id: "resume-player",
+            name: "Saved Player",
+            life: 40,
+            counters: [],
+            commanderDamage: {},
+            commanderTax: 0,
+            deckLoaded: true,
+          } as any,
+        };
+        mockGameState.playerOrder = ["resume-player"];
+        mockGameState.zones = {
+          "resume-player-library": {
+            id: "resume-player-library",
+            ownerId: "resume-player",
+            type: "library",
+            cardIds: [],
+          } as any,
+        };
+      }) as any,
+    );
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      playerId: "resume-player",
+      resumeToken: "resume-token",
+    });
+
+    renderHook(() => useMultiplayerSync("session-resume-authoritative"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+      expect(providerInstances).toHaveLength(1);
+    });
+
+    act(() => {
+      providerInstances[0].emit("sync", true);
+    });
+
+    await waitFor(() => {
+      expect(ensureLocalPlayerInitialized).toHaveBeenCalledWith(
+        expect.objectContaining({
+          playerId: "resume-player",
+          state: expect.objectContaining({
+            players: expect.objectContaining({
+              "resume-player": expect.objectContaining({
+                name: "Saved Player",
+                deckLoaded: true,
+              }),
+            }),
+          }),
+        }),
+      );
+    });
+  });
+
   it("treats resume token without playerId as malformed and clears params immediately", async () => {
     vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
       resumeToken: "resume-token",
@@ -503,6 +598,55 @@ describe("useMultiplayerSync", () => {
     await waitFor(() => {
       expect(clearInviteTokenFromUrl).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("mints a fresh player id for plain player invites when only stale local identity exists", async () => {
+    mockGameState.playerIdsBySession = {
+      "session-plain-stale": "stale-player",
+    };
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      token: "player-token",
+      role: "player",
+    });
+
+    renderHook(() => useMultiplayerSync("session-plain-stale"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+
+    const [transportConfig] = intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+    expect(mockGameState.forgetSessionIdentity).toHaveBeenCalledWith(
+      "session-plain-stale",
+    );
+    expect(mockGameState.myPlayerId).toBe("player-1");
+    expect(mockGameState.playerIdsBySession["session-plain-stale"]).toBe("player-1");
+    expect(transportConfig?.playerId).toBe("player-1");
+  });
+
+  it("preserves the existing player id for plain player invites when room auth already exists", async () => {
+    mockGameState.playerIdsBySession = {
+      "session-plain-existing": "existing-player",
+    };
+    vi.mocked(readRoomTokensFromStorage).mockReturnValue({
+      playerToken: "stored-player",
+      spectatorToken: "stored-spectator",
+    });
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      token: "player-token",
+      role: "player",
+    });
+
+    renderHook(() => useMultiplayerSync("session-plain-existing"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+
+    const [transportConfig] = intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+    expect(mockGameState.forgetSessionIdentity).not.toHaveBeenCalled();
+    expect(mockGameState.myPlayerId).toBe("existing-player");
+    expect(transportConfig?.playerId).toBe("existing-player");
   });
 
   it("rechecks invites when the location key changes", async () => {
@@ -549,6 +693,70 @@ describe("useMultiplayerSync", () => {
       expect(clearInviteTokenFromUrl).toHaveBeenCalled();
       expect(result.current.joinBlocked).toBe(true);
       expect(result.current.joinBlockedReason).toBe("invite");
+    });
+  });
+
+  it("treats stale resume links as invalid device links", async () => {
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      playerId: "resume-player",
+      resumeToken: "stale-resume-token",
+    });
+
+    const { result } = renderHook(() => useMultiplayerSync("session-device-link"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+
+    const [{ onClose }] = intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+
+    act(() => {
+      onClose({ code: 1008, reason: "invalid token" });
+    });
+
+    await waitFor(() => {
+      expect(markRoomUnavailable).not.toHaveBeenCalled();
+      expect(clearInviteTokenFromUrl).toHaveBeenCalled();
+      expect(result.current.joinBlocked).toBe(true);
+      expect(result.current.joinBlockedReason).toBe("device-link-invalid");
+    });
+  });
+
+  it("preserves stale device-link messaging after the URL params are cleared", async () => {
+    vi.mocked(isRoomHostPending).mockReturnValue(false);
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
+      playerId: "resume-player",
+      resumeToken: "stale-resume-token",
+    });
+
+    const { result, rerender } = renderHook(
+      ({ locationKey }) =>
+        useMultiplayerSync("session-device-link-preserved", locationKey),
+      {
+        initialProps: { locationKey: "?rt=stale-resume-token&playerId=resume-player" },
+      },
+    );
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+
+    const [{ onClose }] = intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+
+    act(() => {
+      onClose({ code: 1008, reason: "invalid token" });
+    });
+
+    await waitFor(() => {
+      expect(result.current.joinBlockedReason).toBe("device-link-invalid");
+    });
+
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({});
+    rerender({ locationKey: "" });
+
+    await waitFor(() => {
+      expect(result.current.joinBlocked).toBe(true);
+      expect(result.current.joinBlockedReason).toBe("device-link-invalid");
     });
   });
 
@@ -657,7 +865,7 @@ describe("useMultiplayerSync", () => {
 
     await waitFor(() => {
       expect(markRoomUnavailable).not.toHaveBeenCalled();
-      expect(result.current.joinBlockedReason).toBe("invite");
+      expect(result.current.joinBlockedReason).toBe("device-link-invalid");
     });
   });
 
