@@ -142,7 +142,19 @@ export function setupSessionResources({
 
   // Setup store
   const store = useGameStore.getState();
+  const storedTokens = readRoomTokensFromStorage(sessionId);
+  const existingRoomTokens = store.roomTokens;
   const storedPlayerIds = store.playerIdsBySession ?? {};
+  const cachedPlayerId = storedPlayerIds[sessionId];
+  const activePlayerId =
+    store.sessionId === sessionId && store.myPlayerId ? store.myPlayerId : undefined;
+  const existingSessionPlayerId = activePlayerId ?? cachedPlayerId;
+  const hasExistingRoomSession = Boolean(
+    storedTokens?.playerToken ||
+      storedTokens?.spectatorToken ||
+      existingRoomTokens?.playerToken ||
+      existingRoomTokens?.spectatorToken
+  );
   if (resumePlayerId && storedPlayerIds[sessionId] !== resumePlayerId) {
     useGameStore.setState((state) => ({
       playerIdsBySession: {
@@ -151,11 +163,15 @@ export function setupSessionResources({
       },
     }));
   }
+  if (!resumePlayerId && cachedPlayerId && !hasExistingRoomSession) {
+    store.forgetSessionIdentity(sessionId);
+  }
   const latestPlayerIds = useGameStore.getState().playerIdsBySession ?? {};
-  const ensuredPlayerId =
-    resumePlayerId ??
-    latestPlayerIds[sessionId] ??
-    store.ensurePlayerIdForSession(sessionId);
+  const ensuredPlayerId = resumePlayerId
+    ? resumePlayerId
+    : existingSessionPlayerId && hasExistingRoomSession
+      ? existingSessionPlayerId
+      : latestPlayerIds[sessionId] ?? useGameStore.getState().ensurePlayerIdForSession(sessionId);
   const activeStore = useGameStore.getState();
   const needsReset =
     activeStore.sessionId !== sessionId || activeStore.myPlayerId !== ensuredPlayerId;
@@ -165,7 +181,6 @@ export function setupSessionResources({
     useGameStore.setState((state) => ({ ...state, sessionId }));
   }
 
-  const storedTokens = readRoomTokensFromStorage(sessionId);
   if (storedTokens) {
     useGameStore.getState().setRoomTokens(storedTokens);
     clearRoomHostPending(sessionId);
