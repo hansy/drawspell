@@ -54,10 +54,6 @@ vi.mock("../shortcuts/ShortcutsDrawer", () => ({
   ShortcutsDrawer: () => null,
 }));
 
-vi.mock("../sidenav/Sidenav", () => ({
-  Sidenav: () => <div data-testid="sidenav" />,
-}));
-
 vi.mock("../prompts/TextPromptDialog", () => ({
   TextPromptDialog: () => null,
 }));
@@ -292,6 +288,50 @@ describe("MultiplayerBoardView portrait seat indicator", () => {
       "collapsed",
     );
     expect(screen.queryByLabelText("Switch to Player Two's seat")).toBeNull();
+  });
+
+  it("collapses the expanded picker on outside pointer down from seat content", () => {
+    renderBoard([
+      { id: "p2", name: "Player Two", color: "violet", position: "top-left" },
+      { id: "p3", name: "Player Three", color: "amber", position: "top-right" },
+      { id: "p1", name: "Player One", color: "sky", position: "bottom-left" },
+      { id: "p4", name: "Player Four", color: "rose", position: "bottom-right" },
+    ]);
+
+    fireEvent.click(screen.getByLabelText("Expand seat picker"));
+    expect(screen.getByTestId("portrait-seat-indicator").getAttribute("data-state")).toBe(
+      "expanded",
+    );
+
+    fireEvent.pointerDown(screen.getByLabelText("Open life details"));
+
+    expect(screen.getByTestId("portrait-seat-indicator").getAttribute("data-state")).toBe(
+      "collapsed",
+    );
+  });
+
+  it("hides the portrait seat indicator while the mobile menu is open", () => {
+    renderBoard([
+      { id: "p2", name: "Player Two", color: "violet", position: "top-left" },
+      { id: "p3", name: "Player Three", color: "amber", position: "top-right" },
+      { id: "p1", name: "Player One", color: "sky", position: "bottom-left" },
+      { id: "p4", name: "Player Four", color: "rose", position: "bottom-right" },
+    ]);
+
+    fireEvent.click(screen.getByLabelText("Expand seat picker"));
+    expect(screen.getByTestId("portrait-seat-indicator").getAttribute("data-state")).toBe(
+      "expanded",
+    );
+
+    fireEvent.click(screen.getByLabelText("Open menu"));
+
+    expect(screen.queryByTestId("portrait-seat-indicator")).toBeNull();
+
+    fireEvent.click(screen.getByLabelText("Open menu"));
+
+    expect(screen.getByTestId("portrait-seat-indicator").getAttribute("data-state")).toBe(
+      "collapsed",
+    );
   });
 
   it("shows the switched seat name briefly at the top of the screen", () => {
