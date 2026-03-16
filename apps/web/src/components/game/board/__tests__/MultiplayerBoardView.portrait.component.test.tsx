@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MultiplayerBoardView } from "../MultiplayerBoardView";
@@ -228,20 +228,19 @@ describe("MultiplayerBoardView portrait seat indicator", () => {
     expect(screen.getByTestId("portrait-seat-indicator").getAttribute("data-state")).toBe(
       "expanded",
     );
+    const options = screen.getAllByTestId("portrait-seat-option");
+    expect(options).toHaveLength(1);
     expect(
       screen.getByLabelText("Switch to Player Two's seat").getAttribute(
         "data-seat-position",
       ),
     ).toBe("top-left");
-    expect(
-      screen.getByLabelText("Switch to your seat").getAttribute(
-        "data-seat-position",
-      ),
-    ).toBe("bottom-left");
-    expect(screen.getByText("You")).not.toBeNull();
+    expect(within(options[0]).getByTestId("portrait-seat-option-color")).toBeTruthy();
+    expect(screen.queryByLabelText("Switch to your seat")).toBeNull();
+    expect(screen.queryByText("You")).toBeNull();
   });
 
-  it("uses a square mini-map with seat positions that match the shared layout", () => {
+  it("shows the other seats in shared layout order when expanded", () => {
     renderBoard([
       { id: "p2", name: "Player Two", color: "violet", position: "top-left" },
       { id: "p3", name: "Player Three", color: "amber", position: "top-right" },
@@ -255,27 +254,23 @@ describe("MultiplayerBoardView portrait seat indicator", () => {
 
     fireEvent.click(screen.getByLabelText("Expand seat picker"));
 
+    const options = screen.getAllByTestId("portrait-seat-option");
+    expect(options.map((option) => option.getAttribute("data-seat-position"))).toEqual([
+      "top-left",
+      "top-right",
+      "bottom-right",
+    ]);
+    expect(options.map((option) => option.textContent)).toEqual([
+      "Player Two",
+      "Player Three",
+      "Player Four",
+    ]);
     expect(
-      screen.getByLabelText("Switch to Player Two's seat").getAttribute(
-        "data-seat-position",
+      options.every((option) =>
+        Boolean(within(option).getByTestId("portrait-seat-option-color")),
       ),
-    ).toBe("top-left");
-    expect(
-      screen.getByLabelText("Switch to Player Three's seat").getAttribute(
-        "data-seat-position",
-      ),
-    ).toBe("top-right");
-    expect(
-      screen.getByLabelText("Switch to your seat").getAttribute(
-        "data-seat-position",
-      ),
-    ).toBe("bottom-left");
-    expect(
-      screen.getByLabelText("Switch to Player Four's seat").getAttribute(
-        "data-seat-position",
-      ),
-    ).toBe("bottom-right");
-    expect(screen.getByText("You")).not.toBeNull();
+    ).toBe(true);
+    expect(screen.queryByLabelText("Switch to your seat")).toBeNull();
   });
 
   it("collapses the expanded picker when you tap outside it", () => {

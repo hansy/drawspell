@@ -198,6 +198,7 @@ const PortraitSeatIndicator: React.FC<{
     ? PORTRAIT_VERTICAL_POSITIONS
     : PORTRAIT_SQUARE_POSITIONS;
   const seatByPosition = new Map(seats.map((slot) => [slot.position, slot]));
+  const otherSeats = seats.filter((slot) => slot.player.id !== activeSeatPlayerId);
 
   if (!isExpanded) {
     return (
@@ -207,7 +208,7 @@ const PortraitSeatIndicator: React.FC<{
         onClick={onToggleExpanded}
         className={cn(
           "grid rounded-[1.15rem] border border-zinc-700/70 bg-zinc-950/88 p-1.5 shadow-[0_10px_24px_rgba(0,0,0,0.32)] backdrop-blur transition-transform duration-150 active:scale-[0.97]",
-          isVertical ? "h-14 w-8 grid-cols-1 grid-rows-2 gap-1" : "h-11 w-11 grid-cols-2 grid-rows-2 gap-1",
+          isVertical ? "h-12 w-7 grid-cols-1 grid-rows-2 gap-1" : "h-10 w-10 grid-cols-2 grid-rows-2 gap-1",
         )}
         data-testid="portrait-seat-indicator"
         data-layout={isVertical ? "vertical" : "square"}
@@ -235,7 +236,7 @@ const PortraitSeatIndicator: React.FC<{
                 <span
                   className={cn(
                     "block rounded-full border",
-                    isVertical ? "h-2.5 w-2.5" : "h-2 w-2",
+                    "h-2 w-2",
                     seatColorClass ?? "bg-white",
                     isActive
                       ? "border-white/90 ring-2 ring-white/25"
@@ -254,69 +255,51 @@ const PortraitSeatIndicator: React.FC<{
   return (
     <div
       className={cn(
-        "grid rounded-[1.5rem] border border-zinc-700/70 bg-zinc-950/95 p-2 shadow-[0_16px_40px_rgba(0,0,0,0.42)] backdrop-blur",
-        isVertical
-          ? "h-28 w-24 grid-cols-1 grid-rows-2 gap-2"
-          : "h-28 w-28 grid-cols-2 grid-rows-2 gap-2",
+        "w-[min(13rem,calc(100vw-2rem))] rounded-[1.2rem] border border-zinc-700/70 bg-zinc-950/95 p-1.5 shadow-[0_16px_40px_rgba(0,0,0,0.42)] backdrop-blur",
       )}
       data-testid="portrait-seat-indicator"
       data-layout={isVertical ? "vertical" : "square"}
       data-state="expanded"
       data-no-seat-swipe="true"
     >
-      {positions.map((position) => {
-        const slot = seatByPosition.get(position);
-        if (!slot) {
-          return (
-            <div
-              key={position}
-              className="rounded-[1rem] border border-zinc-800/80 bg-zinc-900/30"
-              aria-hidden="true"
-            />
-          );
-        }
-        const isActive = slot.player.id === activeSeatPlayerId;
-        const seatColorClass = SEAT_COLOR_CLASS[slot.color];
-        const fallbackColorStyle = !seatColorClass
-          ? { backgroundColor: slot.color }
-          : undefined;
-        const seatDisplayName = getSeatDisplayName(slot.player, myPlayerId);
+      <div className="flex flex-col gap-1">
+        {otherSeats.map((slot) => {
+          const seatColorClass = SEAT_COLOR_CLASS[slot.color];
+          const fallbackColorStyle = !seatColorClass
+            ? { backgroundColor: slot.color }
+            : undefined;
+          const seatDisplayName = getSeatDisplayName(slot.player, myPlayerId);
 
-        return (
-          <button
-            type="button"
-            key={`${slot.player.id}-content`}
-            aria-label={getSeatAriaLabel(slot.player, myPlayerId)}
-            onClick={() => onSelectSeat(slot.player.id)}
-            className={cn(
-              "relative flex min-h-0 flex-col items-start rounded-[1rem] border bg-zinc-900/88 p-2 text-left transition-all duration-150",
-              "focus:outline-none focus:ring-2 focus:ring-sky-300/50 active:scale-[0.98]",
-              isActive
-                ? "border-white/80 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18)]"
-                : "border-zinc-700/80",
-            )}
-            data-seat-position={slot.position}
-            data-active={isActive ? "true" : "false"}
-          >
-            <span
+          return (
+            <button
+              type="button"
+              key={`${slot.player.id}-option`}
+              aria-label={getSeatAriaLabel(slot.player, myPlayerId)}
+              onClick={() => onSelectSeat(slot.player.id)}
               className={cn(
-                "block h-4 w-4 rounded-full border",
-                seatColorClass ?? "bg-white",
-                isActive ? "border-white/90 ring-2 ring-white/25" : "border-white/30",
+                "flex items-center gap-2.5 rounded-[0.95rem] border border-zinc-700/80 bg-zinc-900/88 px-2.5 py-2 text-left transition-all duration-150",
+                "focus:outline-none focus:ring-2 focus:ring-sky-300/50 active:scale-[0.98]",
               )}
-              style={fallbackColorStyle}
-            />
-            <span
-              className={cn(
-                "mt-auto w-full truncate text-[10px] font-semibold uppercase tracking-[0.16em]",
-                isActive ? "text-zinc-50" : "text-zinc-300",
-              )}
+              data-testid="portrait-seat-option"
+              data-seat-position={slot.position}
+              data-active="false"
             >
-              {seatDisplayName}
-            </span>
-          </button>
-        );
-      })}
+              <span
+                className={cn(
+                  "block h-3.5 w-3.5 shrink-0 rounded-full border",
+                  seatColorClass ?? "bg-white",
+                  "border-white/30",
+                )}
+                style={fallbackColorStyle}
+                data-testid="portrait-seat-option-color"
+              />
+              <span className="min-w-0 truncate text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-zinc-100">
+                {seatDisplayName}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 };
