@@ -43,6 +43,15 @@ export const MultiplayerBoard: FC<MultiplayerBoardProps> = ({ sessionId }) => {
     );
   }
   if (joinBlocked && !isSpectator) {
+    if (joinBlockedReason === "device-link-invalid") {
+      return (
+        <RoomFullScreen
+          title="Invalid or already-used device link"
+          description="Copy a new device link from the active game and try again."
+          onLeave={viewProps.handleLeave}
+        />
+      );
+    }
     if (joinBlockedReason === "invite") {
       return (
         <RoomFullScreen

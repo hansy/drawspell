@@ -44,6 +44,7 @@ import { useClientPrefsStore } from "@/store/clientPrefsStore";
 export type SyncStatus = "connecting" | "connected";
 type JoinBlockedReason =
   | NonNullable<LocalPlayerInitResult>["reason"]
+  | "device-link-invalid"
   | "invite"
   | "room-unavailable"
   | "takeover"
@@ -90,7 +91,9 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
   const attemptJoinRef = useRef<(() => void) | null>(null);
   const resourcesRef = useRef<SessionSetupResult | null>(null);
   const pendingIntentJoinRef = useRef(false);
+  const hasInitialSyncRef = useRef(false);
   const authFailureHandled = useRef(false);
+  const staleResumeInviteRef = useRef<{ sessionId: string } | null>(null);
   const resumeIdentityBackupRef = useRef<{
     sessionId: string;
     attemptedPlayerId: string;
@@ -240,6 +243,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
 
   useEffect(() => {
     dispatchConnectionEvent({ type: "reset" });
+    staleResumeInviteRef.current = null;
   }, [sessionId]);
 
   useEffect(() => {
@@ -422,9 +426,6 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         return;
       }
 
-      setJoinBlocked(false);
-      setJoinBlockedReason(null);
-
       const storedTokens = readRoomTokensFromStorage(sessionId);
       const hasToken = Boolean(
         inviteToken.token ||
@@ -437,6 +438,8 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       );
       const canConnect = hasToken || hostPending;
       if (!canConnect) {
+        const preserveDeviceLinkInvalid =
+          staleResumeInviteRef.current?.sessionId === sessionId;
         dispatchConnectionEvent({ type: "reset" });
         const activeResources = resourcesRef.current;
         if (activeResources) {
@@ -450,12 +453,18 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         }
         resetIntentCloseTracking();
         setJoinBlocked(true);
-        setJoinBlockedReason("invite");
+        setJoinBlockedReason(
+          preserveDeviceLinkInvalid ? "device-link-invalid" : "invite",
+        );
         if (useClientPrefsStore.getState().lastSessionId === sessionId) {
           clearLastSessionId();
         }
         return;
       }
+
+      staleResumeInviteRef.current = null;
+      setJoinBlocked(false);
+      setJoinBlockedReason(null);
 
       const expectedEpoch = connectEpoch;
       const joinToken = await resolveJoinToken(sessionId);
@@ -547,11 +556,11 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         resumeIdentityBackupRef.current = null;
         resetIntentCloseTracking();
         clearConnectAttemptTimer();
-        if (attemptJoinRef.current) {
-          attemptJoinRef.current();
-        } else {
+        if (!hasInitialSyncRef.current || !attemptJoinRef.current) {
           pendingIntentJoinRef.current = true;
+          return;
         }
+        attemptJoinRef.current();
       };
 
       const resources = setupSessionResources({
@@ -565,9 +574,10 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
           if (authFailureHandled.current) return;
           authFailureHandled.current = true;
           emitConnectionLog("connection.authFailure", { reason });
+          let failedResumeInvite = false;
           if (reason === "invalid token") {
             const failedInvite = resolveInviteTokenFromUrl(window.location.href);
-            const failedResumeInvite = Boolean(
+            failedResumeInvite = Boolean(
               failedInvite.resumeToken && failedInvite.playerId,
             );
             const backup = resumeIdentityBackupRef.current;
@@ -600,6 +610,17 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
             return;
           }
 
+          const nextJoinBlockedReason =
+            reason === PLAYER_TAKEOVER_CLOSE_REASON
+              ? "takeover"
+              : reason === "invalid token" && failedResumeInvite
+                ? "device-link-invalid"
+                : "invite";
+          staleResumeInviteRef.current =
+            nextJoinBlockedReason === "device-link-invalid"
+              ? { sessionId }
+              : null;
+
           dispatchConnectionEvent({ type: "reset" });
           const store = useGameStore.getState();
           store.setRoomTokens(null);
@@ -609,9 +630,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
             clearLastSessionId();
           }
           setJoinBlocked(true);
-          setJoinBlockedReason(
-            reason === PLAYER_TAKEOVER_CLOSE_REASON ? "takeover" : "invite",
-          );
+          setJoinBlockedReason(nextJoinBlockedReason);
 
           const activeResources = resourcesRef.current;
           if (activeResources) {
@@ -642,6 +661,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       awarenessRef.current = awareness;
       localPlayerIdRef.current = ensuredPlayerId;
       resourcesRef.current = resources;
+      hasInitialSyncRef.current = false;
       authFailureHandled.current = false;
 
       const attemptJoin = createAttemptJoin({
@@ -704,8 +724,13 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
 
       provider.on("sync", (isSynced: boolean) => {
         if (!isSynced) return;
+        hasInitialSyncRef.current = true;
+        fullSyncToStore();
         scheduleDebouncedTimeout(postSyncFullSyncTimer, 50, fullSyncToStore);
-        scheduleDebouncedTimeout(postSyncInitTimer, 60, attemptJoin);
+        scheduleDebouncedTimeout(postSyncInitTimer, 60, () => {
+          pendingIntentJoinRef.current = false;
+          attemptJoin();
+        });
       });
 
       cleanup = () => {
@@ -726,8 +751,10 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         teardownSessionResources(sessionId, { awareness, provider, intentTransport });
         resourcesRef.current = null;
         connectionGeneration.current += 1;
+        hasInitialSyncRef.current = false;
 
         attemptJoinRef.current = null;
+        pendingIntentJoinRef.current = false;
       };
 
       clearConnectAttemptTimer();
