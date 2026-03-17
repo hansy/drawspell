@@ -6,6 +6,7 @@ import type {
   HiddenState,
   InnerApplyResult,
   Intent,
+  IntentImpact,
   LogEvent,
 } from "../types";
 import { getMaps } from "../yjsStore";
@@ -20,6 +21,64 @@ const PUBLIC_DOC_NOOP_INTENTS = new Set([
   "dice.roll",
 ]);
 
+type HiddenChangeImpact = {
+  ownerId?: string;
+  zoneId?: string;
+  reveal?: HiddenReveal;
+  prevReveal?: HiddenReveal;
+};
+
+const createHiddenImpactTracker = () => {
+  let hiddenChanged = false;
+  const changedOwners = new Set<string>();
+  const changedZones = new Set<string>();
+  const changedRevealPlayers = new Set<string>();
+  let changedRevealAll = false;
+
+  const addRevealScope = (reveal?: HiddenReveal) => {
+    if (!reveal) return;
+    if (reveal.toAll) {
+      changedRevealAll = true;
+    }
+    if (!Array.isArray(reveal.toPlayers)) return;
+    reveal.toPlayers.forEach((playerId) => {
+      if (typeof playerId === "string") {
+        changedRevealPlayers.add(playerId);
+      }
+    });
+  };
+
+  return {
+    markHiddenChanged: (impact?: HiddenChangeImpact) => {
+      hiddenChanged = true;
+      const hasScope = Boolean(
+        impact?.ownerId || impact?.zoneId || impact?.reveal || impact?.prevReveal
+      );
+      if (!hasScope) {
+        changedRevealAll = true;
+      }
+      if (impact?.ownerId) {
+        changedOwners.add(impact.ownerId);
+      }
+      if (impact?.zoneId) {
+        changedZones.add(impact.zoneId);
+      }
+      addRevealScope(impact?.reveal);
+      addRevealScope(impact?.prevReveal);
+    },
+    hasHiddenChanges: () => hiddenChanged,
+    buildImpact: (changedPublicDoc: boolean): IntentImpact => ({
+      changedOwners: Array.from(changedOwners),
+      changedZones: Array.from(changedZones),
+      changedRevealScopes: {
+        toAll: changedRevealAll,
+        toPlayers: Array.from(changedRevealPlayers),
+      },
+      changedPublicDoc,
+    }),
+  };
+};
+
 export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState): ApplyResult => {
   if (!intent || typeof intent.type !== "string") {
     return { ok: false, error: "invalid intent" };
@@ -28,48 +87,25 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
   const actorId = readActorId(payload);
   const maps = getMaps(doc);
   const logEvents: LogEvent[] = [];
-  let hiddenChanged = false;
-  const changedOwners = new Set<string>();
-  const changedZones = new Set<string>();
-  const changedRevealPlayers = new Set<string>();
-  let changedRevealAll = false;
+  const hiddenImpact = createHiddenImpactTracker();
   let changedPublicDoc = false;
   const pushLogEvent = (eventId: string, logPayload: Record<string, unknown>) => {
     logEvents.push({ eventId, payload: logPayload });
-  };
-  const markHiddenChanged = (impact?: {
-    ownerId?: string;
-    zoneId?: string;
-    reveal?: HiddenReveal;
-    prevReveal?: HiddenReveal;
-  }) => {
-    hiddenChanged = true;
-    const hasScope = Boolean(
-      impact?.ownerId || impact?.zoneId || impact?.reveal || impact?.prevReveal
-    );
-    if (!hasScope) {
-      changedRevealAll = true;
-    }
-    if (impact?.ownerId) changedOwners.add(impact.ownerId);
-    if (impact?.zoneId) changedZones.add(impact.zoneId);
-    const revealScopes = [impact?.reveal, impact?.prevReveal].filter(
-      Boolean
-    ) as HiddenReveal[];
-    for (const reveal of revealScopes) {
-      if (reveal?.toAll) changedRevealAll = true;
-      if (Array.isArray(reveal?.toPlayers)) {
-        reveal.toPlayers.forEach((playerId) => {
-          if (typeof playerId === "string") changedRevealPlayers.add(playerId);
-        });
-      }
-    }
   };
 
   const apply = (): InnerApplyResult => {
     if (!actorId) return { ok: false, error: "missing actor" };
     const handler = getIntentHandler(intent.type);
     if (!handler) return { ok: false, error: `unhandled intent: ${intent.type}` };
-    return handler({ intent, payload, actorId, maps, hidden, pushLogEvent, markHiddenChanged });
+    return handler({
+      intent,
+      payload,
+      actorId,
+      maps,
+      hidden,
+      pushLogEvent,
+      markHiddenChanged: hiddenImpact.markHiddenChanged,
+    });
   };
 
   try {
@@ -81,19 +117,11 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
       if (!changedPublicDoc) {
         changedPublicDoc = !PUBLIC_DOC_NOOP_INTENTS.has(intent.type);
       }
-      const impact = {
-        changedOwners: Array.from(changedOwners),
-        changedZones: Array.from(changedZones),
-        changedRevealScopes: {
-          toAll: changedRevealAll,
-          toPlayers: Array.from(changedRevealPlayers),
-        },
-        changedPublicDoc,
-      };
+      const impact = hiddenImpact.buildImpact(changedPublicDoc);
       return {
         ok: true,
         logEvents,
-        ...(hiddenChanged ? { hiddenChanged: true } : null),
+        ...(hiddenImpact.hasHiddenChanges() ? { hiddenChanged: true } : null),
         impact,
       };
     }
