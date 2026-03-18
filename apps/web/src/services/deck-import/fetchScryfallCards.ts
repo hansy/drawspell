@@ -152,6 +152,20 @@ const mergeMissingCard = (missingMap: Map<string, ParsedCard>, card: ParsedCard)
   }
 };
 
+const mergeMissingCards = (missingMap: Map<string, ParsedCard>, cards: ParsedCard[]) => {
+  cards.forEach((card) => mergeMissingCard(missingMap, card));
+};
+
+const appendImportedCards = (
+  target: (Partial<Card> & { section: ParsedCard["section"] })[],
+  scryfallCard: ScryfallCard,
+  request: ParsedCard
+) => {
+  for (let i = 0; i < request.quantity; i++) {
+    target.push(buildImportedCardPart(scryfallCard, request.section));
+  }
+};
+
 const fetchCardByName = async (
   request: (url: string, init?: RequestInit) => Promise<Response>,
   name: string
@@ -283,7 +297,7 @@ export const fetchScryfallCards = async (
 
       if (!response.ok) {
         errors.push(buildScryfallHttpError({ endpoint: "collection", url: collectionUrl, response }));
-        requestsChunk.forEach((request) => mergeMissingCard(missingMap, request));
+        mergeMissingCards(missingMap, requestsChunk);
         continue;
       }
 
@@ -294,7 +308,7 @@ export const fetchScryfallCards = async (
         errors.push(
           buildScryfallInvalidResponseError({ endpoint: "collection", url: collectionUrl, error })
         );
-        requestsChunk.forEach((request) => mergeMissingCard(missingMap, request));
+        mergeMissingCards(missingMap, requestsChunk);
         continue;
       }
 
@@ -306,7 +320,7 @@ export const fetchScryfallCards = async (
             error: new Error("Missing data array"),
           })
         );
-        requestsChunk.forEach((request) => mergeMissingCard(missingMap, request));
+        mergeMissingCards(missingMap, requestsChunk);
         continue;
       }
       data.warnings?.forEach((warning) => warnings.push(warning));
@@ -319,13 +333,11 @@ export const fetchScryfallCards = async (
           return;
         }
 
-        for (let i = 0; i < request.quantity; i++) {
-          fetchedCards.push(buildImportedCardPart(resolved, request.section));
-        }
+        appendImportedCards(fetchedCards, resolved, request);
       });
     } catch (error) {
       errors.push(buildScryfallNetworkError({ endpoint: "collection", url: collectionUrl, error }));
-      requestsChunk.forEach((request) => mergeMissingCard(missingMap, request));
+      mergeMissingCards(missingMap, requestsChunk);
     }
   }
 
@@ -342,9 +354,7 @@ export const fetchScryfallCards = async (
     cardsToCache.push(resolved);
     missingMap.delete(normalizedKey(missingCard));
 
-    for (let i = 0; i < missingCard.quantity; i++) {
-      fetchedCards.push(buildImportedCardPart(resolved, missingCard.section));
-    }
+    appendImportedCards(fetchedCards, resolved, missingCard);
   }
 
   if (cardsToCache.length > 0) {
