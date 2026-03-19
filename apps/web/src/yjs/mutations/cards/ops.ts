@@ -30,6 +30,14 @@ const getCardsSnapshot = (maps: SharedMaps): Record<string, Card> => {
   return result;
 };
 
+const readBattlefieldCard = (maps: SharedMaps, cardId: string) => {
+  const card = readCard(maps, cardId);
+  if (!card) return null;
+  const zone = readZone(maps, card.zoneId);
+  if (!zone || zone.type !== ZONE.BATTLEFIELD) return null;
+  return card;
+};
+
 export function upsertCard(maps: SharedMaps, card: Card) {
   const zone = readZone(maps, card.zoneId);
   const nextCounters = enforceZoneCounterRules(card.counters, zone || undefined);
@@ -47,10 +55,8 @@ export function removeCard(maps: SharedMaps, cardId: string) {
 }
 
 export function transformCard(maps: SharedMaps, cardId: string, faceIndex?: number) {
-  const card = readCard(maps, cardId);
+  const card = readBattlefieldCard(maps, cardId);
   if (!card) return;
-  const zone = readZone(maps, card.zoneId);
-  if (!zone || zone.type !== ZONE.BATTLEFIELD) return;
   if (!isTransformableCard(card)) return;
 
   const faces = getCardFaces(card);
@@ -75,19 +81,15 @@ export function addCounterToCard(
   cardId: string,
   counter: { type: string; count: number; color?: string }
 ) {
-  const card = readCard(maps, cardId);
+  const card = readBattlefieldCard(maps, cardId);
   if (!card) return;
-  const zone = readZone(maps, card.zoneId);
-  if (!zone || zone.type !== ZONE.BATTLEFIELD) return;
   const merged = mergeCounters(card.counters, counter);
   patchCard(maps, cardId, { counters: merged });
 }
 
 export function removeCounterFromCard(maps: SharedMaps, cardId: string, counterType: string) {
-  const card = readCard(maps, cardId);
+  const card = readBattlefieldCard(maps, cardId);
   if (!card) return;
-  const zone = readZone(maps, card.zoneId);
-  if (!zone || zone.type !== ZONE.BATTLEFIELD) return;
   const next = card.counters
     .map((c) => (c.type === counterType ? { ...c, count: c.count - 1 } : c))
     .filter((c) => c.count > 0);
