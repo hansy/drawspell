@@ -4,21 +4,50 @@ export type PeerCounts = {
   spectators: number;
 };
 
-export const computePeerCounts = (states: Map<number, unknown>): PeerCounts => {
-  const unique = new Map<string, "player" | "spectator">();
+type PeerRole = "player" | "spectator";
+type PeerClientState = {
+  id?: string;
+  role?: string;
+};
+type PeerAwarenessState = {
+  client?: PeerClientState;
+};
 
-  states.forEach((state: any, clientId) => {
-    const userId = state?.client?.id;
-    const role = state?.client?.role === "spectator" ? "spectator" : "player";
-    const key = typeof userId === "string" ? `u:${userId}` : `c:${clientId}`;
-    const existing = unique.get(key);
-    if (!existing || (existing === "spectator" && role === "player")) {
+const EMPTY_PEER_COUNTS: PeerCounts = {
+  total: 1,
+  players: 1,
+  spectators: 0,
+};
+
+const getPeerRole = (state: PeerAwarenessState | null | undefined): PeerRole =>
+  state?.client?.role === "spectator" ? "spectator" : "player";
+
+const getPeerKey = (
+  state: PeerAwarenessState | null | undefined,
+  clientId: number
+) => {
+  const userId = state?.client?.id;
+  return typeof userId === "string" ? `u:${userId}` : `c:${clientId}`;
+};
+
+const shouldTrackRole = (existing: PeerRole | undefined, next: PeerRole) =>
+  !existing || (existing === "spectator" && next === "player");
+
+export const computePeerCounts = (
+  states: ReadonlyMap<number, PeerAwarenessState | null | undefined>
+): PeerCounts => {
+  const unique = new Map<string, PeerRole>();
+
+  states.forEach((state, clientId) => {
+    const role = getPeerRole(state);
+    const key = getPeerKey(state, clientId);
+    if (shouldTrackRole(unique.get(key), role)) {
       unique.set(key, role);
     }
   });
 
   if (unique.size === 0) {
-    return { total: 1, players: 1, spectators: 0 };
+    return { ...EMPTY_PEER_COUNTS };
   }
 
   let players = 0;
