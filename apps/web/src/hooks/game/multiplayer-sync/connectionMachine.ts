@@ -68,11 +68,15 @@ export const transitionConnectionMachine = (
     effects.push({ type: "cancelStableReset" });
   };
 
+  const resetReconnectTracking = () => {
+    next.reconnectAttempt = 0;
+    next.abandoned = false;
+  };
+
   const scheduleReconnect = (reason: BackoffReason, resetAttempt: boolean) => {
     if (next.pendingReconnect) return;
     if (resetAttempt) {
-      next.reconnectAttempt = 0;
-      next.abandoned = false;
+      resetReconnectTracking();
     }
     const attempt = next.reconnectAttempt;
     if (shouldAbandonReconnect(attempt, backoff)) {
@@ -134,14 +138,12 @@ export const transitionConnectionMachine = (
     }
     case "stable-reset-timer-fired": {
       next.pendingStableReset = false;
-      next.reconnectAttempt = 0;
-      next.abandoned = false;
+      resetReconnectTracking();
       break;
     }
     case "reset": {
       next.phase = "connecting";
-      next.reconnectAttempt = 0;
-      next.abandoned = false;
+      resetReconnectTracking();
       cancelReconnect();
       cancelStableReset();
       break;
