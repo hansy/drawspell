@@ -96,6 +96,25 @@ export const normalizedPositionKey = (position: { x: number; y: number }) =>
 
 const positionKey = normalizedPositionKey;
 
+const addOccupiedPosition = (
+  occupied: Set<string>,
+  position: { x: number; y: number } | null | undefined
+) => {
+  if (!position) return;
+  occupied.add(positionKey(clampNormalizedPosition(position)));
+};
+
+const createOccupiedPositionSet = <T>(
+  items: Iterable<T>,
+  getPosition: (item: T) => { x: number; y: number } | null | undefined
+) => {
+  const occupied = new Set<string>();
+  for (const item of items) {
+    addOccupiedPosition(occupied, getPosition(item));
+  }
+  return occupied;
+};
+
 export const toNormalizedPosition = (
   position: { x: number; y: number },
   zoneWidth: number = LEGACY_BATTLEFIELD_WIDTH,
@@ -170,14 +189,10 @@ export const resolveBattlefieldCollisionPosition = ({
   stepY?: number;
   maxAttempts?: number;
 }) => {
-  const occupied = new Set<string>();
-  orderedCardIds.forEach((id) => {
-    if (id === movingCardId) return;
-    const pos = getPosition(id);
-    if (!pos) return;
-    const clamped = clampNormalizedPosition(pos);
-    occupied.add(positionKey(clamped));
-  });
+  const occupied = createOccupiedPositionSet(
+    orderedCardIds,
+    (id) => (id === movingCardId ? null : getPosition(id))
+  );
 
   return resolvePositionAgainstOccupied({
     targetPosition,
@@ -208,14 +223,7 @@ export const resolveBattlefieldGroupCollisionPositions = ({
 
   const movingSet = new Set(movingCardIds);
   const otherIds = orderedCardIds.filter((id) => !movingSet.has(id));
-  const occupied = new Set<string>();
-
-  for (const otherId of otherIds) {
-    const pos = getPosition(otherId);
-    if (!pos) continue;
-    const clamped = clampNormalizedPosition(pos);
-    occupied.add(positionKey(clamped));
-  }
+  const occupied = createOccupiedPositionSet(otherIds, getPosition);
 
   const resolved: Record<string, { x: number; y: number }> = {};
   const orderedMovingIds = movingCardIds.filter((id) => Boolean(targetPositions[id]));
@@ -250,13 +258,7 @@ export const findAvailablePositionNormalized = (
   stepY: number = GRID_STEP_Y,
   maxChecks: number = 50
 ) => {
-  const occupied = new Set<string>();
-  zoneCardIds.forEach((id) => {
-    const card = cards[id];
-    if (card) {
-      occupied.add(positionKey(clampNormalizedPosition(card.position)));
-    }
-  });
+  const occupied = createOccupiedPositionSet(zoneCardIds, (id) => cards[id]?.position);
 
   let candidate = clampNormalizedPosition(start);
   let attempts = 0;
