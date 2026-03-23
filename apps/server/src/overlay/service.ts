@@ -30,6 +30,11 @@ const getByteLength = (value: string) => {
 
 const hashZoneOrder = (cardIds: string[]) => cardIds.join("|");
 
+type ZoneOrderHashState = {
+  hash: string;
+  version: number;
+};
+
 const hashCardLite = (card: CardLite) => {
   const revealedTo =
     Array.isArray(card.revealedTo) && card.revealedTo.length
@@ -76,7 +81,7 @@ const hashCardLite = (card: CardLite) => {
 type OverlayCacheState = {
   overlayVersion: number;
   cardHashes: Map<string, string>;
-  zoneOrderHashes: Map<string, { hash: string; version: number }>;
+  zoneOrderHashes: Map<string, ZoneOrderHashState>;
   meta: OverlayMeta;
 };
 
@@ -103,7 +108,7 @@ type OverlayDiffResult = {
     zoneOrderRemovals?: string[];
     zoneCardOrderVersions?: Record<string, number>;
   };
-  nextZoneOrderHashes: Map<string, { hash: string; version: number }>;
+  nextZoneOrderHashes: Map<string, ZoneOrderHashState>;
 };
 
 type OverlayServiceOptions = {
@@ -112,6 +117,18 @@ type OverlayServiceOptions = {
   schemaVersion?: number;
   diffMaxRatio?: number;
   diffMaxBytes?: number;
+};
+
+const resolveZoneOrderHashState = (
+  zoneId: string,
+  hash: string,
+  cache?: OverlayCacheState
+): ZoneOrderHashState => {
+  const previous = cache?.zoneOrderHashes.get(zoneId);
+  const version =
+    previous?.hash === hash ? previous.version : (previous?.version ?? 0) + 1;
+
+  return { hash, version };
 };
 
 export class OverlayService {
@@ -398,17 +415,12 @@ export class OverlayService {
     cache?: OverlayCacheState
   ) {
     const zoneCardOrderVersions: Record<string, number> = {};
-    const nextZoneOrderHashes = new Map<string, { hash: string; version: number }>();
+    const nextZoneOrderHashes = new Map<string, ZoneOrderHashState>();
 
     for (const [zoneId, hash] of build.zoneOrderHashes.entries()) {
-      const prev = cache?.zoneOrderHashes.get(zoneId);
-      const version = prev
-        ? prev.hash === hash
-          ? prev.version
-          : prev.version + 1
-        : 1;
-      zoneCardOrderVersions[zoneId] = version;
-      nextZoneOrderHashes.set(zoneId, { hash, version });
+      const nextState = resolveZoneOrderHashState(zoneId, hash, cache);
+      zoneCardOrderVersions[zoneId] = nextState.version;
+      nextZoneOrderHashes.set(zoneId, nextState);
     }
 
     return { zoneCardOrderVersions, nextZoneOrderHashes };
@@ -434,21 +446,17 @@ export class OverlayService {
     const zoneOrderRemovals: string[] = [];
     const zoneCardOrders: Record<string, string[]> = {};
     const zoneCardOrderVersions: Record<string, number> = {};
-    const nextZoneOrderHashes = new Map<string, { hash: string; version: number }>();
+    const nextZoneOrderHashes = new Map<string, ZoneOrderHashState>();
 
     for (const [zoneId, hash] of build.zoneOrderHashes.entries()) {
       const prev = cache.zoneOrderHashes.get(zoneId);
-      const version = prev
-        ? prev.hash === hash
-          ? prev.version
-          : prev.version + 1
-        : 1;
-      nextZoneOrderHashes.set(zoneId, { hash, version });
+      const nextState = resolveZoneOrderHashState(zoneId, hash, cache);
+      nextZoneOrderHashes.set(zoneId, nextState);
       if (!prev || prev.hash !== hash) {
         const nextOrder = build.overlay.zoneCardOrders?.[zoneId];
         if (Array.isArray(nextOrder)) {
           zoneCardOrders[zoneId] = nextOrder;
-          zoneCardOrderVersions[zoneId] = version;
+          zoneCardOrderVersions[zoneId] = nextState.version;
         }
       }
     }
