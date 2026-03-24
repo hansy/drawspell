@@ -33,6 +33,12 @@ export const readRecord = (value: unknown): Record<string, unknown> | null => {
   return isRecord(plain) ? plain : null;
 };
 
+const readEntity = <T extends { id: string }>(value: unknown, id: string): T | null => {
+  const raw = readRecord(value);
+  if (!raw) return null;
+  return { ...(raw as T), id };
+};
+
 export const uniqueStrings = (values: unknown[]): string[] =>
   Array.from(new Set(values.filter((value): value is string => typeof value === "string")));
 
@@ -57,24 +63,45 @@ export const syncZoneOrder = (maps: Maps, zoneId: string, ids: string[]) => {
   maps.zoneCardOrders.set(zoneId, next);
 };
 
-export const readZone = (maps: Maps, zoneId: string): Zone | null => {
-  const raw = readRecord(maps.zones.get(zoneId));
-  if (!raw) return null;
-  const zone = raw as unknown as Zone;
+const readZoneRecord = (maps: Maps, value: unknown, zoneId: string): Zone | null => {
+  const zone = readEntity<Zone>(value, zoneId);
+  if (!zone) return null;
   const cardIds = readZoneCardIds(maps, zoneId, zone);
   return { ...zone, id: zoneId, cardIds };
 };
 
-export const readCard = (maps: Maps, cardId: string): Card | null => {
-  const raw = readRecord(maps.cards.get(cardId));
-  if (!raw) return null;
-  return { ...(raw as unknown as Card), id: cardId };
+const setSnapshotEntity = <T extends { id: string }>(
+  target: Record<string, T>,
+  value: unknown,
+  key: unknown
+) => {
+  const id = String(key);
+  const entity = readEntity<T>(value, id);
+  if (entity) {
+    target[id] = entity;
+  }
 };
 
-export const readPlayer = (maps: Maps, playerId: string): Player | null => {
-  const raw = readRecord(maps.players.get(playerId));
-  if (!raw) return null;
-  return { ...(raw as unknown as Player), id: playerId };
+export const readZone = (maps: Maps, zoneId: string): Zone | null =>
+  readZoneRecord(maps, maps.zones.get(zoneId), zoneId);
+
+export const readCard = (maps: Maps, cardId: string): Card | null =>
+  readEntity<Card>(maps.cards.get(cardId), cardId);
+
+export const readPlayer = (maps: Maps, playerId: string): Player | null =>
+  readEntity<Player>(maps.players.get(playerId), playerId);
+
+const setSnapshotZone = (
+  target: Record<string, Zone>,
+  maps: Maps,
+  value: unknown,
+  key: unknown
+) => {
+  const zoneId = String(key);
+  const zone = readZoneRecord(maps, value, zoneId);
+  if (zone) {
+    target[zoneId] = zone;
+  }
 };
 
 export const writeZone = (maps: Maps, zone: Zone) => {
@@ -104,23 +131,15 @@ export const buildSnapshot = (maps: Maps): Snapshot => {
   const meta: Record<string, unknown> = {};
 
   maps.players.forEach((value, key) => {
-    const raw = readRecord(value);
-    if (!raw) return;
-    players[String(key)] = { ...(raw as unknown as Player), id: String(key) };
+    setSnapshotEntity(players, value, key);
   });
 
   maps.zones.forEach((value, key) => {
-    const raw = readRecord(value);
-    if (!raw) return;
-    const zoneId = String(key);
-    const zone = raw as unknown as Zone;
-    zones[zoneId] = { ...zone, id: zoneId, cardIds: readZoneCardIds(maps, zoneId, zone) };
+    setSnapshotZone(zones, maps, value, key);
   });
 
   maps.cards.forEach((value, key) => {
-    const raw = readRecord(value);
-    if (!raw) return;
-    cards[String(key)] = { ...(raw as unknown as Card), id: String(key) };
+    setSnapshotEntity(cards, value, key);
   });
 
   maps.globalCounters.forEach((value, key) => {
