@@ -19,6 +19,37 @@ type Deps = {
   dispatchIntent: DispatchIntent;
 };
 
+const resolveCardCounterContext = (
+  get: GetState,
+  cardId: string,
+  counterType: string,
+  actorId: string | undefined,
+  action: "addCounterToCard" | "removeCounterFromCard",
+) => {
+  const state = get();
+  const card = state.cards[cardId];
+  if (!card) return null;
+
+  const actor = actorId ?? state.myPlayerId;
+  const role = actor === state.myPlayerId ? state.viewerRole : "player";
+  const zone = state.zones[card.zoneId];
+  if (!isBattlefieldZone(zone)) return null;
+
+  const permission = canModifyCardState({ actorId: actor, role }, card, zone);
+  if (!permission.allowed) {
+    logPermission({
+      action,
+      actorId: actor,
+      allowed: false,
+      reason: permission.reason,
+      details: { cardId, zoneId: card.zoneId, counterType },
+    });
+    return null;
+  }
+
+  return { card, actor };
+};
+
 export const createCounterActions = (
   _set: SetState,
   get: GetState,
@@ -52,31 +83,19 @@ export const createCounterActions = (
       },
       isRemote: _isRemote,
     });
-
   },
 
   addCounterToCard: (cardId, counter, actorId, _isRemote) => {
-    const state = get();
-    const card = state.cards[cardId];
-    if (!card) return;
+    const context = resolveCardCounterContext(
+      get,
+      cardId,
+      counter.type,
+      actorId,
+      "addCounterToCard",
+    );
+    if (!context) return;
 
-    const actor = actorId ?? state.myPlayerId;
-    const role = actor === state.myPlayerId ? state.viewerRole : "player";
-    const zone = state.zones[card.zoneId];
-    if (!isBattlefieldZone(zone)) return;
-
-    const permission = canModifyCardState({ actorId: actor, role }, card, zone);
-    if (!permission.allowed) {
-      logPermission({
-        action: "addCounterToCard",
-        actorId: actor,
-        allowed: false,
-        reason: permission.reason,
-        details: { cardId, zoneId: card.zoneId, counterType: counter.type },
-      });
-      return;
-    }
-
+    const { card, actor } = context;
     const prevCount = card.counters.find((c) => c.type === counter.type)?.count ?? 0;
     const newCounters = mergeCounters(card.counters, counter);
     const nextCount =
@@ -112,27 +131,16 @@ export const createCounterActions = (
   },
 
   removeCounterFromCard: (cardId, counterType, actorId, _isRemote) => {
-    const state = get();
-    const card = state.cards[cardId];
-    if (!card) return;
+    const context = resolveCardCounterContext(
+      get,
+      cardId,
+      counterType,
+      actorId,
+      "removeCounterFromCard",
+    );
+    if (!context) return;
 
-    const actor = actorId ?? state.myPlayerId;
-    const role = actor === state.myPlayerId ? state.viewerRole : "player";
-    const zone = state.zones[card.zoneId];
-    if (!isBattlefieldZone(zone)) return;
-
-    const permission = canModifyCardState({ actorId: actor, role }, card, zone);
-    if (!permission.allowed) {
-      logPermission({
-        action: "removeCounterFromCard",
-        actorId: actor,
-        allowed: false,
-        reason: permission.reason,
-        details: { cardId, zoneId: card.zoneId, counterType },
-      });
-      return;
-    }
-
+    const { card, actor } = context;
     const prevCount = card.counters.find((c) => c.type === counterType)?.count ?? 0;
     const newCounters = decrementCounter(card.counters, counterType);
     const nextCount = newCounters.find((c) => c.type === counterType)?.count ?? 0;
