@@ -41,6 +41,31 @@ interface ZoneActionBuilderParams {
   }) => void;
 }
 
+type CountPromptHandler = NonNullable<ZoneActionBuilderParams["openCountPrompt"]>;
+
+const PROMPT_UNAVAILABLE_REASON = "Prompt unavailable";
+
+const buildCountPromptAction = ({
+  label,
+  shortcut,
+  openCountPrompt,
+  buildPromptOptions,
+}: {
+  label: string;
+  shortcut?: string;
+  openCountPrompt?: ZoneActionBuilderParams["openCountPrompt"];
+  buildPromptOptions: () => Parameters<CountPromptHandler>[0];
+}): ContextMenuItem => ({
+  type: "action",
+  label,
+  onSelect: () => {
+    if (!openCountPrompt) return;
+    openCountPrompt(buildPromptOptions());
+  },
+  disabledReason: openCountPrompt ? undefined : PROMPT_UNAVAILABLE_REASON,
+  shortcut,
+});
+
 const buildLibraryDrawMenu = ({
   myPlayerId,
   drawCard,
@@ -57,24 +82,20 @@ const buildLibraryDrawMenu = ({
       onSelect: () => drawCard(myPlayerId),
       shortcut: getShortcutLabel("game.drawOne"),
     },
-    {
-      type: "action",
+    buildCountPromptAction({
       label: "Draw X...",
-      onSelect: () => {
-        if (!openCountPrompt) return;
-        openCountPrompt({
-          title: "Draw",
-          message: "How many cards to draw?",
-          onSubmit: (count) => {
-            for (let i = 0; i < count; i++) {
-              drawCard(myPlayerId);
-            }
-          },
-        });
-      },
-      disabledReason: openCountPrompt ? undefined : "Prompt unavailable",
+      openCountPrompt,
+      buildPromptOptions: () => ({
+        title: "Draw",
+        message: "How many cards to draw?",
+        onSubmit: (count) => {
+          for (let i = 0; i < count; i++) {
+            drawCard(myPlayerId);
+          }
+        },
+      }),
       shortcut: getShortcutLabel("game.drawX"),
-    },
+    }),
   ];
 
   return {
@@ -101,21 +122,17 @@ const buildLibraryDiscardMenu = ({
       onSelect: () => discardFromLibrary(myPlayerId, 1),
       shortcut: getShortcutLabel("game.discardOne"),
     },
-    {
-      type: "action",
+    buildCountPromptAction({
       label: "Discard X...",
-      onSelect: () => {
-        if (!openCountPrompt) return;
-        openCountPrompt({
-          title: "Discard",
-          message: "How many cards to discard?",
-          onSubmit: (count) => discardFromLibrary(myPlayerId, count),
-          minValue: 1,
-        });
-      },
-      disabledReason: openCountPrompt ? undefined : "Prompt unavailable",
+      openCountPrompt,
+      buildPromptOptions: () => ({
+        title: "Discard",
+        message: "How many cards to discard?",
+        onSubmit: (count) => discardFromLibrary(myPlayerId, count),
+        minValue: 1,
+      }),
       shortcut: getShortcutLabel("game.discardX"),
-    },
+    }),
   ];
 
   return {
@@ -142,20 +159,16 @@ const buildLibraryViewMenu = ({
       onSelect: () => onViewZone(zoneId),
       shortcut: getShortcutLabel("zone.viewLibraryAll"),
     },
-    {
-      type: "action",
+    buildCountPromptAction({
       label: "View top X...",
-      onSelect: () => {
-        if (!openCountPrompt) return;
-        openCountPrompt({
-          title: "View Top",
-          message: "How many cards from top?",
-          onSubmit: (count) => onViewZone(zoneId, count),
-        });
-      },
-      disabledReason: openCountPrompt ? undefined : "Prompt unavailable",
+      openCountPrompt,
+      buildPromptOptions: () => ({
+        title: "View Top",
+        message: "How many cards from top?",
+        onSubmit: (count) => onViewZone(zoneId, count),
+      }),
       shortcut: getShortcutLabel("zone.viewLibraryTop"),
-    },
+    }),
   ];
 
   return {
@@ -281,23 +294,21 @@ export const buildZoneViewActions = ({
       onSelect: () => shuffleLibrary(myPlayerId),
       shortcut: getShortcutLabel("game.shuffleLibrary"),
     });
-    items.push({
-      type: "action",
-      label: "Mulligan",
-      onSelect: () => {
-        if (!openCountPrompt) return;
-        openCountPrompt({
+    items.push(
+      buildCountPromptAction({
+        label: "Mulligan",
+        openCountPrompt,
+        buildPromptOptions: () => ({
           title: "Mulligan",
           message: "Reset deck and draw new cards. How many cards to draw?",
           initialValue: 7,
           onSubmit: (count) => {
             mulligan(myPlayerId, count);
           },
-        });
-      },
-      disabledReason: openCountPrompt ? undefined : "Prompt unavailable",
-      shortcut: getShortcutLabel("game.mulligan"),
-    });
+        }),
+        shortcut: getShortcutLabel("game.mulligan"),
+      })
+    );
     items.push({ type: "separator" });
     items.push({
       type: "action",
