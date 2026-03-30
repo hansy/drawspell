@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { webcrypto } from "node:crypto";
+import { ensureRuntimePolyfills } from "./runtimePolyfills";
 
 const mocks = vi.hoisted(() => ({
   routePartykitRequest: vi.fn(async () => null),
@@ -41,14 +41,8 @@ vi.mock("../domain/intents/applyIntentToDoc", () => ({
 import { DISCORD_INVITE_METADATA_KEY, ROOM_TOKENS_KEY } from "../domain/constants";
 import server, { Room } from "../server";
 
-const ensureWebCrypto = () => {
-  if (!globalThis.crypto || !globalThis.crypto.subtle) {
-    Object.defineProperty(globalThis, "crypto", { value: webcrypto });
-  }
-};
-
 beforeAll(() => {
-  ensureWebCrypto();
+  ensureRuntimePolyfills();
 });
 
 describe("discord provisioning endpoint", () => {
