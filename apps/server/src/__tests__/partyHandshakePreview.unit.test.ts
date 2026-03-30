@@ -1,7 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { webcrypto } from "node:crypto";
-import { Buffer } from "node:buffer";
 import { createJoinToken } from "@mtg/shared/security/joinToken";
+import { ensureRuntimePolyfills } from "./runtimePolyfills";
 
 const mocks = vi.hoisted(() => ({
   routePartykitRequest: vi.fn(async () => new Response("upgraded", { status: 200 })),
@@ -38,26 +37,8 @@ vi.mock("y-partyserver", () => ({
 
 import server from "../server";
 
-const ensureWebCrypto = () => {
-  if (!globalThis.crypto || !globalThis.crypto.subtle) {
-    Object.defineProperty(globalThis, "crypto", { value: webcrypto });
-  }
-};
-
-const ensureBase64 = () => {
-  if (typeof globalThis.btoa !== "function") {
-    globalThis.btoa = (input: string) =>
-      Buffer.from(input, "binary").toString("base64");
-  }
-  if (typeof globalThis.atob !== "function") {
-    globalThis.atob = (input: string) =>
-      Buffer.from(input, "base64").toString("binary");
-  }
-};
-
 beforeAll(() => {
-  ensureWebCrypto();
-  ensureBase64();
+  ensureRuntimePolyfills({ base64: true });
 });
 
 describe("party websocket handshake allowlist", () => {
