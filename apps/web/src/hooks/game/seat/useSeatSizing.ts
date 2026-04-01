@@ -81,19 +81,18 @@ export interface SeatSizing {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+const resolvePositiveFiniteNumber = (value?: number) =>
+  typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
+
 export const getPreviewMinWidthPx = (
   viewportWidthPx?: number,
   floorPx: number = PREVIEW_MIN_WIDTH_PX,
   viewportRatio: number = PREVIEW_MIN_WIDTH_VIEWPORT_RATIO,
 ) => {
-  const resolvedViewportWidth =
-    typeof viewportWidthPx === "number" &&
-    Number.isFinite(viewportWidthPx) &&
-    viewportWidthPx > 0
-      ? viewportWidthPx
-      : null;
-
-  if (resolvedViewportWidth === null) return floorPx;
+  const resolvedViewportWidth = resolvePositiveFiniteNumber(viewportWidthPx);
+  if (resolvedViewportWidth === undefined) return floorPx;
   return Math.max(floorPx, resolvedViewportWidth * viewportRatio);
 };
 
@@ -113,21 +112,15 @@ export const getPreviewDimensions = (
     previewMaxWidthPx = PREVIEW_MAX_WIDTH_PX,
   } = options;
   const resolvedViewportWidthPx =
-    typeof viewportWidthPx === "number" &&
-    Number.isFinite(viewportWidthPx) &&
-    viewportWidthPx > 0
-      ? viewportWidthPx
-      : typeof window !== "undefined"
-        ? window.innerWidth
-        : undefined;
+    resolvePositiveFiniteNumber(viewportWidthPx) ??
+    (typeof window !== "undefined" ? window.innerWidth : undefined);
   const resolvedPreviewMinWidthPx = getPreviewMinWidthPx(
     resolvedViewportWidthPx,
     previewMinWidthPx,
   );
   const resolvedBaseWidth =
-    Number.isFinite(baseCardWidthPx) && (baseCardWidthPx ?? 0) > 0
-      ? baseCardWidthPx!
-      : BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;
+    resolvePositiveFiniteNumber(baseCardWidthPx) ??
+    BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;
   const previewWidthPx = clamp(
     resolvedBaseWidth * previewScale,
     resolvedPreviewMinWidthPx,
