@@ -166,6 +166,42 @@ const appendImportedCards = (
   }
 };
 
+const parseCollectionResponse = async (
+  response: Response,
+  url: string
+): Promise<ScryfallFetchResult<ScryfallCollectionResponse>> => {
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: buildScryfallHttpError({ endpoint: "collection", url, response }),
+    };
+  }
+
+  let data: unknown;
+  try {
+    data = await response.json();
+  } catch (error) {
+    return {
+      ok: false,
+      error: buildScryfallInvalidResponseError({ endpoint: "collection", url, error }),
+    };
+  }
+
+  const collectionResponse = data as ScryfallCollectionResponse;
+  if (!Array.isArray(collectionResponse.data)) {
+    return {
+      ok: false,
+      error: buildScryfallInvalidResponseError({
+        endpoint: "collection",
+        url,
+        error: new Error("Missing data array"),
+      }),
+    };
+  }
+
+  return { ok: true, data: collectionResponse };
+};
+
 const fetchCardByName = async (
   request: (url: string, init?: RequestInit) => Promise<Response>,
   name: string
@@ -281,6 +317,13 @@ export const fetchScryfallCards = async (
   const errors: ScryfallFetchError[] = [];
   const cardsToCache: ScryfallCard[] = [];
   const collectionUrl = "https://api.scryfall.com/cards/collection";
+  const recordCollectionChunkFailure = (
+    error: ScryfallFetchError,
+    requestsChunk: ParsedCard[]
+  ) => {
+    errors.push(error);
+    mergeMissingCards(missingMap, requestsChunk);
+  };
 
   for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
     const identifierChunk = chunks[chunkIndex] ?? [];
@@ -294,35 +337,13 @@ export const fetchScryfallCards = async (
         },
         body: JSON.stringify({ identifiers: identifierChunk }),
       });
-
-      if (!response.ok) {
-        errors.push(buildScryfallHttpError({ endpoint: "collection", url: collectionUrl, response }));
-        mergeMissingCards(missingMap, requestsChunk);
+      const collectionResult = await parseCollectionResponse(response, collectionUrl);
+      if (!collectionResult.ok) {
+        recordCollectionChunkFailure(collectionResult.error, requestsChunk);
         continue;
       }
 
-      let data: ScryfallCollectionResponse;
-      try {
-        data = (await response.json()) as ScryfallCollectionResponse;
-      } catch (error) {
-        errors.push(
-          buildScryfallInvalidResponseError({ endpoint: "collection", url: collectionUrl, error })
-        );
-        mergeMissingCards(missingMap, requestsChunk);
-        continue;
-      }
-
-      if (!Array.isArray(data.data)) {
-        errors.push(
-          buildScryfallInvalidResponseError({
-            endpoint: "collection",
-            url: collectionUrl,
-            error: new Error("Missing data array"),
-          })
-        );
-        mergeMissingCards(missingMap, requestsChunk);
-        continue;
-      }
+      const data = collectionResult.data;
       data.warnings?.forEach((warning) => warnings.push(warning));
       data.data.forEach((scryfallCard) => cardsToCache.push(scryfallCard));
 
@@ -336,8 +357,10 @@ export const fetchScryfallCards = async (
         appendImportedCards(fetchedCards, resolved, request);
       });
     } catch (error) {
-      errors.push(buildScryfallNetworkError({ endpoint: "collection", url: collectionUrl, error }));
-      mergeMissingCards(missingMap, requestsChunk);
+      recordCollectionChunkFailure(
+        buildScryfallNetworkError({ endpoint: "collection", url: collectionUrl, error }),
+        requestsChunk
+      );
     }
   }
 
