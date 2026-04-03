@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { ORIGINS } from "@mtg/shared/constants/hosts";
 import { createJoinToken } from "@mtg/shared/security/joinToken";
+import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
 
 type JoinTokenRequest = {
   roomId: string;
@@ -12,12 +12,7 @@ type JoinTokenResponse = {
 };
 
 const JOIN_TOKEN_TTL_MS = 5 * 60_000;
-const viteEnv = import.meta.env.VITE_ENV;
-const origins = ORIGINS[viteEnv as keyof typeof ORIGINS];
-
-if (!origins) {
-  throw new Error(`Unsupported VITE_ENV: ${viteEnv}`);
-}
+const origins = resolveOriginsForEnv(import.meta.env.VITE_ENV);
 
 const joinTokenValidator = (input: JoinTokenRequest) => input;
 

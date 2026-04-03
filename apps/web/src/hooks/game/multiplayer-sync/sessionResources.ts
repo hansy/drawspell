@@ -2,10 +2,10 @@ import type * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
 import YPartyServerProvider from "y-partyserver/provider";
 import { toast } from "sonner";
-import { ORIGINS } from "@mtg/shared/constants/hosts";
 import { clearLogs, emitLog } from "@/logging/logStore";
 import { getPostHogDistinctId } from "@/lib/posthog";
 import { resolvePartyKitHost } from "@/lib/partyKitHost";
+import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
 import {
   clearInviteTokenFromUrl,
   clearRoomHostPending,
@@ -56,11 +56,7 @@ import type { ViewerRole } from "@/types";
 const viteEnv =
   import.meta.env.VITE_ENV ||
   (import.meta.env.MODE === "test" ? "development" : import.meta.env.MODE);
-const origins = ORIGINS[viteEnv as keyof typeof ORIGINS];
-
-if (!origins) {
-  throw new Error(`Unsupported VITE_ENV: ${viteEnv}`);
-}
+const origins = resolveOriginsForEnv(viteEnv);
 
 export type SessionSetupResult = {
   awareness: Awareness;
