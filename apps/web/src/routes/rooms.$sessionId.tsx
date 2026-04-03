@@ -1,15 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ORIGINS } from "@mtg/shared/constants/hosts";
 import { MultiplayerBoard } from "@/components/game/board/MultiplayerBoard";
 import { UsernamePromptScreen } from "@/components/username/UsernamePromptScreen";
+import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
 
-const viteEnv = import.meta.env.VITE_ENV;
-const origins = ORIGINS[viteEnv as keyof typeof ORIGINS];
-
-if (!origins) {
-  throw new Error(`Unsupported VITE_ENV: ${viteEnv}`);
-}
+const origins = resolveOriginsForEnv(import.meta.env.VITE_ENV);
 
 export const Route = createFileRoute("/rooms/$sessionId")({
   component: GameRoute,

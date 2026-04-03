@@ -18,14 +18,9 @@ import { LandingBackground } from "@/components/landing/LandingBackground";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { OrbitAnimation } from "@/components/landing/OrbitAnimation";
 import { ResumeCard } from "@/components/landing/ResumeCard";
-import { ORIGINS } from "@mtg/shared/constants/hosts";
+import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
 
-const viteEnv = import.meta.env.VITE_ENV;
-const origins = ORIGINS[viteEnv as keyof typeof ORIGINS];
-
-if (!origins) {
-  throw new Error(`Unsupported VITE_ENV: ${viteEnv}`);
-}
+const origins = resolveOriginsForEnv(import.meta.env.VITE_ENV);
 
 const LandingPage = () => {
   const navigate = useNavigate();
