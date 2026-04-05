@@ -33,6 +33,18 @@ const getLiveCommanderZoneCardIds = (maps: Maps, zoneId: string, cardIds: string
     return Boolean(existing && existing.zoneId === zoneId);
   });
 
+const resolveFaceDownModePatch = (
+  nextFaceDown: boolean,
+  nextFaceDownMode: MoveOpts["faceDownMode"] | undefined,
+  currentFaceDownMode: MoveOpts["faceDownMode"] | undefined
+): MoveOpts["faceDownMode"] | null | undefined => {
+  if (nextFaceDown) {
+    return nextFaceDownMode ?? null;
+  }
+
+  return currentFaceDownMode ? null : undefined;
+};
+
 const resolveFaceDownAfterMove = ({
   fromZoneType,
   toZoneType,
@@ -49,27 +61,30 @@ const resolveFaceDownAfterMove = ({
   requestedFaceDownMode?: MoveOpts["faceDownMode"];
 }): FaceDownMoveResolution => {
   if (requestedFaceDown !== undefined) {
-    const nextMode = requestedFaceDown ? requestedFaceDownMode : undefined;
+    const effectiveFaceDownMode = requestedFaceDown ? requestedFaceDownMode : undefined;
     return {
       effectiveFaceDown: requestedFaceDown,
       patchFaceDown: requestedFaceDown,
-      effectiveFaceDownMode: nextMode,
-      patchFaceDownMode: requestedFaceDown
-        ? requestedFaceDownMode ?? null
-        : currentFaceDownMode
-          ? null
-          : undefined,
+      effectiveFaceDownMode,
+      patchFaceDownMode: resolveFaceDownModePatch(
+        requestedFaceDown,
+        requestedFaceDownMode,
+        currentFaceDownMode
+      ),
     };
   }
 
   const battlefieldToBattlefield =
     fromZoneType === ZONE.BATTLEFIELD && toZoneType === ZONE.BATTLEFIELD;
   if (battlefieldToBattlefield) {
+    const effectiveFaceDownMode = currentFaceDown ? currentFaceDownMode : undefined;
     return {
       effectiveFaceDown: currentFaceDown,
       patchFaceDown: undefined,
-      effectiveFaceDownMode: currentFaceDown ? currentFaceDownMode : undefined,
-      patchFaceDownMode: currentFaceDown ? undefined : currentFaceDownMode ? null : undefined,
+      effectiveFaceDownMode,
+      patchFaceDownMode: currentFaceDown
+        ? undefined
+        : resolveFaceDownModePatch(false, undefined, currentFaceDownMode),
     };
   }
 
@@ -77,7 +92,7 @@ const resolveFaceDownAfterMove = ({
     effectiveFaceDown: false,
     patchFaceDown: false,
     effectiveFaceDownMode: undefined,
-    patchFaceDownMode: currentFaceDownMode ? null : undefined,
+    patchFaceDownMode: resolveFaceDownModePatch(false, undefined, currentFaceDownMode),
   };
 };
 
