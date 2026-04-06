@@ -69,57 +69,31 @@ export type CloseTopmostUiArgs = {
   setShortcutsOpen: (open: boolean) => void;
 };
 
+type UiClosePriority = {
+  isOpen: boolean;
+  close: () => void;
+};
+
+const getCloseTopmostUiPriorities = (args: CloseTopmostUiArgs): UiClosePriority[] => [
+  { isOpen: args.contextMenuOpen, close: args.closeContextMenu },
+  { isOpen: args.countPromptOpen, close: args.closeCountPrompt },
+  { isOpen: args.textPromptOpen, close: args.closeTextPrompt },
+  { isOpen: args.activeModalOpen, close: args.closeActiveModal },
+  { isOpen: args.shareDialogOpen, close: () => args.setShareDialogOpen(false) },
+  { isOpen: args.tokenModalOpen, close: () => args.setTokenModalOpen(false) },
+  { isOpen: args.coinFlipperOpen, close: () => args.setCoinFlipperOpen(false) },
+  { isOpen: args.diceRollerOpen, close: () => args.setDiceRollerOpen(false) },
+  { isOpen: args.loadDeckModalOpen, close: () => args.setLoadDeckModalOpen(false) },
+  { isOpen: args.zoneViewerOpen, close: args.closeZoneViewer },
+  { isOpen: args.opponentRevealsOpen, close: args.closeOpponentReveals },
+  { isOpen: args.shortcutsOpen, close: () => args.setShortcutsOpen(false) },
+  { isOpen: args.logOpen, close: () => args.setLogOpen(false) },
+];
+
 export const closeTopmostUi = (args: CloseTopmostUiArgs): boolean => {
-  if (args.contextMenuOpen) {
-    args.closeContextMenu();
-    return true;
-  }
-  if (args.countPromptOpen) {
-    args.closeCountPrompt();
-    return true;
-  }
-  if (args.textPromptOpen) {
-    args.closeTextPrompt();
-    return true;
-  }
-  if (args.activeModalOpen) {
-    args.closeActiveModal();
-    return true;
-  }
-  if (args.shareDialogOpen) {
-    args.setShareDialogOpen(false);
-    return true;
-  }
-  if (args.tokenModalOpen) {
-    args.setTokenModalOpen(false);
-    return true;
-  }
-  if (args.coinFlipperOpen) {
-    args.setCoinFlipperOpen(false);
-    return true;
-  }
-  if (args.diceRollerOpen) {
-    args.setDiceRollerOpen(false);
-    return true;
-  }
-  if (args.loadDeckModalOpen) {
-    args.setLoadDeckModalOpen(false);
-    return true;
-  }
-  if (args.zoneViewerOpen) {
-    args.closeZoneViewer();
-    return true;
-  }
-  if (args.opponentRevealsOpen) {
-    args.closeOpponentReveals();
-    return true;
-  }
-  if (args.shortcutsOpen) {
-    args.setShortcutsOpen(false);
-    return true;
-  }
-  if (args.logOpen) {
-    args.setLogOpen(false);
+  for (const priority of getCloseTopmostUiPriorities(args)) {
+    if (!priority.isOpen) continue;
+    priority.close();
     return true;
   }
   return false;
