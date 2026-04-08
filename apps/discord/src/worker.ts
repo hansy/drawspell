@@ -95,42 +95,46 @@ const displayNameForUser = (
   user: Pick<DiscordUser, "global_name" | "username" | "id">,
 ) => user.global_name?.trim() || user.username?.trim() || user.id;
 
+const visitInteractionOptions = (
+  options: unknown,
+  visit: (option: Record<string, unknown>) => boolean | void,
+): boolean => {
+  if (!Array.isArray(options)) return true;
+
+  for (const option of options) {
+    if (!option || typeof option !== "object") continue;
+
+    const record = option as Record<string, unknown>;
+    if (visit(record) === false) return false;
+    if (
+      Array.isArray(record.options)
+      && !visitInteractionOptions(record.options, visit)
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 const collectTaggedUserIds = (options: unknown): string[] => {
   const taggedIds: string[] = [];
-  const visit = (nodes: unknown) => {
-    if (!Array.isArray(nodes)) return;
-    for (const node of nodes) {
-      if (!node || typeof node !== "object") continue;
-      const record = node as Record<string, unknown>;
-      if (record.type === 6 && typeof record.value === "string") {
-        taggedIds.push(record.value);
-      }
-      if (Array.isArray(record.options)) {
-        visit(record.options);
-      }
+  visitInteractionOptions(options, (record) => {
+    if (record.type === 6 && typeof record.value === "string") {
+      taggedIds.push(record.value);
     }
-  };
-  visit(options);
+  });
   return taggedIds;
 };
 
 const hasCreateSubcommand = (options: unknown): boolean => {
   let foundCreate = false;
-  const visit = (nodes: unknown) => {
-    if (foundCreate || !Array.isArray(nodes)) return;
-    for (const node of nodes) {
-      if (!node || typeof node !== "object") continue;
-      const record = node as Record<string, unknown>;
-      if (record.type === 1 && record.name === "create") {
-        foundCreate = true;
-        return;
-      }
-      if (Array.isArray(record.options)) {
-        visit(record.options);
-      }
+  visitInteractionOptions(options, (record) => {
+    if (record.type === 1 && record.name === "create") {
+      foundCreate = true;
+      return false;
     }
-  };
-  visit(options);
+  });
   return foundCreate;
 };
 
