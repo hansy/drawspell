@@ -64,18 +64,25 @@ export const createCardActionAdapters = (params: {
     });
   };
 
-  const applyToTargets = (seedId: CardId, action: (card: Card) => void) => {
+  const withTargetIds = (
+    seedId: CardId | undefined,
+    action: (targetIds: CardId[]) => void
+  ) => {
     const targetIds = resolveTargetIds(seedId);
     if (targetIds.length === 0) return;
+    action(targetIds);
+  };
 
-    const run = () => {
+  const applyToTargetCards = (
+    seedId: CardId | undefined,
+    action: (card: Card) => void
+  ) => {
+    withTargetIds(seedId, (targetIds) => {
       targetIds.forEach((id) => {
         const card = params.store.cards[id];
         if (card) action(card);
       });
-    };
-
-    run();
+    });
   };
 
   const moveCard: MoveCardFn = (
@@ -86,7 +93,7 @@ export const createCardActionAdapters = (params: {
     isRemote,
     opts
   ) => {
-    applyToTargets(cardId, (card) => {
+    applyToTargetCards(cardId, (card) => {
       params.store.moveCard(
         card.id,
         toZoneId,
@@ -101,68 +108,61 @@ export const createCardActionAdapters = (params: {
   return {
     moveCard,
     moveCardToBottom: (cardId: CardId, toZoneId: ZoneId) => {
-      applyToTargets(cardId, (card) =>
+      applyToTargetCards(cardId, (card) =>
         params.store.moveCardToBottom(card.id, toZoneId, params.myPlayerId)
       );
     },
     tapCard: (cardId: CardId) => {
       const seedCard = params.store.cards[cardId];
       if (!seedCard) return;
-      const targetIds = resolveTargetIds(cardId);
-      if (targetIds.length === 0) return;
       const targetTapped = !seedCard.tapped;
 
-      const run = () => {
-        targetIds.forEach((id) => {
-          const card = params.store.cards[id];
-          if (!card) return;
+      applyToTargetCards(cardId, (card) => {
           if (card.tapped === targetTapped) return;
           params.store.tapCard(card.id, params.myPlayerId);
-        });
-      };
-
-      run();
+      });
     },
     transformCard: (cardId: CardId, faceIndex?: number) => {
-      const targetIds = resolveTargetIds(cardId);
-      if (targetIds.length === 0) return;
-      targetIds.forEach((id) => {
-        params.store.transformCard(id, faceIndex);
+      withTargetIds(cardId, (targetIds) => {
+        targetIds.forEach((id) => {
+          params.store.transformCard(id, faceIndex);
+        });
       });
     },
     duplicateCard: (cardId: CardId) =>
-      applyToTargets(cardId, (card) =>
+      applyToTargetCards(cardId, (card) =>
         params.store.duplicateCard(card.id, params.myPlayerId)
       ),
     createRelatedCard: (card: Card, related: ScryfallRelatedCard) => {
-      const targetIds = resolveTargetIds(card.id);
-      if (targetIds.length === 0) return;
-      if (targetIds.length === 1) {
-        params.createRelatedCard(card, related);
-        return;
-      }
-      targetIds.forEach((id) => {
-        const targetCard = params.store.cards[id];
-        if (targetCard) params.createRelatedCard(targetCard, related);
+      withTargetIds(card.id, (targetIds) => {
+        if (targetIds.length === 1) {
+          params.createRelatedCard(card, related);
+          return;
+        }
+
+        targetIds.forEach((id) => {
+          const targetCard = params.store.cards[id];
+          if (targetCard) params.createRelatedCard(targetCard, related);
+        });
       });
     },
     updateCard: (cardId: CardId, updates: Partial<Card>) =>
-      applyToTargets(cardId, (card) =>
+      applyToTargetCards(cardId, (card) =>
         params.store.updateCard(card.id, updates, params.myPlayerId)
       ),
     setCardReveal: (
       cardId: CardId,
       reveal: { toAll?: boolean; to?: PlayerId[] } | null
     ) =>
-      applyToTargets(cardId, (card) =>
+      applyToTargetCards(cardId, (card) =>
         params.store.setCardReveal(card.id, reveal, params.myPlayerId)
       ),
     addCounter: (cardId: CardId, counter: { type: string; count: number; color?: string }) =>
-      applyToTargets(cardId, (card) =>
+      applyToTargetCards(cardId, (card) =>
         params.store.addCounterToCard(card.id, counter, params.myPlayerId)
       ),
     removeCounter: (cardId: CardId, counterType: string) =>
-      applyToTargets(cardId, (card) =>
+      applyToTargetCards(cardId, (card) =>
         params.store.removeCounterFromCard(card.id, counterType, params.myPlayerId)
       ),
     openAddCounterModal: (cardIds: CardId[]) => {
@@ -173,14 +173,11 @@ export const createCardActionAdapters = (params: {
       params.store.setActiveModal({ type: "ADD_COUNTER", cardIds: targetIds });
     },
     removeCard: (card: Card) => {
-      const targetIds = resolveTargetIds(card.id);
-      if (targetIds.length === 0) return;
-      const run = () => {
+      withTargetIds(card.id, (targetIds) => {
         targetIds.forEach((id) => {
           params.store.removeCard(id, params.myPlayerId);
         });
-      };
-      run();
+      });
     },
     openTextPrompt: params.openTextPrompt,
   };
