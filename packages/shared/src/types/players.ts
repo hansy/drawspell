@@ -12,6 +12,11 @@ export type LibraryTopRevealMode =
   | LegacyLibraryTopRevealMode
   | LibraryTopReveal;
 
+const isLegacyLibraryTopRevealMode = (
+  value: unknown,
+): value is LegacyLibraryTopRevealMode =>
+  value === "self" || value === "others" || value === "all";
+
 const uniquePlayerIds = (value: unknown): PlayerId[] => {
   if (!Array.isArray(value)) return [];
   return Array.from(
@@ -21,34 +26,37 @@ const uniquePlayerIds = (value: unknown): PlayerId[] => {
   );
 };
 
-export const isLibraryTopRevealMode = (
+const normalizeLibraryTopRevealObject = (
   value: unknown,
-): value is LibraryTopRevealMode => {
-  if (value === "self" || value === "others" || value === "all") return true;
-  if (!value || typeof value !== "object") return false;
-  const record = value as Record<string, unknown>;
-  return (
-    record.toAll === true ||
-    (Array.isArray(record.to) &&
-      record.to.some((entry) => typeof entry === "string"))
-  );
-};
-
-export const normalizeLibraryTopReveal = (
-  value: unknown,
-): LibraryTopRevealMode | undefined => {
-  if (value === "self" || value === "others" || value === "all") return value;
+): LibraryTopReveal | undefined => {
   if (!value || typeof value !== "object") return undefined;
 
   const record = value as Record<string, unknown>;
   const toAll = record.toAll === true;
-  const to = Array.isArray(record.to) ? uniquePlayerIds(record.to) : [];
+  const to = uniquePlayerIds(record.to);
 
   if (!toAll && to.length === 0) return undefined;
   return {
     ...(toAll ? { toAll: true } : null),
     ...(to.length ? { to } : null),
   };
+};
+
+export const isLibraryTopRevealMode = (
+  value: unknown,
+): value is LibraryTopRevealMode => {
+  return (
+    isLegacyLibraryTopRevealMode(value) ||
+    normalizeLibraryTopRevealObject(value) !== undefined
+  );
+};
+
+export const normalizeLibraryTopReveal = (
+  value: unknown,
+): LibraryTopRevealMode | undefined => {
+  return isLegacyLibraryTopRevealMode(value)
+    ? value
+    : normalizeLibraryTopRevealObject(value);
 };
 
 export const normalizeLibraryTopRevealMode = (
