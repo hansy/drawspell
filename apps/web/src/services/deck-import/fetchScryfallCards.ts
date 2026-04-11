@@ -6,6 +6,7 @@ import {
   buildScryfallHttpError,
   buildScryfallInvalidResponseError,
   buildScryfallNetworkError,
+  type ScryfallEndpoint,
   type ScryfallFetchError,
   type ScryfallFetchResult,
 } from "@/services/scryfall/scryfallErrors";
@@ -166,6 +167,21 @@ const appendImportedCards = (
   }
 };
 
+const parseScryfallJson = async <T>(
+  response: Response,
+  endpoint: ScryfallEndpoint,
+  url: string
+): Promise<ScryfallFetchResult<T>> => {
+  try {
+    return { ok: true, data: (await response.json()) as T };
+  } catch (error) {
+    return {
+      ok: false,
+      error: buildScryfallInvalidResponseError({ endpoint, url, error }),
+    };
+  }
+};
+
 const parseCollectionResponse = async (
   response: Response,
   url: string
@@ -177,17 +193,12 @@ const parseCollectionResponse = async (
     };
   }
 
-  let data: unknown;
-  try {
-    data = await response.json();
-  } catch (error) {
-    return {
-      ok: false,
-      error: buildScryfallInvalidResponseError({ endpoint: "collection", url, error }),
-    };
+  const parsed = await parseScryfallJson<ScryfallCollectionResponse>(response, "collection", url);
+  if (!parsed.ok) {
+    return parsed;
   }
 
-  const collectionResponse = data as ScryfallCollectionResponse;
+  const collectionResponse = parsed.data;
   if (!Array.isArray(collectionResponse.data)) {
     return {
       ok: false,
@@ -217,17 +228,12 @@ const fetchCardByName = async (
         }
         return { ok: false, error: buildScryfallHttpError({ endpoint: "named", url, response }) };
       }
-      let data: unknown;
-      try {
-        data = await response.json();
-      } catch (error) {
-        return {
-          ok: false,
-          error: buildScryfallInvalidResponseError({ endpoint: "named", url, error }),
-        };
+      const parsed = await parseScryfallJson<unknown>(response, "named", url);
+      if (!parsed.ok) {
+        return parsed;
       }
-      if ((data as { object?: string })?.object === "error") return { ok: true, data: null };
-      return { ok: true, data: data as ScryfallCard };
+      if ((parsed.data as { object?: string })?.object === "error") return { ok: true, data: null };
+      return { ok: true, data: parsed.data as ScryfallCard };
     } catch (error) {
       return { ok: false, error: buildScryfallNetworkError({ endpoint: "named", url, error }) };
     }
