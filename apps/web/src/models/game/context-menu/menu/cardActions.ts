@@ -1,7 +1,6 @@
 import type {
   Card,
   CardId,
-  FaceDownMode,
   Player,
   PlayerId,
   ViewerRole,
@@ -20,6 +19,7 @@ import {
   isTransformableCard,
 } from "@/lib/cardDisplay";
 
+import type { ContextMenuMoveCardFn } from "./actionTypes";
 import type { ContextMenuItem } from "./types";
 import { buildRevealMenu } from "./reveal";
 import { buildCounterMenuItems } from "./cardActions/counterMenu";
@@ -33,19 +33,7 @@ interface CardActionBuilderParams {
   players?: Record<PlayerId, Player>;
   myPlayerId: PlayerId;
   viewerRole?: ViewerRole;
-  moveCard: (
-    cardId: CardId,
-    toZoneId: ZoneId,
-    position?: { x: number; y: number },
-    actorId?: PlayerId,
-    isRemote?: boolean,
-    opts?: {
-      suppressLog?: boolean;
-      faceDown?: boolean;
-      faceDownMode?: FaceDownMode;
-      skipCollision?: boolean;
-    }
-  ) => void;
+  moveCard: ContextMenuMoveCardFn;
   moveCardToBottom?: (cardId: CardId, toZoneId: ZoneId) => void;
   tapCard: (cardId: CardId) => void;
   transformCard: (cardId: CardId, faceIndex?: number) => void;
