@@ -6,8 +6,12 @@ import {
   ensurePermission,
   readActorId,
   readPayload,
+  requireArrayProp,
   requireNonEmptyString,
+  requireNonEmptyStringProp,
+  requireRecordProp,
   requireString,
+  requireStringProp,
 } from "../validation";
 
 describe("intent validation helpers", () => {
@@ -26,6 +30,29 @@ describe("intent validation helpers", () => {
   it("distinguishes string vs non-empty string requirements", () => {
     expect(requireString("", "bad")).toEqual({ ok: true, value: "" });
     expect(requireNonEmptyString("", "bad")).toEqual({ ok: false, error: "bad" });
+  });
+
+  it("reuses the same validation rules for payload properties", () => {
+    expect(requireStringProp({ label: "" }, "label", "bad")).toEqual({
+      ok: true,
+      value: "",
+    });
+    expect(requireNonEmptyStringProp({ label: "" }, "label", "bad")).toEqual({
+      ok: false,
+      error: "bad",
+    });
+    expect(requireRecordProp({ meta: { ok: true } }, "meta", "bad")).toEqual({
+      ok: true,
+      value: { ok: true },
+    });
+    expect(requireArrayProp({ ids: ["a"] }, "ids", "bad")).toEqual({
+      ok: true,
+      value: ["a"],
+    });
+    expect(requireArrayProp({ ids: "a" }, "ids", "bad")).toEqual({
+      ok: false,
+      error: "bad",
+    });
   });
 
   it("surfaces permission reasons and fallbacks", () => {

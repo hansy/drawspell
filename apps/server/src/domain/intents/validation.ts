@@ -53,29 +53,37 @@ export const requireArray = <T = unknown>(
   return { ok: true, value: value as T[] };
 };
 
+const requireProp = <T>(
+  payload: Record<string, unknown>,
+  key: string,
+  error: string,
+  reader: (value: unknown, error: string) => ValidationResult<T>
+): ValidationResult<T> => reader(payload[key], error);
+
 export const requireStringProp = (
   payload: Record<string, unknown>,
   key: string,
   error: string
-): ValidationResult<string> => requireString(payload[key], error);
+): ValidationResult<string> => requireProp(payload, key, error, requireString);
 
 export const requireNonEmptyStringProp = (
   payload: Record<string, unknown>,
   key: string,
   error: string
-): ValidationResult<string> => requireNonEmptyString(payload[key], error);
+): ValidationResult<string> => requireProp(payload, key, error, requireNonEmptyString);
 
 export const requireRecordProp = (
   payload: Record<string, unknown>,
   key: string,
   error: string
-): ValidationResult<Record<string, unknown>> => requireRecord(payload[key], error);
+): ValidationResult<Record<string, unknown>> =>
+  requireProp(payload, key, error, requireRecord);
 
 export const requireArrayProp = <T = unknown>(
   payload: Record<string, unknown>,
   key: string,
   error: string
-): ValidationResult<T[]> => requireArray(payload[key], error);
+): ValidationResult<T[]> => requireProp(payload, key, error, requireArray<T>);
 
 export const ensureActorMatches = (
   actorId: string,
