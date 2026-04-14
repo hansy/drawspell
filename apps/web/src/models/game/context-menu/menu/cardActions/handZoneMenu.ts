@@ -1,24 +1,11 @@
-import type { Card, CardId, FaceDownMode, PlayerId, ViewerRole, Zone, ZoneId } from "@/types";
+import type { Card, PlayerId, ViewerRole, Zone, ZoneId } from "@/types";
 
 import { getPlayerZones } from "@/lib/gameSelectors";
 import { ZONE } from "@/constants/zones";
 import { canMoveCard } from "@/rules/permissions";
 
+import type { ContextMenuMoveCardFn } from "../actionTypes";
 import type { ContextMenuItem } from "../types";
-
-type MoveCardFn = (
-  cardId: CardId,
-  toZoneId: ZoneId,
-  position?: { x: number; y: number },
-  actorId?: PlayerId,
-  isRemote?: boolean,
-  opts?: {
-    suppressLog?: boolean;
-    faceDown?: boolean;
-    faceDownMode?: FaceDownMode;
-    skipCollision?: boolean;
-  }
-) => void;
 
 type BuildHandZoneMenuItemsParams = {
   card: Card;
@@ -26,7 +13,7 @@ type BuildHandZoneMenuItemsParams = {
   zones: Record<ZoneId, Zone>;
   myPlayerId: PlayerId;
   viewerRole?: ViewerRole;
-  moveCard: MoveCardFn;
+  moveCard: ContextMenuMoveCardFn;
 };
 
 export const buildHandZoneMenuItems = ({

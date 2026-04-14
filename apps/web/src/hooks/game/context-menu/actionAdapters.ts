@@ -1,21 +1,8 @@
-import type { Card, CardId, FaceDownMode, GameState, PlayerId, ZoneId } from "@/types";
+import type { Card, CardId, GameState, PlayerId, ZoneId } from "@/types";
 import type { ScryfallRelatedCard } from "@/types/scryfall";
 import { useSelectionStore } from "@/store/selectionStore";
 import { resolveSelectedCardIds } from "@/models/game/selection/selectionModel";
-
-type MoveCardFn = (
-  cardId: CardId,
-  toZoneId: ZoneId,
-  position?: { x: number; y: number },
-  actorId?: PlayerId,
-  isRemote?: boolean,
-  opts?: {
-    suppressLog?: boolean;
-    faceDown?: boolean;
-    faceDownMode?: FaceDownMode;
-    skipCollision?: boolean;
-  }
-) => void;
+import type { ContextMenuMoveCardFn } from "@/models/game/context-menu/menu/actionTypes";
 
 type OpenTextPromptFn = (opts: {
   title: string;
@@ -85,7 +72,7 @@ export const createCardActionAdapters = (params: {
     });
   };
 
-  const moveCard: MoveCardFn = (
+  const moveCard: ContextMenuMoveCardFn = (
     cardId,
     toZoneId,
     position,
