@@ -621,11 +621,15 @@ describe("buildCardActions", () => {
     expect(relatedParent?.submenu?.length).toBe(2);
   });
 
-  it("includes counter submenus with separator when globals exist", () => {
+  it("builds a consolidated counter submenu with recent and active counters", () => {
     const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1");
     const zones = { [battlefield.id]: battlefield };
     const actions = buildCardActions({
-      card: { ...baseCard, zoneId: battlefield.id },
+      card: {
+        ...baseCard,
+        zoneId: battlefield.id,
+        counters: [{ type: "+1/+1", count: 2 }],
+      },
       zones,
       myPlayerId: "p1",
       viewerRole: "player",
@@ -637,15 +641,48 @@ describe("buildCardActions", () => {
       addCounter: vi.fn(),
       removeCounter: vi.fn(),
       openAddCounterModal: vi.fn(),
-      globalCounters: { charge: "#000" },
+      globalCounters: { charge: "#000", "+1/+1": "#0f0" },
     });
+
+    expect(
+      actions.some((a) => a.type === "action" && a.label === "Add counter")
+    ).toBe(false);
+    expect(
+      actions.some((a) => a.type === "action" && a.label === "Remove counter")
+    ).toBe(false);
 
     const addParent = actions.find(
       (a): a is Extract<typeof a, { type: "action" }> =>
-        a.type === "action" && a.label === "Add counter"
+        a.type === "action" && a.label === "Add/remove counters"
     );
-    expect(addParent?.submenu?.some((i: any) => i.type === "separator")).toBe(
-      true
-    );
+    expect(addParent?.submenu?.[0]).toMatchObject({
+      type: "action",
+      label: "Add a new counter...",
+    });
+    expect(addParent?.submenu).toContainEqual({
+      type: "label",
+      label: "Recently used counters:",
+    });
+    expect(
+      addParent?.submenu?.some(
+        (item: any) =>
+          item.type === "action" &&
+          item.label === "charge" &&
+          item.closeOnSelect === false
+      )
+    ).toBe(true);
+    expect(
+      addParent?.submenu?.some(
+        (item: any) => item.type === "action" && item.label === "+1/+1"
+      )
+    ).toBe(false);
+    expect(
+      addParent?.submenu?.some(
+        (item: any) =>
+          item.type === "counter-control" &&
+          item.label === "+1/+1" &&
+          item.count === 2
+      )
+    ).toBe(true);
   });
 });
