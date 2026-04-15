@@ -1,3 +1,4 @@
+import { normalizeCounterType } from "@mtg/shared/counters";
 import type { Card, CardIdentity, CardLite } from "@mtg/shared/types/cards";
 import type { Counter } from "@mtg/shared/types/counters";
 import type { Zone } from "@mtg/shared/types/zones";
@@ -84,24 +85,35 @@ export const enforceZoneCounterRules = (counters: Counter[], zone?: Zone): Count
   zone?.type === ZONE.BATTLEFIELD ? counters : [];
 
 export const mergeCounters = (existing: Counter[], incoming: Counter): Counter[] => {
-  const idx = existing.findIndex((c) => c.type === incoming.type);
+  const normalizedType = normalizeCounterType(incoming.type);
+  if (!normalizedType) return existing;
+
+  const idx = existing.findIndex((counter) => normalizeCounterType(counter.type) === normalizedType);
   if (idx >= 0) {
     const next = [...existing];
-    next[idx] = { ...next[idx], count: next[idx].count + incoming.count };
+    next[idx] = {
+      ...next[idx],
+      type: normalizedType,
+      color: incoming.color ?? next[idx].color,
+      count: next[idx].count + incoming.count,
+    };
     return next;
   }
-  return [...existing, incoming];
+  return [...existing, { ...incoming, type: normalizedType }];
 };
 
 export const decrementCounter = (existing: Counter[], type: string, delta: number): Counter[] => {
-  const idx = existing.findIndex((c) => c.type === type);
+  const normalizedType = normalizeCounterType(type);
+  if (!normalizedType) return existing;
+
+  const idx = existing.findIndex((counter) => normalizeCounterType(counter.type) === normalizedType);
   if (idx === -1) return existing;
 
   const next = [...existing];
   const target = next[idx];
   const nextCount = target.count + delta;
   if (nextCount > 0) {
-    next[idx] = { ...target, count: nextCount };
+    next[idx] = { ...target, type: normalizedType, count: nextCount };
     return next;
   }
   next.splice(idx, 1);

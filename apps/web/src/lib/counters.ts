@@ -1,3 +1,4 @@
+import { normalizeCounterType } from "@mtg/shared/counters";
 import { ZONE } from "@/constants/zones";
 import { Counter, Zone } from "@/types";
 
@@ -27,26 +28,55 @@ export const enforceZoneCounterRules = (counters: Counter[], zone?: Zone): Count
   return isBattlefieldZone(zone) ? counters : [];
 };
 
+const findCounterIndex = (existing: Counter[], type: string) => {
+  const normalizedType = normalizeCounterType(type);
+  if (!normalizedType) return -1;
+  return existing.findIndex((counter) => normalizeCounterType(counter.type) === normalizedType);
+};
+
+const findGlobalCounterKey = (
+  globalCounters: Record<string, string>,
+  type: string
+): string | undefined => {
+  const normalizedType = normalizeCounterType(type);
+  if (!normalizedType) return undefined;
+
+  return Object.keys(globalCounters).find(
+    (counterType) => normalizeCounterType(counterType) === normalizedType
+  );
+};
+
 // Adds or increments a counter by type.
 export const mergeCounters = (existing: Counter[], incoming: Counter): Counter[] => {
-  const idx = existing.findIndex((c) => c.type === incoming.type);
+  const normalizedType = normalizeCounterType(incoming.type);
+  if (!normalizedType) return existing;
+
+  const idx = findCounterIndex(existing, normalizedType);
   if (idx >= 0) {
     const next = [...existing];
-    next[idx] = { ...next[idx], count: next[idx].count + incoming.count };
+    next[idx] = {
+      ...next[idx],
+      type: normalizedType,
+      color: incoming.color ?? next[idx].color,
+      count: next[idx].count + incoming.count,
+    };
     return next;
   }
-  return [...existing, incoming];
+  return [...existing, { ...incoming, type: normalizedType }];
 };
 
 // Decrements a counter by one; removes it if it hits zero.
 export const decrementCounter = (existing: Counter[], type: string): Counter[] => {
-  const idx = existing.findIndex((c) => c.type === type);
+  const normalizedType = normalizeCounterType(type);
+  if (!normalizedType) return existing;
+
+  const idx = findCounterIndex(existing, normalizedType);
   if (idx === -1) return existing;
 
   const next = [...existing];
   const target = next[idx];
   if (target.count > 1) {
-    next[idx] = { ...target, count: target.count - 1 };
+    next[idx] = { ...target, type: normalizedType, count: target.count - 1 };
     return next;
   }
 
@@ -66,6 +96,7 @@ const deriveColorFromString = (value: string): string => {
 export const resolveCounterColor = (type: string, globalCounters: Record<string, string>): string => {
   const preset = PRESET_COUNTERS.find((p) => p.type === type);
   if (preset) return preset.color;
-  if (globalCounters[type]) return globalCounters[type];
+  const existingKey = findGlobalCounterKey(globalCounters, type);
+  if (existingKey) return globalCounters[existingKey];
   return deriveColorFromString(type);
 };

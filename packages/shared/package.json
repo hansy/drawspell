@@ -5,6 +5,7 @@
   "version": "0.0.0",
   "exports": {
     ".": "./src/index.ts",
+    "./counters": "./src/counters.ts",
     "./constants/hosts": "./src/constants/hosts.ts",
     "./discord/provisioning": "./src/discord/provisioning.ts",
     "./types": "./src/types/index.ts",

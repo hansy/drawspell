@@ -133,6 +133,27 @@ describe("createCardFaceModel", () => {
     expect(model.toughnessClassName).toBe("text-white");
   });
 
+  it("shows parsed P/T counter adjustments on top of manual stats", () => {
+    const card = makeCard({
+      power: "3",
+      toughness: "4",
+      basePower: "2",
+      baseToughness: "2",
+      counters: [{ type: "+2/+1", count: 1 }],
+    });
+
+    const model = createCardFaceModel({
+      card,
+      zoneType: ZONE.BATTLEFIELD,
+      myPlayerId: "p1",
+      globalCounters: {},
+      revealToNames: [],
+    });
+
+    expect(model.displayPower).toBe("5");
+    expect(model.displayToughness).toBe("5");
+  });
+
   it("shows name label only on face-up battlefield", () => {
     const base = {
       myPlayerId: "p1",

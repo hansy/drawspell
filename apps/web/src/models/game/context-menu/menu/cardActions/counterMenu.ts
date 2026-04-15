@@ -1,4 +1,5 @@
 import type { Card, CardId } from "@/types";
+import { resolveCounterColor } from "@/lib/counters";
 
 import type { ContextMenuItem } from "../types";
 
@@ -24,64 +25,80 @@ export const buildCounterMenuItems = ({
   addCounter,
   removeCounter,
 }: BuildCounterMenuItemsParams): ContextMenuItem[] => {
-  const items: ContextMenuItem[] = [];
+  const activeCounterTypes = new Set(counters.map((counter) => counter.type));
+  const recentCounterTypes = Object.keys(globalCounters)
+    .filter((counterType) => !activeCounterTypes.has(counterType))
+    .reverse();
 
-  const globalCounterTypes = Object.keys(globalCounters).sort();
-
-  if (globalCounterTypes.length === 0) {
-    items.push({
+  const submenu: ContextMenuItem[] = [
+    {
       type: "action",
-      label: "Add counter",
+      label: "Add a new counter...",
       onSelect: () => {
         openAddCounterModal([cardId]);
       },
+    },
+  ];
+
+  if (recentCounterTypes.length > 0) {
+    submenu.push({
+      type: "label",
+      label: "Recently used counters:",
     });
-  } else {
-    const addCounterItems: ContextMenuItem[] = globalCounterTypes.map(
-      (counterType) => ({
-        type: "action",
-        label: counterType,
-        onSelect: () => {
-          addCounter(cardId, {
-            type: counterType,
-            count: 1,
-            color: globalCounters[counterType],
-          });
-        },
-      })
+
+    submenu.push(
+      ...recentCounterTypes.map(
+        (counterType): ContextMenuItem => ({
+          type: "action",
+          label: counterType,
+          closeOnSelect: false,
+          onSelect: () => {
+            addCounter(cardId, {
+              type: counterType,
+              count: 1,
+              color:
+                globalCounters[counterType] ??
+                resolveCounterColor(counterType, globalCounters),
+            });
+          },
+        })
+      )
     );
-
-    addCounterItems.push({ type: "separator", id: "add-counter-divider" });
-    addCounterItems.push({
-      type: "action",
-      label: "Create new...",
-      onSelect: () => {
-        openAddCounterModal([cardId]);
-      },
-    });
-
-    items.push({
-      type: "action",
-      label: "Add counter",
-      onSelect: () => {},
-      submenu: addCounterItems,
-    });
   }
 
   if (counters.length > 0) {
-    const removeCounterItems: ContextMenuItem[] = counters.map((counter) => ({
-      type: "action",
-      label: `${counter.type} (${counter.count})`,
-      onSelect: () => removeCounter(cardId, counter.type),
-    }));
+    submenu.push({ type: "separator", id: "counter-controls-divider" });
 
-    items.push({
-      type: "action",
-      label: "Remove counter",
-      onSelect: () => {},
-      submenu: removeCounterItems,
-    });
+    submenu.push(
+      ...counters.map(
+        (counter): ContextMenuItem => ({
+          type: "counter-control",
+          label: counter.type,
+          count: counter.count,
+          onIncrement: () => {
+            addCounter(cardId, {
+              type: counter.type,
+              count: 1,
+              color:
+                counter.color ??
+                globalCounters[counter.type] ??
+                resolveCounterColor(counter.type, globalCounters),
+            });
+          },
+          onDecrement: () => {
+            removeCounter(cardId, counter.type);
+          },
+        })
+      )
+    );
   }
 
-  return items;
+  return [
+    {
+      type: "action",
+      label: "Add/remove counters",
+      onSelect: () => {},
+      submenu,
+    },
+  ];
 };

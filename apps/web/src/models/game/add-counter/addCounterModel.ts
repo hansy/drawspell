@@ -1,7 +1,6 @@
+export { normalizeCounterType } from "@mtg/shared/counters";
+import { normalizeCounterType } from "@mtg/shared/counters";
 import type { Counter } from "@/types";
-
-export const normalizeCounterType = (raw: string, maxLen = 64): string =>
-  raw.trim().slice(0, maxLen);
 
 export const normalizeCounterCount = (raw: number): number => {
   if (!Number.isFinite(raw)) return 1;
@@ -12,7 +11,13 @@ export const getAllCounterTypes = (params: {
   presetTypes: string[];
   globalCounterTypes: string[];
 }): string[] => {
-  return Array.from(new Set([...params.presetTypes, ...params.globalCounterTypes])).sort();
+  return Array.from(
+    new Set(
+      [...params.presetTypes, ...params.globalCounterTypes]
+        .map((type) => normalizeCounterType(type))
+        .filter(Boolean)
+    )
+  ).sort();
 };
 
 export const planAddCounter = (params: {
@@ -37,4 +42,3 @@ export const planAddCounter = (params: {
     shouldAddGlobalCounter: !params.globalCounters[type],
   };
 };
-

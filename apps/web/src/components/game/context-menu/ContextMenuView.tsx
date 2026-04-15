@@ -58,6 +58,60 @@ export const ContextMenuView: React.FC<ContextMenuViewProps> = ({
             );
           }
 
+          if (item.type === "label") {
+            return (
+              <div
+                key={`${item.type}-${item.label}-${index}`}
+                className="px-4 pt-2 pb-1 text-[11px] font-medium text-zinc-500"
+              >
+                {item.label}
+              </div>
+            );
+          }
+
+          if (item.type === "counter-control") {
+            return (
+              <div
+                key={`${item.type}-${item.label}-${index}`}
+                className="flex items-center justify-between gap-3 px-4 py-2 text-sm text-zinc-200"
+              >
+                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    className="flex h-6 w-6 items-center justify-center rounded-md border border-zinc-600 bg-zinc-800 text-sm font-semibold text-zinc-100 transition-colors hover:bg-zinc-700"
+                    aria-label={`Remove ${item.label} counter`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      item.onDecrement();
+                    }}
+                  >
+                    -
+                  </button>
+
+                  <span className="min-w-[1.75rem] text-center text-xs font-semibold text-zinc-300">
+                    {item.count}
+                  </span>
+
+                  <button
+                    type="button"
+                    className="flex h-6 w-6 items-center justify-center rounded-md border border-zinc-600 bg-zinc-800 text-sm font-semibold text-zinc-100 transition-colors hover:bg-zinc-700"
+                    aria-label={`Add ${item.label} counter`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      item.onIncrement();
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
           const isDisabled = Boolean(item.disabledReason);
           const showSubmenu = Boolean(
             item.submenu && activeSubmenuIndex === index && submenuReference

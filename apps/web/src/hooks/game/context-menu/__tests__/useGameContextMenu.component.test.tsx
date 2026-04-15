@@ -8,6 +8,7 @@ import { ZONE } from "@/constants/zones";
 import { useGameStore } from "@/store/gameStore";
 import { fetchBattlefieldRelatedParts } from "../relatedParts";
 import { useGameContextMenu } from "../useGameContextMenu";
+import type { ContextMenuItem } from "@/models/game/context-menu/menu/types";
 
 vi.mock("../relatedParts", async () => {
   const actual = await vi.importActual<typeof import("../relatedParts")>("../relatedParts");
@@ -190,6 +191,97 @@ describe("useGameContextMenu", () => {
         .filter((item: any) => item.type === "action")
         .map((item: any) => item.label);
       expect(labels).toContain("Create Goblin token");
+    });
+  });
+
+  it("refreshes the counter submenu after quick counter changes", async () => {
+    const battlefield = createZone("me-battlefield", "me", ZONE.BATTLEFIELD, ["c1"]);
+    const card = createCard("c1", battlefield.id, "me");
+    resetStore({
+      players: { me: createPlayer("me", true) } as any,
+      zones: { [battlefield.id]: battlefield } as any,
+      cards: { [card.id]: card } as any,
+      globalCounters: { charge: "#0000ff" },
+    });
+
+    let value: HookValue | null = null;
+    render(<Probe myPlayerId="me" onValue={(v) => { value = v; }} />);
+
+    await waitFor(() => expect(value).not.toBeNull());
+
+    act(() => {
+      value!.handleCardContextMenu(createEvent(), card);
+    });
+
+    const getCounterMenu = () => {
+      const item = (value!.contextMenu?.items ?? []).find(
+        (entry): entry is Extract<ContextMenuItem, { type: "action" }> =>
+          entry.type === "action" && entry.label === "Add/remove counters"
+      );
+      expect(item?.submenu).toBeTruthy();
+      return item!.submenu!;
+    };
+
+    const getCounterControl = (label: string) =>
+      getCounterMenu().find(
+        (entry): entry is Extract<ContextMenuItem, { type: "counter-control" }> =>
+          entry.type === "counter-control" && entry.label === label
+      );
+
+    await waitFor(() => {
+      expect(
+        getCounterMenu().some(
+          (entry) => entry.type === "action" && entry.label === "charge"
+        )
+      ).toBe(true);
+      expect(getCounterControl("charge")).toBeUndefined();
+    });
+
+    const chargeAction = getCounterMenu().find(
+      (entry): entry is Extract<ContextMenuItem, { type: "action" }> =>
+        entry.type === "action" && entry.label === "charge"
+    );
+
+    act(() => {
+      chargeAction?.onSelect();
+    });
+
+    await waitFor(() => {
+      expect(
+        getCounterMenu().some(
+          (entry) => entry.type === "action" && entry.label === "charge"
+        )
+      ).toBe(false);
+      expect(getCounterControl("charge")?.count).toBe(1);
+    });
+
+    act(() => {
+      getCounterControl("charge")?.onIncrement();
+    });
+
+    await waitFor(() => {
+      expect(getCounterControl("charge")?.count).toBe(2);
+    });
+
+    act(() => {
+      getCounterControl("charge")?.onDecrement();
+    });
+
+    await waitFor(() => {
+      expect(getCounterControl("charge")?.count).toBe(1);
+    });
+
+    act(() => {
+      getCounterControl("charge")?.onDecrement();
+    });
+
+    await waitFor(() => {
+      expect(getCounterControl("charge")).toBeUndefined();
+      expect(
+        getCounterMenu().some(
+          (entry) => entry.type === "action" && entry.label === "charge"
+        )
+      ).toBe(true);
     });
   });
 });
