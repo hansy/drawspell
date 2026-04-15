@@ -1159,6 +1159,68 @@ describe("server migration behavior", () => {
     }
   });
 
+  it("normalizes text and P/T counters before storing them", () => {
+    const doc = createDoc();
+    const hidden = createEmptyHiddenState();
+
+    const globalCounter = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-34a",
+        type: "counter.global.add",
+        payload: {
+          actorId: "p1",
+          counterType: " Poison ",
+          color: "#00ff00",
+        },
+      },
+      hidden
+    );
+    expect(globalCounter.ok).toBe(true);
+    expect(doc.getMap("globalCounters").get("poison")).toBe("#00ff00");
+
+    seedPlayers(doc, [createPlayer("p1")]);
+    const battlefield = createZone("bf-p1", "battlefield", "p1", ["c1"]);
+    seedZones(doc, [battlefield]);
+    seedCards(doc, [createCard("c1", "p1", battlefield.id, { counters: [{ type: "Poison", count: 1 }] })]);
+
+    const add = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-34b",
+        type: "card.counter.adjust",
+        payload: {
+          actorId: "p1",
+          cardId: "c1",
+          counter: { type: " poison ", count: 2 },
+        },
+      },
+      hidden
+    );
+    expect(add.ok).toBe(true);
+
+    const ptAdd = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-34c",
+        type: "card.counter.adjust",
+        payload: {
+          actorId: "p1",
+          cardId: "c1",
+          counter: { type: " +01 / -02 ", count: 1 },
+        },
+      },
+      hidden
+    );
+    expect(ptAdd.ok).toBe(true);
+
+    const card = doc.getMap("cards").get("c1") as Card;
+    expect(card.counters).toEqual([
+      { type: "poison", count: 3 },
+      { type: "+1/-2", count: 1 },
+    ]);
+  });
+
   it("adjusts card counters with logs", () => {
     const doc = createDoc();
     seedPlayers(doc, [createPlayer("p1")]);
@@ -1210,6 +1272,88 @@ describe("server migration behavior", () => {
         "counter.remove",
       ]);
     }
+  });
+
+  it("logs normalized counter removals using the total merged count", () => {
+    const doc = createDoc();
+    seedPlayers(doc, [createPlayer("p1")]);
+    const battlefield = createZone("bf-p1", "battlefield", "p1", ["c1"]);
+    seedZones(doc, [battlefield]);
+    seedCards(doc, [
+      createCard("c1", "p1", battlefield.id, {
+        counters: [
+          { type: "Poison", count: 1 },
+          { type: "poison", count: 3 },
+        ],
+      }),
+    ]);
+
+    const hidden = createEmptyHiddenState();
+
+    const remove = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-36a",
+        type: "card.counter.adjust",
+        payload: {
+          actorId: "p1",
+          cardId: "c1",
+          counterType: " poison ",
+          delta: -1,
+        },
+      },
+      hidden
+    );
+
+    expect(remove.ok).toBe(true);
+    if (remove.ok) {
+      expect(remove.logEvents).toEqual([
+        {
+          eventId: "counter.remove",
+          payload: {
+            actorId: "p1",
+            cardId: "c1",
+            zoneId: battlefield.id,
+            counterType: "poison",
+            delta: -1,
+            newTotal: 3,
+            cardName: "Card c1",
+          },
+        },
+      ]);
+    }
+  });
+
+  it("rejects non-positive card counter additions", () => {
+    const doc = createDoc();
+    seedPlayers(doc, [createPlayer("p1")]);
+    const battlefield = createZone("bf-p1", "battlefield", "p1", ["c1"]);
+    seedZones(doc, [battlefield]);
+    seedCards(doc, [createCard("c1", "p1", battlefield.id)]);
+
+    const hidden = createEmptyHiddenState();
+
+    const add = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-36b",
+        type: "card.counter.adjust",
+        payload: {
+          actorId: "p1",
+          cardId: "c1",
+          counter: { type: "+1/+1", count: 0 },
+        },
+      },
+      hidden
+    );
+
+    expect(add.ok).toBe(false);
+    if (!add.ok) {
+      expect(add.error).toBe("invalid counter update");
+    }
+
+    const card = doc.getMap("cards").get("c1") as Card;
+    expect(card.counters).toEqual([]);
   });
 
   it("taps cards only when controlled and untaps all for the actor", () => {

@@ -1,5 +1,5 @@
 import type { Card } from "@/types";
-import { enforceZoneCounterRules, mergeCounters } from "@/lib/counters";
+import { decrementCounter, enforceZoneCounterRules, mergeCounters } from "@/lib/counters";
 import {
   bumpPosition,
   clampNormalizedPosition,
@@ -90,9 +90,7 @@ export function addCounterToCard(
 export function removeCounterFromCard(maps: SharedMaps, cardId: string, counterType: string) {
   const card = readBattlefieldCard(maps, cardId);
   if (!card) return;
-  const next = card.counters
-    .map((c) => (c.type === counterType ? { ...c, count: c.count - 1 } : c))
-    .filter((c) => c.count > 0);
+  const next = decrementCounter(card.counters, counterType);
   patchCard(maps, cardId, { counters: next });
 }
 

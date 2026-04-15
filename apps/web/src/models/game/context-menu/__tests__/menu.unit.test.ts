@@ -621,11 +621,15 @@ describe("buildCardActions", () => {
     expect(relatedParent?.submenu?.length).toBe(2);
   });
 
-  it("includes counter submenus with separator when globals exist", () => {
+  it("builds a consolidated counter submenu with recent and active counters", () => {
     const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1");
     const zones = { [battlefield.id]: battlefield };
     const actions = buildCardActions({
-      card: { ...baseCard, zoneId: battlefield.id },
+      card: {
+        ...baseCard,
+        zoneId: battlefield.id,
+        counters: [{ type: "+1/+1", count: 2 }],
+      },
       zones,
       myPlayerId: "p1",
       viewerRole: "player",
@@ -637,15 +641,147 @@ describe("buildCardActions", () => {
       addCounter: vi.fn(),
       removeCounter: vi.fn(),
       openAddCounterModal: vi.fn(),
-      globalCounters: { charge: "#000" },
+      globalCounters: { charge: "#000", "+1/+1": "#0f0" },
     });
+
+    expect(
+      actions.some((a) => a.type === "action" && a.label === "Add counter")
+    ).toBe(false);
+    expect(
+      actions.some((a) => a.type === "action" && a.label === "Remove counter")
+    ).toBe(false);
 
     const addParent = actions.find(
       (a): a is Extract<typeof a, { type: "action" }> =>
-        a.type === "action" && a.label === "Add counter"
+        a.type === "action" && a.label === "Add/remove counters"
     );
-    expect(addParent?.submenu?.some((i: any) => i.type === "separator")).toBe(
-      true
+    expect(addParent?.submenu?.[0]).toMatchObject({
+      type: "action",
+      label: "Add a new counter...",
+    });
+    expect(addParent?.submenu).toContainEqual({
+      type: "label",
+      label: "Recently used counters:",
+    });
+    expect(
+      addParent?.submenu?.some(
+        (item: any) =>
+          item.type === "action" &&
+          item.label === "charge" &&
+          item.closeOnSelect === false
+      )
+    ).toBe(true);
+    expect(
+      addParent?.submenu?.some(
+        (item: any) => item.type === "action" && item.label === "+1/+1"
+      )
+    ).toBe(false);
+    expect(
+      addParent?.submenu?.some(
+        (item: any) =>
+          item.type === "counter-control" &&
+          item.label === "+1/+1" &&
+          item.count === 2
+      )
+    ).toBe(true);
+  });
+
+  it("suppresses duplicate recent counters when legacy card data uses mixed case", () => {
+    const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1");
+    const zones = { [battlefield.id]: battlefield };
+    const actions = buildCardActions({
+      card: {
+        ...baseCard,
+        zoneId: battlefield.id,
+        counters: [{ type: "Poison", count: 1 }],
+      },
+      zones,
+      myPlayerId: "p1",
+      viewerRole: "player",
+      moveCard: vi.fn(),
+      tapCard: vi.fn(),
+      transformCard: vi.fn(),
+      duplicateCard: vi.fn(),
+      createRelatedCard: vi.fn(),
+      addCounter: vi.fn(),
+      removeCounter: vi.fn(),
+      openAddCounterModal: vi.fn(),
+      globalCounters: { poison: "#0f0" },
+    });
+
+    const counterParent = actions.find(
+      (a): a is Extract<typeof a, { type: "action" }> =>
+        a.type === "action" && a.label === "Add/remove counters"
     );
+
+    expect(
+      counterParent?.submenu?.some(
+        (item: any) => item.type === "action" && item.label === "poison"
+      )
+    ).toBe(false);
+    expect(
+      counterParent?.submenu?.some(
+        (item: any) =>
+          item.type === "counter-control" &&
+          item.label === "Poison" &&
+          item.count === 1
+      )
+    ).toBe(true);
+  });
+
+  it("merges legacy mixed-case active counters into one control row", () => {
+    const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1");
+    const zones = { [battlefield.id]: battlefield };
+    const addCounter = vi.fn();
+    const removeCounter = vi.fn();
+    const actions = buildCardActions({
+      card: {
+        ...baseCard,
+        zoneId: battlefield.id,
+        counters: [
+          { type: "Poison", count: 1 },
+          { type: "poison", count: 3 },
+        ],
+      },
+      zones,
+      myPlayerId: "p1",
+      viewerRole: "player",
+      moveCard: vi.fn(),
+      tapCard: vi.fn(),
+      transformCard: vi.fn(),
+      duplicateCard: vi.fn(),
+      createRelatedCard: vi.fn(),
+      addCounter,
+      removeCounter,
+      openAddCounterModal: vi.fn(),
+      globalCounters: {},
+    });
+
+    const counterParent = actions.find(
+      (a): a is Extract<typeof a, { type: "action" }> =>
+        a.type === "action" && a.label === "Add/remove counters"
+    );
+    const counterControls = (
+      counterParent?.submenu?.filter(
+        (item): item is Extract<typeof item, { type: "counter-control" }> =>
+          item.type === "counter-control"
+      ) ?? []
+    );
+
+    expect(counterControls).toHaveLength(1);
+    expect(counterControls[0]).toMatchObject({
+      label: "Poison",
+      count: 4,
+    });
+
+    counterControls[0].onIncrement();
+    counterControls[0].onDecrement();
+
+    expect(addCounter).toHaveBeenCalledWith("c1", {
+      type: "poison",
+      count: 1,
+      color: expect.any(String),
+    });
+    expect(removeCounter).toHaveBeenCalledWith("c1", "poison");
   });
 });

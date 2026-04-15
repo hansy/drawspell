@@ -40,7 +40,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       if (item.type !== "action") return;
       if (item.submenu) return;
       item.onSelect();
-      onClose();
+      if (item.closeOnSelect !== false) {
+        onClose();
+      }
     },
     [onClose]
   );

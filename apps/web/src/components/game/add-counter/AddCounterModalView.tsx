@@ -71,7 +71,7 @@ export const AddCounterModalView: React.FC<AddCounterController> = ({
                   size="sm"
                   onClick={() => handleSelectType(item.type)}
                   className={cn(
-                    "capitalize border-zinc-700 text-zinc-200 bg-zinc-800 hover:bg-zinc-700 hover:text-white",
+                    "border-zinc-700 text-zinc-200 bg-zinc-800 hover:bg-zinc-700 hover:text-white",
                     item.isSelected && "ring-2 ring-indigo-500 border-transparent bg-zinc-700"
                   )}
                 >

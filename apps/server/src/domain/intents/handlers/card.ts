@@ -1,3 +1,4 @@
+import { normalizeCounterType } from "@mtg/shared/counters";
 import type { Card } from "@mtg/shared/types/cards";
 import type { Counter } from "@mtg/shared/types/counters";
 
@@ -55,6 +56,13 @@ type PreparedCardAdd = {
   zoneId: string;
   isCommanderZone: boolean;
 };
+
+const getNormalizedCounterTotal = (counters: Counter[], counterType: string) =>
+  counters.reduce((sum, counter) => {
+    return normalizeCounterType(counter.type) === counterType
+      ? sum + counter.count
+      : sum;
+  }, 0);
 
 const getLiveCommanderZoneCardIds = (maps: Maps, zoneId: string, cardIds: string[]): string[] =>
   cardIds.filter((cardId) => {
@@ -180,18 +188,21 @@ const handleCardCounterAdjust: IntentHandler = ({ actorId, maps, payload, pushLo
   if (!allowed.ok) return allowed;
 
   if (isRecord(payload.counter) && typeof payload.counter.type === "string") {
+    const normalizedType = normalizeCounterType(payload.counter.type);
+    if (!normalizedType) return { ok: false, error: "invalid counter update" };
+
     const counter: Counter = {
-      type: payload.counter.type,
+      type: normalizedType,
       count:
         typeof payload.counter.count === "number" && Number.isFinite(payload.counter.count)
           ? Math.floor(payload.counter.count)
           : 0,
       ...(typeof payload.counter.color === "string" ? { color: payload.counter.color } : null),
     };
+    if (counter.count <= 0) return { ok: false, error: "invalid counter update" };
     const nextCounters = mergeCounters(card.counters, counter);
-    const prevCount = card.counters.find((entry) => entry.type === counter.type)?.count ?? 0;
-    const nextCount =
-      nextCounters.find((entry) => entry.type === counter.type)?.count ?? prevCount;
+    const prevCount = getNormalizedCounterTotal(card.counters, counter.type);
+    const nextCount = getNormalizedCounterTotal(nextCounters, counter.type);
     const delta = nextCount - prevCount;
     if (delta > 0) {
       pushLogEvent("counter.add", {
@@ -208,12 +219,13 @@ const handleCardCounterAdjust: IntentHandler = ({ actorId, maps, payload, pushLo
     return { ok: true };
   }
 
-  const counterType = readNonEmptyString(payload.counterType);
+  const counterTypeRaw = readNonEmptyString(payload.counterType);
   const delta = readNumber(payload.delta) ?? -1;
+  const counterType = counterTypeRaw ? normalizeCounterType(counterTypeRaw) : "";
   if (!counterType) return { ok: false, error: "invalid counter update" };
   const nextCounters = decrementCounter(card.counters, counterType, delta);
-  const prevCount = card.counters.find((entry) => entry.type === counterType)?.count ?? 0;
-  const nextCount = nextCounters.find((entry) => entry.type === counterType)?.count ?? 0;
+  const prevCount = getNormalizedCounterTotal(card.counters, counterType);
+  const nextCount = getNormalizedCounterTotal(nextCounters, counterType);
   const appliedDelta = nextCount - prevCount;
   if (appliedDelta !== 0) {
     pushLogEvent(appliedDelta > 0 ? "counter.add" : "counter.remove", {
