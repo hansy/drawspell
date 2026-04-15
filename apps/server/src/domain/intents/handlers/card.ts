@@ -192,6 +192,7 @@ const handleCardCounterAdjust: IntentHandler = ({ actorId, maps, payload, pushLo
           : 0,
       ...(typeof payload.counter.color === "string" ? { color: payload.counter.color } : null),
     };
+    if (counter.count <= 0) return { ok: false, error: "invalid counter update" };
     const nextCounters = mergeCounters(card.counters, counter);
     const prevCount =
       card.counters.find((entry) => normalizeCounterType(entry.type) === counter.type)?.count ?? 0;
