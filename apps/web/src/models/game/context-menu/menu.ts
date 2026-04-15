@@ -1,6 +1,8 @@
 export type {
   ContextMenuAction,
+  ContextMenuCounterControl,
   ContextMenuItem,
+  ContextMenuLabel,
   ContextMenuSeparator,
 } from "./menu/types";
 

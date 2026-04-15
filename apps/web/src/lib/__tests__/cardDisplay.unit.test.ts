@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Card } from "@/types";
 
-import { resetCardToFrontFace } from "../cardDisplay";
+import { getDisplayPower, getDisplayToughness, getMorphDisplayStat, resetCardToFrontFace } from "../cardDisplay";
 
 const makeCard = (overrides: Partial<Card>): Card =>
   ({
@@ -79,5 +79,34 @@ describe("resetCardToFrontFace", () => {
     expect(next.currentFaceIndex).toBe(0);
     expect(next.power).toBe("5");
     expect(next.toughness).toBe("6");
+  });
+
+  it("adds parsed P/T counters on top of current displayed stats", () => {
+    const card = makeCard({
+      power: "3",
+      toughness: "4",
+      basePower: "2",
+      baseToughness: "2",
+      counters: [
+        { type: "+2/+1", count: 1 },
+        { type: "charge", count: 2 },
+      ],
+    });
+
+    expect(getDisplayPower(card)).toBe("5");
+    expect(getDisplayToughness(card)).toBe("5");
+  });
+
+  it("adds parsed P/T counters to morph display stats", () => {
+    const card = makeCard({
+      power: "1",
+      toughness: "1",
+      basePower: "1",
+      baseToughness: "1",
+      counters: [{ type: "+1/+1", count: 1 }],
+    });
+
+    expect(getMorphDisplayStat(card, "power")).toBe("3");
+    expect(getMorphDisplayStat(card, "toughness")).toBe("3");
   });
 });

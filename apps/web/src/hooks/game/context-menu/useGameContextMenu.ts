@@ -70,13 +70,34 @@ export const useGameContextMenu = (
 
     const contextMenuRequestRef = React.useRef(0);
 
-    const buildCardMenuItems = React.useCallback(
-        (
+    const buildCardMenuItems = React.useMemo(() => {
+        const buildItems = (
             card: Card,
             relatedParts?: ScryfallRelatedCard[],
             previewAnchorEl?: HTMLElement | null
         ) => {
             const store = useGameStore.getState();
+            const adapters = createCardActionAdapters({
+                store,
+                myPlayerId,
+                createRelatedCard,
+                openTextPrompt,
+            });
+
+            const refreshCardMenu = () => {
+                const latestCard = useGameStore.getState().cards[card.id];
+                if (!latestCard) {
+                    closeContextMenu();
+                    return;
+                }
+
+                updateContextMenu((current) => ({
+                    ...current,
+                    title: getDisplayName(latestCard),
+                    items: buildItems(latestCard, relatedParts, previewAnchorEl),
+                }));
+            };
+
             return actionRegistry.buildCardActions({
                 card,
                 zones: store.zones,
@@ -88,16 +109,27 @@ export const useGameContextMenu = (
                 previewAnchorEl,
                 lockPreview: (targetCard, anchorEl) =>
                     requestCardPreviewLock({ cardId: targetCard.id, anchorEl }),
-                ...createCardActionAdapters({
-                    store,
-                    myPlayerId,
-                    createRelatedCard,
-                    openTextPrompt,
-                }),
+                ...adapters,
+                addCounter: (cardId, counter) => {
+                    adapters.addCounter(cardId, counter);
+                    refreshCardMenu();
+                },
+                removeCounter: (cardId, counterType) => {
+                    adapters.removeCounter(cardId, counterType);
+                    refreshCardMenu();
+                },
             });
-        },
-        [createRelatedCard, myPlayerId, openTextPrompt, viewerRole]
-    );
+        };
+
+        return buildItems;
+    }, [
+        closeContextMenu,
+        createRelatedCard,
+        myPlayerId,
+        openTextPrompt,
+        updateContextMenu,
+        viewerRole,
+    ]);
 
     // Builds and opens card-specific actions (tap, counters, move shortcuts).
     const handleCardContextMenu = React.useCallback((e: React.MouseEvent, card: Card) => {

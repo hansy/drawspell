@@ -30,6 +30,34 @@ describe('gameStore counter actions', () => {
     expect(useGameStore.getState().globalCounters['+1/+1']).toBe('#ff0000');
   });
 
+  it('lowercases text counters and merges mixed-case entries', () => {
+    const battlefield = { id: 'bf-me', type: ZONE.BATTLEFIELD, ownerId: 'me', cardIds: ['c1'] as string[] };
+    const card = {
+      id: 'c1',
+      name: 'Card',
+      ownerId: 'me',
+      controllerId: 'me',
+      zoneId: battlefield.id,
+      tapped: false,
+      faceDown: false,
+      position: { x: 0, y: 0 },
+      rotation: 0,
+      counters: [{ type: 'Poison', count: 1 }],
+    };
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [battlefield.id]: battlefield },
+      cards: { [card.id]: card },
+    }));
+
+    useGameStore.getState().addGlobalCounter(' Poison ', '#ff00ff');
+    expect(useGameStore.getState().globalCounters['poison']).toBe('#ff00ff');
+
+    useGameStore.getState().addCounterToCard(card.id, { type: ' poison ', count: 1 }, 'me');
+    expect(useGameStore.getState().cards[card.id].counters).toEqual([{ type: 'poison', count: 2 }]);
+  });
+
   it('adds and removes counters on battlefield cards', () => {
     const battlefield = { id: 'bf-me', type: ZONE.BATTLEFIELD, ownerId: 'me', cardIds: ['c1'] as string[] };
     const card = {

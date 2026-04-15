@@ -1,3 +1,4 @@
+import { normalizeCounterType } from "@mtg/shared/counters";
 import type { Card } from "@mtg/shared/types/cards";
 import type { Counter } from "@mtg/shared/types/counters";
 
@@ -180,8 +181,11 @@ const handleCardCounterAdjust: IntentHandler = ({ actorId, maps, payload, pushLo
   if (!allowed.ok) return allowed;
 
   if (isRecord(payload.counter) && typeof payload.counter.type === "string") {
+    const normalizedType = normalizeCounterType(payload.counter.type);
+    if (!normalizedType) return { ok: false, error: "invalid counter update" };
+
     const counter: Counter = {
-      type: payload.counter.type,
+      type: normalizedType,
       count:
         typeof payload.counter.count === "number" && Number.isFinite(payload.counter.count)
           ? Math.floor(payload.counter.count)
@@ -189,9 +193,11 @@ const handleCardCounterAdjust: IntentHandler = ({ actorId, maps, payload, pushLo
       ...(typeof payload.counter.color === "string" ? { color: payload.counter.color } : null),
     };
     const nextCounters = mergeCounters(card.counters, counter);
-    const prevCount = card.counters.find((entry) => entry.type === counter.type)?.count ?? 0;
+    const prevCount =
+      card.counters.find((entry) => normalizeCounterType(entry.type) === counter.type)?.count ?? 0;
     const nextCount =
-      nextCounters.find((entry) => entry.type === counter.type)?.count ?? prevCount;
+      nextCounters.find((entry) => normalizeCounterType(entry.type) === counter.type)?.count ??
+      prevCount;
     const delta = nextCount - prevCount;
     if (delta > 0) {
       pushLogEvent("counter.add", {
@@ -208,12 +214,15 @@ const handleCardCounterAdjust: IntentHandler = ({ actorId, maps, payload, pushLo
     return { ok: true };
   }
 
-  const counterType = readNonEmptyString(payload.counterType);
+  const counterTypeRaw = readNonEmptyString(payload.counterType);
   const delta = readNumber(payload.delta) ?? -1;
+  const counterType = counterTypeRaw ? normalizeCounterType(counterTypeRaw) : "";
   if (!counterType) return { ok: false, error: "invalid counter update" };
   const nextCounters = decrementCounter(card.counters, counterType, delta);
-  const prevCount = card.counters.find((entry) => entry.type === counterType)?.count ?? 0;
-  const nextCount = nextCounters.find((entry) => entry.type === counterType)?.count ?? 0;
+  const prevCount =
+    card.counters.find((entry) => normalizeCounterType(entry.type) === counterType)?.count ?? 0;
+  const nextCount =
+    nextCounters.find((entry) => normalizeCounterType(entry.type) === counterType)?.count ?? 0;
   const appliedDelta = nextCount - prevCount;
   if (appliedDelta !== 0) {
     pushLogEvent(appliedDelta > 0 ? "counter.add" : "counter.remove", {
