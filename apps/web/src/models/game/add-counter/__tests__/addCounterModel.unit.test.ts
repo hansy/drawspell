@@ -5,6 +5,8 @@ import { getAllCounterTypes, normalizeCounterCount, normalizeCounterType, planAd
 describe("addCounterModel", () => {
   it("normalizes counter types (trim + max length)", () => {
     expect(normalizeCounterType("  +1/+1  ")).toBe("+1/+1");
+    expect(normalizeCounterType("  Poison  ")).toBe("poison");
+    expect(normalizeCounterType(" +01 / -002 ")).toBe("+1/-2");
     expect(normalizeCounterType("")).toBe("");
 
     const long = "a".repeat(100);
@@ -36,20 +38,32 @@ describe("addCounterModel", () => {
       resolveColor: (type) => `color:${type}`,
     });
 
-    expect(planned?.counter.type).toBe("Poison");
+    expect(planned?.counter.type).toBe("poison");
     expect(planned?.counter.count).toBe(2);
-    expect(planned?.counter.color).toBe("color:Poison");
+    expect(planned?.counter.color).toBe("color:poison");
     expect(planned?.shouldAddGlobalCounter).toBe(true);
 
     const existing = planAddCounter({
       rawType: "Poison",
       rawCount: -1,
-      globalCounters: { Poison: "#00ff00" },
+      globalCounters: { poison: "#00ff00" },
       resolveColor: (type, globals) => globals[type] ?? "#fff",
     });
 
     expect(existing?.counter.count).toBe(1);
     expect(existing?.shouldAddGlobalCounter).toBe(false);
+  });
+
+  it("keeps ambiguous numeric-looking counters as plain text", () => {
+    const planned = planAddCounter({
+      rawType: "1/1",
+      rawCount: 1,
+      globalCounters: {},
+      resolveColor: (type) => `color:${type}`,
+    });
+
+    expect(planned?.counter.type).toBe("1/1");
+    expect(planned?.shouldAddGlobalCounter).toBe(true);
   });
 
   it("returns null for empty types", () => {
@@ -63,4 +77,3 @@ describe("addCounterModel", () => {
     ).toBeNull();
   });
 });
-

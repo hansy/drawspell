@@ -1,4 +1,5 @@
 import { Card } from "@/types";
+import { parsePTCounterType } from "@mtg/shared/counters";
 import {
   ScryfallCardFaceLite,
   ScryfallCardLite,
@@ -25,6 +26,14 @@ const parseStat = (value: string | undefined): number | null => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const getCounterStatDelta = (card: Pick<Card, "counters">, type: "power" | "toughness") =>
+  card.counters.reduce((sum, counter) => {
+    const parsed = parsePTCounterType(counter.type);
+    if (!parsed) return sum;
+    const delta = type === "power" ? parsed.powerDelta : parsed.toughnessDelta;
+    return sum + delta * counter.count;
+  }, 0);
+
 export const isMorphFaceDown = (
   card: Pick<Card, "faceDown" | "faceDownMode">,
   faceDownOverride?: boolean
@@ -34,16 +43,17 @@ export const isMorphFaceDown = (
 };
 
 export const getMorphDisplayStat = (
-  card: Pick<Card, "power" | "toughness" | "basePower" | "baseToughness">,
+  card: Pick<Card, "power" | "toughness" | "basePower" | "baseToughness" | "counters">,
   type: "power" | "toughness"
 ): string => {
   const current = parseStat(card[type]);
   const base = parseStat(type === "power" ? card.basePower : card.baseToughness);
+  const counterDelta = getCounterStatDelta(card, type);
   const delta =
     current === null || base === null
       ? 0
       : current - base;
-  return (2 + delta).toString();
+  return (2 + delta + counterDelta).toString();
 };
 
 const resolveScryfallLite = (card: Card): ScryfallCardLite | undefined => {
@@ -119,12 +129,18 @@ export const shouldShowPowerToughness = (card: Card): boolean => {
 
 export const getDisplayPower = (card: Card): string | undefined => {
   const facePower = getCurrentFace(card)?.power;
-  return card.power ?? facePower;
+  const display = card.power ?? facePower;
+  const parsed = parseStat(display);
+  if (parsed === null) return display;
+  return (parsed + getCounterStatDelta(card, "power")).toString();
 };
 
 export const getDisplayToughness = (card: Card): string | undefined => {
   const faceToughness = getCurrentFace(card)?.toughness;
-  return card.toughness ?? faceToughness;
+  const display = card.toughness ?? faceToughness;
+  const parsed = parseStat(display);
+  if (parsed === null) return display;
+  return (parsed + getCounterStatDelta(card, "toughness")).toString();
 };
 
 export const getFlipRotation = (card: Card): number => {

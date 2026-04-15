@@ -1,3 +1,4 @@
+import { normalizeCounterType } from "@mtg/shared/counters";
 import { clampNumber } from "../../positions";
 import { ensureActorMatches, readNumber, requireNonEmptyStringProp } from "../validation";
 import type { IntentHandler } from "./types";
@@ -28,8 +29,13 @@ const handleGlobalCounterAdd: IntentHandler = ({ maps, payload }) => {
   if (!counterTypeResult.ok) return counterTypeResult;
   const colorResult = requireNonEmptyStringProp(payload, "color", "invalid counter");
   if (!colorResult.ok) return colorResult;
-  if (!maps.globalCounters.get(counterTypeResult.value)) {
-    maps.globalCounters.set(counterTypeResult.value, colorResult.value);
+  const normalizedType = normalizeCounterType(counterTypeResult.value);
+  if (!normalizedType) return { ok: false, error: "invalid counter" };
+  const existing = Array.from(maps.globalCounters.keys()).some(
+    (key) => normalizeCounterType(String(key)) === normalizedType
+  );
+  if (!existing) {
+    maps.globalCounters.set(normalizedType, colorResult.value);
   }
   return { ok: true };
 };

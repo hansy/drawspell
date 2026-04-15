@@ -1,3 +1,4 @@
+import { normalizeCounterType } from "@mtg/shared/counters";
 import type { StoreApi } from "zustand";
 
 import type { GameState } from "@/types";
@@ -60,10 +61,12 @@ export const createCounterActions = (
 > => ({
   addGlobalCounter: (name: string, color?: string, _isRemote?: boolean) => {
     if (get().viewerRole === "spectator") return;
-    const normalizedName = name.trim().slice(0, 64);
+    const normalizedName = normalizeCounterType(name);
     if (!normalizedName) return;
 
-    const existing = get().globalCounters[normalizedName];
+    const existing = Object.keys(get().globalCounters).find(
+      (counterType) => normalizeCounterType(counterType) === normalizedName
+    );
     if (existing) return;
 
     const resolvedColor = resolveCounterColor(normalizedName, get().globalCounters);
@@ -86,26 +89,31 @@ export const createCounterActions = (
   },
 
   addCounterToCard: (cardId, counter, actorId, _isRemote) => {
+    const normalizedType = normalizeCounterType(counter.type);
+    if (!normalizedType) return;
+
     const context = resolveCardCounterContext(
       get,
       cardId,
-      counter.type,
+      normalizedType,
       actorId,
       "addCounterToCard",
     );
     if (!context) return;
 
     const { card, actor } = context;
-    const prevCount = card.counters.find((c) => c.type === counter.type)?.count ?? 0;
-    const newCounters = mergeCounters(card.counters, counter);
+    const normalizedCounter = { ...counter, type: normalizedType };
+    const prevCount =
+      card.counters.find((c) => normalizeCounterType(c.type) === normalizedType)?.count ?? 0;
+    const newCounters = mergeCounters(card.counters, normalizedCounter);
     const nextCount =
-      newCounters.find((c) => c.type === counter.type)?.count ?? prevCount;
+      newCounters.find((c) => normalizeCounterType(c.type) === normalizedType)?.count ?? prevCount;
     const delta = nextCount - prevCount;
     if (delta <= 0) return;
 
     dispatchIntent({
       type: "card.counter.adjust",
-      payload: { cardId, counter, actorId: actor },
+      payload: { cardId, counter: normalizedCounter, actorId: actor },
       applyLocal: (current) => {
         const currentCard = current.cards[cardId];
         if (!currentCard) return current;
@@ -126,30 +134,35 @@ export const createCounterActions = (
       action: "addCounterToCard",
       actorId: actor,
       allowed: true,
-      details: { cardId, zoneId: card.zoneId, counterType: counter.type, delta },
+      details: { cardId, zoneId: card.zoneId, counterType: normalizedType, delta },
     });
   },
 
   removeCounterFromCard: (cardId, counterType, actorId, _isRemote) => {
+    const normalizedType = normalizeCounterType(counterType);
+    if (!normalizedType) return;
+
     const context = resolveCardCounterContext(
       get,
       cardId,
-      counterType,
+      normalizedType,
       actorId,
       "removeCounterFromCard",
     );
     if (!context) return;
 
     const { card, actor } = context;
-    const prevCount = card.counters.find((c) => c.type === counterType)?.count ?? 0;
-    const newCounters = decrementCounter(card.counters, counterType);
-    const nextCount = newCounters.find((c) => c.type === counterType)?.count ?? 0;
+    const prevCount =
+      card.counters.find((c) => normalizeCounterType(c.type) === normalizedType)?.count ?? 0;
+    const newCounters = decrementCounter(card.counters, normalizedType);
+    const nextCount =
+      newCounters.find((c) => normalizeCounterType(c.type) === normalizedType)?.count ?? 0;
     const delta = nextCount - prevCount;
     if (delta === 0) return;
 
     dispatchIntent({
       type: "card.counter.adjust",
-      payload: { cardId, counterType, actorId: actor, delta },
+      payload: { cardId, counterType: normalizedType, actorId: actor, delta },
       applyLocal: (current) => {
         const currentCard = current.cards[cardId];
         if (!currentCard) return current;
@@ -170,7 +183,7 @@ export const createCounterActions = (
       action: "removeCounterFromCard",
       actorId: actor,
       allowed: true,
-      details: { cardId, zoneId: card.zoneId, counterType, delta },
+      details: { cardId, zoneId: card.zoneId, counterType: normalizedType, delta },
     });
   },
 });
