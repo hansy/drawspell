@@ -34,6 +34,12 @@ describe('counters helpers', () => {
     expect(decrementCounter(merged, ' POISON ')).toEqual([{ type: 'poison', count: 2 }]);
   });
 
+  it('ignores non-positive counter merges', () => {
+    const existing = [{ type: 'charge', count: 2 }];
+    expect(mergeCounters(existing, { type: 'charge', count: 0 })).toEqual(existing);
+    expect(mergeCounters(existing, { type: 'charge', count: -3 })).toEqual(existing);
+  });
+
   it('decrements and removes counters', () => {
     const counters = [{ type: 'charge', count: 2 }];
     expect(decrementCounter(counters, 'charge')).toEqual([{ type: 'charge', count: 1 }]);
@@ -45,6 +51,7 @@ describe('counters helpers', () => {
     const presetType = PRESET_COUNTERS[0].type;
     const presetColor = PRESET_COUNTERS[0].color;
     expect(resolveCounterColor(presetType, {})).toBe(presetColor);
+    expect(resolveCounterColor(` ${presetType} `, {})).toBe(presetColor);
     expect(resolveCounterColor('custom', { custom: '#123456' })).toBe('#123456');
     expect(resolveCounterColor('poison', { Poison: '#abcdef' })).toBe('#abcdef');
     // Hashing should return some stable hex; ensure it returns a string.

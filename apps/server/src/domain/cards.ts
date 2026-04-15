@@ -86,7 +86,8 @@ export const enforceZoneCounterRules = (counters: Counter[], zone?: Zone): Count
 
 export const mergeCounters = (existing: Counter[], incoming: Counter): Counter[] => {
   const normalizedType = normalizeCounterType(incoming.type);
-  if (!normalizedType) return existing;
+  const normalizedCount = Number.isFinite(incoming.count) ? Math.floor(incoming.count) : 0;
+  if (!normalizedType || normalizedCount <= 0) return existing;
 
   const idx = existing.findIndex((counter) => normalizeCounterType(counter.type) === normalizedType);
   if (idx >= 0) {
@@ -95,11 +96,11 @@ export const mergeCounters = (existing: Counter[], incoming: Counter): Counter[]
       ...next[idx],
       type: normalizedType,
       color: incoming.color ?? next[idx].color,
-      count: next[idx].count + incoming.count,
+      count: next[idx].count + normalizedCount,
     };
     return next;
   }
-  return [...existing, { ...incoming, type: normalizedType }];
+  return [...existing, { ...incoming, type: normalizedType, count: normalizedCount }];
 };
 
 export const decrementCounter = (existing: Counter[], type: string, delta: number): Counter[] => {

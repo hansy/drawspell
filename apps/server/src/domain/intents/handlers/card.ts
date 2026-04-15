@@ -57,6 +57,13 @@ type PreparedCardAdd = {
   isCommanderZone: boolean;
 };
 
+const getNormalizedCounterTotal = (counters: Counter[], counterType: string) =>
+  counters.reduce((sum, counter) => {
+    return normalizeCounterType(counter.type) === counterType
+      ? sum + counter.count
+      : sum;
+  }, 0);
+
 const getLiveCommanderZoneCardIds = (maps: Maps, zoneId: string, cardIds: string[]): string[] =>
   cardIds.filter((cardId) => {
     const existing = readCard(maps, cardId);
@@ -192,12 +199,10 @@ const handleCardCounterAdjust: IntentHandler = ({ actorId, maps, payload, pushLo
           : 0,
       ...(typeof payload.counter.color === "string" ? { color: payload.counter.color } : null),
     };
+    if (counter.count <= 0) return { ok: false, error: "invalid counter update" };
     const nextCounters = mergeCounters(card.counters, counter);
-    const prevCount =
-      card.counters.find((entry) => normalizeCounterType(entry.type) === counter.type)?.count ?? 0;
-    const nextCount =
-      nextCounters.find((entry) => normalizeCounterType(entry.type) === counter.type)?.count ??
-      prevCount;
+    const prevCount = getNormalizedCounterTotal(card.counters, counter.type);
+    const nextCount = getNormalizedCounterTotal(nextCounters, counter.type);
     const delta = nextCount - prevCount;
     if (delta > 0) {
       pushLogEvent("counter.add", {
@@ -219,10 +224,8 @@ const handleCardCounterAdjust: IntentHandler = ({ actorId, maps, payload, pushLo
   const counterType = counterTypeRaw ? normalizeCounterType(counterTypeRaw) : "";
   if (!counterType) return { ok: false, error: "invalid counter update" };
   const nextCounters = decrementCounter(card.counters, counterType, delta);
-  const prevCount =
-    card.counters.find((entry) => normalizeCounterType(entry.type) === counterType)?.count ?? 0;
-  const nextCount =
-    nextCounters.find((entry) => normalizeCounterType(entry.type) === counterType)?.count ?? 0;
+  const prevCount = getNormalizedCounterTotal(card.counters, counterType);
+  const nextCount = getNormalizedCounterTotal(nextCounters, counterType);
   const appliedDelta = nextCount - prevCount;
   if (appliedDelta !== 0) {
     pushLogEvent(appliedDelta > 0 ? "counter.add" : "counter.remove", {
