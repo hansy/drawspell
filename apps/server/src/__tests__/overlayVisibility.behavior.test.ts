@@ -1274,6 +1274,56 @@ describe("server migration behavior", () => {
     }
   });
 
+  it("logs normalized counter removals using the total merged count", () => {
+    const doc = createDoc();
+    seedPlayers(doc, [createPlayer("p1")]);
+    const battlefield = createZone("bf-p1", "battlefield", "p1", ["c1"]);
+    seedZones(doc, [battlefield]);
+    seedCards(doc, [
+      createCard("c1", "p1", battlefield.id, {
+        counters: [
+          { type: "Poison", count: 1 },
+          { type: "poison", count: 3 },
+        ],
+      }),
+    ]);
+
+    const hidden = createEmptyHiddenState();
+
+    const remove = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-36a",
+        type: "card.counter.adjust",
+        payload: {
+          actorId: "p1",
+          cardId: "c1",
+          counterType: " poison ",
+          delta: -1,
+        },
+      },
+      hidden
+    );
+
+    expect(remove.ok).toBe(true);
+    if (remove.ok) {
+      expect(remove.logEvents).toEqual([
+        {
+          eventId: "counter.remove",
+          payload: {
+            actorId: "p1",
+            cardId: "c1",
+            zoneId: battlefield.id,
+            counterType: "poison",
+            delta: -1,
+            newTotal: 3,
+            cardName: "Card c1",
+          },
+        },
+      ]);
+    }
+  });
+
   it("rejects non-positive card counter additions", () => {
     const doc = createDoc();
     seedPlayers(doc, [createPlayer("p1")]);
