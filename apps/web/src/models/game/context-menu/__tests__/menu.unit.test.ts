@@ -685,4 +685,47 @@ describe("buildCardActions", () => {
       )
     ).toBe(true);
   });
+
+  it("suppresses duplicate recent counters when legacy card data uses mixed case", () => {
+    const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1");
+    const zones = { [battlefield.id]: battlefield };
+    const actions = buildCardActions({
+      card: {
+        ...baseCard,
+        zoneId: battlefield.id,
+        counters: [{ type: "Poison", count: 1 }],
+      },
+      zones,
+      myPlayerId: "p1",
+      viewerRole: "player",
+      moveCard: vi.fn(),
+      tapCard: vi.fn(),
+      transformCard: vi.fn(),
+      duplicateCard: vi.fn(),
+      createRelatedCard: vi.fn(),
+      addCounter: vi.fn(),
+      removeCounter: vi.fn(),
+      openAddCounterModal: vi.fn(),
+      globalCounters: { poison: "#0f0" },
+    });
+
+    const counterParent = actions.find(
+      (a): a is Extract<typeof a, { type: "action" }> =>
+        a.type === "action" && a.label === "Add/remove counters"
+    );
+
+    expect(
+      counterParent?.submenu?.some(
+        (item: any) => item.type === "action" && item.label === "poison"
+      )
+    ).toBe(false);
+    expect(
+      counterParent?.submenu?.some(
+        (item: any) =>
+          item.type === "counter-control" &&
+          item.label === "Poison" &&
+          item.count === 1
+      )
+    ).toBe(true);
+  });
 });

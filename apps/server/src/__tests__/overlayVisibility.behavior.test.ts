@@ -1274,6 +1274,38 @@ describe("server migration behavior", () => {
     }
   });
 
+  it("rejects non-positive card counter additions", () => {
+    const doc = createDoc();
+    seedPlayers(doc, [createPlayer("p1")]);
+    const battlefield = createZone("bf-p1", "battlefield", "p1", ["c1"]);
+    seedZones(doc, [battlefield]);
+    seedCards(doc, [createCard("c1", "p1", battlefield.id)]);
+
+    const hidden = createEmptyHiddenState();
+
+    const add = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-36b",
+        type: "card.counter.adjust",
+        payload: {
+          actorId: "p1",
+          cardId: "c1",
+          counter: { type: "+1/+1", count: 0 },
+        },
+      },
+      hidden
+    );
+
+    expect(add.ok).toBe(false);
+    if (!add.ok) {
+      expect(add.error).toBe("invalid counter update");
+    }
+
+    const card = doc.getMap("cards").get("c1") as Card;
+    expect(card.counters).toEqual([]);
+  });
+
   it("taps cards only when controlled and untaps all for the actor", () => {
     const doc = createDoc();
     seedPlayers(doc, [createPlayer("p1"), createPlayer("p2")]);

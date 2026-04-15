@@ -1,3 +1,4 @@
+import { normalizeCounterType } from "@mtg/shared/counters";
 import type { Card, CardId } from "@/types";
 import { resolveCounterColor } from "@/lib/counters";
 
@@ -25,9 +26,13 @@ export const buildCounterMenuItems = ({
   addCounter,
   removeCounter,
 }: BuildCounterMenuItemsParams): ContextMenuItem[] => {
-  const activeCounterTypes = new Set(counters.map((counter) => counter.type));
+  const activeCounterTypes = new Set(
+    counters.map((counter) => normalizeCounterType(counter.type)).filter(Boolean)
+  );
   const recentCounterTypes = Object.keys(globalCounters)
-    .filter((counterType) => !activeCounterTypes.has(counterType))
+    .filter(
+      (counterType) => !activeCounterTypes.has(normalizeCounterType(counterType))
+    )
     .reverse();
 
   const submenu: ContextMenuItem[] = [
@@ -56,9 +61,7 @@ export const buildCounterMenuItems = ({
             addCounter(cardId, {
               type: counterType,
               count: 1,
-              color:
-                globalCounters[counterType] ??
-                resolveCounterColor(counterType, globalCounters),
+              color: resolveCounterColor(counterType, globalCounters),
             });
           },
         })
@@ -79,10 +82,7 @@ export const buildCounterMenuItems = ({
             addCounter(cardId, {
               type: counter.type,
               count: 1,
-              color:
-                counter.color ??
-                globalCounters[counter.type] ??
-                resolveCounterColor(counter.type, globalCounters),
+              color: counter.color ?? resolveCounterColor(counter.type, globalCounters),
             });
           },
           onDecrement: () => {
