@@ -20,6 +20,16 @@ type Deps = {
   dispatchIntent: DispatchIntent;
 };
 
+const getNormalizedCounterTotal = (
+  counters: GameState["cards"][string]["counters"],
+  counterType: string
+) =>
+  counters.reduce((sum, counter) => {
+    return normalizeCounterType(counter.type) === counterType
+      ? sum + counter.count
+      : sum;
+  }, 0);
+
 const resolveCardCounterContext = (
   get: GetState,
   cardId: string,
@@ -103,11 +113,9 @@ export const createCounterActions = (
 
     const { card, actor } = context;
     const normalizedCounter = { ...counter, type: normalizedType };
-    const prevCount =
-      card.counters.find((c) => normalizeCounterType(c.type) === normalizedType)?.count ?? 0;
+    const prevCount = getNormalizedCounterTotal(card.counters, normalizedType);
     const newCounters = mergeCounters(card.counters, normalizedCounter);
-    const nextCount =
-      newCounters.find((c) => normalizeCounterType(c.type) === normalizedType)?.count ?? prevCount;
+    const nextCount = getNormalizedCounterTotal(newCounters, normalizedType);
     const delta = nextCount - prevCount;
     if (delta <= 0) return;
 
@@ -152,11 +160,9 @@ export const createCounterActions = (
     if (!context) return;
 
     const { card, actor } = context;
-    const prevCount =
-      card.counters.find((c) => normalizeCounterType(c.type) === normalizedType)?.count ?? 0;
+    const prevCount = getNormalizedCounterTotal(card.counters, normalizedType);
     const newCounters = decrementCounter(card.counters, normalizedType);
-    const nextCount =
-      newCounters.find((c) => normalizeCounterType(c.type) === normalizedType)?.count ?? 0;
+    const nextCount = getNormalizedCounterTotal(newCounters, normalizedType);
     const delta = nextCount - prevCount;
     if (delta === 0) return;
 

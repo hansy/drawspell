@@ -26,6 +26,15 @@ const parseStat = (value: string | undefined): number | null => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const INTEGER_STAT_PATTERN = /^[+-]?\d+$/;
+
+const parseDisplayIntegerStat = (value: string | undefined): number | null => {
+  if (value === undefined) return null;
+  const trimmed = value.trim();
+  if (!INTEGER_STAT_PATTERN.test(trimmed)) return null;
+  return parseInt(trimmed, 10);
+};
+
 const getCounterStatDelta = (card: Pick<Card, "counters">, type: "power" | "toughness") =>
   card.counters.reduce((sum, counter) => {
     const parsed = parsePTCounterType(counter.type);
@@ -130,7 +139,7 @@ export const shouldShowPowerToughness = (card: Card): boolean => {
 export const getDisplayPower = (card: Card): string | undefined => {
   const facePower = getCurrentFace(card)?.power;
   const display = card.power ?? facePower;
-  const parsed = parseStat(display);
+  const parsed = parseDisplayIntegerStat(display);
   if (parsed === null) return display;
   return (parsed + getCounterStatDelta(card, "power")).toString();
 };
@@ -138,7 +147,7 @@ export const getDisplayPower = (card: Card): string | undefined => {
 export const getDisplayToughness = (card: Card): string | undefined => {
   const faceToughness = getCurrentFace(card)?.toughness;
   const display = card.toughness ?? faceToughness;
-  const parsed = parseStat(display);
+  const parsed = parseDisplayIntegerStat(display);
   if (parsed === null) return display;
   return (parsed + getCounterStatDelta(card, "toughness")).toString();
 };

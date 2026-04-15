@@ -97,6 +97,17 @@ describe("resetCardToFrontFace", () => {
     expect(getDisplayToughness(card)).toBe("5");
   });
 
+  it("preserves symbolic stats instead of coercing them to numbers", () => {
+    const card = makeCard({
+      power: "*",
+      toughness: "1+*",
+      counters: [{ type: "+1/+1", count: 1 }],
+    });
+
+    expect(getDisplayPower(card)).toBe("*");
+    expect(getDisplayToughness(card)).toBe("1+*");
+  });
+
   it("adds parsed P/T counters to morph display stats", () => {
     const card = makeCard({
       power: "1",

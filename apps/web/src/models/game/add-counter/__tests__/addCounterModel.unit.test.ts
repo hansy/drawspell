@@ -54,6 +54,17 @@ describe("addCounterModel", () => {
     expect(existing?.shouldAddGlobalCounter).toBe(false);
   });
 
+  it("does not request a new global counter when a legacy mixed-case key already exists", () => {
+    const existing = planAddCounter({
+      rawType: " poison ",
+      rawCount: 1,
+      globalCounters: { Poison: "#00ff00" },
+      resolveColor: (_type, globals) => Object.values(globals)[0] ?? "#fff",
+    });
+
+    expect(existing?.shouldAddGlobalCounter).toBe(false);
+  });
+
   it("keeps ambiguous numeric-looking counters as plain text", () => {
     const planned = planAddCounter({
       rawType: "1/1",
