@@ -49,7 +49,8 @@ const findGlobalCounterKey = (
 // Adds or increments a counter by type.
 export const mergeCounters = (existing: Counter[], incoming: Counter): Counter[] => {
   const normalizedType = normalizeCounterType(incoming.type);
-  if (!normalizedType) return existing;
+  const normalizedCount = Number.isFinite(incoming.count) ? Math.floor(incoming.count) : 0;
+  if (!normalizedType || normalizedCount <= 0) return existing;
 
   const idx = findCounterIndex(existing, normalizedType);
   if (idx >= 0) {
@@ -58,11 +59,11 @@ export const mergeCounters = (existing: Counter[], incoming: Counter): Counter[]
       ...next[idx],
       type: normalizedType,
       color: incoming.color ?? next[idx].color,
-      count: next[idx].count + incoming.count,
+      count: next[idx].count + normalizedCount,
     };
     return next;
   }
-  return [...existing, { ...incoming, type: normalizedType }];
+  return [...existing, { ...incoming, type: normalizedType, count: normalizedCount }];
 };
 
 // Decrements a counter by one; removes it if it hits zero.
@@ -94,9 +95,14 @@ const deriveColorFromString = (value: string): string => {
 };
 
 export const resolveCounterColor = (type: string, globalCounters: Record<string, string>): string => {
-  const preset = PRESET_COUNTERS.find((p) => p.type === type);
+  const normalizedType = normalizeCounterType(type);
+  if (!normalizedType) return DEFAULT_COUNTER_COLOR;
+
+  const preset = PRESET_COUNTERS.find(
+    (p) => normalizeCounterType(p.type) === normalizedType
+  );
   if (preset) return preset.color;
-  const existingKey = findGlobalCounterKey(globalCounters, type);
+  const existingKey = findGlobalCounterKey(globalCounters, normalizedType);
   if (existingKey) return globalCounters[existingKey];
-  return deriveColorFromString(type);
+  return deriveColorFromString(normalizedType);
 };

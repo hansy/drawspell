@@ -1,3 +1,4 @@
+import { normalizeCounterType } from "@mtg/shared/counters";
 import type { Card, CardId } from "@/types";
 import { resolveCounterColor } from "@/lib/counters";
 
@@ -17,6 +18,13 @@ type BuildCounterMenuItemsParams = {
   removeCounter: (cardId: CardId, counterType: string) => void;
 };
 
+type AggregatedCounter = {
+  label: string;
+  normalizedType: string;
+  count: number;
+  color?: string;
+};
+
 export const buildCounterMenuItems = ({
   cardId,
   counters,
@@ -25,9 +33,37 @@ export const buildCounterMenuItems = ({
   addCounter,
   removeCounter,
 }: BuildCounterMenuItemsParams): ContextMenuItem[] => {
-  const activeCounterTypes = new Set(counters.map((counter) => counter.type));
+  const aggregatedCounters = counters.reduce<AggregatedCounter[]>((acc, counter) => {
+    const normalizedType = normalizeCounterType(counter.type);
+    if (!normalizedType) return acc;
+
+    const existing = acc.find(
+      (entry) => entry.normalizedType === normalizedType
+    );
+    if (existing) {
+      existing.count += counter.count;
+      if (!existing.color && counter.color) {
+        existing.color = counter.color;
+      }
+      return acc;
+    }
+
+    acc.push({
+      label: counter.type,
+      normalizedType,
+      count: counter.count,
+      color: counter.color,
+    });
+    return acc;
+  }, []);
+
+  const activeCounterTypes = new Set(
+    aggregatedCounters.map((counter) => counter.normalizedType)
+  );
   const recentCounterTypes = Object.keys(globalCounters)
-    .filter((counterType) => !activeCounterTypes.has(counterType))
+    .filter(
+      (counterType) => !activeCounterTypes.has(normalizeCounterType(counterType))
+    )
     .reverse();
 
   const submenu: ContextMenuItem[] = [
@@ -56,9 +92,7 @@ export const buildCounterMenuItems = ({
             addCounter(cardId, {
               type: counterType,
               count: 1,
-              color:
-                globalCounters[counterType] ??
-                resolveCounterColor(counterType, globalCounters),
+              color: resolveCounterColor(counterType, globalCounters),
             });
           },
         })
@@ -66,27 +100,26 @@ export const buildCounterMenuItems = ({
     );
   }
 
-  if (counters.length > 0) {
+  if (aggregatedCounters.length > 0) {
     submenu.push({ type: "separator", id: "counter-controls-divider" });
 
     submenu.push(
-      ...counters.map(
+      ...aggregatedCounters.map(
         (counter): ContextMenuItem => ({
           type: "counter-control",
-          label: counter.type,
+          label: counter.label,
           count: counter.count,
           onIncrement: () => {
             addCounter(cardId, {
-              type: counter.type,
+              type: counter.normalizedType,
               count: 1,
               color:
                 counter.color ??
-                globalCounters[counter.type] ??
-                resolveCounterColor(counter.type, globalCounters),
+                resolveCounterColor(counter.normalizedType, globalCounters),
             });
           },
           onDecrement: () => {
-            removeCounter(cardId, counter.type);
+            removeCounter(cardId, counter.normalizedType);
           },
         })
       )
