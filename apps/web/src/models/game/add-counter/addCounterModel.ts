@@ -20,6 +20,14 @@ export const getAllCounterTypes = (params: {
   ).sort();
 };
 
+const hasGlobalCounterType = (
+  globalCounters: Record<string, string>,
+  type: string
+) =>
+  Object.keys(globalCounters).some(
+    (existingType) => normalizeCounterType(existingType) === type
+  );
+
 export const planAddCounter = (params: {
   rawType: string;
   rawCount: number;
@@ -39,6 +47,6 @@ export const planAddCounter = (params: {
 
   return {
     counter: { type, count, color },
-    shouldAddGlobalCounter: !params.globalCounters[type],
+    shouldAddGlobalCounter: !hasGlobalCounterType(params.globalCounters, type),
   };
 };
