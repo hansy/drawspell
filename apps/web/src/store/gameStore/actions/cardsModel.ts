@@ -1,4 +1,4 @@
-import type { BattlefieldGridSizing, Card } from "@/types";
+import type { Card } from "@/types";
 import type { CardPatch } from "@/yjs/yMutations";
 
 import { getCardFaces, getCurrentFaceIndex, syncCardStatsToFace } from "@/lib/cardDisplay";
@@ -99,17 +99,12 @@ export const computeDuplicateTokenPosition = (params: {
   sourceCard: Card;
   orderedCardIds: string[];
   cardsById: Record<string, Card>;
-  battlefieldSizing?: BattlefieldGridSizing;
 }): Card["position"] => {
   const { stepX, stepY, position: basePosition } = offsetNormalizedByGrid({
     position: clampNormalizedPosition(params.sourceCard.position),
     stepsX: 1,
     stepsY: 1,
     isTapped: params.sourceCard.tapped,
-    zoneWidth: params.battlefieldSizing?.zoneWidthPx,
-    zoneHeight: params.battlefieldSizing?.zoneHeightPx,
-    baseCardHeight: params.battlefieldSizing?.baseCardHeightPx,
-    baseCardWidth: params.battlefieldSizing?.baseCardWidthPx,
   });
   return findAvailablePositionNormalized(basePosition, params.orderedCardIds, params.cardsById, stepX, stepY);
 };

@@ -2,7 +2,6 @@ import type { GameState } from "@/types";
 
 import { v4 as uuidv4 } from "uuid";
 
-import { ZONE } from "@/constants/zones";
 import { canModifyCardState } from "@/rules/permissions";
 import { logPermission } from "@/rules/logger";
 import {
@@ -44,15 +43,10 @@ export const createDuplicateCard =
     }
 
     const newCardId = uuidv4();
-    const battlefieldSizing =
-      currentZone.type === ZONE.BATTLEFIELD
-        ? state.battlefieldGridSizing[currentZone.ownerId]
-        : undefined;
     const position = computeDuplicateTokenPosition({
       sourceCard,
       orderedCardIds: currentZone.cardIds,
       cardsById: state.cards,
-      battlefieldSizing,
     });
     const clonedCard = buildDuplicateTokenCard({
       sourceCard,
