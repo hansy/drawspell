@@ -152,7 +152,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     const cardsById = useGameStore((state) => state.cards);
     const activeCard = activeCardId ? cardsById[activeCardId] : undefined;
     const { cardWidth, cardHeight } = getCardPixelSize({
-        viewScale,
+        viewScale: 1,
         isTapped: Boolean(activeCard?.tapped),
         baseCardHeight,
         baseCardWidth,
@@ -181,15 +181,15 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     });
 
     React.useEffect(() => {
-        if (!zoneSize.height) {
+        if (!zoneSize.width || !zoneSize.height) {
             setBattlefieldGridSizing(zone.ownerId, null);
             return;
         }
         setBattlefieldGridSizing(zone.ownerId, {
+            zoneWidthPx: zoneSize.width,
             zoneHeightPx: zoneSize.height,
             baseCardHeightPx,
             baseCardWidthPx,
-            viewScale,
         });
         return () => {
             setBattlefieldGridSizing(zone.ownerId, null);
@@ -198,8 +198,8 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
         baseCardHeightPx,
         baseCardWidthPx,
         setBattlefieldGridSizing,
-        viewScale,
         zone.ownerId,
+        zoneSize.width,
         zoneSize.height,
     ]);
 

@@ -18,7 +18,7 @@ import { computeDragEndPlan, computeDragMoveUiState } from "./model";
 import { getEffectiveCardSize } from "@/lib/dndBattlefield";
 import {
   fromNormalizedPosition,
-  getNormalizedGridSteps,
+  getCanonicalGridSteps,
   mirrorNormalizedY,
   snapNormalizedWithZone,
   toNormalizedPosition,
@@ -287,6 +287,12 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
           y: startPos.y + delta.y,
         };
         const { cardWidth, cardHeight } = getEffectiveCardSize({
+          viewScale: 1,
+          isTapped: card.tapped,
+          baseCardHeight,
+          baseCardWidth,
+        });
+        const visualSize = getEffectiveCardSize({
           viewScale,
           isTapped: card.tapped,
           baseCardHeight,
@@ -310,7 +316,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
           zoneId: targetZone.id,
           position,
           tapped: card.tapped,
-          size: { width: cardWidth, height: cardHeight },
+          size: { width: visualSize.cardWidth, height: visualSize.cardHeight },
         };
       })
       .filter((value): value is NonNullable<typeof value> => Boolean(value));
@@ -393,7 +399,6 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
               y: plan.position.y - activeStart.y,
             };
             const zoneScale = over?.data.current?.scale ?? 1;
-            const cardScale = over?.data.current?.cardScale ?? 1;
             const baseCardHeight = over?.data.current?.cardBaseHeight;
             const baseCardWidth = over?.data.current?.cardBaseWidth;
             const zoneWidth = (over?.rect.width ?? 0) / (zoneScale || 1);
@@ -414,7 +419,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
                 y: startPos.y + delta.y,
               };
               const { cardWidth, cardHeight } = getEffectiveCardSize({
-                viewScale: cardScale,
+                viewScale: 1,
                 isTapped: card.tapped,
                 baseCardHeight,
                 baseCardWidth,
@@ -429,10 +434,10 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
               targetPositions[id] = snapped;
               movingIds.push(id);
 
-              const stepY = getNormalizedGridSteps({
+              const stepY = getCanonicalGridSteps({
                 isTapped: card.tapped,
+                zoneWidth,
                 zoneHeight,
-                viewScale: cardScale,
                 baseCardHeight,
                 baseCardWidth,
               }).stepY;
@@ -476,16 +481,16 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         const targetZone = state.zones[plan.toZoneId];
         const activeCard = state.cards[plan.cardId];
         const zoneScale = over?.data.current?.scale ?? 1;
+        const zoneWidth = (over?.rect.width ?? 0) / (zoneScale || 1);
         const zoneHeight = (over?.rect.height ?? 0) / (zoneScale || 1);
-        const viewScale = over?.data.current?.cardScale ?? 1;
         const baseCardHeight = over?.data.current?.cardBaseHeight;
         const baseCardWidth = over?.data.current?.cardBaseWidth;
         const gridStepY =
           targetZone?.type === ZONE.BATTLEFIELD && zoneHeight
-            ? getNormalizedGridSteps({
+            ? getCanonicalGridSteps({
                 isTapped: activeCard?.tapped,
+                zoneWidth,
                 zoneHeight,
-                viewScale,
                 baseCardHeight,
                 baseCardWidth,
               }).stepY

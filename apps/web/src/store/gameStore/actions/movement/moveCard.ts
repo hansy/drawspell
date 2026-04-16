@@ -8,8 +8,8 @@ import {
   resolveBattlefieldCollisionPosition,
   resolveBattlefieldGroupCollisionPositions,
 } from "@/lib/battlefieldCollision";
-import { getNormalizedGridSteps } from "@/lib/positions";
 import { resetCardToFrontFace } from "@/lib/cardDisplay";
+import { getCanonicalGridSteps } from "@/lib/positions";
 import { syncCommanderDecklistForPlayer } from "@/store/gameStore/actions/deck/commanderDecklist";
 import { debugLog, type DebugFlagKey } from "@/lib/debug";
 import {
@@ -92,10 +92,10 @@ export const createMoveCard =
       let changed = false;
 
       if (typeof opts?.gridStepY !== "number") {
-        const stepY = getNormalizedGridSteps({
+        const stepY = getCanonicalGridSteps({
           isTapped: card.tapped,
+          zoneWidth: sizing.zoneWidthPx,
           zoneHeight: sizing.zoneHeightPx,
-          viewScale: sizing.viewScale,
           baseCardHeight: sizing.baseCardHeightPx,
           baseCardWidth: sizing.baseCardWidthPx,
         }).stepY;
@@ -111,10 +111,10 @@ export const createMoveCard =
         opts.groupCollision.movingCardIds.forEach((id) => {
           const movingCard = snapshot.cards[id];
           if (!movingCard) return;
-          const stepY = getNormalizedGridSteps({
+          const stepY = getCanonicalGridSteps({
             isTapped: movingCard.tapped,
+            zoneWidth: sizing.zoneWidthPx,
             zoneHeight: sizing.zoneHeightPx,
-            viewScale: sizing.viewScale,
             baseCardHeight: sizing.baseCardHeightPx,
             baseCardWidth: sizing.baseCardWidthPx,
           }).stepY;
@@ -189,14 +189,14 @@ export const createMoveCard =
               getStepY: (id) =>
                 resolvedOpts.groupCollision?.stepYById?.[id] ??
                 resolvedOpts?.gridStepY ??
-                getNormalizedGridSteps({ isTapped: cardsCopy[id]?.tapped })
+                getCanonicalGridSteps({ isTapped: cardsCopy[id]?.tapped })
                   .stepY,
             });
           resolvedPosition = resolvedPositions[cardId] ?? newPosition;
         } else {
           const stepY =
             resolvedOpts?.gridStepY ??
-            getNormalizedGridSteps({
+            getCanonicalGridSteps({
               isTapped: workingCard.tapped,
             }).stepY;
           resolvedPosition = resolveBattlefieldCollisionPosition({

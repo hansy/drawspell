@@ -14,10 +14,10 @@ type Deps = {
 const areSizingEqual = (a: BattlefieldGridSizing | undefined, b: BattlefieldGridSizing) =>
   Boolean(
     a &&
+      a.zoneWidthPx === b.zoneWidthPx &&
       a.zoneHeightPx === b.zoneHeightPx &&
       a.baseCardHeightPx === b.baseCardHeightPx &&
-      a.baseCardWidthPx === b.baseCardWidthPx &&
-      a.viewScale === b.viewScale
+      a.baseCardWidthPx === b.baseCardWidthPx
   );
 
 export const createUiActions = (

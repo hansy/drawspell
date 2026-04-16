@@ -1,11 +1,10 @@
 import type { Card } from "@/types";
 import { decrementCounter, enforceZoneCounterRules, mergeCounters } from "@/lib/counters";
 import {
-  bumpPosition,
   clampNormalizedPosition,
   findAvailablePositionNormalized,
-  getNormalizedGridSteps,
   migratePositionToNormalized,
+  offsetNormalizedByGrid,
 } from "@/lib/positions";
 import {
   getCardFaces,
@@ -104,8 +103,10 @@ export function duplicateCard(maps: SharedMaps, cardId: string, newId: string) {
   const normalizedPosition = needsMigration ? migratePositionToNormalized(existing.position) : existing.position;
   if (needsMigration) writeCard(maps, { ...existing, position: normalizedPosition });
 
-  const { stepX, stepY } = getNormalizedGridSteps({ isTapped: existing.tapped });
-  const basePosition = bumpPosition(clampNormalizedPosition(normalizedPosition), stepX, stepY);
+  const { stepX, stepY, position: basePosition } = offsetNormalizedByGrid({
+    position: clampNormalizedPosition(normalizedPosition),
+    isTapped: existing.tapped,
+  });
   const position = findAvailablePositionNormalized(basePosition, zone.cardIds, getCardsSnapshot(maps), stepX, stepY);
   const cloned: Card = {
     ...existing,

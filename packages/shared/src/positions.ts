@@ -69,6 +69,18 @@ export const getCardPixelSize = (params?: {
   return { cardWidth, cardHeight };
 };
 
+export const getCanonicalCardPixelSize = (params?: {
+  isTapped?: boolean;
+  baseCardHeight?: number;
+  baseCardWidth?: number;
+}) =>
+  getCardPixelSize({
+    isTapped: params?.isTapped,
+    baseCardHeight: params?.baseCardHeight,
+    baseCardWidth: params?.baseCardWidth,
+    viewScale: 1,
+  });
+
 export const getNormalizedGridSteps = (params?: {
   isTapped?: boolean;
   zoneWidth?: number;
@@ -90,6 +102,22 @@ export const getNormalizedGridSteps = (params?: {
     stepY: zoneHeight ? (cardHeight / 4) / zoneHeight : 0,
   };
 };
+
+export const getCanonicalGridSteps = (params?: {
+  isTapped?: boolean;
+  zoneWidth?: number;
+  zoneHeight?: number;
+  baseCardHeight?: number;
+  baseCardWidth?: number;
+}) =>
+  getNormalizedGridSteps({
+    isTapped: params?.isTapped,
+    zoneWidth: params?.zoneWidth,
+    zoneHeight: params?.zoneHeight,
+    baseCardHeight: params?.baseCardHeight,
+    baseCardWidth: params?.baseCardWidth,
+    viewScale: 1,
+  });
 
 export const normalizedPositionKey = (position: { x: number; y: number }) =>
   `${position.x.toFixed(4)}:${position.y.toFixed(4)}`;
@@ -132,6 +160,62 @@ export const fromNormalizedPosition = (
   x: position.x * zoneWidth,
   y: position.y * zoneHeight,
 });
+
+const snapToGrid = (value: number, gridSize: number) => {
+  if (!gridSize) return value;
+  return Math.floor(value / gridSize + 0.5) * gridSize;
+};
+
+const clampCenterToZoneBounds = (
+  center: { x: number; y: number },
+  zoneWidth: number,
+  zoneHeight: number,
+  cardWidth: number,
+  cardHeight: number
+) => {
+  const halfW = cardWidth / 2;
+  const halfH = cardHeight / 2;
+  const minX = halfW;
+  const maxX = Math.max(halfW, zoneWidth - halfW);
+  const minY = halfH;
+  const maxY = Math.max(halfH, zoneHeight - halfH);
+
+  return {
+    x: Math.min(Math.max(center.x, minX), maxX),
+    y: Math.min(Math.max(center.y, minY), maxY),
+  };
+};
+
+export const snapNormalizedWithZone = (
+  position: { x: number; y: number },
+  zoneWidth: number,
+  zoneHeight: number,
+  cardWidth: number,
+  cardHeight: number
+) => {
+  if (!zoneWidth || !zoneHeight) return clampNormalizedPosition(position);
+
+  const asPixels = fromNormalizedPosition(position, zoneWidth, zoneHeight);
+  const gridX = cardWidth / 2;
+  const gridY = cardHeight / 4;
+  const left = asPixels.x - cardWidth / 2;
+  const top = asPixels.y - cardHeight / 2;
+  const snappedLeft = snapToGrid(left, gridX);
+  const snappedTop = snapToGrid(top, gridY);
+  const snappedCenter = {
+    x: snappedLeft + cardWidth / 2,
+    y: snappedTop + cardHeight / 2,
+  };
+
+  const clampedPixels = clampCenterToZoneBounds(
+    snappedCenter,
+    zoneWidth,
+    zoneHeight,
+    cardWidth,
+    cardHeight
+  );
+  return toNormalizedPosition(clampedPixels, zoneWidth, zoneHeight);
+};
 
 /**
  * Mirror a normalized position vertically (flip Y in [0,1]).
@@ -249,6 +333,33 @@ export const bumpPosition = (
   dx: number = GRID_STEP_X,
   dy: number = GRID_STEP_Y
 ) => clampNormalizedPosition({ x: position.x + dx, y: position.y + dy });
+
+export const offsetNormalizedByGrid = (params: {
+  position: { x: number; y: number };
+  stepsX?: number;
+  stepsY?: number;
+  isTapped?: boolean;
+  zoneWidth?: number;
+  zoneHeight?: number;
+  baseCardHeight?: number;
+  baseCardWidth?: number;
+}) => {
+  const { stepX, stepY } = getCanonicalGridSteps({
+    isTapped: params.isTapped,
+    zoneWidth: params.zoneWidth,
+    zoneHeight: params.zoneHeight,
+    baseCardHeight: params.baseCardHeight,
+    baseCardWidth: params.baseCardWidth,
+  });
+  return {
+    stepX,
+    stepY,
+    position: clampNormalizedPosition({
+      x: params.position.x + stepX * (params.stepsX ?? 1),
+      y: params.position.y + stepY * (params.stepsY ?? 1),
+    }),
+  };
+};
 
 export const findAvailablePositionNormalized = (
   start: { x: number; y: number },

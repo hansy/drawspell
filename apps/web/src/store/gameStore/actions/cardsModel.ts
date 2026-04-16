@@ -3,11 +3,10 @@ import type { CardPatch } from "@/yjs/yMutations";
 
 import { getCardFaces, getCurrentFaceIndex, syncCardStatsToFace } from "@/lib/cardDisplay";
 import {
-  bumpPosition,
   clampNormalizedPosition,
   findAvailablePositionNormalized,
-  getNormalizedGridSteps,
   migratePositionToNormalized,
+  offsetNormalizedByGrid,
 } from "@/lib/positions";
 import { MAX_REVEALED_TO } from "@/lib/limits";
 
@@ -101,10 +100,12 @@ export const computeDuplicateTokenPosition = (params: {
   orderedCardIds: string[];
   cardsById: Record<string, Card>;
 }): Card["position"] => {
-  const { stepX, stepY } = getNormalizedGridSteps({
+  const { stepX, stepY, position: basePosition } = offsetNormalizedByGrid({
+    position: clampNormalizedPosition(params.sourceCard.position),
+    stepsX: 1,
+    stepsY: 1,
     isTapped: params.sourceCard.tapped,
   });
-  const basePosition = bumpPosition(clampNormalizedPosition(params.sourceCard.position), stepX, stepY);
   return findAvailablePositionNormalized(basePosition, params.orderedCardIds, params.cardsById, stepX, stepY);
 };
 

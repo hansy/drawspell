@@ -58,13 +58,6 @@ export const computeBattlefieldPlacement = (params: {
       baseCardWidth: params.baseCardWidth,
     });
 
-  const clampedPos = clampToZoneBounds(
-    unsnappedPos,
-    zoneWidth,
-    zoneHeight,
-    cardWidth,
-    cardHeight
-  );
   const clampedCanonicalPos = clampToZoneBounds(
     unsnappedPos,
     zoneWidth,
@@ -73,29 +66,14 @@ export const computeBattlefieldPlacement = (params: {
     baseCardHeight
   );
 
-  const unsnappedNormalized = toNormalizedPosition(
-    clampedPos,
-    zoneWidth,
-    zoneHeight
-  );
   const unsnappedCanonicalNormalized = toNormalizedPosition(
     clampedCanonicalPos,
     zoneWidth,
     zoneHeight
   );
-  const ghostCanonical = params.mirrorY
-    ? mirrorNormalizedY(unsnappedNormalized)
-    : unsnappedNormalized;
   const baseCanonical = params.mirrorY
     ? mirrorNormalizedY(unsnappedCanonicalNormalized)
     : unsnappedCanonicalNormalized;
-  const snappedGhostCanonical = snapNormalizedWithZone(
-    ghostCanonical,
-    zoneWidth,
-    zoneHeight,
-    cardWidth,
-    cardHeight
-  );
   const snappedCanonical = snapNormalizedWithZone(
     baseCanonical,
     zoneWidth,
@@ -105,8 +83,8 @@ export const computeBattlefieldPlacement = (params: {
   );
 
   const ghostNormalized = params.mirrorY
-    ? mirrorNormalizedY(snappedGhostCanonical)
-    : snappedGhostCanonical;
+    ? mirrorNormalizedY(snappedCanonical)
+    : snappedCanonical;
   const ghostPosition = fromNormalizedPosition(ghostNormalized, zoneWidth, zoneHeight);
 
   return {

@@ -1,12 +1,12 @@
-import type { Card, PlayerId, Zone } from "@/types";
+import type { BattlefieldGridSizing, Card, PlayerId, Zone } from "@/types";
 import type { ScryfallCard, ScryfallRelatedCard } from "@/types/scryfall";
 
 import { ZONE } from "@/constants/zones";
 import {
   clampNormalizedPosition,
   findAvailablePositionNormalized,
-  getNormalizedGridSteps,
   migratePositionToNormalized,
+  offsetNormalizedByGrid,
 } from "@/lib/positions";
 import { toScryfallCardLite } from "@/types/scryfallLite";
 
@@ -31,6 +31,7 @@ export const buildRelatedBattlefieldCard = (params: {
   related: ScryfallRelatedCard;
   scryfallCard: ScryfallCard;
   cardsById: Record<string, Pick<Card, "position">>;
+  battlefieldSizing?: BattlefieldGridSizing;
   createId: () => string;
 }): Card | null => {
   if (params.battlefield.type !== ZONE.BATTLEFIELD) return null;
@@ -41,12 +42,14 @@ export const buildRelatedBattlefieldCard = (params: {
   const toughness = params.scryfallCard.toughness ?? frontFace?.toughness;
 
   const sourcePosition = normalizeMaybeLegacyPosition(params.sourceCard.position);
-  const { stepX, stepY } = getNormalizedGridSteps({ isTapped: false });
-  const basePosition = clampNormalizedPosition({
-    x: sourcePosition.x + stepX,
-    y: sourcePosition.y + stepY,
+  const { stepX, stepY, position: basePosition } = offsetNormalizedByGrid({
+    position: clampNormalizedPosition(sourcePosition),
+    isTapped: false,
+    zoneWidth: params.battlefieldSizing?.zoneWidthPx,
+    zoneHeight: params.battlefieldSizing?.zoneHeightPx,
+    baseCardHeight: params.battlefieldSizing?.baseCardHeightPx,
+    baseCardWidth: params.battlefieldSizing?.baseCardWidthPx,
   });
-
   const position = findAvailablePositionNormalized(
     basePosition,
     params.battlefield.cardIds,

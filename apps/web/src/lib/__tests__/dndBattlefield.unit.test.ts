@@ -95,8 +95,8 @@ describe('dndBattlefield', () => {
 
       expect(result.snappedCanonical.x).toBeCloseTo(120 / 600);
       expect(result.snappedCanonical.y).toBeCloseTo(120 / 400);
-      expect(result.ghostPosition.x).toBeCloseTo(90);
-      expect(result.ghostPosition.y).toBeCloseTo(100);
+      expect(result.ghostPosition.x).toBeCloseTo(120);
+      expect(result.ghostPosition.y).toBeCloseTo(120);
     });
 
     it('returns a canonical snapped position while mirroring ghost rendering for the viewer', () => {
