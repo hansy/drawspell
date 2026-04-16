@@ -454,9 +454,7 @@ describe("CardPreview", () => {
     anchorEl.remove();
   });
 
-  it("locks preview after a 400ms long press", () => {
-    vi.useFakeTimers();
-
+  it("locks preview after a desktop click", () => {
     const zoneId = "me-battlefield";
     const cardId = "c1";
     const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
@@ -493,22 +491,20 @@ describe("CardPreview", () => {
           clientY: 10,
         })
       );
-    });
-
-    act(() => {
-      vi.advanceTimersByTime(399);
-    });
-    expect(document.querySelector("[data-card-preview]")).toBeNull();
-
-    act(() => {
-      vi.advanceTimersByTime(1);
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+        })
+      );
     });
     expect(document.querySelector("[data-card-preview]")).not.toBeNull();
   });
 
-  it("closes locked preview when clicking outside", () => {
-    vi.useFakeTimers();
-
+  it("does not lock preview when a desktop click turns into a drag", () => {
     const zoneId = "me-battlefield";
     const cardId = "c1";
     const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
@@ -545,7 +541,75 @@ describe("CardPreview", () => {
           clientY: 10,
         })
       );
-      vi.advanceTimersByTime(400);
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointermove", {
+          bubbles: true,
+          button: 0,
+          clientX: 30,
+          clientY: 10,
+        })
+      );
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          clientX: 30,
+          clientY: 10,
+        })
+      );
+    });
+
+    expect(document.querySelector("[data-card-preview]")).toBeNull();
+  });
+
+  it("closes locked preview when clicking outside", () => {
+    const zoneId = "me-battlefield";
+    const cardId = "c1";
+    const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
+    const card = buildCard(cardId, "Test Card", zoneId);
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me") },
+      myPlayerId: "me",
+    }));
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Card card={card} />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+
+    const cardElement = container.querySelector(`[data-card-id="${cardId}"]`);
+    if (!cardElement) {
+      throw new Error("Expected card element to be present.");
+    }
+
+    act(() => {
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+        })
+      );
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+        })
+      );
     });
     expect(document.querySelector("[data-card-preview]")).not.toBeNull();
 

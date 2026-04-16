@@ -26,6 +26,7 @@ interface CardFaceProps {
   interactive?: boolean;
   hidePT?: boolean;
   showCounterLabels?: boolean;
+  revealInteractiveCounterControls?: boolean;
   preferArtCrop?: boolean;
   showNameLabel?: boolean;
   rotateLabel?: boolean;
@@ -43,6 +44,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
   interactive,
   hidePT,
   showCounterLabels,
+  revealInteractiveCounterControls,
   preferArtCrop = false,
   showNameLabel = true,
   rotateLabel = false,
@@ -206,6 +208,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
         countersClassName={countersClassName}
         interactive={interactive}
         showCounterLabels={showCounterLabels}
+        revealInteractiveCounterControls={revealInteractiveCounterControls}
         rotateLabel={rotateLabel}
         customTextNode={customTextNode}
         customTextPosition={customTextPosition}
@@ -238,6 +241,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
             countersClassName={countersClassName}
             interactive={interactive}
             showCounterLabels={showCounterLabels}
+            revealInteractiveCounterControls={revealInteractiveCounterControls}
             rotateLabel={rotateLabel}
             customTextNode={customTextNode}
             customTextPosition={customTextPosition}
@@ -260,6 +264,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
             countersClassName={countersClassName}
             interactive={interactive}
             showCounterLabels={showCounterLabels}
+            revealInteractiveCounterControls={revealInteractiveCounterControls}
             rotateLabel={rotateLabel}
             customTextNode={customTextNode}
             customTextPosition={customTextPosition}

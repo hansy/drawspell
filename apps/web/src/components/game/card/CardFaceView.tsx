@@ -18,6 +18,7 @@ interface CardFaceViewProps {
   countersClassName?: string;
   interactive?: boolean;
   showCounterLabels?: boolean;
+  revealInteractiveCounterControls?: boolean;
   rotateLabel?: boolean;
   customTextNode?: React.ReactNode;
   customTextPosition?: "sidebar" | "bottom-left" | "center";
@@ -36,6 +37,7 @@ export const CardFaceView: React.FC<CardFaceViewProps> = ({
   countersClassName,
   interactive,
   showCounterLabels,
+  revealInteractiveCounterControls,
   rotateLabel,
   customTextNode,
   customTextPosition,
@@ -74,6 +76,7 @@ export const CardFaceView: React.FC<CardFaceViewProps> = ({
         countersClassName={countersClassName}
         interactive={interactive}
         showCounterLabels={showCounterLabels}
+        revealInteractiveCounterControls={revealInteractiveCounterControls}
         onIncrementCounter={onIncrementCounter}
         onDecrementCounter={onDecrementCounter}
         customTextNode={customTextNode}

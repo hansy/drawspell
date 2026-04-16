@@ -91,6 +91,38 @@ describe("CardFaceView", () => {
     expect(onDecrementCounter).toHaveBeenCalledWith("+1/+1");
   });
 
+  it("shows locked-preview counter controls around a fixed count badge", () => {
+    render(
+      <CardFaceView
+        model={buildModel({
+          counters: [
+            { type: "+1/+1", count: 2, renderColor: "rgb(0, 0, 0)" },
+          ],
+        })}
+        interactive
+        showCounterLabels
+        revealInteractiveCounterControls
+      />
+    );
+
+    const decrementButton = screen.getByRole("button", {
+      name: "Decrement +1/+1 counter",
+    });
+    const incrementButton = screen.getByRole("button", {
+      name: "Increment +1/+1 counter",
+    });
+    const label = screen.getByText("+1/+1");
+    const countBadge = label.parentElement?.parentElement;
+
+    expect(countBadge?.textContent).toContain("2");
+    expect(countBadge?.className.includes("w-6")).toBe(true);
+    expect(countBadge?.className.includes("h-6")).toBe(true);
+    expect(decrementButton.className.includes("right-full")).toBe(true);
+    expect(decrementButton.className.includes("opacity-100")).toBe(true);
+    expect(incrementButton.className.includes("opacity-100")).toBe(true);
+    expect(label.parentElement?.className.includes("left-full")).toBe(true);
+  });
+
   it("renders the reveal badge when provided", () => {
     render(
       <CardFaceView
@@ -104,4 +136,3 @@ describe("CardFaceView", () => {
     expect(screen.getByTitle("Revealed to everyone")).toBeTruthy();
   });
 });
-

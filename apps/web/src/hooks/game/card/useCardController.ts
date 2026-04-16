@@ -23,8 +23,7 @@ import { resolveSelectedCardIds } from "@/models/game/selection/selectionModel";
 
 import type { CardProps, CardViewProps } from "@/components/game/card/types";
 
-const PREVIEW_LOCK_LONG_PRESS_MS = 400;
-const PREVIEW_LOCK_MOVE_TOLERANCE_PX = 8;
+const DESKTOP_PREVIEW_LOCK_MOVE_TOLERANCE_PX = 8;
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
 const TOUCH_PREVIEW_TAP_TOLERANCE_PX = 6;
@@ -146,10 +145,11 @@ export const useCardController = (props: CardProps): CardController => {
   const hoverTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
-  const lockPressTimeoutRef = React.useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
-  const lockPressStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const desktopPreviewPressRef = React.useRef<{
+    x: number;
+    y: number;
+    target: HTMLDivElement;
+  } | null>(null);
   const touchPointsRef = React.useRef<Map<number, TouchPointState>>(new Map());
   const touchHadMultiTouchRef = React.useRef(false);
   const contextMenuHoldTimeoutRef = React.useRef<ReturnType<
@@ -158,12 +158,8 @@ export const useCardController = (props: CardProps): CardController => {
   const contextMenuHoldPointerIdRef = React.useRef<number | null>(null);
   const suppressMouseHoverPreviewUntilRef = React.useRef(0);
 
-  const clearLockPress = React.useCallback(() => {
-    if (lockPressTimeoutRef.current) {
-      clearTimeout(lockPressTimeoutRef.current);
-      lockPressTimeoutRef.current = null;
-    }
-    lockPressStartRef.current = null;
+  const clearDesktopPreviewPress = React.useCallback(() => {
+    desktopPreviewPressRef.current = null;
   }, []);
 
   const clearContextMenuHoldTimeout = React.useCallback(() => {
@@ -236,7 +232,7 @@ export const useCardController = (props: CardProps): CardController => {
     [hidePreview, card.id]
   );
 
-  const handleLockPressStart = React.useCallback(
+  const handleDesktopPreviewPressStart = React.useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (interactionsDisabled) return;
       if (e.pointerType === "touch") return;
@@ -261,18 +257,13 @@ export const useCardController = (props: CardProps): CardController => {
         return;
       }
 
-      const target = e.currentTarget;
-      lockPressStartRef.current = { x: e.clientX, y: e.clientY };
-      if (lockPressTimeoutRef.current) {
-        clearTimeout(lockPressTimeoutRef.current);
-      }
-      lockPressTimeoutRef.current = setTimeout(() => {
-        lockPressTimeoutRef.current = null;
-        lockPressStartRef.current = null;
-        toggleLock(card, target);
-      }, PREVIEW_LOCK_LONG_PRESS_MS);
+      desktopPreviewPressRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        target: e.currentTarget,
+      };
     },
-    [zoneType, interactionsDisabled, card, toggleLock, faceDown, canPeek]
+    [zoneType, interactionsDisabled, faceDown, canPeek]
   );
 
   const handleDoubleClick = React.useCallback(() => {
@@ -474,21 +465,39 @@ export const useCardController = (props: CardProps): CardController => {
     resetTouchGesture();
   }, [resetTouchGesture]);
 
-  const handleLockPressMove = React.useCallback(
+  const handleDesktopPreviewPressMove = React.useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!lockPressTimeoutRef.current || !lockPressStartRef.current) return;
-      const dx = e.clientX - lockPressStartRef.current.x;
-      const dy = e.clientY - lockPressStartRef.current.y;
-      if (Math.hypot(dx, dy) > PREVIEW_LOCK_MOVE_TOLERANCE_PX) {
-        clearLockPress();
+      if (!desktopPreviewPressRef.current) return;
+      const dx = e.clientX - desktopPreviewPressRef.current.x;
+      const dy = e.clientY - desktopPreviewPressRef.current.y;
+      if (Math.hypot(dx, dy) > DESKTOP_PREVIEW_LOCK_MOVE_TOLERANCE_PX) {
+        clearDesktopPreviewPress();
       }
     },
-    [clearLockPress]
+    [clearDesktopPreviewPress]
   );
 
-  const handleLockPressEnd = React.useCallback(() => {
-    clearLockPress();
-  }, [clearLockPress]);
+  const handleDesktopPreviewPressEnd = React.useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.pointerType === "touch") return;
+      const press = desktopPreviewPressRef.current;
+      clearDesktopPreviewPress();
+      if (!press) return;
+      if (e.button !== 0) return;
+      if (
+        e.defaultPrevented ||
+        e.shiftKey ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey
+      ) {
+        return;
+      }
+      if (useDragStore.getState().activeCardId === card.id) return;
+      toggleLock(card, press.target);
+    },
+    [card, clearDesktopPreviewPress, toggleLock]
+  );
 
   const handlePointerDown = React.useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -526,11 +535,11 @@ export const useCardController = (props: CardProps): CardController => {
       if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current);
       }
-      clearLockPress();
+      clearDesktopPreviewPress();
       resetTouchGesture();
       hidePreview(card.id);
     };
-  }, [card.id, clearLockPress, hidePreview, resetTouchGesture]);
+  }, [card.id, clearDesktopPreviewPress, hidePreview, resetTouchGesture]);
 
   const disableHoverAnimation =
     Boolean(propDisableHoverAnimation) ||
@@ -554,19 +563,19 @@ export const useCardController = (props: CardProps): CardController => {
       onMouseEnter: handleMouseEnter,
       onMouseLeave: handleMouseLeave,
       onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => {
-        handleLockPressMove(event);
+        handleDesktopPreviewPressMove(event);
         handleTouchPressMove(event);
       },
       onPointerUp: (event: React.PointerEvent<HTMLDivElement>) => {
-        handleLockPressEnd();
+        handleDesktopPreviewPressEnd(event);
         handleTouchPressFinish(event);
       },
       onPointerCancel: () => {
-        handleLockPressEnd();
+        clearDesktopPreviewPress();
         handleTouchPressCancel();
       },
       onPointerLeave: () => {
-        handleLockPressEnd();
+        clearDesktopPreviewPress();
         handleTouchPressCancel();
       },
       imageTransform,
@@ -582,7 +591,7 @@ export const useCardController = (props: CardProps): CardController => {
       ...attributes,
       onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => {
         handlePointerDown(event);
-        handleLockPressStart(event);
+        handleDesktopPreviewPressStart(event);
         handleTouchPressStart(event);
         listeners?.onPointerDown?.(event);
       },

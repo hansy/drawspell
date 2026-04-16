@@ -164,6 +164,7 @@ export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewP
         interactive={showAncillary && locked && isController}
         hidePT={true}
         showCounterLabels={showAncillary}
+        revealInteractiveCounterControls={showAncillary && locked && isController}
         hideRevealIcon={true}
         showNameLabel={false}
         customTextPosition="sidebar"
