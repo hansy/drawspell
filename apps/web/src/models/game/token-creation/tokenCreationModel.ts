@@ -1,10 +1,10 @@
-import type { Card, CardId, PlayerId, ZoneId } from "@/types";
+import type { BattlefieldGridSizing, Card, CardId, PlayerId, ZoneId } from "@/types";
 import type { ScryfallCard } from "@/types/scryfall";
 
 import {
   clampNormalizedPosition,
   findAvailablePositionNormalized,
-  getNormalizedGridSteps,
+  offsetNormalizedByGrid,
 } from "@/lib/positions";
 import { toScryfallCardLite } from "@/types/scryfallLite";
 
@@ -24,12 +24,22 @@ export const planTokenCards = (params: {
   battlefieldZoneId: ZoneId;
   existingBattlefieldCardIds: CardId[];
   cardsById: Record<CardId, Pick<Card, "position">>;
+  battlefieldSizing?: BattlefieldGridSizing;
   quantity: number;
   createId: () => string;
 }): Card[] => {
   const { name, power, toughness, typeLine } = getTokenDerivedFields(params.token);
   const scryfallLite = toScryfallCardLite(params.token);
-  const { stepX, stepY } = getNormalizedGridSteps();
+  const { stepX, stepY } = offsetNormalizedByGrid({
+    position: DEFAULT_START,
+    stepsX: 0,
+    stepsY: 0,
+    isTapped: false,
+    zoneWidth: params.battlefieldSizing?.zoneWidthPx,
+    zoneHeight: params.battlefieldSizing?.zoneHeightPx,
+    baseCardHeight: params.battlefieldSizing?.baseCardHeightPx,
+    baseCardWidth: params.battlefieldSizing?.baseCardWidthPx,
+  });
 
   const occupiedCardIds = [...params.existingBattlefieldCardIds];
   const combinedCardsById: Record<CardId, Pick<Card, "position">> = {

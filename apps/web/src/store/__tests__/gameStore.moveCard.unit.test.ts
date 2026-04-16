@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useGameStore } from '../gameStore';
 import { ZONE } from '@/constants/zones';
-import { GRID_STEP_X, GRID_STEP_Y, getNormalizedGridSteps } from '@/lib/positions';
+import { GRID_STEP_X, GRID_STEP_Y, getCanonicalGridSteps } from '@/lib/positions';
 import { ensureLocalStorage } from '@test/utils/storage';
 
 const makeZone = (id: string, type: keyof typeof ZONE, ownerId: string, cardIds: string[] = []) => ({
@@ -135,21 +135,21 @@ describe('gameStore move/tap interactions', () => {
       cards: { ...state.cards, [moving.id]: moving, [occupied.id]: occupied },
       battlefieldGridSizing: {
         me: {
+          zoneWidthPx: 900,
           zoneHeightPx: 600,
           baseCardHeightPx: 160,
           baseCardWidthPx: 106.6667,
-          viewScale: 1,
         },
       },
     }));
 
     useGameStore.getState().moveCard(moving.id, battlefield.id, { x: 0.5, y: 0.5 }, 'me');
 
-    const stepY = getNormalizedGridSteps({
+    const stepY = getCanonicalGridSteps({
+      zoneWidth: 900,
       zoneHeight: 600,
       baseCardHeight: 160,
       baseCardWidth: 106.6667,
-      viewScale: 1,
     }).stepY;
     const moved = useGameStore.getState().cards[moving.id];
     expect(moved.position.y).toBeCloseTo(0.5 + stepY, 6);
@@ -169,10 +169,10 @@ describe('gameStore move/tap interactions', () => {
       cards: { ...state.cards, [moving.id]: moving, [occupied.id]: occupied },
       battlefieldGridSizing: {
         me: {
+          zoneWidthPx: 900,
           zoneHeightPx: 600,
           baseCardHeightPx: 160,
           baseCardWidthPx: 106.6667,
-          viewScale: 1,
         },
       },
     }));
@@ -184,11 +184,11 @@ describe('gameStore move/tap interactions', () => {
       },
     });
 
-    const stepY = getNormalizedGridSteps({
+    const stepY = getCanonicalGridSteps({
+      zoneWidth: 900,
       zoneHeight: 600,
       baseCardHeight: 160,
       baseCardWidth: 106.6667,
-      viewScale: 1,
     }).stepY;
     const moved = useGameStore.getState().cards[moving.id];
     expect(moved.position.y).toBeCloseTo(0.5 + stepY, 6);
@@ -383,7 +383,7 @@ describe('gameStore move/tap interactions', () => {
     expect(clone.basePower).toBe(card.basePower);
     expect(clone.baseToughness).toBe(card.baseToughness);
     expect(clone.tapped).toBe(true);
-    const { stepX, stepY } = getNormalizedGridSteps({ isTapped: true });
+    const { stepX, stepY } = getCanonicalGridSteps({ isTapped: true });
     expect(clone.position).toEqual({
       x: card.position.x + stepX,
       y: card.position.y + stepY,

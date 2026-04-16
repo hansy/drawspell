@@ -38,17 +38,17 @@ describe('gameStore ui actions', () => {
 
   it('setBattlefieldGridSizing stores and clears sizing per player', () => {
     useGameStore.getState().setBattlefieldGridSizing('me', {
+      zoneWidthPx: 900,
       zoneHeightPx: 600,
       baseCardHeightPx: 160,
       baseCardWidthPx: 106.6667,
-      viewScale: 0.9,
     });
 
     expect(useGameStore.getState().battlefieldGridSizing.me).toEqual({
+      zoneWidthPx: 900,
       zoneHeightPx: 600,
       baseCardHeightPx: 160,
       baseCardWidthPx: 106.6667,
-      viewScale: 0.9,
     });
 
     useGameStore.getState().setBattlefieldGridSizing('me', null);

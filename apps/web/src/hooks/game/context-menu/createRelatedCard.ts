@@ -10,7 +10,10 @@ export type ToastLike = {
 
 export type LoggerLike = Pick<Console, "error">;
 
-type StoreLike = Pick<GameState, "zones" | "cards" | "players" | "addCard">;
+type StoreLike = Pick<
+  GameState,
+  "zones" | "cards" | "players" | "battlefieldGridSizing" | "addCard"
+>;
 
 export const createRelatedCardHandler = (params: {
   actorId: PlayerId;
@@ -32,6 +35,7 @@ export const createRelatedCardHandler = (params: {
       viewerRole: params.viewerRole,
       zonesById: state.zones,
       cardsById: state.cards,
+      battlefieldGridSizing: state.battlefieldGridSizing,
       fetchScryfallCardByUri: params.fetchScryfallCardByUri,
       createId: params.createId,
     });

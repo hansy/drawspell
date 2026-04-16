@@ -193,8 +193,8 @@ export interface GameState {
 }
 
 export type BattlefieldGridSizing = {
+  zoneWidthPx: number;
   zoneHeightPx: number;
   baseCardHeightPx: number;
   baseCardWidthPx: number;
-  viewScale: number;
 };

@@ -56,6 +56,7 @@ describe("createRelatedCardHandler", () => {
       zones: { [zone.id]: zone },
       cards: { [sourceCard.id]: sourceCard },
       players: { me: createPlayer("me") },
+      battlefieldGridSizing: {},
       addCard,
     });
 
@@ -111,6 +112,7 @@ describe("createRelatedCardHandler", () => {
       zones: { [zone.id]: zone },
       cards: { [sourceCard.id]: sourceCard },
       players: { me: createPlayer("me") },
+      battlefieldGridSizing: {},
       addCard,
     });
 
@@ -141,6 +143,7 @@ describe("createRelatedCardHandler", () => {
       zones: { [zone.id]: zone },
       cards: { [sourceCard.id]: sourceCard },
       players: { me: createPlayer("me") },
+      battlefieldGridSizing: {},
       addCard,
     });
 
