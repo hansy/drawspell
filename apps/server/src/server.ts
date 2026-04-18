@@ -71,6 +71,7 @@ import {
 import { validatePartyHandshake } from "./http/partyHandshake";
 import { OverlayService, type OverlayBuildResult } from "./overlay/service";
 import { SnapshotStore, type SnapshotMeta } from "./storage/snapshotStore";
+import { normalizeNonEmptyString } from "./strings";
 
 const INTENT_ROLE = "intent";
 const EMPTY_ROOM_IDLE_GRACE_MS = 120_000;
@@ -176,12 +177,6 @@ const computeMetricStats = (samples: number[]) => {
   );
   const p95 = sorted[index] ?? sorted[sorted.length - 1] ?? 0;
   return { avg: sum / count, p95, count };
-};
-
-const normalizeNonEmptyString = (value: unknown): string | null => {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
 };
 
 const summarizeSecretToken = (value: string | undefined): {

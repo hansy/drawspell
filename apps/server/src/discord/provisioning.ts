@@ -4,6 +4,7 @@ import type {
   DiscordRoomProvisionRequest,
 } from "@mtg/shared/discord/provisioning";
 import { ORIGINS } from "@mtg/shared/constants/hosts";
+import { normalizeNonEmptyString } from "../strings";
 
 const ROOM_ID_ALPHABET =
   "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -12,12 +13,6 @@ const DISCORD_ROOM_ID_LENGTH = 10;
 export const DISCORD_SERVICE_AUTH_HEADER = "x-drawspell-service-auth";
 export const DISCORD_REQUEST_ID_HEADER = "x-discord-request-id";
 export const DISCORD_INVITE_TTL_MS = 10 * 60_000;
-
-const normalizeNonEmptyString = (value: unknown): string | null => {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-};
 
 const normalizeParticipantDiscordUserIds = (
   value: unknown,
