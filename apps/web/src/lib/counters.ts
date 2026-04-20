@@ -28,21 +28,29 @@ export const enforceZoneCounterRules = (counters: Counter[], zone?: Zone): Count
   return isBattlefieldZone(zone) ? counters : [];
 };
 
-const findCounterIndex = (existing: Counter[], type: string) => {
+const getLookupCounterType = (type: string): string | null => {
   const normalizedType = normalizeCounterType(type);
-  if (!normalizedType) return -1;
-  return existing.findIndex((counter) => normalizeCounterType(counter.type) === normalizedType);
+  return normalizedType || null;
+};
+
+const matchesCounterType = (type: string, lookupType: string): boolean =>
+  normalizeCounterType(type) === lookupType;
+
+const findCounterIndex = (existing: Counter[], type: string) => {
+  const lookupType = getLookupCounterType(type);
+  if (!lookupType) return -1;
+  return existing.findIndex((counter) => matchesCounterType(counter.type, lookupType));
 };
 
 const findGlobalCounterKey = (
   globalCounters: Record<string, string>,
   type: string
 ): string | undefined => {
-  const normalizedType = normalizeCounterType(type);
-  if (!normalizedType) return undefined;
+  const lookupType = getLookupCounterType(type);
+  if (!lookupType) return undefined;
 
   return Object.keys(globalCounters).find(
-    (counterType) => normalizeCounterType(counterType) === normalizedType
+    (counterType) => matchesCounterType(counterType, lookupType)
   );
 };
 
@@ -95,14 +103,14 @@ const deriveColorFromString = (value: string): string => {
 };
 
 export const resolveCounterColor = (type: string, globalCounters: Record<string, string>): string => {
-  const normalizedType = normalizeCounterType(type);
-  if (!normalizedType) return DEFAULT_COUNTER_COLOR;
+  const lookupType = getLookupCounterType(type);
+  if (!lookupType) return DEFAULT_COUNTER_COLOR;
 
   const preset = PRESET_COUNTERS.find(
-    (p) => normalizeCounterType(p.type) === normalizedType
+    (presetCounter) => matchesCounterType(presetCounter.type, lookupType)
   );
   if (preset) return preset.color;
-  const existingKey = findGlobalCounterKey(globalCounters, normalizedType);
+  const existingKey = findGlobalCounterKey(globalCounters, lookupType);
   if (existingKey) return globalCounters[existingKey];
-  return deriveColorFromString(normalizedType);
+  return deriveColorFromString(lookupType);
 };
