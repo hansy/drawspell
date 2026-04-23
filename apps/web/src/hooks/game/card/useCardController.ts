@@ -162,6 +162,13 @@ export const useCardController = (props: CardProps): CardController => {
     desktopPreviewPressRef.current = null;
   }, []);
 
+  const clearHoverTimeout = React.useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+  }, []);
+
   const clearContextMenuHoldTimeout = React.useCallback(() => {
     if (contextMenuHoldTimeoutRef.current) {
       clearTimeout(contextMenuHoldTimeoutRef.current);
@@ -180,24 +187,34 @@ export const useCardController = (props: CardProps): CardController => {
     touchHadMultiTouchRef.current = false;
   }, [cancelContextMenuHold]);
 
-  const handleMouseEnter = React.useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (interactionsDisabled) return;
-      if (Date.now() < suppressMouseHoverPreviewUntilRef.current) return;
-      const policy = getCardHoverPreviewPolicy({
+  const resolvePreviewPolicy = React.useCallback(
+    () =>
+      getCardHoverPreviewPolicy({
         zoneType,
         canPeek,
         faceDown,
         isDragging: interactionsDisabled,
         isZoneTopCard,
         allowLibraryTopPreview: canSeeLibraryTop,
-      });
+      }),
+    [
+      canPeek,
+      canSeeLibraryTop,
+      faceDown,
+      interactionsDisabled,
+      isZoneTopCard,
+      zoneType,
+    ]
+  );
+
+  const handleMouseEnter = React.useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (interactionsDisabled) return;
+      if (Date.now() < suppressMouseHoverPreviewUntilRef.current) return;
+      const policy = resolvePreviewPolicy();
       if (policy.kind === "none") return;
 
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-        hoverTimeoutRef.current = null;
-      }
+      clearHoverTimeout();
 
       const target = e.currentTarget;
       if (policy.kind === "immediate") {
@@ -211,25 +228,19 @@ export const useCardController = (props: CardProps): CardController => {
     },
     [
       interactionsDisabled,
-      canPeek,
       card,
-      faceDown,
+      clearHoverTimeout,
+      resolvePreviewPolicy,
       showPreview,
-      zoneType,
-      isZoneTopCard,
-      canSeeLibraryTop,
     ]
   );
 
   const handleMouseLeave = React.useCallback(
     () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-        hoverTimeoutRef.current = null;
-      }
+      clearHoverTimeout();
       hidePreview(card.id);
     },
-    [hidePreview, card.id]
+    [card.id, clearHoverTimeout, hidePreview]
   );
 
   const handleDesktopPreviewPressStart = React.useCallback(
@@ -427,14 +438,7 @@ export const useCardController = (props: CardProps): CardController => {
         cancelContextMenuHold();
       }
       const movement = Math.hypot(point.x - point.startX, point.y - point.startY);
-      const previewPolicy = getCardHoverPreviewPolicy({
-        zoneType,
-        canPeek,
-        faceDown,
-        isDragging: interactionsDisabled,
-        isZoneTopCard,
-        allowLibraryTopPreview: canSeeLibraryTop,
-      });
+      const previewPolicy = resolvePreviewPolicy();
       const shouldOpenPreview =
         !touchHadMultiTouchRef.current &&
         !point.consumed &&
@@ -450,14 +454,9 @@ export const useCardController = (props: CardProps): CardController => {
     },
     [
       cancelContextMenuHold,
-      canPeek,
-      canSeeLibraryTop,
       card,
-      faceDown,
-      interactionsDisabled,
-      isZoneTopCard,
       lockPreview,
-      zoneType,
+      resolvePreviewPolicy,
     ]
   );
 
@@ -532,14 +531,18 @@ export const useCardController = (props: CardProps): CardController => {
 
   React.useEffect(() => {
     return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-      }
+      clearHoverTimeout();
       clearDesktopPreviewPress();
       resetTouchGesture();
       hidePreview(card.id);
     };
-  }, [card.id, clearDesktopPreviewPress, hidePreview, resetTouchGesture]);
+  }, [
+    card.id,
+    clearDesktopPreviewPress,
+    clearHoverTimeout,
+    hidePreview,
+    resetTouchGesture,
+  ]);
 
   const disableHoverAnimation =
     Boolean(propDisableHoverAnimation) ||
