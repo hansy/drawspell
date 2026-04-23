@@ -19,6 +19,8 @@ export type ResolveAuthOptions = {
   allowTokenCreation?: boolean;
 };
 
+type ResolvedRole = Extract<ConnectionAuthResult, { ok: true }>["resolvedRole"];
+
 const parseViewerRole = (
   value: string | null | undefined
 ): IntentConnectionState["viewerRole"] =>
@@ -57,8 +59,8 @@ export const parseConnectionParams = (url: URL): IntentConnectionState => {
 
 const resolveRequestedRole = (
   requestedRole: IntentConnectionState["viewerRole"],
-  tokenRole: "player" | "spectator"
-): "player" | "spectator" =>
+  tokenRole: ResolvedRole
+): ResolvedRole =>
   tokenRole === "spectator" || requestedRole === "spectator"
     ? "spectator"
     : "player";
@@ -77,6 +79,26 @@ const getMissingTokenReason = (
     return "missing player";
   }
   return null;
+};
+
+const createConnectionAuthResult = (
+  state: IntentConnectionState,
+  resolvedRole: ResolvedRole,
+  token: string | undefined,
+  tokens: RoomTokens | null
+): ConnectionAuthResult => {
+  const playerId = resolvedRole === "spectator" ? undefined : state.playerId;
+  if (resolvedRole === "player" && !playerId) {
+    return { ok: false, reason: "missing player" };
+  }
+
+  return {
+    ok: true,
+    resolvedRole,
+    playerId,
+    token,
+    tokens,
+  };
 };
 
 export const resolveConnectionAuth = async (
@@ -98,18 +120,12 @@ export const resolveConnectionAuth = async (
       activeTokens = await ensureRoomTokens();
     }
     const resolvedRole = resolveRequestedRole(state.viewerRole, "player");
-    const resolvedPlayerId =
-      resolvedRole === "spectator" ? undefined : state.playerId;
-    if (resolvedRole === "player" && !resolvedPlayerId) {
-      return { ok: false, reason: "missing player" };
-    }
-    return {
-      ok: true,
+    return createConnectionAuthResult(
+      state,
       resolvedRole,
-      playerId: resolvedPlayerId,
-      token: allowTokenCreation ? activeTokens?.playerToken : undefined,
-      tokens: activeTokens ?? null,
-    };
+      allowTokenCreation ? activeTokens?.playerToken : undefined,
+      activeTokens ?? null
+    );
   }
 
   if (!activeTokens) {
@@ -125,16 +141,10 @@ export const resolveConnectionAuth = async (
   const tokenRole =
     activeTokens.spectatorToken === providedToken ? "spectator" : "player";
   const resolvedRole = resolveRequestedRole(state.viewerRole, tokenRole);
-  const resolvedPlayerId =
-    resolvedRole === "spectator" ? undefined : state.playerId;
-  if (resolvedRole === "player" && !resolvedPlayerId) {
-    return { ok: false, reason: "missing player" };
-  }
-  return {
-    ok: true,
+  return createConnectionAuthResult(
+    state,
     resolvedRole,
-    playerId: resolvedPlayerId,
-    token: providedToken,
-    tokens: activeTokens,
-  };
+    providedToken,
+    activeTokens
+  );
 };
