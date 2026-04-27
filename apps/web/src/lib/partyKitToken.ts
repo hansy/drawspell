@@ -75,6 +75,26 @@ const pendingHostKey = (sessionId: string) => `${PENDING_HOST_PREFIX}${sessionId
 const roomUnavailableKey = (sessionId: string) =>
   `${ROOM_UNAVAILABLE_PREFIX}${sessionId}`;
 
+const setStorageFlag = (key: string) => {
+  try {
+    storage.setItem(key, "1");
+  } catch (_err) {}
+};
+
+const readStorageFlag = (key: string): boolean => {
+  try {
+    return storage.getItem(key) === "1";
+  } catch (_err) {
+    return false;
+  }
+};
+
+const clearStorageFlag = (key: string) => {
+  try {
+    storage.removeItem(key);
+  } catch (_err) {}
+};
+
 const createDeviceId = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -140,48 +160,32 @@ export const writeRoomTokensToStorage = (
 
 export const markRoomAsHostPending = (sessionId: string) => {
   if (!sessionId) return;
-  try {
-    storage.setItem(pendingHostKey(sessionId), "1");
-  } catch (_err) {}
+  setStorageFlag(pendingHostKey(sessionId));
 };
 
 export const isRoomHostPending = (sessionId: string): boolean => {
   if (!sessionId) return false;
-  try {
-    return storage.getItem(pendingHostKey(sessionId)) === "1";
-  } catch (_err) {
-    return false;
-  }
+  return readStorageFlag(pendingHostKey(sessionId));
 };
 
 export const clearRoomHostPending = (sessionId: string) => {
   if (!sessionId) return;
-  try {
-    storage.removeItem(pendingHostKey(sessionId));
-  } catch (_err) {}
+  clearStorageFlag(pendingHostKey(sessionId));
 };
 
 export const markRoomUnavailable = (sessionId: string) => {
   if (!sessionId) return;
-  try {
-    storage.setItem(roomUnavailableKey(sessionId), "1");
-  } catch (_err) {}
+  setStorageFlag(roomUnavailableKey(sessionId));
 };
 
 export const isRoomUnavailable = (sessionId: string): boolean => {
   if (!sessionId) return false;
-  try {
-    return storage.getItem(roomUnavailableKey(sessionId)) === "1";
-  } catch (_err) {
-    return false;
-  }
+  return readStorageFlag(roomUnavailableKey(sessionId));
 };
 
 export const clearRoomUnavailable = (sessionId: string) => {
   if (!sessionId) return;
-  try {
-    storage.removeItem(roomUnavailableKey(sessionId));
-  } catch (_err) {}
+  clearStorageFlag(roomUnavailableKey(sessionId));
 };
 
 export const mergeRoomTokens = (

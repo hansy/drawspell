@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+  clearRoomHostPending,
+  clearRoomUnavailable,
   ensureClientDeviceId,
+  isRoomHostPending,
+  isRoomUnavailable,
+  markRoomAsHostPending,
+  markRoomUnavailable,
   mergeRoomTokens,
   readRoomTokensFromStorage,
   writeRoomTokensToStorage,
@@ -68,6 +74,26 @@ describe("partyKitToken storage", () => {
       playerToken: "player-token",
       resumeToken: "resume-token",
     });
+  });
+
+  it("marks and clears the host pending flag", () => {
+    expect(isRoomHostPending("session-host")).toBe(false);
+
+    markRoomAsHostPending("session-host");
+    expect(isRoomHostPending("session-host")).toBe(true);
+
+    clearRoomHostPending("session-host");
+    expect(isRoomHostPending("session-host")).toBe(false);
+  });
+
+  it("marks and clears the room unavailable flag", () => {
+    expect(isRoomUnavailable("session-unavailable")).toBe(false);
+
+    markRoomUnavailable("session-unavailable");
+    expect(isRoomUnavailable("session-unavailable")).toBe(true);
+
+    clearRoomUnavailable("session-unavailable");
+    expect(isRoomUnavailable("session-unavailable")).toBe(false);
   });
 
   it("persists and reuses a stable client device id", () => {
