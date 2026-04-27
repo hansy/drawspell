@@ -21,6 +21,11 @@ const preservePublicZoneState = (existing: Card, merged: Card): Card => {
   };
 };
 
+type PlaceholderCardLocation = {
+  ownerId: string;
+  zoneId: string;
+};
+
 const createPlaceholderCard = (params: {
   id: string;
   ownerId: string;
@@ -41,8 +46,37 @@ const createPlaceholderCard = (params: {
   revealedTo: [],
 });
 
+const ensurePlaceholderCard = (
+  cards: Record<string, Card>,
+  cardId: string,
+  location: PlaceholderCardLocation | undefined
+) => {
+  if (cards[cardId] || !location) return;
+
+  cards[cardId] = createPlaceholderCard({
+    id: cardId,
+    ownerId: location.ownerId,
+    zoneId: location.zoneId,
+  });
+};
+
+const applyPublicReveal = (
+  cards: Record<string, Card>,
+  cardId: string,
+  identity: Partial<Card>
+) => {
+  const existing = cards[cardId];
+  if (!existing) return;
+
+  cards[cardId] = {
+    ...existing,
+    ...identity,
+    revealedToAll: true,
+  };
+};
+
 const buildHandCardZones = (zones: Record<string, Zone>) => {
-  const byCardId = new Map<string, { ownerId: string; zoneId: string }>();
+  const byCardId = new Map<string, PlaceholderCardLocation>();
   Object.values(zones).forEach((zone) => {
     if (zone.type !== ZONE.HAND) return;
     zone.cardIds.forEach((cardId) => {
@@ -63,13 +97,10 @@ const ensureHiddenZonePlaceholders = (
     }
     zone.cardIds.forEach((cardId) => {
       if (typeof cardId !== "string") return;
-      if (!cards[cardId]) {
-        cards[cardId] = createPlaceholderCard({
-          id: cardId,
-          ownerId: zone.ownerId,
-          zoneId: zone.id,
-        });
-      }
+      ensurePlaceholderCard(cards, cardId, {
+        ownerId: zone.ownerId,
+        zoneId: zone.id,
+      });
     });
   });
 };
@@ -82,38 +113,17 @@ export const mergePrivateOverlay = (
   const nextZones: Record<string, Zone> = { ...base.zones };
   const handCardZones = buildHandCardZones(base.zones);
 
-  handCardZones.forEach(({ ownerId, zoneId }, cardId) => {
-    if (!nextCards[cardId]) {
-      nextCards[cardId] = createPlaceholderCard({ id: cardId, ownerId, zoneId });
-    }
+  handCardZones.forEach((location, cardId) => {
+    ensurePlaceholderCard(nextCards, cardId, location);
   });
 
   Object.entries(base.handRevealsToAll).forEach(([cardId, identity]) => {
-    const zoneInfo = handCardZones.get(cardId);
-    if (!nextCards[cardId] && zoneInfo) {
-      nextCards[cardId] = createPlaceholderCard({
-        id: cardId,
-        ownerId: zoneInfo.ownerId,
-        zoneId: zoneInfo.zoneId,
-      });
-    }
-    const existing = nextCards[cardId];
-    if (!existing) return;
-    nextCards[cardId] = {
-      ...existing,
-      ...identity,
-      revealedToAll: true,
-    };
+    ensurePlaceholderCard(nextCards, cardId, handCardZones.get(cardId));
+    applyPublicReveal(nextCards, cardId, identity);
   });
 
   Object.entries(base.faceDownRevealsToAll).forEach(([cardId, identity]) => {
-    const existing = nextCards[cardId];
-    if (!existing) return;
-    nextCards[cardId] = {
-      ...existing,
-      ...identity,
-      revealedToAll: true,
-    };
+    applyPublicReveal(nextCards, cardId, identity);
   });
 
   if (overlay) {
@@ -156,20 +166,12 @@ export const mergePrivateOverlay = (
   Object.entries(base.libraryRevealsToAll).forEach(([cardId, entry]) => {
     const ownerId = entry.ownerId ?? nextCards[cardId]?.ownerId;
     const zoneId = nextCards[cardId]?.zoneId ?? (ownerId ? libraryZoneByOwner.get(ownerId) : undefined);
-    if (!nextCards[cardId] && ownerId && zoneId) {
-      nextCards[cardId] = createPlaceholderCard({
-        id: cardId,
-        ownerId,
-        zoneId,
-      });
-    }
-    const existing = nextCards[cardId];
-    if (!existing) return;
-    nextCards[cardId] = {
-      ...existing,
-      ...entry.card,
-      revealedToAll: true,
-    };
+    ensurePlaceholderCard(
+      nextCards,
+      cardId,
+      ownerId && zoneId ? { ownerId, zoneId } : undefined
+    );
+    applyPublicReveal(nextCards, cardId, entry.card);
   });
 
   return { ...base, cards: nextCards, zones: nextZones };
