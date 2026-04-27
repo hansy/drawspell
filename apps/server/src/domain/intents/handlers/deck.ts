@@ -8,19 +8,51 @@ import { canViewHiddenZone } from "../../permissions";
 import { readPlayer, writePlayer } from "../../yjsStore";
 import { applyCardMove } from "../../movement";
 import { ensurePermission, readNumber, requireNonEmptyStringProp } from "../validation";
-import type { IntentHandler } from "./types";
+import type { IntentHandler, IntentHandlerContext } from "./types";
 
-const handleLibraryDraw: IntentHandler = ({ actorId, maps, hidden, payload, pushLogEvent, markHiddenChanged }) => {
+const resolveLibraryContext = (
+  actorId: string,
+  maps: IntentHandlerContext["maps"],
+  payload: IntentHandlerContext["payload"],
+) => {
   const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid player");
   if (!playerIdResult.ok) return playerIdResult;
-  const count = readNumber(payload.count) ?? 1;
+
   const playerId = playerIdResult.value;
   const libraryZone = findZoneByTypeInMaps(maps, playerId, ZONE.LIBRARY);
-  const handZone = findZoneByTypeInMaps(maps, playerId, ZONE.HAND);
-  if (!libraryZone || !handZone) return { ok: false, error: "zone not found" };
+  if (!libraryZone) return { ok: false as const, error: "zone not found" };
+
   const permission = canViewHiddenZone(actorId, libraryZone);
   const allowed = ensurePermission(permission);
   if (!allowed.ok) return allowed;
+
+  return { ok: true as const, playerId, libraryZone };
+};
+
+const markLibraryChanged = (
+  maps: IntentHandlerContext["maps"],
+  markHiddenChanged: IntentHandlerContext["markHiddenChanged"],
+  playerId: string,
+  zoneId: string,
+) => {
+  const player = readPlayer(maps, playerId);
+  markHiddenChanged({
+    ownerId: playerId,
+    zoneId,
+    ...(player?.libraryTopReveal
+      ? { reveal: buildLibraryTopRevealScope(maps, playerId, player.libraryTopReveal) }
+      : null),
+  });
+};
+
+const handleLibraryDraw: IntentHandler = ({ actorId, maps, hidden, payload, pushLogEvent, markHiddenChanged }) => {
+  const libraryContext = resolveLibraryContext(actorId, maps, payload);
+  if (!libraryContext.ok) return libraryContext;
+
+  const count = readNumber(payload.count) ?? 1;
+  const { playerId, libraryZone } = libraryContext;
+  const handZone = findZoneByTypeInMaps(maps, playerId, ZONE.HAND);
+  if (!handZone) return { ok: false, error: "zone not found" };
   const drawCount = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
   for (let i = 0; i < drawCount; i += 1) {
     const order = hidden.libraryOrder[playerId] ?? [];
@@ -41,16 +73,13 @@ const handleLibraryDraw: IntentHandler = ({ actorId, maps, hidden, payload, push
 };
 
 const handleLibraryDiscard: IntentHandler = ({ actorId, maps, hidden, payload, pushLogEvent, markHiddenChanged }) => {
-  const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid player");
-  if (!playerIdResult.ok) return playerIdResult;
+  const libraryContext = resolveLibraryContext(actorId, maps, payload);
+  if (!libraryContext.ok) return libraryContext;
+
   const count = readNumber(payload.count) ?? 1;
-  const playerId = playerIdResult.value;
-  const libraryZone = findZoneByTypeInMaps(maps, playerId, ZONE.LIBRARY);
+  const { playerId, libraryZone } = libraryContext;
   const graveyardZone = findZoneByTypeInMaps(maps, playerId, ZONE.GRAVEYARD);
-  if (!libraryZone || !graveyardZone) return { ok: false, error: "zone not found" };
-  const permission = canViewHiddenZone(actorId, libraryZone);
-  const allowed = ensurePermission(permission);
-  if (!allowed.ok) return allowed;
+  if (!graveyardZone) return { ok: false, error: "zone not found" };
   const discardCount = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
   for (let i = 0; i < discardCount; i += 1) {
     const order = hidden.libraryOrder[playerId] ?? [];
@@ -71,14 +100,10 @@ const handleLibraryDiscard: IntentHandler = ({ actorId, maps, hidden, payload, p
 };
 
 const handleLibraryShuffle: IntentHandler = ({ actorId, maps, hidden, payload, pushLogEvent, markHiddenChanged }) => {
-  const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid player");
-  if (!playerIdResult.ok) return playerIdResult;
-  const playerId = playerIdResult.value;
-  const libraryZone = findZoneByTypeInMaps(maps, playerId, ZONE.LIBRARY);
-  if (!libraryZone) return { ok: false, error: "zone not found" };
-  const permission = canViewHiddenZone(actorId, libraryZone);
-  const allowed = ensurePermission(permission);
-  if (!allowed.ok) return allowed;
+  const libraryContext = resolveLibraryContext(actorId, maps, payload);
+  if (!libraryContext.ok) return libraryContext;
+
+  const { playerId, libraryZone } = libraryContext;
   const current = hidden.libraryOrder[playerId] ?? [];
   const shuffled = shuffle(current);
   hidden.libraryOrder[playerId] = shuffled;
@@ -92,14 +117,7 @@ const handleLibraryShuffle: IntentHandler = ({ actorId, maps, hidden, payload, p
   });
   updatePlayerCounts(maps, hidden, playerId);
   syncLibraryRevealsToAllForPlayer(maps, hidden, playerId);
-  const player = readPlayer(maps, playerId);
-  markHiddenChanged({
-    ownerId: playerId,
-    zoneId: libraryZone.id,
-    ...(player?.libraryTopReveal
-      ? { reveal: buildLibraryTopRevealScope(maps, playerId, player.libraryTopReveal) }
-      : null),
-  });
+  markLibraryChanged(maps, markHiddenChanged, playerId, libraryZone.id);
   pushLogEvent("library.shuffle", {
     actorId,
     playerId,
@@ -108,23 +126,12 @@ const handleLibraryShuffle: IntentHandler = ({ actorId, maps, hidden, payload, p
 };
 
 const handleDeckReset: IntentHandler = ({ actorId, maps, hidden, payload, pushLogEvent, markHiddenChanged }) => {
-  const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid player");
-  if (!playerIdResult.ok) return playerIdResult;
-  const playerId = playerIdResult.value;
-  const libraryZone = findZoneByTypeInMaps(maps, playerId, ZONE.LIBRARY);
-  if (!libraryZone) return { ok: false, error: "zone not found" };
-  const permission = canViewHiddenZone(actorId, libraryZone);
-  const allowed = ensurePermission(permission);
-  if (!allowed.ok) return allowed;
+  const libraryContext = resolveLibraryContext(actorId, maps, payload);
+  if (!libraryContext.ok) return libraryContext;
+
+  const { playerId, libraryZone } = libraryContext;
   applyResetDeck(maps, hidden, playerId);
-  const player = readPlayer(maps, playerId);
-  markHiddenChanged({
-    ownerId: playerId,
-    zoneId: libraryZone.id,
-    ...(player?.libraryTopReveal
-      ? { reveal: buildLibraryTopRevealScope(maps, playerId, player.libraryTopReveal) }
-      : null),
-  });
+  markLibraryChanged(maps, markHiddenChanged, playerId, libraryZone.id);
   pushLogEvent("deck.reset", {
     actorId,
     playerId,
@@ -133,23 +140,12 @@ const handleDeckReset: IntentHandler = ({ actorId, maps, hidden, payload, pushLo
 };
 
 const handleDeckUnload: IntentHandler = ({ actorId, maps, hidden, payload, pushLogEvent, markHiddenChanged }) => {
-  const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid player");
-  if (!playerIdResult.ok) return playerIdResult;
-  const playerId = playerIdResult.value;
-  const libraryZone = findZoneByTypeInMaps(maps, playerId, ZONE.LIBRARY);
-  if (!libraryZone) return { ok: false, error: "zone not found" };
-  const permission = canViewHiddenZone(actorId, libraryZone);
-  const allowed = ensurePermission(permission);
-  if (!allowed.ok) return allowed;
+  const libraryContext = resolveLibraryContext(actorId, maps, payload);
+  if (!libraryContext.ok) return libraryContext;
+
+  const { playerId, libraryZone } = libraryContext;
   applyUnloadDeck(maps, hidden, playerId);
-  const player = readPlayer(maps, playerId);
-  markHiddenChanged({
-    ownerId: playerId,
-    zoneId: libraryZone.id,
-    ...(player?.libraryTopReveal
-      ? { reveal: buildLibraryTopRevealScope(maps, playerId, player.libraryTopReveal) }
-      : null),
-  });
+  markLibraryChanged(maps, markHiddenChanged, playerId, libraryZone.id);
   pushLogEvent("deck.unload", {
     actorId,
     playerId,
@@ -158,24 +154,13 @@ const handleDeckUnload: IntentHandler = ({ actorId, maps, hidden, payload, pushL
 };
 
 const handleDeckMulligan: IntentHandler = ({ actorId, maps, hidden, payload, pushLogEvent, markHiddenChanged }) => {
-  const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid player");
-  if (!playerIdResult.ok) return playerIdResult;
+  const libraryContext = resolveLibraryContext(actorId, maps, payload);
+  if (!libraryContext.ok) return libraryContext;
+
   const count = readNumber(payload.count) ?? 0;
-  const playerId = playerIdResult.value;
-  const libraryZone = findZoneByTypeInMaps(maps, playerId, ZONE.LIBRARY);
-  if (!libraryZone) return { ok: false, error: "zone not found" };
-  const permission = canViewHiddenZone(actorId, libraryZone);
-  const allowed = ensurePermission(permission);
-  if (!allowed.ok) return allowed;
+  const { playerId, libraryZone } = libraryContext;
   const mulliganDrawCount = applyMulligan(maps, hidden, playerId, count);
-  const player = readPlayer(maps, playerId);
-  markHiddenChanged({
-    ownerId: playerId,
-    zoneId: libraryZone.id,
-    ...(player?.libraryTopReveal
-      ? { reveal: buildLibraryTopRevealScope(maps, playerId, player.libraryTopReveal) }
-      : null),
-  });
+  markLibraryChanged(maps, markHiddenChanged, playerId, libraryZone.id);
   pushLogEvent("deck.reset", {
     actorId,
     playerId,
@@ -204,15 +189,11 @@ const handleDeckLoad: IntentHandler = ({ actorId, maps, payload }) => {
 };
 
 const handleLibraryView: IntentHandler = ({ actorId, maps, payload, pushLogEvent }) => {
-  const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid player");
-  if (!playerIdResult.ok) return playerIdResult;
+  const libraryContext = resolveLibraryContext(actorId, maps, payload);
+  if (!libraryContext.ok) return libraryContext;
+
   const count = readNumber(payload.count);
-  const playerId = playerIdResult.value;
-  const libraryZone = findZoneByTypeInMaps(maps, playerId, ZONE.LIBRARY);
-  if (!libraryZone) return { ok: false, error: "zone not found" };
-  const permission = canViewHiddenZone(actorId, libraryZone);
-  const allowed = ensurePermission(permission);
-  if (!allowed.ok) return allowed;
+  const { playerId } = libraryContext;
   pushLogEvent("library.view", {
     actorId,
     playerId,
@@ -222,14 +203,8 @@ const handleLibraryView: IntentHandler = ({ actorId, maps, payload, pushLogEvent
 };
 
 const handleLibraryViewStatus: IntentHandler = ({ actorId, maps, payload }) => {
-  const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid player");
-  if (!playerIdResult.ok) return playerIdResult;
-  const playerId = playerIdResult.value;
-  const libraryZone = findZoneByTypeInMaps(maps, playerId, ZONE.LIBRARY);
-  if (!libraryZone) return { ok: false, error: "zone not found" };
-  const permission = canViewHiddenZone(actorId, libraryZone);
-  const allowed = ensurePermission(permission);
-  if (!allowed.ok) return allowed;
+  const libraryContext = resolveLibraryContext(actorId, maps, payload);
+  if (!libraryContext.ok) return libraryContext;
   return { ok: true };
 };
 
