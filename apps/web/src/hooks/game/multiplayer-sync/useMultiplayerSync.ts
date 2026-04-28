@@ -131,13 +131,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
 
     const activeResources = resourcesRef.current;
     if (activeResources) {
-      teardownSessionResources(sessionId, {
-        awareness: activeResources.awareness,
-        provider: activeResources.provider,
-        intentTransport: activeResources.intentTransport,
-      });
-      resourcesRef.current = null;
-      connectionGeneration.current += 1;
+      teardownActiveResources(activeResources);
     }
 
     resetIntentCloseTracking();
@@ -223,6 +217,30 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
   const disableProviderAutoReconnect = (provider: any) => {
     if (provider && "shouldConnect" in provider) {
       provider.shouldConnect = false;
+    }
+  };
+
+  const teardownActiveResources = (
+    resources: SessionSetupResult | null,
+    options?: {
+      disableAutoReconnect?: boolean;
+      incrementGeneration?: boolean;
+    }
+  ) => {
+    if (!resources) return;
+    if (options?.disableAutoReconnect) {
+      disableProviderAutoReconnect(resources.provider as any);
+    }
+    if (sessionId) {
+      teardownSessionResources(sessionId, {
+        awareness: resources.awareness,
+        provider: resources.provider,
+        intentTransport: resources.intentTransport,
+      });
+    }
+    resourcesRef.current = null;
+    if (options?.incrementGeneration !== false) {
+      connectionGeneration.current += 1;
     }
   };
 
@@ -341,13 +359,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       dispatchConnectionEvent({ type: "pause" });
       const activeResources = resourcesRef.current;
       if (activeResources) {
-        teardownSessionResources(sessionId, {
-          awareness: activeResources.awareness,
-          provider: activeResources.provider,
-          intentTransport: activeResources.intentTransport,
-        });
-        resourcesRef.current = null;
-        connectionGeneration.current += 1;
+        teardownActiveResources(activeResources);
       }
       resetIntentCloseTracking();
       setStatus("connecting");
@@ -443,13 +455,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         dispatchConnectionEvent({ type: "reset" });
         const activeResources = resourcesRef.current;
         if (activeResources) {
-          teardownSessionResources(sessionId, {
-            awareness: activeResources.awareness,
-            provider: activeResources.provider,
-            intentTransport: activeResources.intentTransport,
-          });
-          resourcesRef.current = null;
-          connectionGeneration.current += 1;
+          teardownActiveResources(activeResources);
         }
         resetIntentCloseTracking();
         setJoinBlocked(true);
@@ -514,13 +520,10 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
 
         const activeResources = resourcesRef.current;
         if (activeResources) {
-          disableProviderAutoReconnect(activeResources.provider as any);
-          teardownSessionResources(sessionId, {
-            awareness: activeResources.awareness,
-            provider: activeResources.provider,
-            intentTransport: activeResources.intentTransport,
+          teardownActiveResources(activeResources, {
+            disableAutoReconnect: true,
+            incrementGeneration: false,
           });
-          resourcesRef.current = null;
         }
         resetIntentCloseTracking();
         connectionGeneration.current += 1;
@@ -634,13 +637,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
 
           const activeResources = resourcesRef.current;
           if (activeResources) {
-            teardownSessionResources(sessionId, {
-              awareness: activeResources.awareness,
-              provider: activeResources.provider,
-              intentTransport: activeResources.intentTransport,
-            });
-            resourcesRef.current = null;
-            connectionGeneration.current += 1;
+            teardownActiveResources(activeResources);
           }
           resetIntentCloseTracking();
         },
@@ -748,9 +745,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         cancelDebouncedTimeout(postSyncFullSyncTimer);
         cancelDebouncedTimeout(postSyncInitTimer);
 
-        teardownSessionResources(sessionId, { awareness, provider, intentTransport });
-        resourcesRef.current = null;
-        connectionGeneration.current += 1;
+        teardownActiveResources(resources);
         hasInitialSyncRef.current = false;
 
         attemptJoinRef.current = null;
