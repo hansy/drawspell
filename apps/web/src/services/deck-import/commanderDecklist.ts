@@ -4,6 +4,7 @@ import {
   normalizeDecklistName,
   type DeckSection,
 } from "./decklistParsing";
+import { parseDecklistCardLine } from "./cardLineParsing";
 
 type Section = DeckSection;
 
@@ -41,37 +42,18 @@ const parseCardLine = (line: string): CardLine | null => {
   const leadingMatch = line.match(/^(\s*)/);
   const leading = leadingMatch?.[1] ?? "";
   const trimmed = line.trim();
-  if (!trimmed) return null;
-
-  const qtyMatch = trimmed.match(/^(\d+x?)\s+(.+)$/);
-  if (qtyMatch) {
-    const qtyToken = qtyMatch[1];
-    const rest = qtyMatch[2];
-    const detailedMatch = trimmed.match(
-      /^(\d+x?)\s+(.+?)\s+\(([a-zA-Z0-9]{3,})\)\s+(\S+).*$/
-    );
-    const name = (detailedMatch ? detailedMatch[2] : rest).trim();
-    const quantity = parseInt(qtyToken.replace("x", ""), 10);
-    return {
-      raw: line,
-      leading,
-      quantity: Number.isFinite(quantity) ? quantity : 0,
-      name,
-      normalizedName: normalizeDecklistName(name),
-      hasQuantityToken: true,
-      qtyToken,
-      rest,
-    };
-  }
+  const parsedCardLine = parseDecklistCardLine(trimmed);
+  if (!parsedCardLine) return null;
 
   return {
     raw: line,
     leading,
-    quantity: 1,
-    name: trimmed,
-    normalizedName: normalizeDecklistName(trimmed),
-    hasQuantityToken: false,
-    rest: trimmed,
+    quantity: parsedCardLine.quantity,
+    name: parsedCardLine.name,
+    normalizedName: normalizeDecklistName(parsedCardLine.name),
+    hasQuantityToken: parsedCardLine.hasQuantityToken,
+    qtyToken: parsedCardLine.quantityToken,
+    rest: parsedCardLine.rest,
   };
 };
 
