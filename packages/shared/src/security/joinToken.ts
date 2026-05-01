@@ -42,7 +42,7 @@ const fromBase64Url = (value: string): Uint8Array | null => {
   return fromBase64(normalized + padding);
 };
 
-const toArrayBufferView = (
+const ensureArrayBufferBackedView = (
   bytes: Uint8Array
 ): Uint8Array<ArrayBuffer> => {
   if (bytes.buffer instanceof ArrayBuffer) {
@@ -74,6 +74,48 @@ const coercePayload = (value: unknown): JoinTokenPayload | null => {
   return { roomId, exp, ...(nonce ? { nonce } : null) };
 };
 
+type DecodedJoinTokenParts =
+  | {
+      ok: true;
+      payloadBytes: Uint8Array<ArrayBuffer>;
+      signatureBytes: Uint8Array<ArrayBuffer>;
+    }
+  | {
+      ok: false;
+      reason: string;
+    };
+
+const decodeJoinTokenParts = (token: string): DecodedJoinTokenParts => {
+  if (!token || typeof token !== "string") {
+    return { ok: false, reason: "missing token" };
+  }
+
+  const [payloadPart, signaturePart] = token.split(".");
+  if (!payloadPart || !signaturePart) {
+    return { ok: false, reason: "invalid token format" };
+  }
+
+  const payloadBytes = fromBase64Url(payloadPart);
+  const signatureBytes = fromBase64Url(signaturePart);
+  if (!payloadBytes || !signatureBytes) {
+    return { ok: false, reason: "invalid token encoding" };
+  }
+
+  return {
+    ok: true,
+    payloadBytes: ensureArrayBufferBackedView(payloadBytes),
+    signatureBytes: ensureArrayBufferBackedView(signatureBytes),
+  };
+};
+
+const parseJoinTokenPayload = (payloadBytes: Uint8Array): JoinTokenPayload | null => {
+  try {
+    return coercePayload(JSON.parse(textDecoder.decode(payloadBytes)));
+  } catch (_err) {
+    return null;
+  }
+};
+
 export const createJoinToken = async (
   payload: JoinTokenPayload,
   secret: string
@@ -90,39 +132,23 @@ export const verifyJoinToken = async (
   secret: string,
   opts?: { now?: number; maxSkewMs?: number }
 ): Promise<JoinTokenVerifyResult> => {
-  if (!token || typeof token !== "string") {
-    return { ok: false, reason: "missing token" };
-  }
-  const [payloadPart, signaturePart] = token.split(".");
-  if (!payloadPart || !signaturePart) {
-    return { ok: false, reason: "invalid token format" };
-  }
-  const payloadBytes = fromBase64Url(payloadPart);
-  const signatureBytes = fromBase64Url(signaturePart);
-  if (!payloadBytes || !signatureBytes) {
-    return { ok: false, reason: "invalid token encoding" };
+  const decoded = decodeJoinTokenParts(token);
+  if (!decoded.ok) {
+    return decoded;
   }
 
-  const payloadView = toArrayBufferView(payloadBytes);
-  const signatureView = toArrayBufferView(signatureBytes);
   const key = await importHmacKey(secret);
   const verified = await crypto.subtle.verify(
     "HMAC",
     key,
-    signatureView,
-    payloadView
+    decoded.signatureBytes,
+    decoded.payloadBytes
   );
   if (!verified) {
     return { ok: false, reason: "invalid token signature" };
   }
 
-  let parsed: unknown = null;
-  try {
-    parsed = JSON.parse(textDecoder.decode(payloadBytes));
-  } catch (_err) {
-    return { ok: false, reason: "invalid token payload" };
-  }
-  const payload = coercePayload(parsed);
+  const payload = parseJoinTokenPayload(decoded.payloadBytes);
   if (!payload) {
     return { ok: false, reason: "invalid token payload" };
   }
