@@ -15,6 +15,18 @@ const isCommanderZoneType = (zoneType: ZoneType | typeof LEGACY_COMMAND_ZONE) =>
 
 const allow = (): PermissionResult => ({ allowed: true });
 const deny = (reason: string): PermissionResult => ({ allowed: false, reason });
+const OWNER_SEAT_OR_BATTLEFIELD_REASON =
+  "Cards may only enter their owner seat zones or any battlefield";
+
+const canActorMoveBattlefieldCard = (
+  actorId: string,
+  card: { ownerId: string; controllerId: string }
+) => actorId === card.ownerId || actorId === card.controllerId;
+
+const isOwnerSeatOrBattlefield = (
+  cardOwnerId: string,
+  zone: { ownerId: string; type: ZoneType | typeof LEGACY_COMMAND_ZONE }
+) => zone.type === ZONE.BATTLEFIELD || zone.ownerId === cardOwnerId;
 
 const requireBattlefieldController = (
   actor: ActorInput,
@@ -169,7 +181,6 @@ export function canMoveCard(
 
   const { actorId, card: movingCard, fromZone: startZone, toZone: destZone } = ctx;
   const actorIsOwner = actorId === movingCard.ownerId;
-  const actorIsController = actorId === movingCard.controllerId;
   const actorIsFromHost = actorId === startZone.ownerId;
   const actorIsToHost = actorId === destZone.ownerId;
   const isToken = isTokenCard(movingCard);
@@ -181,8 +192,8 @@ export function canMoveCard(
   const bothBattlefields = fromBattlefield && toBattlefield;
 
   // Cards (except tokens) may only exist in their owner's zones or any battlefield.
-  if (!toBattlefield && destZone.ownerId !== movingCard.ownerId) {
-    return deny("Cards may only enter their owner seat zones or any battlefield");
+  if (!isOwnerSeatOrBattlefield(movingCard.ownerId, destZone)) {
+    return deny(OWNER_SEAT_OR_BATTLEFIELD_REASON);
   }
 
   // Hidden -> anything: only owner of the hidden zone can initiate.
@@ -217,14 +228,14 @@ export function canMoveCard(
   }
 
   if (bothBattlefields) {
-    return actorIsOwner || actorIsController
+    return canActorMoveBattlefieldCard(actorId, movingCard)
       ? allow()
       : deny("Only owner or controller may move this card between battlefields");
   }
 
   if (toBattlefield) {
     // Entering a battlefield from a non-battlefield zone.
-    return actorIsOwner || actorIsController
+    return canActorMoveBattlefieldCard(actorId, movingCard)
       ? allow()
       : deny("Only owner or controller may move this card here");
   }
@@ -249,14 +260,14 @@ export function canAddCard(actor: ActorInput, card: Card, zone: Zone): Permissio
     if (zone.ownerId !== ctx.actorId) {
       return deny("Cannot place into a hidden zone you do not own");
     }
-    if (card.ownerId !== zone.ownerId) {
-      return deny("Cards may only enter their owner seat zones or any battlefield");
+    if (!isOwnerSeatOrBattlefield(card.ownerId, zone)) {
+      return deny(OWNER_SEAT_OR_BATTLEFIELD_REASON);
     }
     return allow();
   }
 
   if (zone.type === ZONE.BATTLEFIELD) {
-    if (ctx.actorId === card.ownerId || ctx.actorId === card.controllerId) return allow();
+    if (canActorMoveBattlefieldCard(ctx.actorId, card)) return allow();
     return deny("Only owner or controller may move this card here");
   }
 
@@ -270,8 +281,8 @@ export function canAddCard(actor: ActorInput, card: Card, zone: Zone): Permissio
     }
   }
 
-  if (card.ownerId !== zone.ownerId) {
-    return deny("Cards may only enter their owner seat zones or any battlefield");
+  if (!isOwnerSeatOrBattlefield(card.ownerId, zone)) {
+    return deny(OWNER_SEAT_OR_BATTLEFIELD_REASON);
   }
 
   return ctx.actorId === card.ownerId ? allow() : deny("Not permitted to move this card");
