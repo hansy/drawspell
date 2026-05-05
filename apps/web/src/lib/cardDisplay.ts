@@ -100,6 +100,13 @@ export const getDisplayName = (card: Card): string => {
   return faceName || card.name;
 };
 
+const getDisplayStat = (card: Card, type: "power" | "toughness"): string | undefined => {
+  const display = card[type] ?? getCurrentFace(card)?.[type];
+  const parsed = parseDisplayIntegerStat(display);
+  if (parsed === null) return display;
+  return (parsed + getCounterStatDelta(card, type)).toString();
+};
+
 export const getDisplayImageUrl = (
   card: Card,
   opts?: { preferArtCrop?: boolean }
@@ -137,19 +144,11 @@ export const shouldShowPowerToughness = (card: Card): boolean => {
 };
 
 export const getDisplayPower = (card: Card): string | undefined => {
-  const facePower = getCurrentFace(card)?.power;
-  const display = card.power ?? facePower;
-  const parsed = parseDisplayIntegerStat(display);
-  if (parsed === null) return display;
-  return (parsed + getCounterStatDelta(card, "power")).toString();
+  return getDisplayStat(card, "power");
 };
 
 export const getDisplayToughness = (card: Card): string | undefined => {
-  const faceToughness = getCurrentFace(card)?.toughness;
-  const display = card.toughness ?? faceToughness;
-  const parsed = parseDisplayIntegerStat(display);
-  if (parsed === null) return display;
-  return (parsed + getCounterStatDelta(card, "toughness")).toString();
+  return getDisplayStat(card, "toughness");
 };
 
 export const getFlipRotation = (card: Card): number => {
