@@ -10,20 +10,24 @@ type SelectionState = {
 };
 
 const uniqueIds = (ids: string[]) => Array.from(new Set(ids));
+const createSelectionState = (ids: string[], zoneId: string | null) => {
+  const selectedCardIds = uniqueIds(ids);
+  return {
+    selectedCardIds,
+    selectionZoneId: selectedCardIds.length ? zoneId : null,
+  };
+};
 
 export const useSelectionStore = create<SelectionState>((set) => ({
   selectedCardIds: [],
   selectionZoneId: null,
-  setSelection: (ids, zoneId) => {
-    const nextIds = uniqueIds(ids);
-    set({ selectedCardIds: nextIds, selectionZoneId: nextIds.length ? zoneId : null });
-  },
-  clearSelection: () => set({ selectedCardIds: [], selectionZoneId: null }),
-  selectOnly: (cardId, zoneId) => set({ selectedCardIds: [cardId], selectionZoneId: zoneId }),
+  setSelection: (ids, zoneId) => set(createSelectionState(ids, zoneId)),
+  clearSelection: () => set(createSelectionState([], null)),
+  selectOnly: (cardId, zoneId) => set(createSelectionState([cardId], zoneId)),
   toggleCard: (cardId, zoneId) =>
     set((state) => {
       if (state.selectionZoneId && state.selectionZoneId !== zoneId) {
-        return { selectedCardIds: [cardId], selectionZoneId: zoneId };
+        return createSelectionState([cardId], zoneId);
       }
       const selected = new Set(state.selectedCardIds);
       if (selected.has(cardId)) {
@@ -31,7 +35,6 @@ export const useSelectionStore = create<SelectionState>((set) => ({
       } else {
         selected.add(cardId);
       }
-      const nextIds = Array.from(selected);
-      return { selectedCardIds: nextIds, selectionZoneId: nextIds.length ? zoneId : null };
+      return createSelectionState(Array.from(selected), zoneId);
     }),
 }));
