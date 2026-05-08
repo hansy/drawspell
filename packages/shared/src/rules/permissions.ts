@@ -1,7 +1,12 @@
 import type { Card, Player, Zone, ZoneType } from "../types";
 import { isTokenCard } from "../types";
 import { MAX_COMMANDER_ZONE_CARDS } from "../constants/limits";
-import { LEGACY_COMMAND_ZONE, ZONE, isHiddenZoneType } from "../constants/zones";
+import {
+  LEGACY_COMMAND_ZONE,
+  ZONE,
+  isCommanderZoneType,
+  isHiddenZoneType,
+} from "../constants/zones";
 import type { ActorContext, MoveContext, PermissionResult, ViewResult } from "./types";
 
 type ActorInput = ActorContext | string;
@@ -10,8 +15,6 @@ const normalizeActor = (actor: ActorInput): ActorContext =>
   typeof actor === "string" ? { actorId: actor } : actor;
 
 const isSpectator = (actor: ActorContext) => actor.role === "spectator";
-const isCommanderZoneType = (zoneType: ZoneType | typeof LEGACY_COMMAND_ZONE) =>
-  zoneType === ZONE.COMMANDER || zoneType === LEGACY_COMMAND_ZONE;
 
 const allow = (): PermissionResult => ({ allowed: true });
 const deny = (reason: string): PermissionResult => ({ allowed: false, reason });
