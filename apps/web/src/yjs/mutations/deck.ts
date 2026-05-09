@@ -1,6 +1,6 @@
 import { enforceZoneCounterRules } from '@/lib/counters';
 import { resetCardToFrontFace } from '@/lib/cardDisplay';
-import { ZONE } from '@/constants/zones';
+import { ZONE, isCommanderZoneType } from '@/constants/zones';
 import { shuffle } from '@/lib/shuffle';
 
 import type { SharedMaps } from './shared';
@@ -20,10 +20,6 @@ export function resetDeck(maps: SharedMaps, playerId: string) {
     (z) => z.ownerId === playerId && z.type === ZONE.COMMANDER
   );
   if (!libraryZone) return;
-
-  const isCommanderZoneType = (type: unknown) =>
-    type === ZONE.COMMANDER || type === "command";
-  const isSideboardZoneType = (type: unknown) => type === ZONE.SIDEBOARD;
 
   const libraryKeeps = (snapshot.zones[libraryZone.id]?.cardIds ?? []).filter((id) => {
     const card = snapshot.cards[id];
@@ -45,7 +41,7 @@ export function resetDeck(maps: SharedMaps, playerId: string) {
     if (
       fromZone &&
       fromZone.ownerId === playerId &&
-      isSideboardZoneType(fromZone.type) &&
+      fromZone.type === ZONE.SIDEBOARD &&
       !card.isCommander
     ) {
       return;
