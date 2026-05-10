@@ -23,6 +23,9 @@ export const getCurrentFaceIndex = (card: Card): number => {
   return index;
 };
 
+const clampFaceIndex = (index: number, faceCount: number): number =>
+  Math.min(Math.max(index, 0), faceCount - 1);
+
 export const syncCardStatsToFace = (
   card: Card,
   faceIndex?: number,
@@ -166,7 +169,7 @@ export const computeTransformTargetIndex = (
   const faces = getCardFaces(card);
   const targetIndex = faces.length
     ? typeof faceIndex === "number"
-      ? Math.min(Math.max(faceIndex, 0), faces.length - 1)
+      ? clampFaceIndex(faceIndex, faces.length)
       : (getCurrentFaceIndex(card) + 1) % faces.length
     : 0;
 
@@ -196,7 +199,7 @@ export const applyCardUpdates = (
 
   const faces = getCardFaces(merged);
   const normalizedFaceIndex = faces.length
-    ? Math.min(Math.max(merged.currentFaceIndex ?? 0, 0), faces.length - 1)
+    ? clampFaceIndex(merged.currentFaceIndex ?? 0, faces.length)
     : merged.currentFaceIndex;
   const targetFaceIndex = normalizedFaceIndex ?? merged.currentFaceIndex;
   const faceChanged = targetFaceIndex !== card.currentFaceIndex;
@@ -227,7 +230,7 @@ export const normalizeCardForAdd = (card: Card): Card => {
   const faces = getCardFaces(card);
   const initialFaceIndex = card.currentFaceIndex ?? 0;
   const normalizedFaceIndex = faces.length
-    ? Math.min(Math.max(initialFaceIndex, 0), faces.length - 1)
+    ? clampFaceIndex(initialFaceIndex, faces.length)
     : initialFaceIndex;
 
   const withFaceStats = syncCardStatsToFace({ ...card, currentFaceIndex: initialFaceIndex }, normalizedFaceIndex);
