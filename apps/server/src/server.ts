@@ -20,8 +20,6 @@ import {
   HIDDEN_STATE_CARDS_PREFIX,
   HIDDEN_STATE_KEY,
   HIDDEN_STATE_META_KEY,
-  PLAYER_RESUME_TOKENS_KEY,
-  ROOM_TOKENS_KEY,
 } from "./domain/constants";
 import type {
   DiscordRoomInviteMetadata,
@@ -49,10 +47,12 @@ import {
   syncPlayerOrder,
 } from "./domain/yjsStore";
 import {
-  type AuthRejectReason,
   parseConnectionParams,
-  resolveConnectionAuth,
 } from "./connection/auth";
+import {
+  RoomAdmission,
+  type ConnectionAuthWithResumeResult,
+} from "./connection/roomAdmission";
 import {
   createRoomIdFromSeed,
   DISCORD_INVITE_TTL_MS,
@@ -107,13 +107,6 @@ const CONNECT_RATE_PAIR_WINDOW_MS = 5_000;
 const CONNECT_RATE_CHANNEL_SYNC = 1;
 const CONNECT_RATE_CHANNEL_INTENT = 1 << 1;
 
-type PlayerResumeTokenEntry = {
-  token: string;
-  expiresAt: number;
-};
-
-type PlayerResumeTokens = Record<string, PlayerResumeTokenEntry>;
-
 type ConnectionRateEntry = {
   windowStart: number;
   attempts: number;
@@ -127,20 +120,6 @@ type ConnectionRateEntry = {
     }
   >;
 };
-
-type ConnectionAuthWithResumeResult =
-  | {
-      ok: true;
-      resolvedRole: "player" | "spectator";
-      playerId?: string;
-      token?: string;
-      tokens: RoomTokens | null;
-      resumed: boolean;
-    }
-  | {
-      ok: false;
-      reason: AuthRejectReason;
-    };
 
 type ShareLinksPayload = {
   playerInviteUrl: string;
@@ -403,9 +382,21 @@ export default {
 export class Room extends YServer<Env> {
   private intentConnections = new Set<Connection>();
   private hiddenState: HiddenState | null = null;
-  private roomTokens: RoomTokens | null = null;
-  private playerResumeTokens: PlayerResumeTokens | null = null;
-  private playerResumeTokensMutation: Promise<void> = Promise.resolve();
+  private admission = new RoomAdmission({
+    storage: this.ctx.storage,
+    resumeTokenTtlMs: RESUME_TOKEN_TTL_MS,
+    onDiscordInviteActivationError: (error) => {
+      console.error("[party] failed to activate discord invite", {
+        room: this.name,
+        error:
+          typeof error === "string"
+            ? error
+            : typeof error === "object" && error && "message" in error
+              ? String((error as { message?: unknown }).message)
+              : "unknown",
+      });
+    },
+  });
   private libraryViews = new Map<
     string,
     { playerId: string; count?: number; lastPingAt: number }
@@ -465,6 +456,18 @@ export class Room extends YServer<Env> {
   private yjsUpdateCount = 0;
   private connectionRate = new Map<string, ConnectionRateEntry>();
   private lastConnectionRateCleanupAt = 0;
+
+  get roomTokens() {
+    return this.admission.roomTokensSnapshot;
+  }
+
+  set roomTokens(tokens: RoomTokens | null) {
+    this.admission.roomTokensSnapshot = tokens;
+  }
+
+  get playerResumeTokens() {
+    return this.admission.playerResumeTokensSnapshot;
+  }
 
   async onStart() {
     this.overlayService = new OverlayService({
@@ -1062,29 +1065,11 @@ export class Room extends YServer<Env> {
   }
 
   private async loadRoomTokens(): Promise<RoomTokens | null> {
-    if (this.roomTokens) return this.roomTokens;
-    const stored = await this.ctx.storage.get<RoomTokens>(ROOM_TOKENS_KEY);
-    if (
-      stored &&
-      typeof stored.playerToken === "string" &&
-      typeof stored.spectatorToken === "string"
-    ) {
-      this.roomTokens = stored;
-      return stored;
-    }
-    return null;
+    return this.admission.loadRoomTokens();
   }
 
   private async ensureRoomTokens(): Promise<RoomTokens> {
-    const existing = await this.loadRoomTokens();
-    if (existing) return existing;
-    const generated = {
-      playerToken: crypto.randomUUID(),
-      spectatorToken: crypto.randomUUID(),
-    };
-    this.roomTokens = generated;
-    await this.ctx.storage.put(ROOM_TOKENS_KEY, generated);
-    return generated;
+    return this.admission.ensureRoomTokens();
   }
 
   private isDiscordRoomInviteMetadata(
@@ -1101,182 +1086,18 @@ export class Room extends YServer<Env> {
     );
   }
 
-  private hasInviteActivated(metadata: DiscordRoomInviteMetadata): boolean {
-    return (
-      typeof metadata.inviteActivatedAt === "number" &&
-      Number.isFinite(metadata.inviteActivatedAt) &&
-      metadata.inviteActivatedAt > 0
-    );
-  }
-
-  private async clearPendingDiscordInviteState() {
-    this.roomTokens = null;
-    try {
-      await this.ctx.storage.delete(DISCORD_INVITE_METADATA_KEY);
-    } catch (_err) {}
-    try {
-      await this.ctx.storage.delete(ROOM_TOKENS_KEY);
-    } catch (_err) {}
-  }
-
-  private async evaluateDiscordInviteForJoin(): Promise<
-    | { allow: true; pendingInvite: DiscordRoomInviteMetadata | null }
-    | { allow: false; reason: AuthRejectReason }
-  > {
-    const rawMetadata = await this.ctx.storage.get<unknown>(
-      DISCORD_INVITE_METADATA_KEY,
-    );
-    if (!this.isDiscordRoomInviteMetadata(rawMetadata)) {
-      return { allow: true, pendingInvite: null };
-    }
-    if (this.hasInviteActivated(rawMetadata)) {
-      return { allow: true, pendingInvite: null };
-    }
-    if (Date.now() > rawMetadata.inviteExpiresAt) {
-      await this.clearPendingDiscordInviteState();
-      return { allow: false, reason: "invalid token" };
-    }
-    return { allow: true, pendingInvite: rawMetadata };
-  }
-
-  private async activateDiscordInvite(metadata: DiscordRoomInviteMetadata) {
-    if (this.hasInviteActivated(metadata)) return;
-    await this.ctx.storage.put(DISCORD_INVITE_METADATA_KEY, {
-      ...metadata,
-      inviteActivatedAt: Date.now(),
-    });
-  }
-
-  private normalizePlayerResumeTokens(
-    value: unknown,
-  ): PlayerResumeTokens | null {
-    if (!value || typeof value !== "object") return null;
-    const now = Date.now();
-    const normalized: PlayerResumeTokens = {};
-    for (const [playerId, rawEntry] of Object.entries(
-      value as Record<string, unknown>,
-    )) {
-      let token: string | undefined;
-      let expiresAt: number | undefined;
-      if (typeof rawEntry === "string") {
-        token = rawEntry;
-        expiresAt = now + RESUME_TOKEN_TTL_MS;
-      } else if (rawEntry && typeof rawEntry === "object") {
-        const entryRecord = rawEntry as Record<string, unknown>;
-        token =
-          typeof entryRecord.token === "string" ? entryRecord.token : undefined;
-        const parsedExpiresAt =
-          typeof entryRecord.expiresAt === "number" &&
-          Number.isFinite(entryRecord.expiresAt)
-            ? entryRecord.expiresAt
-            : undefined;
-        expiresAt = parsedExpiresAt ?? now + RESUME_TOKEN_TTL_MS;
-      }
-      if (typeof playerId !== "string" || typeof token !== "string") continue;
-      const trimmedPlayerId = playerId.trim();
-      const trimmedToken = token.trim();
-      if (!trimmedPlayerId || !trimmedToken) continue;
-      if (!expiresAt || expiresAt <= now) continue;
-      normalized[trimmedPlayerId] = {
-        token: trimmedToken,
-        expiresAt,
-      };
-    }
-    return Object.keys(normalized).length > 0 ? normalized : null;
-  }
-
-  private async loadPlayerResumeTokens(): Promise<PlayerResumeTokens> {
-    if (this.playerResumeTokens) return this.playerResumeTokens;
-    const stored = await this.ctx.storage.get<unknown>(
-      PLAYER_RESUME_TOKENS_KEY,
-    );
-    const normalized = this.normalizePlayerResumeTokens(stored) ?? {};
-    this.playerResumeTokens = normalized;
-    return normalized;
-  }
-
-  private async mutatePlayerResumeTokens<T>(
-    mutator: (
-      tokens: PlayerResumeTokens,
-    ) =>
-      | Promise<{ result: T; nextTokens?: PlayerResumeTokens }>
-      | { result: T; nextTokens?: PlayerResumeTokens },
-  ): Promise<T> {
-    const operation = this.playerResumeTokensMutation.then(async () => {
-      const tokens = await this.loadPlayerResumeTokens();
-      const { result, nextTokens } = await mutator(tokens);
-      if (nextTokens) {
-        this.playerResumeTokens = nextTokens;
-        await this.ctx.storage.put(PLAYER_RESUME_TOKENS_KEY, nextTokens);
-      }
-      return result;
-    });
-    this.playerResumeTokensMutation = operation.then(
-      () => undefined,
-      () => undefined,
-    );
-    return operation;
-  }
-
   private async ensurePlayerResumeToken(
     playerId: string,
     options?: { rotate?: boolean },
   ): Promise<string> {
-    return this.mutatePlayerResumeTokens((tokens) => {
-      const rotate = options?.rotate ?? false;
-      const now = Date.now();
-      const normalizedPlayerId = playerId.trim();
-      const current = tokens[normalizedPlayerId];
-      if (
-        current &&
-        typeof current.token === "string" &&
-        current.token.length > 0 &&
-        current.expiresAt > now &&
-        !rotate
-      ) {
-        if (current.expiresAt - now > RESUME_TOKEN_TTL_MS / 2) {
-          return { result: current.token };
-        }
-        const refreshed = {
-          token: current.token,
-          expiresAt: now + RESUME_TOKEN_TTL_MS,
-        };
-        const nextTokens = {
-          ...tokens,
-          [normalizedPlayerId]: refreshed,
-        };
-        return { result: refreshed.token, nextTokens };
-      }
-
-      const created = crypto.randomUUID();
-      const nextTokens = {
-        ...tokens,
-        [normalizedPlayerId]: {
-          token: created,
-          expiresAt: now + RESUME_TOKEN_TTL_MS,
-        },
-      };
-      return { result: created, nextTokens };
-    });
+    return this.admission.ensurePlayerResumeToken(playerId, options);
   }
 
-  private async validatePlayerResumeToken(
+  async validatePlayerResumeToken(
     playerId: string,
     resumeToken: string,
   ): Promise<boolean> {
-    const normalizedPlayerId = playerId.trim();
-    const normalizedToken = resumeToken.trim();
-    if (!normalizedPlayerId || !normalizedToken) return false;
-    return this.mutatePlayerResumeTokens((tokens) => {
-      const now = Date.now();
-      const existing = tokens[normalizedPlayerId];
-      if (!existing) return { result: false };
-      if (existing.expiresAt <= now) {
-        const { [normalizedPlayerId]: _expired, ...nextTokens } = tokens;
-        return { result: false, nextTokens };
-      }
-      return { result: existing.token === normalizedToken };
-    });
+    return this.admission.validatePlayerResumeToken(playerId, resumeToken);
   }
 
   private sendRoomTokens(
@@ -1416,27 +1237,7 @@ export class Room extends YServer<Env> {
     playerId: string,
     resumeToken?: string,
   ): Promise<void> {
-    const normalizedPlayerId = playerId.trim();
-    if (!normalizedPlayerId) return;
-    const normalizedToken =
-      typeof resumeToken === "string" ? resumeToken.trim() : "";
-    await this.mutatePlayerResumeTokens((tokens) => {
-      if (!normalizedToken) {
-        const { [normalizedPlayerId]: _removed, ...nextTokens } = tokens;
-        return { result: undefined, nextTokens };
-      }
-      const expiresAt =
-        tokens[normalizedPlayerId]?.expiresAt ??
-        Date.now() + RESUME_TOKEN_TTL_MS;
-      const nextTokens = {
-        ...tokens,
-        [normalizedPlayerId]: {
-          token: normalizedToken,
-          expiresAt,
-        },
-      };
-      return { result: undefined, nextTokens };
-    });
+    await this.admission.restorePlayerResumeToken(playerId, resumeToken);
   }
 
   private hasPlayerConnections(): boolean {
@@ -2293,8 +2094,7 @@ export class Room extends YServer<Env> {
         await this.flushHiddenStatePersist(this.resetGeneration);
       }
       this.hiddenState = null;
-      this.roomTokens = null;
-      this.playerResumeTokens = null;
+      this.admission.clearCache();
       this.intentLogMeta = null;
       this.snapshotMeta = null;
       this.intentLogWritePromise = Promise.resolve();
@@ -2342,78 +2142,11 @@ export class Room extends YServer<Env> {
     storedTokens: RoomTokens | null,
     options: { allowTokenCreation: boolean },
   ): Promise<ConnectionAuthWithResumeResult> {
-    const inviteGate = await this.evaluateDiscordInviteForJoin();
-    if (!inviteGate.allow) {
-      return { ok: false, reason: inviteGate.reason };
-    }
-
-    const finalizeInviteState = async (
-      resultOrPromise:
-        | ConnectionAuthWithResumeResult
-        | Promise<ConnectionAuthWithResumeResult>,
-    ): Promise<ConnectionAuthWithResumeResult> => {
-      const result = await resultOrPromise;
-      if (!result.ok || !inviteGate.pendingInvite) return result;
-      try {
-        await this.activateDiscordInvite(inviteGate.pendingInvite);
-      } catch (error) {
-        console.error("[party] failed to activate discord invite", {
-          room: this.name,
-          error:
-            typeof error === "string"
-              ? error
-              : typeof error === "object" && error && "message" in error
-                ? String((error as { message?: unknown }).message)
-                : "unknown",
-        });
-        return { ok: false, reason: "invalid token" };
-      }
-      return result;
-    };
-
-    const resolveStandardAuth =
-      async (): Promise<ConnectionAuthWithResumeResult> => {
-        const auth = await resolveConnectionAuth(
-          state,
-          storedTokens,
-          () => this.ensureRoomTokens(),
-          { allowTokenCreation: options.allowTokenCreation },
-        );
-        return auth.ok ? { ...auth, resumed: false } : auth;
-      };
-
-    const resumePlayerId = state.playerId;
-    const resumeToken = state.resumeToken;
-    const shouldAttemptResume =
-      state.viewerRole !== "spectator" &&
-      Boolean(resumePlayerId && resumeToken);
-    if (shouldAttemptResume && resumePlayerId && resumeToken) {
-      // If a request carries both resume and room tokens, prioritize resume
-      // takeover, but fall back to standard token auth when resume validation
-      // fails to avoid lockouts on stale/rotated resume tokens.
-      const canResume = await this.validatePlayerResumeToken(
-        resumePlayerId,
-        resumeToken,
-      );
-      if (!canResume) {
-        return state.token
-          ? finalizeInviteState(resolveStandardAuth())
-          : { ok: false, reason: "invalid token" };
-      }
-      let activeTokens = storedTokens;
-      if (!activeTokens && options.allowTokenCreation) {
-        activeTokens = await this.ensureRoomTokens();
-      }
-      return finalizeInviteState({
-        ok: true,
-        resolvedRole: "player",
-        playerId: resumePlayerId,
-        token: activeTokens?.playerToken,
-        tokens: activeTokens ?? null,
-        resumed: true,
-      });
-    }
-    return finalizeInviteState(resolveStandardAuth());
+    return this.admission.resolveConnectionAuthWithResume(
+      state,
+      storedTokens,
+      options,
+    );
   }
 
   private async bindIntentConnection(conn: Connection, url: URL) {
