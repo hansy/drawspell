@@ -7,12 +7,7 @@ import {
   MAX_SCRYFALL_ID_LENGTH,
   MAX_REVEAL_ORDER_KEY_LENGTH,
 } from "../sanitizeLimits";
-import { isRecord, normalizeScryfallLiteForSync, sanitizeImageUrl } from "../mutations/shared";
-
-const clampString = (value: unknown, max: number): string | undefined => {
-  if (typeof value !== "string") return undefined;
-  return value.length > max ? value.slice(0, max) : value;
-};
+import { clampString, isRecord, normalizeScryfallLiteForSync, sanitizeImageUrl } from "../mutations/shared";
 
 export const sanitizeCardIdentity = (value: unknown): CardIdentity | null => {
   if (!isRecord(value)) return null;
