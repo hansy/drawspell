@@ -122,14 +122,12 @@ export const getCanonicalGridSteps = (params?: {
 export const normalizedPositionKey = (position: { x: number; y: number }) =>
   `${position.x.toFixed(4)}:${position.y.toFixed(4)}`;
 
-const positionKey = normalizedPositionKey;
-
 const addOccupiedPosition = (
   occupied: Set<string>,
   position: { x: number; y: number } | null | undefined
 ) => {
   if (!position) return;
-  occupied.add(positionKey(clampNormalizedPosition(position)));
+  occupied.add(normalizedPositionKey(clampNormalizedPosition(position)));
 };
 
 const createOccupiedPositionSet = <T>(
@@ -249,7 +247,10 @@ export const resolvePositionAgainstOccupied = ({
   let candidate = clampedTarget;
   let attempts = 0;
 
-  while (occupied.has(positionKey(candidate)) && attempts < maxAttempts) {
+  while (
+    occupied.has(normalizedPositionKey(candidate)) &&
+    attempts < maxAttempts
+  ) {
     candidate = clampNormalizedPosition({ x: candidate.x, y: candidate.y + stepY });
     attempts += 1;
   }
@@ -322,7 +323,7 @@ export const resolveBattlefieldGroupCollisionPositions = ({
       stepY: getStepY?.(id) ?? stepY,
     });
     resolved[id] = next;
-    occupied.add(positionKey(next));
+    occupied.add(normalizedPositionKey(next));
   });
 
   return resolved;
@@ -373,7 +374,10 @@ export const findAvailablePositionNormalized = (
 
   let candidate = clampNormalizedPosition(start);
   let attempts = 0;
-  while (occupied.has(positionKey(candidate)) && attempts < maxChecks) {
+  while (
+    occupied.has(normalizedPositionKey(candidate)) &&
+    attempts < maxChecks
+  ) {
     candidate = clampNormalizedPosition({ x: candidate.x + stepX, y: candidate.y + stepY });
     attempts += 1;
   }
