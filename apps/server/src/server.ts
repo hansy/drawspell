@@ -367,12 +367,7 @@ export default {
       console.error("[fetch] error", {
         url: request.url,
         isWsUpgrade,
-        message:
-          typeof error === "string"
-            ? error
-            : typeof error === "object" && error && "message" in error
-              ? String((error as { message?: unknown }).message)
-              : "unknown",
+        message: resolveErrorMessage(error),
       });
       throw error;
     }
@@ -388,12 +383,7 @@ export class Room extends YServer<Env> {
     onDiscordInviteActivationError: (error) => {
       console.error("[party] failed to activate discord invite", {
         room: this.name,
-        error:
-          typeof error === "string"
-            ? error
-            : typeof error === "object" && error && "message" in error
-              ? String((error as { message?: unknown }).message)
-              : "unknown",
+        error: resolveErrorMessage(error),
       });
     },
   });
