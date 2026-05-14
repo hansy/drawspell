@@ -133,6 +133,9 @@ export const extractReveal = (card: Card): HiddenReveal => {
   return reveal;
 };
 
+const hasRevealAudience = (reveal: HiddenReveal) =>
+  reveal.toAll || Boolean(reveal.toPlayers?.length);
+
 export const buildRevealPatch = (
   card: Card,
   reveal: { toAll?: boolean; to?: string[] } | null,
@@ -300,7 +303,7 @@ export const migrateHiddenStateFromSnapshot = (maps: Maps): HiddenState => {
     if (zone && isHiddenZoneType(zone.type)) {
       hidden.cards[card.id] = { ...card };
       const reveal = extractReveal(card);
-      if (reveal.toAll || (reveal.toPlayers && reveal.toPlayers.length)) {
+      if (hasRevealAudience(reveal)) {
         if (zone.type === ZONE.HAND) {
           hidden.handReveals[card.id] = reveal;
         } else if (zone.type === ZONE.LIBRARY) {
@@ -316,7 +319,7 @@ export const migrateHiddenStateFromSnapshot = (maps: Maps): HiddenState => {
     if (card.faceDown) {
       hidden.faceDownBattlefield[card.id] = buildCardIdentity(card);
       const reveal = extractReveal(card);
-      if (reveal.toAll || (reveal.toPlayers && reveal.toPlayers.length)) {
+      if (hasRevealAudience(reveal)) {
         hidden.faceDownReveals[card.id] = reveal;
       }
       nextCard = stripCardIdentity({
