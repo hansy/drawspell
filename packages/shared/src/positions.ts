@@ -16,6 +16,8 @@ export {
   LEGACY_BATTLEFIELD_WIDTH,
 };
 
+export type Position = { x: number; y: number };
+
 export const resolveBaseCardDimensions = (params?: {
   baseCardHeight?: number;
   baseCardWidth?: number;
@@ -30,20 +32,20 @@ export const clampNumber = (value: number, min: number, max: number) =>
 
 export const clamp01 = (value: number) => clampNumber(value, 0, 1);
 
-export const clampNormalizedPosition = (position: { x: number; y: number }) => ({
+export const clampNormalizedPosition = (position: Position) => ({
   x: clamp01(position.x),
   y: clamp01(position.y),
 });
 
-export const migratePositionToNormalized = (position: { x: number; y: number }) =>
+export const migratePositionToNormalized = (position: Position) =>
   clampNormalizedPosition({
     x: LEGACY_BATTLEFIELD_WIDTH ? position.x / LEGACY_BATTLEFIELD_WIDTH : 0,
     y: LEGACY_BATTLEFIELD_HEIGHT ? position.y / LEGACY_BATTLEFIELD_HEIGHT : 0,
   });
 
 export const normalizeMovePosition = (
-  position: { x: number; y: number } | undefined,
-  fallback: { x: number; y: number }
+  position: Position | undefined,
+  fallback: Position
 ) => {
   const normalizedInput =
     position && (position.x > 1 || position.y > 1)
@@ -119,12 +121,12 @@ export const getCanonicalGridSteps = (params?: {
     viewScale: 1,
   });
 
-export const normalizedPositionKey = (position: { x: number; y: number }) =>
+export const normalizedPositionKey = (position: Position) =>
   `${position.x.toFixed(4)}:${position.y.toFixed(4)}`;
 
 const addOccupiedPosition = (
   occupied: Set<string>,
-  position: { x: number; y: number } | null | undefined
+  position: Position | null | undefined
 ) => {
   if (!position) return;
   occupied.add(normalizedPositionKey(clampNormalizedPosition(position)));
@@ -132,7 +134,7 @@ const addOccupiedPosition = (
 
 const createOccupiedPositionSet = <T>(
   items: Iterable<T>,
-  getPosition: (item: T) => { x: number; y: number } | null | undefined
+  getPosition: (item: T) => Position | null | undefined
 ) => {
   const occupied = new Set<string>();
   for (const item of items) {
@@ -142,7 +144,7 @@ const createOccupiedPositionSet = <T>(
 };
 
 export const toNormalizedPosition = (
-  position: { x: number; y: number },
+  position: Position,
   zoneWidth: number = LEGACY_BATTLEFIELD_WIDTH,
   zoneHeight: number = LEGACY_BATTLEFIELD_HEIGHT
 ) => ({
@@ -151,7 +153,7 @@ export const toNormalizedPosition = (
 });
 
 export const fromNormalizedPosition = (
-  position: { x: number; y: number },
+  position: Position,
   zoneWidth: number,
   zoneHeight: number
 ) => ({
@@ -165,7 +167,7 @@ const snapToGrid = (value: number, gridSize: number) => {
 };
 
 const clampCenterToZoneBounds = (
-  center: { x: number; y: number },
+  center: Position,
   zoneWidth: number,
   zoneHeight: number,
   cardWidth: number,
@@ -185,7 +187,7 @@ const clampCenterToZoneBounds = (
 };
 
 export const snapNormalizedWithZone = (
-  position: { x: number; y: number },
+  position: Position,
   zoneWidth: number,
   zoneHeight: number,
   cardWidth: number,
@@ -220,15 +222,15 @@ export const snapNormalizedWithZone = (
  * Useful for rendering an opponent's battlefield from your perspective
  * while keeping stored coordinates canonical.
  */
-export const mirrorNormalizedY = (position: { x: number; y: number }) =>
+export const mirrorNormalizedY = (position: Position) =>
   clampNormalizedPosition({
     x: position.x,
     y: 1 - position.y,
   });
 
 export const positionsRoughlyEqual = (
-  a: { x: number; y: number },
-  b: { x: number; y: number },
+  a: Position,
+  b: Position,
   epsilon = 1e-4
 ) => Math.abs(a.x - b.x) <= epsilon && Math.abs(a.y - b.y) <= epsilon;
 
@@ -238,7 +240,7 @@ export const resolvePositionAgainstOccupied = ({
   maxAttempts,
   stepY = GRID_STEP_Y,
 }: {
-  targetPosition: { x: number; y: number };
+  targetPosition: Position;
   occupied: Set<string>;
   maxAttempts: number;
   stepY?: number;
@@ -268,9 +270,9 @@ export const resolveBattlefieldCollisionPosition = ({
   maxAttempts = 200,
 }: {
   movingCardId: string;
-  targetPosition: { x: number; y: number };
+  targetPosition: Position;
   orderedCardIds: string[];
-  getPosition: (cardId: string) => { x: number; y: number } | null | undefined;
+  getPosition: (cardId: string) => Position | null | undefined;
   stepY?: number;
   maxAttempts?: number;
 }) => {
@@ -297,20 +299,20 @@ export const resolveBattlefieldGroupCollisionPositions = ({
   maxAttempts = 200,
 }: {
   movingCardIds: string[];
-  targetPositions: Record<string, { x: number; y: number } | undefined>;
+  targetPositions: Record<string, Position | undefined>;
   orderedCardIds: string[];
-  getPosition: (cardId: string) => { x: number; y: number } | null | undefined;
+  getPosition: (cardId: string) => Position | null | undefined;
   getStepY?: (cardId: string) => number | undefined;
   stepY?: number;
   maxAttempts?: number;
 }) => {
-  if (movingCardIds.length === 0) return {} as Record<string, { x: number; y: number }>;
+  if (movingCardIds.length === 0) return {} as Record<string, Position>;
 
   const movingSet = new Set(movingCardIds);
   const otherIds = orderedCardIds.filter((id) => !movingSet.has(id));
   const occupied = createOccupiedPositionSet(otherIds, getPosition);
 
-  const resolved: Record<string, { x: number; y: number }> = {};
+  const resolved: Record<string, Position> = {};
   const orderedMovingIds = movingCardIds.filter((id) => Boolean(targetPositions[id]));
 
   orderedMovingIds.forEach((id) => {
@@ -330,13 +332,13 @@ export const resolveBattlefieldGroupCollisionPositions = ({
 };
 
 export const bumpPosition = (
-  position: { x: number; y: number },
+  position: Position,
   dx: number = GRID_STEP_X,
   dy: number = GRID_STEP_Y
 ) => clampNormalizedPosition({ x: position.x + dx, y: position.y + dy });
 
 export const offsetNormalizedByGrid = (params: {
-  position: { x: number; y: number };
+  position: Position;
   stepsX?: number;
   stepsY?: number;
   isTapped?: boolean;
@@ -363,9 +365,9 @@ export const offsetNormalizedByGrid = (params: {
 };
 
 export const findAvailablePositionNormalized = (
-  start: { x: number; y: number },
+  start: Position,
   zoneCardIds: string[],
-  cards: Record<string, { position: { x: number; y: number } }>,
+  cards: Record<string, { position: Position }>,
   stepX: number = GRID_STEP_X,
   stepY: number = GRID_STEP_Y,
   maxChecks: number = 50
