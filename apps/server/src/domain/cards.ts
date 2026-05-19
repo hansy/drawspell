@@ -12,6 +12,8 @@ import {
   migratePositionToNormalized,
 } from "./positions";
 
+export { buildDuplicateTokenCard } from "@mtg/shared/cards";
+
 export const getCardFaces = (card: Card) => card.scryfall?.card_faces ?? [];
 
 export const getCurrentFaceIndex = (card: Card): number => {
@@ -243,20 +245,6 @@ export const normalizeCardForAdd = (card: Card): Card => {
 
   return { ...withFaceStats, position: normalizedPosition };
 };
-
-export const buildDuplicateTokenCard = (params: {
-  sourceCard: Card;
-  newCardId: string;
-  position: Card["position"];
-}): Card => ({
-  ...params.sourceCard,
-  id: params.newCardId,
-  isToken: true,
-  isCommander: false,
-  commanderTax: 0,
-  position: params.position,
-  counters: params.sourceCard.counters.map((counter) => ({ ...counter })),
-});
 
 export const computeDuplicateTokenPosition = (params: {
   sourceCard: Card;

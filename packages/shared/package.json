@@ -14,6 +14,7 @@
     "./constants/limits": "./src/constants/limits.ts",
     "./constants/room": "./src/constants/room.ts",
     "./constants/zones": "./src/constants/zones.ts",
+    "./cards": "./src/cards.ts",
     "./positions": "./src/positions.ts",
     "./rules/types": "./src/rules/types.ts",
     "./rules/permissions": "./src/rules/permissions.ts",

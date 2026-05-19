@@ -10,6 +10,8 @@ import {
 } from "@/lib/positions";
 import { MAX_REVEALED_TO } from "@/lib/limits";
 
+export { buildDuplicateTokenCard } from "@mtg/shared/cards";
+
 export const normalizeCardForAdd = (card: Card): Card => {
   const faces = getCardFaces(card);
   const initialFaceIndex = card.currentFaceIndex ?? 0;
@@ -108,20 +110,6 @@ export const computeDuplicateTokenPosition = (params: {
   });
   return findAvailablePositionNormalized(basePosition, params.orderedCardIds, params.cardsById, stepX, stepY);
 };
-
-export const buildDuplicateTokenCard = (params: {
-  sourceCard: Card;
-  newCardId: string;
-  position: Card["position"];
-}): Card => ({
-  ...params.sourceCard,
-  id: params.newCardId,
-  isToken: true,
-  isCommander: false,
-  commanderTax: 0,
-  position: params.position,
-  counters: params.sourceCard.counters.map((counter) => ({ ...counter })),
-});
 
 export const computeTransformTargetIndex = (
   card: Card,
