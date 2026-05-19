@@ -1,5 +1,5 @@
+import type { Card } from "@mtg/shared/types";
 import { chunkHiddenCards } from "../src/domain/hiddenState";
-import type { Card } from "../../web/src/types/cards";
 
 const config = {
   cards: 4000,
