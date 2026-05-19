@@ -87,11 +87,14 @@ export const logDiscordProvisionEvent = (
   console.info("[discord-provision]", event, details);
 };
 
+const readRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+
 export const parseDiscordProvisionRequest = (
   rawBody: unknown,
 ): DiscordRoomProvisionRequest | null => {
-  if (!rawBody || typeof rawBody !== "object") return null;
-  const record = rawBody as Record<string, unknown>;
+  const record = readRecord(rawBody);
+  if (!record) return null;
   const interactionId = normalizeNonEmptyString(record.interactionId);
   const guildId = normalizeNonEmptyString(record.guildId);
   const channelId = normalizeNonEmptyString(record.channelId);
@@ -125,7 +128,8 @@ export const parseDiscordRoomProvisionPayload = (
   const parsed = parseDiscordProvisionRequest(rawBody);
   if (!parsed) return null;
 
-  const record = rawBody as Record<string, unknown>;
+  const record = readRecord(rawBody);
+  if (!record) return null;
   const inviteExpiresAtRaw = record.inviteExpiresAt;
   if (
     typeof inviteExpiresAtRaw !== "number" ||
@@ -142,9 +146,8 @@ export const parseDiscordRoomProvisionPayload = (
 export const parseDiscordRoomProvisionResponse = (
   rawBody: unknown,
 ): DiscordRoomInternalProvisionResponse | null => {
-  if (!rawBody || typeof rawBody !== "object") return null;
-
-  const record = rawBody as Record<string, unknown>;
+  const record = readRecord(rawBody);
+  if (!record) return null;
   const roomId = normalizeNonEmptyString(record.roomId);
   const playerToken = normalizeNonEmptyString(record.playerToken);
   const expiresAt = record.expiresAt;
