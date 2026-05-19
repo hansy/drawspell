@@ -1,10 +1,8 @@
 import * as Y from "yjs";
 
+import type { Card, Player, Zone } from "@mtg/shared/types";
 import { createEmptyHiddenState, syncLibraryRevealsToAllForPlayer } from "../src/domain/hiddenState";
 import { getMaps } from "../src/domain/yjsStore";
-import type { Card } from "../../web/src/types/cards";
-import type { Player } from "../../web/src/types/players";
-import type { Zone } from "../../web/src/types/zones";
 
 const config = {
   cards: 1500,

@@ -1,12 +1,10 @@
 import * as Y from "yjs";
 
+import type { Card, Player, Zone, ZoneType } from "@mtg/shared/types";
 import { buildOverlayForViewer } from "../src/domain/overlay";
 import { createEmptyHiddenState } from "../src/domain/hiddenState";
 import { buildSnapshot, getMaps } from "../src/domain/yjsStore";
 import { buildOverlayZoneLookup } from "../src/domain/overlay";
-import type { Card } from "../../web/src/types/cards";
-import type { Player } from "../../web/src/types/players";
-import type { Zone, ZoneType } from "../../web/src/types/zones";
 
 const config = {
   players: 4,
@@ -162,10 +160,22 @@ const formatBytes = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+type OverlayBenchConnection =
+  | {
+      viewerId: string;
+      viewerRole: "player";
+      libraryView: { playerId: string; count: number };
+    }
+  | {
+      viewerId?: undefined;
+      viewerRole: "spectator";
+      libraryView?: undefined;
+    };
+
 const run = (options: { useSnapshot: boolean; useZoneLookup: boolean; iterations: number }) => {
   const fixture = buildFixture();
   const maps = getMaps(fixture.doc);
-  const connections = [
+  const connections: OverlayBenchConnection[] = [
     ...fixture.playerIds.map((playerId) => ({
       viewerId: playerId,
       viewerRole: "player" as const,

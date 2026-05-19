@@ -1,10 +1,8 @@
 import * as Y from "yjs";
 
+import type { Card, Player, Zone, ZoneType } from "@mtg/shared/types";
 import { applyIntentToDoc } from "../src/domain/intents/applyIntentToDoc";
 import { createEmptyHiddenState } from "../src/domain/hiddenState";
-import type { Card } from "../../web/src/types/cards";
-import type { Player } from "../../web/src/types/players";
-import type { Zone, ZoneType } from "../../web/src/types/zones";
 
 const config = {
   players: 4,
