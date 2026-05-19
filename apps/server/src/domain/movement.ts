@@ -128,6 +128,19 @@ const updateCountsForZoneMove = (maps: Maps, hidden: HiddenState, fromOwnerId: s
   }
 };
 
+const readMovePosition = (
+  value: unknown,
+  fallback: Card["position"]
+): Card["position"] | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+
+  const position = value as Record<string, unknown>;
+  return {
+    x: typeof position.x === "number" ? position.x : fallback.x,
+    y: typeof position.y === "number" ? position.y : fallback.y,
+  };
+};
+
 export const applyCardMove = (
   maps: Maps,
   hidden: HiddenState,
@@ -171,19 +184,7 @@ export const applyCardMove = (
           ? hidden.faceDownReveals[cardId]
           : undefined;
 
-  const position =
-    payload.position && typeof payload.position === "object"
-      ? {
-          x:
-            typeof (payload.position as Record<string, unknown>).x === "number"
-              ? ((payload.position as Record<string, unknown>).x as number)
-              : card.position.x,
-          y:
-            typeof (payload.position as Record<string, unknown>).y === "number"
-              ? ((payload.position as Record<string, unknown>).y as number)
-              : card.position.y,
-        }
-      : undefined;
+  const position = readMovePosition(payload.position, card.position);
 
   const opts = payload.opts && typeof payload.opts === "object" ? (payload.opts as MoveOpts) : undefined;
   const actorId = typeof payload.actorId === "string" ? payload.actorId : undefined;
