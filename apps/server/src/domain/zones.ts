@@ -4,17 +4,23 @@ import { isCommanderZoneType, ZONE } from "./constants";
 import type { Maps } from "./types";
 import { readRecord, readZone } from "./yjsStore";
 
+const zoneMatchesOwnerAndType = (
+  zone: Pick<Zone, "ownerId" | "type">,
+  playerId: string,
+  zoneType: ZoneType
+) =>
+  zone.ownerId === playerId &&
+  (zoneType === ZONE.COMMANDER
+    ? isCommanderZoneType(zone.type)
+    : zone.type === zoneType);
+
 export const findZoneByType = (
   zones: Record<string, Zone>,
   playerId: string,
   zoneType: ZoneType
 ): Zone | null => {
-  const match = Object.values(zones).find(
-    (zone) =>
-      zone.ownerId === playerId &&
-      (zoneType === ZONE.COMMANDER
-        ? isCommanderZoneType(zone.type)
-        : zone.type === zoneType)
+  const match = Object.values(zones).find((zone) =>
+    zoneMatchesOwnerAndType(zone, playerId, zoneType)
   );
   return match ? { ...match } : null;
 };
@@ -30,12 +36,7 @@ export const findZoneByTypeInMaps = (
     const raw = readRecord(value);
     if (!raw) return;
     const zone = raw as unknown as Zone;
-    if (zone.ownerId !== playerId) return;
-    const matches =
-      zoneType === ZONE.COMMANDER
-        ? isCommanderZoneType(zone.type)
-        : zone.type === zoneType;
-    if (!matches) return;
+    if (!zoneMatchesOwnerAndType(zone, playerId, zoneType)) return;
     matchId = String(key);
   });
   if (!matchId) return null;
