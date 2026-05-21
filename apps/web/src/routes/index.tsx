@@ -111,7 +111,7 @@ const LandingPage = () => {
           title="Just Magic"
           description="Drawspell is a web-based virtual tabletop simulator for playing Magic: The Gathering. Create a room, share with friends, and play together."
           animation={
-            <OrbitAnimation className="h-[250px] w-[250px] sm:h-[320px] sm:w-[320px] lg:h-[680px] lg:w-[680px]" />
+            <OrbitAnimation className="h-[340px] w-[340px] sm:h-[320px] sm:w-[320px] lg:h-[680px] lg:w-[680px]" />
           }
           secondaryPanel={
             resumeSessionId ? (
@@ -123,7 +123,7 @@ const LandingPage = () => {
               <button
                 onClick={handleCreateGame}
                 disabled={isCreating}
-                className="w-full max-w-sm rounded-full border border-white/20 bg-white/25 px-6 py-3 text-base font-semibold text-white shadow-[0_0_30px_rgba(99,102,241,0.25)] transition hover:bg-white/35 disabled:cursor-not-allowed disabled:opacity-70"
+                className="w-full max-w-[calc(100vw-3rem)] rounded-full border border-white/20 bg-white/25 px-6 py-3 text-base font-semibold text-white shadow-[0_0_30px_rgba(99,102,241,0.25)] transition hover:bg-white/35 disabled:cursor-not-allowed disabled:opacity-70 sm:max-w-sm"
               >
                 <span className="inline-flex items-center justify-center gap-2">
                   {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}

@@ -18,8 +18,8 @@ export function LandingHero({
   secondaryPanel,
 }: LandingHeroProps) {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center px-6 pb-10 pt-12 text-center">
-      <div className="relative flex w-full max-w-4xl flex-col items-center gap-8">
+    <main className="flex w-full flex-1 flex-col items-center justify-center overflow-hidden px-6 pb-10 pt-12 text-center">
+      <div className="relative flex w-full max-w-[calc(100vw-3rem)] flex-col items-center gap-8 sm:max-w-4xl">
         {animation ? (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-80">
             {animation}
