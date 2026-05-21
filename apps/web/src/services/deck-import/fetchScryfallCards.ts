@@ -42,6 +42,13 @@ const normalizedKey = (card: ParsedCard) =>
     .trim()
     .toLowerCase()}:${card.collectorNumber.trim().toLowerCase()}`;
 
+const normalizeCardName = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/\s*\/\/\s*/g, "/")
+    .replace(/\s*\/\s*/g, "/")
+    .trim();
+
 const mergeParsedCards = (parsed: ParsedCard[]): ParsedCard[] => {
   const merged = new Map<string, ParsedCard>();
 
@@ -68,23 +75,16 @@ const mergeParsedCards = (parsed: ParsedCard[]): ParsedCard[] => {
 };
 
 const matchesParsedName = (parsed: ParsedCard, scryfallCard: ScryfallCard): boolean => {
-  const normalizeName = (value: string) =>
-    value
-      .toLowerCase()
-      .replace(/\s*\/\/\s*/g, "/")
-      .replace(/\s*\/\s*/g, "/")
-      .trim();
-
-  const target = normalizeName(parsed.name);
-  if (normalizeName(scryfallCard.name) === target) return true;
+  const target = normalizeCardName(parsed.name);
+  if (normalizeCardName(scryfallCard.name) === target) return true;
 
   const faces = scryfallCard.card_faces ?? [];
-  if (faces.some((face) => (face.name ? normalizeName(face.name) === target : false))) {
+  if (faces.some((face) => (face.name ? normalizeCardName(face.name) === target : false))) {
     return true;
   }
 
   // Handle split/adventure/double-faced by stripping suffix after //
-  const canonicalFront = normalizeName(scryfallCard.name.split("//")[0]?.trim() ?? "");
+  const canonicalFront = normalizeCardName(scryfallCard.name.split("//")[0]?.trim() ?? "");
   return canonicalFront === target;
 };
 
