@@ -41,6 +41,22 @@ vi.mock("../domain/intents/applyIntentToDoc", () => ({
 import { DISCORD_INVITE_METADATA_KEY, ROOM_TOKENS_KEY } from "../domain/constants";
 import server, { Room } from "../server";
 
+const createTestStorage = () => {
+  const store = new Map<string, unknown>();
+  const storage = {
+    get: vi.fn(async (key: string) => store.get(key)),
+    put: vi.fn(async (key: string, value: unknown) => {
+      store.set(key, value);
+    }),
+    delete: vi.fn(async (key: string) => {
+      store.delete(key);
+    }),
+    list: vi.fn(async () => store.entries()),
+  };
+
+  return { store, storage };
+};
+
 beforeAll(() => {
   ensureRuntimePolyfills();
 });
@@ -189,17 +205,7 @@ describe("discord provisioning endpoint", () => {
     try {
       vi.setSystemTime(new Date("2026-02-25T00:00:00.000Z"));
       const inviteExpiresAt = Date.now() + 10 * 60_000;
-      const store = new Map<string, unknown>();
-      const storage = {
-        get: vi.fn(async (key: string) => store.get(key)),
-        put: vi.fn(async (key: string, value: unknown) => {
-          store.set(key, value);
-        }),
-        delete: vi.fn(async (key: string) => {
-          store.delete(key);
-        }),
-        list: vi.fn(async () => store.entries()),
-      };
+      const { store, storage } = createTestStorage();
       const room = new Room(
         { id: { name: "room-test" }, storage } as any,
         {
@@ -257,17 +263,7 @@ describe("discord provisioning endpoint", () => {
     try {
       vi.setSystemTime(new Date("2026-02-25T00:00:00.000Z"));
       const inviteExpiresAt = Date.now() + 10 * 60_000;
-      const store = new Map<string, unknown>();
-      const storage = {
-        get: vi.fn(async (key: string) => store.get(key)),
-        put: vi.fn(async (key: string, value: unknown) => {
-          store.set(key, value);
-        }),
-        delete: vi.fn(async (key: string) => {
-          store.delete(key);
-        }),
-        list: vi.fn(async () => store.entries()),
-      };
+      const { storage } = createTestStorage();
       const room = new Room(
         { id: { name: "room-test" }, storage } as any,
         {
