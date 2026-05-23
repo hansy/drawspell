@@ -2,6 +2,8 @@ import type { Zone } from "@/types";
 
 import { MAX_CARDS_PER_ZONE } from "@/lib/limits";
 
+import { dedupeStrings } from "./utils";
+
 export const sanitizeZone = (value: any): Zone | null => {
   if (!value || typeof value.id !== "string" || typeof value.ownerId !== "string") return null;
   const rawType = typeof value.type === "string" ? value.type : null;
@@ -18,14 +20,8 @@ export const sanitizeZone = (value: any): Zone | null => {
   ].includes(type)) {
     return null;
   }
-  const ids: string[] = Array.isArray(value.cardIds)
-    ? Array.from(
-        new Set<string>(
-          (value.cardIds as unknown[]).filter(
-            (cardId): cardId is string => typeof cardId === "string"
-          )
-        )
-      ).slice(0, MAX_CARDS_PER_ZONE)
+  const ids = Array.isArray(value.cardIds)
+    ? dedupeStrings(value.cardIds, MAX_CARDS_PER_ZONE)
     : [];
   return {
     id: value.id,
@@ -34,4 +30,3 @@ export const sanitizeZone = (value: any): Zone | null => {
     cardIds: ids,
   };
 };
-

@@ -19,3 +19,8 @@ export const normalizePosition = (pos: any) => {
   return { x: next.x, y: next.y };
 };
 
+export const dedupeStrings = (values: unknown[], max: number): string[] =>
+  Array.from(new Set(values.filter((value): value is string => typeof value === "string"))).slice(
+    0,
+    max
+  );

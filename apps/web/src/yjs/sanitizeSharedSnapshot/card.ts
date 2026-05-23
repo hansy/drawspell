@@ -5,7 +5,7 @@ import { MAX_REVEALED_TO } from "@/lib/limits";
 import { MAX_NAME_LENGTH } from "../sanitizeLimits";
 
 import { sanitizeCounters } from "./counters";
-import { clampNumber, normalizePosition } from "./utils";
+import { clampNumber, dedupeStrings, normalizePosition } from "./utils";
 
 export const sanitizeCard = (value: any, zones: Record<string, Zone>): Card | null => {
   if (!value || typeof value.id !== "string" || typeof value.zoneId !== "string") return null;
@@ -18,13 +18,7 @@ export const sanitizeCard = (value: any, zones: Record<string, Zone>): Card | nu
   const position = normalizePosition(value.position);
   const rotation = clampNumber(value.rotation, -360, 360, 0);
   const revealedTo = Array.isArray(value.revealedTo)
-    ? Array.from(
-        new Set(
-          (value.revealedTo as unknown[]).filter(
-            (pid): pid is string => typeof pid === "string"
-          )
-        )
-      ).slice(0, MAX_REVEALED_TO)
+    ? dedupeStrings(value.revealedTo, MAX_REVEALED_TO)
     : undefined;
   const faceIndex =
     typeof value.currentFaceIndex === "number" && Number.isFinite(value.currentFaceIndex)
