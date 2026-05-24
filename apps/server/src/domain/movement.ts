@@ -2,27 +2,29 @@ import type { Card } from "@mtg/shared/types/cards";
 
 import { isCommanderZoneType, isHiddenZoneType, isPublicZoneType, ZONE } from "./constants";
 import type {
-  FaceDownMoveResolution,
   HiddenReveal,
   HiddenState,
   Maps,
   MoveOpts,
-  RevealPatch,
 } from "./types";
 import {
   buildCardIdentity,
   enforceZoneCounterRules,
   mergeCardIdentity,
   resetCardToFrontFace,
-  resolveControllerAfterMove,
   stripCardIdentity,
 } from "./cards";
 import {
-  normalizeMovePosition,
   getNormalizedGridSteps,
   resolveBattlefieldCollisionPosition,
   resolveBattlefieldGroupCollisionPositions,
 } from "./positions";
+import {
+  computeRevealPatchAfterMove,
+  normalizeMovePosition,
+  resolveControllerAfterMove,
+  resolveFaceDownAfterMove,
+} from "@mtg/shared/movement";
 import { readCard, readZone, writeCard, writeZone } from "./yjsStore";
 import { placeCardId, removeFromArray } from "./lists";
 import { syncLibraryRevealsToAllForPlayer, updatePlayerCounts } from "./hiddenState";
@@ -32,94 +34,6 @@ const getLiveCommanderZoneCardIds = (maps: Maps, zoneId: string, cardIds: string
     const existing = readCard(maps, cardId);
     return Boolean(existing && existing.zoneId === zoneId);
   });
-
-const resolveFaceDownModePatch = (
-  nextFaceDown: boolean,
-  nextFaceDownMode: MoveOpts["faceDownMode"] | undefined,
-  currentFaceDownMode: MoveOpts["faceDownMode"] | undefined
-): MoveOpts["faceDownMode"] | null | undefined => {
-  if (nextFaceDown) {
-    return nextFaceDownMode ?? null;
-  }
-
-  return currentFaceDownMode ? null : undefined;
-};
-
-const resolveFaceDownAfterMove = ({
-  fromZoneType,
-  toZoneType,
-  currentFaceDown,
-  currentFaceDownMode,
-  requestedFaceDown,
-  requestedFaceDownMode,
-}: {
-  fromZoneType: string;
-  toZoneType: string;
-  currentFaceDown: boolean;
-  currentFaceDownMode?: MoveOpts["faceDownMode"];
-  requestedFaceDown: boolean | undefined;
-  requestedFaceDownMode?: MoveOpts["faceDownMode"];
-}): FaceDownMoveResolution => {
-  if (requestedFaceDown !== undefined) {
-    const effectiveFaceDownMode = requestedFaceDown ? requestedFaceDownMode : undefined;
-    return {
-      effectiveFaceDown: requestedFaceDown,
-      patchFaceDown: requestedFaceDown,
-      effectiveFaceDownMode,
-      patchFaceDownMode: resolveFaceDownModePatch(
-        requestedFaceDown,
-        requestedFaceDownMode,
-        currentFaceDownMode
-      ),
-    };
-  }
-
-  const battlefieldToBattlefield =
-    fromZoneType === ZONE.BATTLEFIELD && toZoneType === ZONE.BATTLEFIELD;
-  if (battlefieldToBattlefield) {
-    const effectiveFaceDownMode = currentFaceDown ? currentFaceDownMode : undefined;
-    return {
-      effectiveFaceDown: currentFaceDown,
-      patchFaceDown: undefined,
-      effectiveFaceDownMode,
-      patchFaceDownMode: currentFaceDown
-        ? undefined
-        : resolveFaceDownModePatch(false, undefined, currentFaceDownMode),
-    };
-  }
-
-  return {
-    effectiveFaceDown: false,
-    patchFaceDown: false,
-    effectiveFaceDownMode: undefined,
-    patchFaceDownMode: resolveFaceDownModePatch(false, undefined, currentFaceDownMode),
-  };
-};
-
-const computeRevealPatchAfterMove = ({
-  fromZoneType,
-  toZoneType,
-  effectiveFaceDown,
-}: {
-  fromZoneType: string;
-  toZoneType: string;
-  effectiveFaceDown: boolean;
-}): RevealPatch => {
-  const toHidden =
-    toZoneType === ZONE.HAND || toZoneType === ZONE.LIBRARY || toZoneType === ZONE.SIDEBOARD;
-  const enteringLibrary = toZoneType === ZONE.LIBRARY && fromZoneType !== ZONE.LIBRARY;
-  const faceDownBattlefield = toZoneType === ZONE.BATTLEFIELD && effectiveFaceDown === true;
-
-  if (enteringLibrary || faceDownBattlefield) {
-    return { knownToAll: false, revealedToAll: false, revealedTo: [] };
-  }
-
-  if (!toHidden && !faceDownBattlefield) {
-    return { knownToAll: true, revealedToAll: false, revealedTo: [] };
-  }
-
-  return null;
-};
 
 const updateCountsForZoneMove = (maps: Maps, hidden: HiddenState, fromOwnerId: string, toOwnerId: string) => {
   updatePlayerCounts(maps, hidden, fromOwnerId);

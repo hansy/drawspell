@@ -7,6 +7,17 @@ export * from "./constants/zones";
 export * from "./cards";
 export * from "./counters";
 export * from "./discord/provisioning";
+export {
+  computeRevealPatchAfterMove,
+  resolveCardMovementFacts,
+  resolveControllerAfterMove,
+  resolveFaceDownAfterMove,
+} from "./movement";
+export type {
+  CardMovementFacts,
+  FaceDownMoveResolution,
+  RevealPatch,
+} from "./movement";
 export * from "./positions";
 export * from "./zones";
 export * from "./rules/types";
