@@ -13,6 +13,7 @@ import {
 } from "./positions";
 
 export { buildDuplicateTokenCard } from "@mtg/shared/cards";
+export { resolveControllerAfterMove } from "@mtg/shared/movement";
 
 export const getCardFaces = (card: Card) => card.scryfall?.card_faces ?? [];
 
@@ -124,16 +125,6 @@ export const decrementCounter = (existing: Counter[], type: string, delta: numbe
   }
   next.splice(idx, 1);
   return next;
-};
-
-export const resolveControllerAfterMove = (card: Card, fromZone: Zone, toZone: Zone): string => {
-  if (toZone.type === ZONE.BATTLEFIELD) {
-    if (toZone.ownerId === card.ownerId) return card.ownerId;
-    if (fromZone.ownerId !== toZone.ownerId) return toZone.ownerId;
-  } else {
-    if (card.controllerId !== card.ownerId) return card.ownerId;
-  }
-  return card.controllerId;
 };
 
 export const buildCardIdentity = (card: Card): CardIdentity => ({

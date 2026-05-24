@@ -146,16 +146,12 @@ export type MoveOpts = {
   };
 };
 
-export type FaceDownMoveResolution = {
-  effectiveFaceDown: boolean;
-  patchFaceDown?: boolean;
-  effectiveFaceDownMode?: FaceDownMode;
-  patchFaceDownMode?: FaceDownMode | null;
-};
+export type {
+  FaceDownMoveResolution,
+  RevealPatch,
+} from "@mtg/shared/movement";
 
 export type { PermissionResult } from "@mtg/shared/rules/types";
-
-export type RevealPatch = Pick<Card, "knownToAll" | "revealedToAll" | "revealedTo"> | null;
 
 export type CardUpdatePayload = Record<string, unknown>;
 
