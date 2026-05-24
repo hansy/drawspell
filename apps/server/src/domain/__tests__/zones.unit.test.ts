@@ -7,6 +7,8 @@ import {
   isHiddenZoneType,
   isPublicZoneType,
 } from "../constants";
+import { findZoneByType } from "../zones";
+import type { Zone } from "@mtg/shared/types/zones";
 
 describe("zone constants", () => {
   it("defines expected zone identifiers", () => {
@@ -46,5 +48,23 @@ describe("zone constants", () => {
     expect(isCommanderZoneType(ZONE.COMMANDER)).toBe(true);
     expect(isCommanderZoneType(LEGACY_COMMAND_ZONE)).toBe(true);
     expect(isCommanderZoneType(ZONE.HAND)).toBe(false);
+  });
+
+  it("finds zones by owner and type, including legacy command", () => {
+    const zones: Record<string, Zone> = {
+      library: { id: "library", type: ZONE.LIBRARY, ownerId: "p1", cardIds: [] },
+      otherLibrary: { id: "otherLibrary", type: ZONE.LIBRARY, ownerId: "p2", cardIds: [] },
+      command: {
+        id: "command",
+        type: LEGACY_COMMAND_ZONE,
+        ownerId: "p1",
+        cardIds: [],
+      } as unknown as Zone,
+    };
+
+    expect(findZoneByType(zones, "p1", ZONE.LIBRARY)?.id).toBe("library");
+    expect(findZoneByType(zones, "p2", ZONE.LIBRARY)?.id).toBe("otherLibrary");
+    expect(findZoneByType(zones, "p1", ZONE.COMMANDER)?.id).toBe("command");
+    expect(findZoneByType(zones, "p3", ZONE.LIBRARY)).toBeNull();
   });
 });

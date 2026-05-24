@@ -8,6 +8,7 @@ export * from "./cards";
 export * from "./counters";
 export * from "./discord/provisioning";
 export * from "./positions";
+export * from "./zones";
 export * from "./rules/types";
 export * from "./rules/permissions";
 export * from "./security/joinToken";

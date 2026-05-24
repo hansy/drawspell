@@ -1,27 +1,18 @@
+import {
+  findZoneByType as findSnapshotZoneByType,
+  zoneMatchesOwnerAndType,
+} from "@mtg/shared/zones";
 import type { Zone, ZoneType } from "@mtg/shared/types/zones";
 
-import { isCommanderZoneType, ZONE } from "./constants";
 import type { Maps } from "./types";
 import { readRecord, readZone } from "./yjsStore";
-
-const zoneMatchesOwnerAndType = (
-  zone: Pick<Zone, "ownerId" | "type">,
-  playerId: string,
-  zoneType: ZoneType
-) =>
-  zone.ownerId === playerId &&
-  (zoneType === ZONE.COMMANDER
-    ? isCommanderZoneType(zone.type)
-    : zone.type === zoneType);
 
 export const findZoneByType = (
   zones: Record<string, Zone>,
   playerId: string,
   zoneType: ZoneType
 ): Zone | null => {
-  const match = Object.values(zones).find((zone) =>
-    zoneMatchesOwnerAndType(zone, playerId, zoneType)
-  );
+  const match = findSnapshotZoneByType(zones, playerId, zoneType);
   return match ? { ...match } : null;
 };
 

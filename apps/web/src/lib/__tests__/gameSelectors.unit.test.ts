@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Card, Zone } from '@/types';
 import { ZONE } from '@/constants/zones';
-import { getCardsInZone, getZoneByType } from '../gameSelectors';
+import { getCardsInZone, getPlayerZones, getZoneByType } from '../gameSelectors';
 
 describe('gameSelectors', () => {
   it('getZoneByType returns the matching zone for the owner', () => {
@@ -22,6 +22,20 @@ describe('gameSelectors', () => {
     };
 
     expect(getZoneByType(zones, 'p1', ZONE.COMMANDER)?.id).toBe('cmd');
+  });
+
+  it('getPlayerZones returns the standard zones for an owner', () => {
+    const zones = {
+      lib1: { id: 'lib1', type: ZONE.LIBRARY, ownerId: 'p1', cardIds: [] },
+      grave1: { id: 'grave1', type: ZONE.GRAVEYARD, ownerId: 'p1', cardIds: [] },
+      lib2: { id: 'lib2', type: ZONE.LIBRARY, ownerId: 'p2', cardIds: [] },
+    } satisfies Record<string, Zone>;
+
+    const playerZones = getPlayerZones(zones, 'p1');
+
+    expect(playerZones.library?.id).toBe('lib1');
+    expect(playerZones.graveyard?.id).toBe('grave1');
+    expect(playerZones.hand).toBeUndefined();
   });
 
   it('getCardsInZone preserves order and drops missing cards', () => {
@@ -52,4 +66,3 @@ describe('gameSelectors', () => {
     expect(getCardsInZone(cards, zone).map((card) => card.id)).toEqual(['c2', 'c1']);
   });
 });
-
