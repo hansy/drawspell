@@ -1,9 +1,12 @@
-export type APPS = {
+export type AppOrigins = {
   web: string;
   server: string;
 };
 
-export const ORIGINS: Record<"development" | "staging" | "production", APPS> = {
+/** @deprecated Use AppOrigins instead. */
+export type APPS = AppOrigins;
+
+export const ORIGINS: Record<"development" | "staging" | "production", AppOrigins> = {
   development: {
     web: "http://localhost:5173",
     server: "http://localhost:8787",

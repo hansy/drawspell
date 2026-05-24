@@ -1,6 +1,6 @@
-import { ORIGINS, type APPS } from "@mtg/shared/constants/hosts";
+import { ORIGINS, type AppOrigins } from "@mtg/shared/constants/hosts";
 
-export const resolveOriginsForEnv = (viteEnv: string | undefined): APPS => {
+export const resolveOriginsForEnv = (viteEnv: string | undefined): AppOrigins => {
   const origins = viteEnv ? ORIGINS[viteEnv as keyof typeof ORIGINS] : undefined;
 
   if (!origins) {
