@@ -1,11 +1,9 @@
 import { ZONE } from "./constants/zones";
 import type { Card, FaceDownMode } from "./types/cards";
 import type { Zone } from "./types/zones";
-import {
-  clampNormalizedPosition,
-  migratePositionToNormalized,
-  type Position,
-} from "./positions";
+import { normalizeMovePosition, type Position } from "./positions";
+
+export { normalizeMovePosition } from "./positions";
 
 export type FaceDownMoveResolution = {
   effectiveFaceDown: boolean;
@@ -45,17 +43,6 @@ export const resolveControllerAfterMove = (
     return card.ownerId;
   }
   return card.controllerId;
-};
-
-export const normalizeMovePosition = (
-  position: Position | undefined,
-  fallback: Position,
-) => {
-  const normalizedInput =
-    position && (position.x > 1 || position.y > 1)
-      ? migratePositionToNormalized(position)
-      : position;
-  return clampNormalizedPosition(normalizedInput ?? fallback);
 };
 
 const resolveFaceDownModePatch = (
