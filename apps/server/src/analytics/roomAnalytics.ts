@@ -4,6 +4,17 @@ import { createPostHogClient } from "./posthog";
 
 type WaitUntil = (promise: Promise<unknown>) => void;
 
+type AnalyticsPayload = {
+  distinctId: string;
+  event: string;
+  properties: Record<string, unknown>;
+};
+
+type AnalyticsPostHog = PostHog & {
+  captureImmediate?: (payload: AnalyticsPayload) => Promise<unknown> | unknown;
+  shutdown?: () => Promise<unknown> | unknown;
+};
+
 type RoomAnalyticsOptions = {
   env: Env;
   waitUntil: WaitUntil;
@@ -19,7 +30,7 @@ type ActiveUser = {
 };
 
 export class RoomAnalyticsTracker {
-  private posthog: PostHog | null = null;
+  private posthog: AnalyticsPostHog | null = null;
   private readonly env: Env;
   private readonly waitUntil: WaitUntil;
   private readonly now: () => number;
@@ -193,8 +204,8 @@ export class RoomAnalyticsTracker {
     };
 
     const capturePromise =
-      typeof (posthog as any).captureImmediate === "function"
-        ? (posthog as any).captureImmediate(payload)
+      typeof posthog.captureImmediate === "function"
+        ? posthog.captureImmediate(payload)
         : posthog.capture(payload);
 
     this.waitUntil(Promise.resolve(capturePromise));
@@ -209,7 +220,7 @@ export class RoomAnalyticsTracker {
 
   private shutdownPostHog() {
     if (!this.posthog) return;
-    const shutdown = (this.posthog as any).shutdown?.();
+    const shutdown = this.posthog.shutdown?.();
     if (shutdown) {
       this.waitUntil(Promise.resolve(shutdown));
     }
