@@ -12,7 +12,7 @@ export const ZONE = {
 
 export const LEGACY_COMMAND_ZONE = "command" as const;
 
-export const isHiddenZoneType = (zoneType: ZoneType | undefined) =>
+export const isHiddenZoneType = (zoneType: string | undefined) =>
   zoneType === ZONE.HAND || zoneType === ZONE.LIBRARY || zoneType === ZONE.SIDEBOARD;
 
 export const isPublicZoneType = (zoneType: ZoneType | undefined) =>

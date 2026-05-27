@@ -1,4 +1,4 @@
-import { ZONE } from "./constants/zones";
+import { isHiddenZoneType, ZONE } from "./constants/zones";
 import type { Card, FaceDownMode } from "./types/cards";
 import type { Zone } from "./types/zones";
 import { normalizeMovePosition, type Position } from "./positions";
@@ -125,10 +125,7 @@ export const computeRevealPatchAfterMove = ({
   toZoneType: string;
   effectiveFaceDown: boolean;
 }): RevealPatch => {
-  const toHidden =
-    toZoneType === ZONE.HAND ||
-    toZoneType === ZONE.LIBRARY ||
-    toZoneType === ZONE.SIDEBOARD;
+  const toHidden = isHiddenZoneType(toZoneType);
   const enteringLibrary =
     toZoneType === ZONE.LIBRARY && fromZoneType !== ZONE.LIBRARY;
   const faceDownBattlefield =
