@@ -27,8 +27,8 @@ export const createEmptyHiddenState = (): HiddenState => ({
 });
 
 const recordEntries = (value: unknown): [string, unknown][] => {
-  if (!value || typeof value !== "object") return [];
-  return Object.entries(value as Record<string, unknown>);
+  const record = readRecord(value);
+  return record ? Object.entries(record) : [];
 };
 
 const readOrderMap = (value: unknown): Record<string, string[]> => {
