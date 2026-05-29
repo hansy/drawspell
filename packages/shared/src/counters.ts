@@ -20,6 +20,24 @@ const canonicalizeSignedNumber = (raw: string) => {
   return `${sign}${Math.abs(parsed)}`;
 };
 
+const parsePTCounterMatch = (
+  match: RegExpMatchArray
+): Extract<ParsedCounterType, { kind: "pt" }> => {
+  const rawPowerDelta = match[1] ?? "0";
+  const rawToughnessDelta = match[2] ?? "0";
+  const powerDelta = Number.parseInt(rawPowerDelta, 10);
+  const toughnessDelta = Number.parseInt(rawToughnessDelta, 10);
+
+  return {
+    kind: "pt",
+    canonicalType: `${canonicalizeSignedNumber(rawPowerDelta)}/${canonicalizeSignedNumber(
+      rawToughnessDelta
+    )}`,
+    powerDelta,
+    toughnessDelta,
+  };
+};
+
 export const parseCounterType = (
   raw: string,
   maxLen = 64
@@ -33,16 +51,7 @@ export const parseCounterType = (
   if (compact.length <= maxLen) {
     const match = compact.match(PT_COUNTER_PATTERN);
     if (match) {
-      const powerDelta = Number.parseInt(match[1] ?? "0", 10);
-      const toughnessDelta = Number.parseInt(match[2] ?? "0", 10);
-      return {
-        kind: "pt",
-        canonicalType: `${canonicalizeSignedNumber(match[1] ?? "+0")}/${canonicalizeSignedNumber(
-          match[2] ?? "+0"
-        )}`,
-        powerDelta,
-        toughnessDelta,
-      };
+      return parsePTCounterMatch(match);
     }
   }
 
