@@ -6,9 +6,9 @@ import { MAX_PLAYER_COLOR_LENGTH, MAX_PLAYER_NAME_LENGTH } from '../sanitizeLimi
 import type { SharedMaps } from './shared';
 import {
   clampString,
+  createValueReader,
   ensureChildMap,
   ensureZoneOrder,
-  readValue,
   readCommanderDamage,
   readCounters,
   removeFromOrder,
@@ -80,7 +80,7 @@ const writePlayer = (maps: SharedMaps, player: Player) => {
 export const readPlayer = (maps: SharedMaps, playerId: string): Player | null => {
   const target = maps.players.get(playerId);
   if (!target) return null;
-  const getVal = (key: string) => readValue(target, key);
+  const getVal = createValueReader(target);
   const commanderDamageSource = getVal('commanderDamage');
   const commanderDamage = readCommanderDamage(commanderDamageSource);
   const libraryTopReveal = normalizeLibraryTopRevealMode(getVal('libraryTopReveal'));

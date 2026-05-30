@@ -18,12 +18,12 @@ import {
 import type { SharedMaps } from "../shared";
 import {
   clampString,
+  createValueReader,
   ensureChildMap,
   ensureZoneOrder,
   isRecord,
   normalizeScryfallLiteForSync,
   readCounters,
-  readValue,
   sanitizeCountersForSync,
   sanitizeImageUrl,
   writeCounters,
@@ -100,7 +100,7 @@ export const writeCard = (maps: SharedMaps, card: Card) => {
 export const readCard = (maps: SharedMaps, cardId: string): Card | null => {
   const target = maps.cards.get(cardId);
   if (!target) return null;
-  const getVal = (key: string) => readValue(target, key);
+  const getVal = createValueReader(target);
   const counters = readCounters(getVal("counters"));
   const rawPosition = getVal("position");
   const normalizedPosition =

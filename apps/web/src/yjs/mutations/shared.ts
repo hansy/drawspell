@@ -34,6 +34,11 @@ export const readValue = (source: unknown, key: string): unknown => {
   return undefined;
 };
 
+export const createValueReader =
+  (source: unknown) =>
+  (key: string): unknown =>
+    readValue(source, key);
+
 export const clampString = (value: unknown, max: number): string | undefined => {
   if (typeof value !== 'string') return undefined;
   return value.length > max ? value.slice(0, max) : value;

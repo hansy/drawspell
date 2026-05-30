@@ -3,7 +3,7 @@ import * as Y from 'yjs';
 import type { Zone } from '@/types';
 
 import type { SharedMaps } from './shared';
-import { ensureChildMap, ensureZoneOrder, readValue, syncOrder } from './shared';
+import { createValueReader, ensureChildMap, ensureZoneOrder, syncOrder } from './shared';
 
 const writeZone = (maps: SharedMaps, zone: Zone) => {
   const target = ensureChildMap(maps.zones, zone.id);
@@ -20,7 +20,7 @@ const writeZone = (maps: SharedMaps, zone: Zone) => {
 export const readZone = (maps: SharedMaps, zoneId: string): Zone | null => {
   const target = maps.zones.get(zoneId);
   if (!target) return null;
-  const getVal = (key: string) => readValue(target, key);
+  const getVal = createValueReader(target);
   const order = maps.zoneCardOrders.get(zoneId);
   let cardIds: string[] = [];
   if (order instanceof Y.Array) {
