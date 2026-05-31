@@ -48,6 +48,18 @@ describe("Sidenav", () => {
     expect(onEndTurn).toHaveBeenCalledTimes(1);
   });
 
+  it("uses active tap feedback classes on nav icon buttons", () => {
+    render(<Sidenav onOpenCoinFlipper={vi.fn()} onOpenDiceRoller={vi.fn()} />);
+
+    const endTurnButton = screen.getByRole("button", { name: "End turn" });
+    expect(endTurnButton.className).toContain("active:bg-zinc-800/50");
+    expect(endTurnButton.className).toContain("active:scale-95");
+    expect(endTurnButton.className).toContain("active:text-red-400");
+
+    const rollDiceButton = screen.getByRole("button", { name: "Roll Dice" });
+    expect(rollDiceButton.className).toContain("active:text-indigo-400");
+  });
+
   it("opens the share dialog from the share button", () => {
     const onOpenShareDialog = vi.fn();
 

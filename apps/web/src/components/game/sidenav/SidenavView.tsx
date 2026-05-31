@@ -54,7 +54,7 @@ const NavIcon: React.FC<NavIconProps> = ({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "p-3 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400",
+        "p-3 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 active:bg-zinc-800/50 active:scale-95 rounded-lg transition-all touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400 disabled:active:bg-transparent disabled:active:text-zinc-400 disabled:active:scale-100",
         className,
       )}
     >
@@ -174,7 +174,7 @@ export const SidenavView: React.FC<SidenavController> = ({
           label="Share room"
           tooltip={shareTooltip}
           onClick={onOpenShareDialog}
-          className="hover:text-indigo-400"
+          className="hover:text-indigo-400 active:text-indigo-400"
           disabled={shareDisabled}
           hideTooltip={isHorizontal}
         />
@@ -198,7 +198,7 @@ export const SidenavView: React.FC<SidenavController> = ({
           aria-expanded={isMenuOpen}
           onClick={handleMenuToggle}
           ref={menuRefs.setReference}
-          className="w-8 h-8 flex items-center justify-center transition-transform duration-200 hover:scale-105"
+          className="w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 active:bg-zinc-800/50 touch-manipulation"
         >
           <img
             src={drawspellLogo}
@@ -310,7 +310,7 @@ export const SidenavView: React.FC<SidenavController> = ({
               label="Game Log"
               onClick={onToggleLog}
               className={cn(
-                "hover:text-amber-400",
+                "hover:text-amber-400 active:text-amber-400",
                 isLogOpen && "text-amber-400 bg-amber-500/10",
               )}
               hideTooltip={isHorizontal}
@@ -326,7 +326,7 @@ export const SidenavView: React.FC<SidenavController> = ({
               icon={<UserRoundCheck size={20} />}
               label="End turn"
               onClick={onEndTurn}
-              className="hover:text-red-400"
+              className="hover:text-red-400 active:text-red-400"
               disabled={isSpectator}
               hideTooltip={isHorizontal}
             />
@@ -335,7 +335,7 @@ export const SidenavView: React.FC<SidenavController> = ({
               icon={<CornerUpLeft size={20} />}
               label="Untap All"
               onClick={handleUntapAll}
-              className="hover:text-blue-400"
+              className="hover:text-blue-400 active:text-blue-400"
               disabled={isSpectator}
               hideTooltip={isHorizontal}
             />
@@ -344,7 +344,7 @@ export const SidenavView: React.FC<SidenavController> = ({
               icon={<Plus size={20} />}
               label="Create Token"
               onClick={onCreateToken}
-              className="hover:text-emerald-400"
+              className="hover:text-emerald-400 active:text-emerald-400"
               disabled={isSpectator}
               hideTooltip={isHorizontal}
             />
@@ -353,7 +353,7 @@ export const SidenavView: React.FC<SidenavController> = ({
               icon={<Coins size={20} />}
               label="Flip Coin"
               onClick={onOpenCoinFlipper}
-              className="hover:text-yellow-400"
+              className="hover:text-yellow-400 active:text-yellow-400"
               disabled={isSpectator}
               hideTooltip={isHorizontal}
             />
@@ -362,7 +362,7 @@ export const SidenavView: React.FC<SidenavController> = ({
               icon={<Dice5 size={20} />}
               label="Roll Dice"
               onClick={onOpenDiceRoller}
-              className="hover:text-indigo-400"
+              className="hover:text-indigo-400 active:text-indigo-400"
               disabled={isSpectator}
               hideTooltip={isHorizontal}
             />
@@ -372,7 +372,7 @@ export const SidenavView: React.FC<SidenavController> = ({
               label="Game Log"
               onClick={onToggleLog}
               className={cn(
-                "hover:text-amber-400",
+                "hover:text-amber-400 active:text-amber-400",
                 isLogOpen && "text-amber-400 bg-amber-500/10",
               )}
               hideTooltip={isHorizontal}
