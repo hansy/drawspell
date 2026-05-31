@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 
 import type { SidenavController } from "@/hooks/game/sidenav/useSidenavController";
 
-const TAP_LABEL_MS = 1_000;
+const TAP_LABEL_MS = 500;
 
 interface NavIconProps {
   icon: React.ReactNode;

@@ -76,7 +76,7 @@ describe("Sidenav", () => {
     expect(screen.getByText("End turn")).not.toBeNull();
 
     act(() => {
-      vi.advanceTimersByTime(1_000);
+      vi.advanceTimersByTime(500);
     });
 
     expect(screen.queryByText("End turn")).toBeNull();
