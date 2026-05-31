@@ -30,6 +30,24 @@ describe("Sidenav", () => {
     expect(untapAll).toHaveBeenCalledWith("me");
   });
 
+  it("shows end turn as the first player action and calls its handler", () => {
+    const onEndTurn = vi.fn();
+
+    render(
+      <Sidenav
+        onEndTurn={onEndTurn}
+        onOpenCoinFlipper={vi.fn()}
+        onOpenDiceRoller={vi.fn()}
+      />,
+    );
+
+    const buttons = screen.getAllByRole("button");
+    expect(buttons[0].getAttribute("aria-label")).toBe("End turn");
+
+    fireEvent.click(screen.getByRole("button", { name: "End turn" }));
+    expect(onEndTurn).toHaveBeenCalledTimes(1);
+  });
+
   it("opens the share dialog from the share button", () => {
     const onOpenShareDialog = vi.fn();
 

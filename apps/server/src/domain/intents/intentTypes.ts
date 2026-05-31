@@ -23,6 +23,7 @@ export const INTENT_TYPES = [
   "library.view",
   "library.view.close",
   "library.view.ping",
+  "player.endTurn",
   "player.join",
   "player.leave",
   "player.update",

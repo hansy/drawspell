@@ -8,6 +8,7 @@ import { logEventRegistry } from "../eventRegistry";
 const EVENT_IDS = [
   "player.life",
   "player.commanderTax",
+  "player.endTurn",
   "coin.flip",
   "dice.roll",
   "card.draw",
@@ -169,6 +170,21 @@ describe("logEventRegistry", () => {
     expect(removed.map((p) => p.text).join("")).toBe(
       "Alice removed 2 commander tax from Commander"
     );
+  });
+
+  it("formats end turn announcements", () => {
+    const ctx: LogContext = {
+      players: { p1: makePlayer("p1", "Alice") },
+      cards: {},
+      zones: {},
+    };
+
+    const parts = logEventRegistry["player.endTurn"].format(
+      { actorId: "p1" },
+      ctx
+    );
+
+    expect(parts.map((p) => p.text).join("")).toBe("Alice ended their turn");
   });
 
   it("formats reconnect events with reason and delay", () => {

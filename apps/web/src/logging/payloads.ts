@@ -25,6 +25,7 @@ import type {
 } from "./eventRegistry/libraryEvents";
 import type {
   CommanderTaxPayload,
+  EndTurnPayload,
   LifePayload,
 } from "./eventRegistry/playerEvents";
 import type {
@@ -36,6 +37,7 @@ import type {
 export type LogEventPayloadMap = {
   "player.life": LifePayload;
   "player.commanderTax": CommanderTaxPayload;
+  "player.endTurn": EndTurnPayload;
   "coin.flip": CoinFlipPayload;
   "dice.roll": DiceRollPayload;
   "card.draw": DrawPayload;

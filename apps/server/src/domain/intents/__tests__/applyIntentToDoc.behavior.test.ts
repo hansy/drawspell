@@ -266,6 +266,33 @@ describe("applyIntentToDoc", () => {
     expect(readPlayer(maps, "p1")?.libraryTopReveal).toEqual({ toAll: true });
   });
 
+  it("logs end turn without changing public document state", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    writePlayer(maps, makePlayer("p1"));
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-end-turn",
+      type: "player.endTurn",
+      payload: { actorId: "p1" },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.logEvents).toEqual([
+        {
+          eventId: "player.endTurn",
+          payload: { actorId: "p1" },
+        },
+      ]);
+      expect(result.impact).toBeDefined();
+      expect(result.impact?.changedPublicDoc).toBe(false);
+    }
+    expect(readPlayer(maps, "p1")).toEqual(makePlayer("p1"));
+  });
+
   it("should add cards to a hidden zone for the owning player", () => {
     const doc = createDoc();
     const maps = getMaps(doc);

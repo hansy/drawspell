@@ -22,6 +22,10 @@ export type CommanderTaxPayload = {
   cardName?: string;
 };
 
+export type EndTurnPayload = {
+  actorId?: string;
+};
+
 const formatLife: LogEventDefinition<LifePayload>["format"] = (payload, ctx) => {
   const player = buildPlayerPart(ctx, payload.playerId);
   const delta = typeof payload.delta === "number" ? payload.delta : payload.to - payload.from;
@@ -53,6 +57,11 @@ const formatCommanderTax: LogEventDefinition<CommanderTaxPayload>["format"] = (p
   ];
 };
 
+const formatEndTurn: LogEventDefinition<EndTurnPayload>["format"] = (payload, ctx) => {
+  const player = buildPlayerPart(ctx, payload.actorId);
+  return [player, { kind: "text", text: " ended their turn" }];
+};
+
 export const playerEvents = {
   "player.life": {
     format: formatLife,
@@ -76,5 +85,8 @@ export const playerEvents = {
   },
   "player.commanderTax": {
     format: formatCommanderTax,
+  },
+  "player.endTurn": {
+    format: formatEndTurn,
   },
 } satisfies Partial<Record<LogEventId, LogEventDefinition<any>>>;

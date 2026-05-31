@@ -247,8 +247,14 @@ const handlePlayerLeave: IntentHandler = ({ actorId, maps, hidden, payload, mark
   return { ok: true };
 };
 
+const handlePlayerEndTurn: IntentHandler = ({ actorId, pushLogEvent }) => {
+  pushLogEvent("player.endTurn", { actorId });
+  return { ok: true };
+};
+
 export const playerIntentHandlers: Record<string, IntentHandler> = {
   "player.join": handlePlayerJoin,
   "player.update": handlePlayerUpdate,
   "player.leave": handlePlayerLeave,
+  "player.endTurn": handlePlayerEndTurn,
 };

@@ -374,6 +374,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   handleDrawCard,
   handleFlipCoin,
   handleRollDice,
+  handleEndTurn,
   handleLeave,
   shareLinks,
   shareLinksReady,
@@ -841,6 +842,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                   <Sidenav
                     orientation="horizontal"
                     onCreateToken={() => setIsTokenModalOpen(true)}
+                    onEndTurn={handleEndTurn}
                     onOpenCoinFlipper={handleOpenCoinFlipper}
                     onOpenDiceRoller={handleOpenDiceRoller}
                     onToggleLog={() => setIsLogOpen(!isLogOpen)}
@@ -898,6 +900,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
             <div className="grid h-full w-full grid-cols-[var(--sidenav-w)_minmax(0,1fr)_auto]">
               <Sidenav
                 onCreateToken={() => setIsTokenModalOpen(true)}
+                onEndTurn={handleEndTurn}
                 onOpenCoinFlipper={handleOpenCoinFlipper}
                 onOpenDiceRoller={handleOpenDiceRoller}
                 onToggleLog={() => setIsLogOpen(!isLogOpen)}

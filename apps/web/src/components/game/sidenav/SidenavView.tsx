@@ -11,6 +11,7 @@ import {
   CornerUpLeft,
   ScrollText,
   Share2,
+  UserRoundCheck,
   Wifi,
 } from "lucide-react";
 import {
@@ -72,6 +73,7 @@ const NavIcon: React.FC<NavIconProps> = ({
 
 export const SidenavView: React.FC<SidenavController> = ({
   onCreateToken,
+  onEndTurn,
   onOpenCoinFlipper,
   onOpenDiceRoller,
   onToggleLog,
@@ -320,6 +322,15 @@ export const SidenavView: React.FC<SidenavController> = ({
           </>
         ) : (
           <>
+            <NavIcon
+              icon={<UserRoundCheck size={20} />}
+              label="End turn"
+              onClick={onEndTurn}
+              className="hover:text-red-400"
+              disabled={isSpectator}
+              hideTooltip={isHorizontal}
+            />
+
             <NavIcon
               icon={<CornerUpLeft size={20} />}
               label="Untap All"

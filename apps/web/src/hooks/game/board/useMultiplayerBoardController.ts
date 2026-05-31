@@ -436,6 +436,13 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     [isSpectator, myPlayerId, sendLogIntent],
   );
 
+  const handleEndTurn = React.useCallback(() => {
+    if (isSpectator) return;
+    sendLogIntent("player.endTurn", {
+      actorId: myPlayerId,
+    });
+  }, [isSpectator, myPlayerId, sendLogIntent]);
+
   const handleOpenCoinFlipper = React.useCallback(() => {
     if (isSpectator) return;
     setIsCoinFlipperOpen(true);
@@ -601,6 +608,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     handleDrawCard,
     handleFlipCoin,
     handleRollDice,
+    handleEndTurn,
     handleOpenCoinFlipper,
     handleLeave,
     handleCreateNewGame,
