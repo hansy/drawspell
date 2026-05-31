@@ -28,6 +28,7 @@ export interface SeatProps {
   scale?: number;
   className?: string;
   onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
+  onHandContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   onZoneContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   onBattlefieldContextMenu?: (e: React.MouseEvent) => void;
   onLoadDeck?: () => void;
@@ -56,6 +57,7 @@ const SeatInner: React.FC<SeatProps> = ({
   scale = 1,
   className,
   onCardContextMenu,
+  onHandContextMenu,
   onZoneContextMenu,
   onBattlefieldContextMenu,
   onLoadDeck,
@@ -108,6 +110,7 @@ const SeatInner: React.FC<SeatProps> = ({
       scale={scale}
       className={className}
       onCardContextMenu={onCardContextMenu}
+      onHandContextMenu={onHandContextMenu}
       onZoneContextMenu={onZoneContextMenu}
       onBattlefieldContextMenu={onBattlefieldContextMenu}
       onLoadDeck={onLoadDeck}

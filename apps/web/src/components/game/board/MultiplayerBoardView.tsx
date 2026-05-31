@@ -338,6 +338,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   handleViewZone,
   contextMenu,
   handleCardContextMenu,
+  handleHandContextMenu,
   handleZoneContextMenu,
   handleBattlefieldContextMenu,
   handleLifeContextMenu,
@@ -681,6 +682,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           viewerPlayerId={myPlayerId}
           viewerRole={viewerRole}
           onCardContextMenu={handleCardContextMenu}
+          onHandContextMenu={handleHandContextMenu}
           onZoneContextMenu={handleZoneContextMenu}
           onBattlefieldContextMenu={(e) =>
             handleBattlefieldContextMenu(e, {
@@ -941,6 +943,9 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           onClose={closeCountPrompt}
           initialValue={countPrompt?.initialValue ?? 1}
           minValue={countPrompt?.minValue}
+          maxValue={countPrompt?.maxValue}
+          inputLabel={countPrompt?.inputLabel}
+          showMaxButton={countPrompt?.showMaxButton}
           confirmLabel={countPrompt?.confirmLabel}
         />
         <TextPromptDialog

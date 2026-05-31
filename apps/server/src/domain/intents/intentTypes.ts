@@ -17,6 +17,7 @@ export const INTENT_TYPES = [
   "deck.reset",
   "deck.unload",
   "dice.roll",
+  "hand.discardRandom",
   "library.discard",
   "library.draw",
   "library.shuffle",

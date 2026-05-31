@@ -116,6 +116,12 @@ export interface GameState {
     actorId?: PlayerId,
     isRemote?: boolean
   ) => void;
+  discardRandomFromHand: (
+    playerId: PlayerId,
+    count?: number,
+    actorId?: PlayerId,
+    isRemote?: boolean
+  ) => void;
   shuffleLibrary: (
     playerId: PlayerId,
     actorId?: PlayerId,

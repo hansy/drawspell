@@ -70,6 +70,27 @@ export const useGameContextMenu = (
 
     const contextMenuRequestRef = React.useRef(0);
 
+    const openRandomDiscardPrompt = React.useCallback(
+        (handCount: number) => {
+            if (handCount <= 0) return;
+            openCountPrompt({
+                title: "Discard random card from hand",
+                initialValue: 1,
+                minValue: 1,
+                maxValue: handCount,
+                inputLabel: "How many cards to discard?",
+                showMaxButton: true,
+                confirmLabel: "Discard",
+                onSubmit: (count) => {
+                    useGameStore
+                        .getState()
+                        .discardRandomFromHand(myPlayerId, count, myPlayerId);
+                },
+            });
+        },
+        [myPlayerId, openCountPrompt]
+    );
+
     const buildCardMenuItems = React.useMemo(() => {
         const buildItems = (
             card: Card,
@@ -106,6 +127,7 @@ export const useGameContextMenu = (
                 viewerRole,
                 globalCounters: store.globalCounters,
                 relatedParts,
+                openRandomDiscardPrompt,
                 previewAnchorEl,
                 lockPreview: (targetCard, anchorEl) =>
                     requestCardPreviewLock({ cardId: targetCard.id, anchorEl }),
@@ -127,6 +149,7 @@ export const useGameContextMenu = (
         createRelatedCard,
         myPlayerId,
         openTextPrompt,
+        openRandomDiscardPrompt,
         updateContextMenu,
         viewerRole,
     ]);
@@ -205,6 +228,31 @@ export const useGameContextMenu = (
             openContextMenu(e, items);
         }
     }, [isSpectator, myPlayerId, onViewZone, openContextMenu, openCountPrompt, seatHasDeckLoaded]);
+
+    const handleHandContextMenu = React.useCallback((e: React.MouseEvent, zoneId: ZoneId) => {
+        if (isSpectator) return;
+        const target = e.target;
+        if (target instanceof HTMLElement && target.closest("[data-card-id]")) return;
+
+        const store = useGameStore.getState();
+        const zone = store.zones[zoneId];
+        if (!zone || zone.type !== ZONE.HAND) return;
+        if (zone.ownerId !== myPlayerId) return;
+        if (!seatHasDeckLoaded(zone.ownerId)) return;
+
+        const handCount = zone.cardIds.length;
+        if (handCount <= 0) return;
+
+        contextMenuRequestRef.current += 1;
+        openContextMenu(e, [
+            {
+                type: "action",
+                label: "Discard random card",
+                onSelect: () => openRandomDiscardPrompt(handCount),
+                danger: true,
+            },
+        ]);
+    }, [isSpectator, myPlayerId, openContextMenu, openRandomDiscardPrompt, seatHasDeckLoaded]);
 
     const handleBattlefieldContextMenu = React.useCallback(
         (e: React.MouseEvent, actions: { onCreateToken: () => void; onOpenCoinFlipper?: () => void; onOpenDiceRoller?: () => void }) => {
@@ -290,6 +338,7 @@ export const useGameContextMenu = (
         contextMenu,
         handleCardContextMenu,
         handleZoneContextMenu,
+        handleHandContextMenu,
         handleBattlefieldContextMenu,
         handleLifeContextMenu,
         closeContextMenu,

@@ -135,6 +135,7 @@ export type InnerApplyResult = { ok: true } | { ok: false; error: string };
 
 export type MoveOpts = {
   suppressLog?: boolean;
+  random?: boolean;
   faceDown?: boolean;
   faceDownMode?: FaceDownMode;
   skipCollision?: boolean;

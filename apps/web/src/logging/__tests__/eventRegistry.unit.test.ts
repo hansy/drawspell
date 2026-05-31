@@ -230,6 +230,33 @@ describe("logEventRegistry", () => {
     expect(parts.map((p) => p.text).join("")).toBe("Alice played Lightning Bolt from Hand");
   });
 
+  it("formats random hand discards distinctly from chosen discards", () => {
+    const hand = makeZone("hand", "hand", "p1", ["c1"]);
+    const graveyard = makeZone("gy", "graveyard", "p1", []);
+    const card = makeCard("c1", "Lightning Bolt", "hand", "p1");
+    const ctx: LogContext = {
+      players: { p1: makePlayer("p1", "Alice") },
+      cards: { c1: card },
+      zones: { hand, gy: graveyard },
+    };
+
+    const chosen = logEventRegistry["card.move"].format(
+      { actorId: "p1", cardId: "c1", fromZoneId: "hand", toZoneId: "gy" },
+      ctx
+    );
+    const random = logEventRegistry["card.move"].format(
+      { actorId: "p1", cardId: "c1", fromZoneId: "hand", toZoneId: "gy", random: true },
+      ctx
+    );
+
+    expect(chosen.map((p) => p.text).join("")).toBe(
+      "Alice sent Lightning Bolt from Hand to Graveyard"
+    );
+    expect(random.map((p) => p.text).join("")).toBe(
+      "Alice randomly sent Lightning Bolt from Hand to Graveyard"
+    );
+  });
+
   it("formats gains-control moves using the new controller", () => {
     const battlefield = makeZone("bf", "battlefield", "p1", ["c1"]);
     const card = makeCard("c1", "Lightning Bolt", "bf", "p1");

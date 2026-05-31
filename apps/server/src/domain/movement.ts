@@ -161,6 +161,7 @@ export const applyCardMove = (
       fromZoneId: fromZone.id,
       toZoneId,
       placement,
+      random: opts?.random === true,
       cardName: shouldHideMoveName ? "a card" : faceDownIdentityForLog?.name ?? card.name,
       fromZoneType: fromZone.type,
       toZoneType: toZone.type,

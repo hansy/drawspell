@@ -99,6 +99,46 @@ const handleLibraryDiscard: IntentHandler = ({ actorId, maps, hidden, payload, p
   return { ok: true };
 };
 
+const handleHandDiscardRandom: IntentHandler = ({ actorId, maps, hidden, payload, pushLogEvent, markHiddenChanged }) => {
+  const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid player");
+  if (!playerIdResult.ok) return playerIdResult;
+
+  const playerId = playerIdResult.value;
+  if (actorId !== playerId) return { ok: false, error: "not permitted" };
+
+  const handZone = findZoneByTypeInMaps(maps, playerId, ZONE.HAND);
+  const graveyardZone = findZoneByTypeInMaps(maps, playerId, ZONE.GRAVEYARD);
+  if (!handZone || !graveyardZone) return { ok: false, error: "zone not found" };
+
+  const permission = canViewHiddenZone(actorId, handZone);
+  const allowed = ensurePermission(permission);
+  if (!allowed.ok) return allowed;
+
+  const rawCount = readNumber(payload.count) ?? 1;
+  const requestedCount = Number.isFinite(rawCount) ? Math.max(0, Math.floor(rawCount)) : 0;
+  if (requestedCount <= 0) return { ok: true };
+
+  const startingHandIds = (hidden.handOrder[playerId] ?? handZone.cardIds)
+    .filter((cardId) => hidden.cards[cardId]?.zoneId === handZone.id);
+  const discardCount = Math.min(requestedCount, startingHandIds.length);
+  if (discardCount <= 0) return { ok: true };
+
+  const selectedIds = shuffle(startingHandIds).slice(0, discardCount);
+  for (const cardId of selectedIds) {
+    const result = applyCardMove(
+      maps,
+      hidden,
+      { cardId, toZoneId: graveyardZone.id, actorId: payload.actorId, opts: { random: true } },
+      "top",
+      pushLogEvent,
+      markHiddenChanged
+    );
+    if (!result.ok) return result;
+  }
+
+  return { ok: true };
+};
+
 const handleLibraryShuffle: IntentHandler = ({ actorId, maps, hidden, payload, pushLogEvent, markHiddenChanged }) => {
   const libraryContext = resolveLibraryContext(actorId, maps, payload);
   if (!libraryContext.ok) return libraryContext;
@@ -209,6 +249,7 @@ const handleLibraryViewStatus: IntentHandler = ({ actorId, maps, payload }) => {
 };
 
 export const deckIntentHandlers: Record<string, IntentHandler> = {
+  "hand.discardRandom": handleHandDiscardRandom,
   "library.draw": handleLibraryDraw,
   "library.discard": handleLibraryDiscard,
   "library.shuffle": handleLibraryShuffle,

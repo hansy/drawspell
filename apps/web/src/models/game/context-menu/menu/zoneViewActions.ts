@@ -33,10 +33,13 @@ interface ZoneActionBuilderParams {
   players?: Record<PlayerId, Player>;
   openCountPrompt?: (opts: {
     title: string;
-    message: string;
+    message?: string;
     onSubmit: (count: number) => void;
     initialValue?: number;
     minValue?: number;
+    maxValue?: number;
+    inputLabel?: string;
+    showMaxButton?: boolean;
     confirmLabel?: string;
   }) => void;
 }

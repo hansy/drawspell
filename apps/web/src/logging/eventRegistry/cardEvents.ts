@@ -14,6 +14,7 @@ export type MovePayload = {
   toZoneType?: string;
   faceDown?: boolean;
   forceHidden?: boolean;
+  random?: boolean;
 };
 
 export type TapPayload = {
@@ -125,7 +126,7 @@ const formatMove: LogEventDefinition<MovePayload>["format"] = (payload, ctx) => 
   if (toZone?.type === "graveyard") {
     return [
       actor,
-      { kind: "text", text: " sent " },
+      { kind: "text", text: payload.random ? " randomly sent " : " sent " },
       cardPart,
       { kind: "text", text: ` from ${fromLabel} to ${toLabel}` },
     ];

@@ -141,6 +141,116 @@ describe("applyIntentToDoc", () => {
     expect(readPlayer(maps, "p1")?.libraryTopReveal).toEqual({ toAll: true });
   });
 
+  it("randomly discards a batch from the starting hand to graveyard", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    const hand = makeZone("hand-p1", ZONE.HAND, "p1", ["c1", "c2", "c3"]);
+    const graveyard = makeZone("graveyard-p1", ZONE.GRAVEYARD, "p1");
+    writeZone(maps, hand);
+    writeZone(maps, graveyard);
+    ["c1", "c2", "c3"].forEach((id) => {
+      hidden.cards[id] = makeCard(id, "p1", hand.id);
+    });
+    hidden.handOrder.p1 = ["c1", "c2", "c3"];
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-random-discard",
+      type: "hand.discardRandom",
+      payload: { actorId: "p1", playerId: "p1", count: 2 },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.logEvents).toHaveLength(2);
+      expect(result.logEvents.every((event) => event.eventId === "card.move")).toBe(true);
+      expect(result.logEvents.every((event) => event.payload.random === true)).toBe(true);
+      expect(result.hiddenChanged).toBe(true);
+    }
+
+    const nextHand = readZone(maps, hand.id);
+    const nextGraveyard = readZone(maps, graveyard.id);
+    expect(nextHand?.cardIds).toHaveLength(1);
+    expect(hidden.handOrder.p1).toHaveLength(1);
+    expect(nextGraveyard?.cardIds).toHaveLength(2);
+    expect(new Set(nextGraveyard?.cardIds).size).toBe(2);
+    expect(nextGraveyard?.cardIds.every((id) => ["c1", "c2", "c3"].includes(id))).toBe(true);
+  });
+
+  it("clamps random hand discard counts to the live hand size", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    const hand = makeZone("hand-p1", ZONE.HAND, "p1", ["c1"]);
+    const graveyard = makeZone("graveyard-p1", ZONE.GRAVEYARD, "p1");
+    writeZone(maps, hand);
+    writeZone(maps, graveyard);
+    hidden.cards.c1 = makeCard("c1", "p1", hand.id);
+    hidden.handOrder.p1 = ["c1"];
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-random-discard-huge",
+      type: "hand.discardRandom",
+      payload: { actorId: "p1", playerId: "p1", count: 100000 },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.logEvents).toHaveLength(1);
+    expect(readZone(maps, hand.id)?.cardIds).toEqual([]);
+    expect(readZone(maps, graveyard.id)?.cardIds).toEqual(["c1"]);
+  });
+
+  it("treats negative random hand discard counts as no-op", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    const hand = makeZone("hand-p1", ZONE.HAND, "p1", ["c1"]);
+    const graveyard = makeZone("graveyard-p1", ZONE.GRAVEYARD, "p1");
+    writeZone(maps, hand);
+    writeZone(maps, graveyard);
+    hidden.cards.c1 = makeCard("c1", "p1", hand.id);
+    hidden.handOrder.p1 = ["c1"];
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-random-discard-negative",
+      type: "hand.discardRandom",
+      payload: { actorId: "p1", playerId: "p1", count: -1 },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.logEvents).toHaveLength(0);
+    expect(readZone(maps, hand.id)?.cardIds).toEqual(["c1"]);
+    expect(readZone(maps, graveyard.id)?.cardIds).toEqual([]);
+  });
+
+  it("rejects random hand discard from another player's hand", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    writePlayer(maps, makePlayer("p2"));
+    const hand = makeZone("hand-p2", ZONE.HAND, "p2", ["c1"]);
+    const graveyard = makeZone("graveyard-p2", ZONE.GRAVEYARD, "p2");
+    writeZone(maps, hand);
+    writeZone(maps, graveyard);
+    hidden.cards.c1 = makeCard("c1", "p2", hand.id);
+    hidden.handOrder.p2 = ["c1"];
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-random-discard-other",
+      type: "hand.discardRandom",
+      payload: { actorId: "p1", playerId: "p2", count: 1 },
+    }, hidden);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe("not permitted");
+    expect(readZone(maps, hand.id)?.cardIds).toEqual(["c1"]);
+    expect(readZone(maps, graveyard.id)?.cardIds).toEqual([]);
+  });
+
   it("should reveal the library top card to all when top reveal is enabled", () => {
     const doc = createDoc();
     const maps = getMaps(doc);

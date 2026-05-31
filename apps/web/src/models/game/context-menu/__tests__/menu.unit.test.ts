@@ -496,6 +496,45 @@ describe("buildCardActions", () => {
     expect(labels).toContain("Inspect");
   });
 
+  it("adds random discard immediately after discard for hand cards", () => {
+    const hand = makeZone("hand", ZONE.HAND, "p1");
+    hand.cardIds = ["c1", "c2"];
+    const graveyard = makeZone("gy", ZONE.GRAVEYARD, "p1");
+    const zones = { [hand.id]: hand, [graveyard.id]: graveyard };
+    const openRandomDiscardPrompt = vi.fn();
+
+    const actions = buildCardActions({
+      card: { ...baseCard, zoneId: hand.id, ownerId: "p1", controllerId: "p1" },
+      zones,
+      myPlayerId: "p1",
+      viewerRole: "player",
+      moveCard: vi.fn(),
+      tapCard: vi.fn(),
+      transformCard: vi.fn(),
+      duplicateCard: vi.fn(),
+      createRelatedCard: vi.fn(),
+      addCounter: vi.fn(),
+      removeCounter: vi.fn(),
+      openAddCounterModal: vi.fn(),
+      globalCounters: {},
+      openRandomDiscardPrompt,
+    });
+
+    const labels = actions
+      .filter((a): a is Extract<typeof a, { type: "action" }> => a.type === "action")
+      .map((a) => a.label);
+    const discardIndex = labels.indexOf("Discard");
+    expect(discardIndex).toBeGreaterThanOrEqual(0);
+    expect(labels[discardIndex + 1]).toBe("Discard random card");
+
+    const randomDiscard = actions.find(
+      (a): a is Extract<typeof a, { type: "action" }> =>
+        a.type === "action" && a.label === "Discard random card"
+    );
+    randomDiscard?.onSelect();
+    expect(openRandomDiscardPrompt).toHaveBeenCalledWith(2);
+  });
+
   it("does not add Inspect for hand cards when identity is hidden", () => {
     const hand = makeZone("hand", ZONE.HAND, "p1");
     const zones = { [hand.id]: hand };

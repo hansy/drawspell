@@ -157,6 +157,73 @@ describe("useGameContextMenu", () => {
     });
   });
 
+  it("opens hand empty-space menu for own loaded hand", async () => {
+    const hand = createZone("me-hand", "me", ZONE.HAND, ["c1", "c2"]);
+    resetStore({
+      players: { me: createPlayer("me", true) } as any,
+      zones: { [hand.id]: hand } as any,
+    });
+
+    let value: HookValue | null = null;
+    render(<Probe myPlayerId="me" onValue={(v) => { value = v; }} />);
+
+    await waitFor(() => expect(value).not.toBeNull());
+
+    act(() => {
+      value!.handleHandContextMenu(createEvent(), hand.id);
+    });
+
+    await waitFor(() => {
+      expect(value!.contextMenu?.items).toHaveLength(1);
+      expect(value!.contextMenu?.items[0]).toMatchObject({
+        type: "action",
+        label: "Discard random card",
+      });
+    });
+
+    act(() => {
+      const item = value!.contextMenu!.items[0] as Extract<ContextMenuItem, { type: "action" }>;
+      item.onSelect();
+    });
+
+    await waitFor(() => {
+      expect(value!.countPrompt).toMatchObject({
+        title: "Discard random card from hand",
+        initialValue: 1,
+        minValue: 1,
+        maxValue: 2,
+        confirmLabel: "Discard",
+      });
+    });
+  });
+
+  it("does not open hand random discard menu for empty or non-owned hands", async () => {
+    const emptyHand = createZone("me-hand", "me", ZONE.HAND, []);
+    const otherHand = createZone("other-hand", "other", ZONE.HAND, ["c1"]);
+    resetStore({
+      players: {
+        me: createPlayer("me", true),
+        other: createPlayer("other", true),
+      } as any,
+      zones: { [emptyHand.id]: emptyHand, [otherHand.id]: otherHand } as any,
+    });
+
+    let value: HookValue | null = null;
+    render(<Probe myPlayerId="me" onValue={(v) => { value = v; }} />);
+
+    await waitFor(() => expect(value).not.toBeNull());
+
+    act(() => {
+      value!.handleHandContextMenu(createEvent(), emptyHand.id);
+    });
+    await waitFor(() => expect(value!.contextMenu).toBeNull());
+
+    act(() => {
+      value!.handleHandContextMenu(createEvent(), otherHand.id);
+    });
+    await waitFor(() => expect(value!.contextMenu).toBeNull());
+  });
+
   it("hydrates related parts after opening the card menu", async () => {
     const battlefield = createZone("me-battlefield", "me", ZONE.BATTLEFIELD, ["c1"]);
     const card = createCard("c1", battlefield.id, "me");

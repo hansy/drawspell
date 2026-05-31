@@ -54,6 +54,7 @@ interface CardActionBuilderParams {
     initialValue?: string;
     onSubmit: (value: string) => void;
   }) => void;
+  openRandomDiscardPrompt?: (handCount: number) => void;
   setCardReveal?: (
     cardId: CardId,
     reveal: { toAll?: boolean; to?: PlayerId[] } | null
@@ -83,6 +84,7 @@ export const buildCardActions = ({
   globalCounters,
   updateCard,
   openTextPrompt,
+  openRandomDiscardPrompt,
   setCardReveal,
   lockPreview,
   previewAnchorEl,
@@ -286,6 +288,7 @@ export const buildCardActions = ({
       myPlayerId,
       viewerRole,
       moveCard,
+      openRandomDiscardPrompt,
     })
   );
 

@@ -28,6 +28,7 @@ interface HandProps {
   viewerPlayerId: string;
   viewerRole?: ViewerRole;
   onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
+  onHandContextMenu?: (e: React.MouseEvent, zoneId: string) => void;
   className?: string;
   scale?: number;
   cardScale?: number;
@@ -35,6 +36,19 @@ interface HandProps {
   showLabel?: boolean;
   dropDisabled?: boolean;
 }
+
+const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
+const TOUCH_MOVE_TOLERANCE_PX = 10;
+
+type TouchPressState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  clientX: number;
+  clientY: number;
+  target: HTMLDivElement;
+  moved: boolean;
+};
 
 const SortableCard = React.memo(
   ({
@@ -90,6 +104,7 @@ const SortableCard = React.memo(
 
     const handleContextMenu = React.useCallback(
       (e: React.MouseEvent) => {
+        e.stopPropagation();
         onCardContextMenu?.(e, card);
       },
       [onCardContextMenu, card],
@@ -141,6 +156,7 @@ const HandInner: React.FC<HandProps> = ({
   viewerPlayerId,
   viewerRole,
   onCardContextMenu,
+  onHandContextMenu,
   className,
   scale = 1,
   cardScale = HAND_BASE_CARD_SCALE,
@@ -153,6 +169,101 @@ const HandInner: React.FC<HandProps> = ({
   const [handScrollNode, setHandScrollNode] =
     React.useState<HTMLDivElement | null>(null);
   useTwoFingerScroll({ target: handScrollNode, axis: "x" });
+  const touchPressTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchPressRef = React.useRef<TouchPressState | null>(null);
+
+  const clearTouchPressTimeout = React.useCallback(() => {
+    if (touchPressTimeoutRef.current) {
+      clearTimeout(touchPressTimeoutRef.current);
+      touchPressTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearTouchPress = React.useCallback(() => {
+    clearTouchPressTimeout();
+    touchPressRef.current = null;
+  }, [clearTouchPressTimeout]);
+
+  const handleHandContextMenu = React.useCallback(
+    (e: React.MouseEvent) => {
+      onHandContextMenu?.(e, zone.id);
+    },
+    [onHandContextMenu, zone.id],
+  );
+
+  const handleTouchContextMenuStart = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!onHandContextMenu) return;
+      if (event.pointerType !== "touch") return;
+      if (event.button !== 0) return;
+      if (event.target instanceof HTMLElement && event.target.closest("[data-card-id]")) {
+        return;
+      }
+
+      if (touchPressRef.current && touchPressRef.current.pointerId !== event.pointerId) {
+        clearTouchPress();
+        return;
+      }
+
+      const press: TouchPressState = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        target: event.currentTarget,
+        moved: false,
+      };
+      touchPressRef.current = press;
+      clearTouchPressTimeout();
+      touchPressTimeoutRef.current = setTimeout(() => {
+        const currentPress = touchPressRef.current;
+        if (!currentPress) return;
+        if (currentPress.pointerId !== press.pointerId) return;
+        if (currentPress.moved) return;
+        touchPressTimeoutRef.current = null;
+        onHandContextMenu({
+          preventDefault: () => {},
+          stopPropagation: () => {},
+          clientX: currentPress.clientX,
+          clientY: currentPress.clientY,
+          currentTarget: currentPress.target,
+          target: currentPress.target,
+        } as unknown as React.MouseEvent, zone.id);
+      }, TOUCH_CONTEXT_MENU_LONG_PRESS_MS);
+    },
+    [clearTouchPress, clearTouchPressTimeout, onHandContextMenu, zone.id],
+  );
+
+  const handleTouchContextMenuMove = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType !== "touch") return;
+      const press = touchPressRef.current;
+      if (!press || press.pointerId !== event.pointerId) return;
+      press.clientX = event.clientX;
+      press.clientY = event.clientY;
+      if (press.moved) return;
+      const dx = event.clientX - press.startX;
+      const dy = event.clientY - press.startY;
+      if (Math.hypot(dx, dy) > TOUCH_MOVE_TOLERANCE_PX) {
+        press.moved = true;
+        clearTouchPressTimeout();
+      }
+    },
+    [clearTouchPressTimeout],
+  );
+
+  const handleTouchContextMenuEnd = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType !== "touch") return;
+      const press = touchPressRef.current;
+      if (!press || press.pointerId !== event.pointerId) return;
+      clearTouchPress();
+    },
+    [clearTouchPress],
+  );
+
+  React.useEffect(() => clearTouchPress, [clearTouchPress]);
 
   return (
     <div
@@ -188,6 +299,12 @@ const HandInner: React.FC<HandProps> = ({
         scale={scale}
         cardScale={cardScale}
         innerRef={setHandScrollNode}
+        onContextMenu={handleHandContextMenu}
+        onPointerDown={handleTouchContextMenuStart}
+        onPointerMove={handleTouchContextMenuMove}
+        onPointerUp={handleTouchContextMenuEnd}
+        onPointerCancel={handleTouchContextMenuEnd}
+        onPointerLeave={handleTouchContextMenuEnd}
         className={cn(
           "w-full h-full flex overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent overscroll-x-none touch-none",
         )}

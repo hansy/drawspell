@@ -14,6 +14,7 @@ type BuildHandZoneMenuItemsParams = {
   myPlayerId: PlayerId;
   viewerRole?: ViewerRole;
   moveCard: ContextMenuMoveCardFn;
+  openRandomDiscardPrompt?: (handCount: number) => void;
 };
 
 export const buildHandZoneMenuItems = ({
@@ -23,6 +24,7 @@ export const buildHandZoneMenuItems = ({
   myPlayerId,
   viewerRole,
   moveCard,
+  openRandomDiscardPrompt,
 }: BuildHandZoneMenuItemsParams): ContextMenuItem[] => {
   if (currentZone?.type !== ZONE.HAND) return [];
 
@@ -86,6 +88,14 @@ export const buildHandZoneMenuItems = ({
         onSelect: () => moveCard(card.id, playerZones.graveyard!.id),
         danger: true,
       });
+      if (openRandomDiscardPrompt && currentZone.cardIds.length > 0) {
+        items.push({
+          type: "action",
+          label: "Discard random card",
+          onSelect: () => openRandomDiscardPrompt(currentZone.cardIds.length),
+          danger: true,
+        });
+      }
     }
   }
 

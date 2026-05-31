@@ -48,6 +48,7 @@ interface SeatViewProps {
   battlefieldScale?: number;
   model: SeatModel;
   onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
+  onHandContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   onZoneContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   onBattlefieldContextMenu?: (e: React.MouseEvent) => void;
   onLoadDeck?: () => void;
@@ -70,6 +71,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
   scale = 1,
   className,
   onCardContextMenu,
+  onHandContextMenu,
   onZoneContextMenu,
   onBattlefieldContextMenu,
   onLoadDeck,
@@ -493,6 +495,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                   viewerPlayerId={viewerPlayerId}
                   viewerRole={viewerRole}
                   onCardContextMenu={onCardContextMenu}
+                  onHandContextMenu={onHandContextMenu}
                   scale={scale}
                   cardScale={handCardScale}
                   baseCardHeight={baseCardHeightPx}
@@ -743,6 +746,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 viewerPlayerId={viewerPlayerId}
                 viewerRole={viewerRole}
                 onCardContextMenu={onCardContextMenu}
+                onHandContextMenu={onHandContextMenu}
                 scale={scale}
                 cardScale={handCardScale}
                 baseCardHeight={baseCardHeightPx}
