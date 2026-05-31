@@ -10,6 +10,9 @@ import {
 import type { ActorContext, MoveContext, PermissionResult, ViewResult } from "./types";
 
 type ActorInput = ActorContext | string;
+type ControlledCard = { controllerId: string };
+type BattlefieldPermissionZone = { type: ZoneType } | null | undefined;
+type CardPlacementZone = { ownerId: string; type: ZoneType | typeof LEGACY_COMMAND_ZONE };
 
 const normalizeActor = (actor: ActorInput): ActorContext =>
   typeof actor === "string" ? { actorId: actor } : actor;
@@ -26,15 +29,13 @@ const canActorMoveBattlefieldCard = (
   card: { ownerId: string; controllerId: string }
 ) => actorId === card.ownerId || actorId === card.controllerId;
 
-const isOwnerSeatOrBattlefield = (
-  cardOwnerId: string,
-  zone: { ownerId: string; type: ZoneType | typeof LEGACY_COMMAND_ZONE }
-) => zone.type === ZONE.BATTLEFIELD || zone.ownerId === cardOwnerId;
+const isOwnerSeatOrBattlefield = (cardOwnerId: string, zone: CardPlacementZone) =>
+  zone.type === ZONE.BATTLEFIELD || zone.ownerId === cardOwnerId;
 
 const requireBattlefieldController = (
   actor: ActorInput,
-  card: { controllerId: string },
-  zone: { type: ZoneType } | null | undefined,
+  card: ControlledCard,
+  zone: BattlefieldPermissionZone,
   action: string
 ): PermissionResult => {
   const ctx = normalizeActor(actor);
@@ -52,36 +53,36 @@ const requireBattlefieldController = (
 
 export function canTapCard(
   actorId: string,
-  card: { controllerId: string },
-  zone: { type: ZoneType } | null | undefined
+  card: ControlledCard,
+  zone: BattlefieldPermissionZone
 ): PermissionResult;
 export function canTapCard(
   ctx: ActorContext,
-  card: { controllerId: string },
-  zone: { type: ZoneType } | null | undefined
+  card: ControlledCard,
+  zone: BattlefieldPermissionZone
 ): PermissionResult;
 export function canTapCard(
   actor: ActorInput,
-  card: { controllerId: string },
-  zone: { type: ZoneType } | null | undefined
+  card: ControlledCard,
+  zone: BattlefieldPermissionZone
 ): PermissionResult {
   return requireBattlefieldController(actor, card, zone, "tap/untap");
 }
 
 export function canModifyCardState(
   actorId: string,
-  card: { controllerId: string },
-  zone: { type: ZoneType } | null | undefined
+  card: ControlledCard,
+  zone: BattlefieldPermissionZone
 ): PermissionResult;
 export function canModifyCardState(
   ctx: ActorContext,
-  card: { controllerId: string },
-  zone: { type: ZoneType } | null | undefined
+  card: ControlledCard,
+  zone: BattlefieldPermissionZone
 ): PermissionResult;
 export function canModifyCardState(
   actor: ActorInput,
-  card: { controllerId: string },
-  zone: { type: ZoneType } | null | undefined
+  card: ControlledCard,
+  zone: BattlefieldPermissionZone
 ): PermissionResult {
   return requireBattlefieldController(actor, card, zone, "modify this card");
 }
