@@ -1,4 +1,5 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { act } from "react";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
 import { useGameStore } from "@/store/gameStore";
@@ -13,6 +14,10 @@ describe("Sidenav", () => {
 
   beforeEach(() => {
     localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("calls untapAll with myPlayerId", () => {
@@ -58,6 +63,23 @@ describe("Sidenav", () => {
 
     const rollDiceButton = screen.getByRole("button", { name: "Roll Dice" });
     expect(rollDiceButton.className).toContain("active:text-indigo-400");
+  });
+
+  it("shows a temporary label on touch press", () => {
+    vi.useFakeTimers();
+    render(<Sidenav onOpenCoinFlipper={vi.fn()} onOpenDiceRoller={vi.fn()} />);
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "End turn" }), {
+      pointerType: "touch",
+    });
+
+    expect(screen.getByText("End turn")).not.toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(1_000);
+    });
+
+    expect(screen.queryByText("End turn")).toBeNull();
   });
 
   it("opens the share dialog from the share button", () => {

@@ -28,6 +28,8 @@ import { cn } from "@/lib/utils";
 
 import type { SidenavController } from "@/hooks/game/sidenav/useSidenavController";
 
+const TAP_LABEL_MS = 1_000;
+
 interface NavIconProps {
   icon: React.ReactNode;
   label: string;
@@ -47,19 +49,64 @@ const NavIcon: React.FC<NavIconProps> = ({
   disabled = false,
   hideTooltip = false,
 }) => {
+  const [showTapLabel, setShowTapLabel] = React.useState(false);
+  const tapLabelTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const clearTapLabelTimeout = React.useCallback(() => {
+    if (tapLabelTimeoutRef.current) {
+      clearTimeout(tapLabelTimeoutRef.current);
+      tapLabelTimeoutRef.current = null;
+    }
+  }, []);
+  const handlePointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (disabled || event.pointerType !== "touch") return;
+      clearTapLabelTimeout();
+      setShowTapLabel(true);
+      tapLabelTimeoutRef.current = setTimeout(() => {
+        setShowTapLabel(false);
+        tapLabelTimeoutRef.current = null;
+      }, TAP_LABEL_MS);
+    },
+    [clearTapLabelTimeout, disabled],
+  );
+  React.useEffect(
+    () => () => {
+      clearTapLabelTimeout();
+    },
+    [clearTapLabelTimeout],
+  );
+
   const button = (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        "p-3 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 active:bg-zinc-800/50 active:scale-95 rounded-lg transition-all touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400 disabled:active:bg-transparent disabled:active:text-zinc-400 disabled:active:scale-100",
-        className,
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        aria-label={label}
+        onClick={onClick}
+        onPointerDown={handlePointerDown}
+        disabled={disabled}
+        className={cn(
+          "p-3 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 active:bg-zinc-800/50 active:scale-95 rounded-lg transition-all touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400 disabled:active:bg-transparent disabled:active:text-zinc-400 disabled:active:scale-100",
+          className,
+        )}
+      >
+        {icon}
+      </button>
+      {showTapLabel && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute z-[80] whitespace-nowrap rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs font-medium text-zinc-100 shadow-xl animate-in fade-in duration-150",
+            hideTooltip
+              ? "bottom-full left-1/2 mb-2 -translate-x-1/2"
+              : "left-full top-1/2 ml-2 -translate-y-1/2",
+          )}
+        >
+          {tooltip ?? label}
+        </span>
       )}
-    >
-      {icon}
-    </button>
+    </span>
   );
 
   if (hideTooltip) return button;
