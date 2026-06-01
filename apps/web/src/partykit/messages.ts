@@ -41,6 +41,36 @@ export type LogEventMessage = {
   payload: Record<string, unknown>;
 };
 
+export type GameLogEntry = {
+  seq: number;
+  ts: number;
+  eventId: string;
+  payload: Record<string, unknown>;
+};
+
+export type GameLogEventMessage = {
+  type: "gameLogEvent";
+  seq: number;
+  ts: number;
+  eventId: string;
+  payload: Record<string, unknown>;
+};
+
+export type GameLogReplayMessage = {
+  type: "gameLogReplay";
+  events: GameLogEntry[];
+};
+
+export type GameLogSnapshotMessage = {
+  type: "gameLogSnapshot";
+  events: GameLogEntry[];
+};
+
+export type GameLogRequestMessage = {
+  type: "gameLogRequest";
+  lastLogSeq?: number;
+};
+
 export type RoomTokensPayload = {
   playerToken?: string;
   spectatorToken?: string;
@@ -78,6 +108,9 @@ export type PartyMessage =
   | PrivateOverlayDiffMessage
   | HelloAckMessage
   | LogEventMessage
+  | GameLogEventMessage
+  | GameLogReplayMessage
+  | GameLogSnapshotMessage
   | RoomTokensMessage
   | ShareLinksResponseMessage;
 
@@ -126,3 +159,10 @@ export type OverlayResyncMessage = {
     lastOverlayVersion?: number;
   };
 };
+
+export type ClientPartyMessage =
+  | IntentMessage
+  | ClientHelloMessage
+  | OverlayResyncMessage
+  | ShareLinksRequestMessage
+  | GameLogRequestMessage;

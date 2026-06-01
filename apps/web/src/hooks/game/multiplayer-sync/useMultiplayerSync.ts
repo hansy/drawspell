@@ -30,7 +30,7 @@ import {
 } from "./sessionResources";
 import { createAwarenessLifecycle } from "./awarenessLifecycle";
 import { createAttemptJoin } from "./attemptJoin";
-import { emitLog } from "@/logging/logStore";
+import { emitLog, getLatestGameLogSeq } from "@/logging/logStore";
 import { resolveJoinToken } from "@/lib/joinToken";
 import { isRateLimitedClose, isRoomResetClose } from "./connectionBackoff";
 import {
@@ -40,6 +40,7 @@ import {
   type ConnectionMachineEvent,
 } from "./connectionMachine";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
+import { sendPartyMessage } from "@/partykit/intentTransport";
 
 export type SyncStatus = "connecting" | "connected";
 type JoinBlockedReason =
@@ -539,8 +540,28 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         handleDisconnect({ code: 1006, reason: "intent-timeout" });
       };
 
+      let isIntentOpen = false;
+      let hasRequestedGameLog = false;
+      let hasCompletedGameLogSync = false;
+      const requestGameLogAfterInitialSync = () => {
+        if (hasRequestedGameLog) return;
+        if (!isIntentOpen || !hasInitialSyncRef.current) return;
+        const lastLogSeq = hasCompletedGameLogSync
+          ? getLatestGameLogSeq()
+          : undefined;
+        const sent = sendPartyMessage({
+          type: "gameLogRequest",
+          ...(typeof lastLogSeq === "number" ? { lastLogSeq } : null),
+        });
+        if (sent) {
+          hasRequestedGameLog = true;
+        }
+      };
+
       const handleIntentClose = (event?: CloseEvent) => {
         if (!shouldHandleDisconnect()) return;
+        isIntentOpen = false;
+        hasRequestedGameLog = false;
         if (isRateLimitedClose(event) || isRoomResetClose(event)) {
           handleDisconnect(event);
           return;
@@ -556,9 +577,11 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       };
 
       const handleIntentOpen = () => {
+        isIntentOpen = true;
         resumeIdentityBackupRef.current = null;
         resetIntentCloseTracking();
         clearConnectAttemptTimer();
+        requestGameLogAfterInitialSync();
         if (!hasInitialSyncRef.current || !attemptJoinRef.current) {
           pendingIntentJoinRef.current = true;
           return;
@@ -572,6 +595,9 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         onIntentClose: handleIntentClose,
         onIntentOpen: handleIntentOpen,
         joinToken,
+        onGameLogSync: () => {
+          hasCompletedGameLogSync = true;
+        },
         onAuthFailure: (reason) => {
           if (!shouldHandleDisconnect()) return;
           if (authFailureHandled.current) return;
@@ -723,6 +749,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         if (!isSynced) return;
         hasInitialSyncRef.current = true;
         fullSyncToStore();
+        requestGameLogAfterInitialSync();
         scheduleDebouncedTimeout(postSyncFullSyncTimer, 50, fullSyncToStore);
         scheduleDebouncedTimeout(postSyncInitTimer, 60, () => {
           pendingIntentJoinRef.current = false;

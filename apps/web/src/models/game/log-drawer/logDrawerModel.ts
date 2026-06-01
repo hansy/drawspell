@@ -1,14 +1,14 @@
 import type { LogContext, LogEventId, LogMessage, LogMessagePart } from "@/logging/types";
 import { getCardDisplayName } from "@/logging/helpers";
-import type { Zone } from "@/types";
+import type { Zone, ZoneType } from "@/types";
 
 const HIDDEN_ZONE_TYPES = new Set(["hand", "library"]);
 
 export type LogCardContext = {
   fromZone?: Zone;
   toZone?: Zone;
-  fromZoneType?: string;
-  toZoneType?: string;
+  fromZoneType?: ZoneType;
+  toZoneType?: ZoneType;
   cardName?: string;
   forceHidden?: boolean;
   nameOverride?: string;
@@ -39,6 +39,8 @@ export const resolveLogCardContext = (
     return {
       fromZone: zone,
       toZone: zone,
+      fromZoneType: entry.payload.zoneType,
+      toZoneType: entry.payload.zoneType,
       cardName: entry.payload.cardName,
       nameOverride: entry.payload.fromFaceName,
     };
@@ -59,6 +61,8 @@ export const resolveLogCardContext = (
     return {
       fromZone: zone,
       toZone: zone,
+      fromZoneType: entry.payload.zoneType,
+      toZoneType: entry.payload.zoneType,
       cardName: entry.payload.cardName,
     };
   }
@@ -78,7 +82,7 @@ export const resolveLogCardDisplayName = (params: {
   }
 
   if (params.cardContext.forceHidden) {
-    return params.cardContext.cardName ?? "a card";
+    return "a card";
   }
 
   if (params.part.cardId) {

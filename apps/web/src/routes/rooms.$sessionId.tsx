@@ -1,10 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { MultiplayerBoard } from "@/components/game/board/MultiplayerBoard";
-import { UsernamePromptScreen } from "@/components/username/UsernamePromptScreen";
+import { lazy, Suspense } from "react";
 import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
 
 const origins = resolveOriginsForEnv(import.meta.env.VITE_ENV);
+const MultiplayerBoard = lazy(() =>
+  import("@/components/game/board/MultiplayerBoard").then((module) => ({
+    default: module.MultiplayerBoard,
+  }))
+);
+const UsernamePromptScreen = lazy(() =>
+  import("@/components/username/UsernamePromptScreen").then((module) => ({
+    default: module.UsernamePromptScreen,
+  }))
+);
 
 export const Route = createFileRoute("/rooms/$sessionId")({
   component: GameRoute,
@@ -27,7 +36,17 @@ function GameRoute() {
 
   if (!hasHydrated) return null;
 
-  if (!username) return <UsernamePromptScreen />;
+  if (!username) {
+    return (
+      <Suspense fallback={null}>
+        <UsernamePromptScreen />
+      </Suspense>
+    );
+  }
 
-  return <MultiplayerBoard sessionId={sessionId} />;
+  return (
+    <Suspense fallback={null}>
+      <MultiplayerBoard sessionId={sessionId} />
+    </Suspense>
+  );
 }

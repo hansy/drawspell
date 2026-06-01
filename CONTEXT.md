@@ -20,6 +20,14 @@ _Avoid_: private store, secret state
 Viewer-specific card data sent by the server to reveal the subset of Hidden State that viewer may see.
 _Avoid_: private snapshot, visibility patch
 
+**Game Log**:
+A bounded, ordered, shared public, replayable record of visible gameplay events that occurred in a Room. Connection, authentication, and diagnostic events are outside the Game Log.
+_Avoid_: activity log, audit log, debug log, history
+
+**Game Log Event**:
+One server-authored gameplay event recorded in the Game Log, such as drawing, discarding, moving a card, rolling dice, changing life, or ending a turn. It carries the public facts available when the event happened.
+_Avoid_: log line, activity event, debug event, connection event
+
 **Card Movement Resolution**:
 The domain decision for how a card changes zone, controller, position, face-down status, reveal status, counters, and commander status during a move.
 _Avoid_: move helper, drag logic
@@ -37,6 +45,11 @@ _Avoid_: Discord game, slash-command room
 - A **Room** has exactly one **Yjs Document**.
 - A **Room** has server-owned **Hidden State** when cards are in hidden zones or face-down on the battlefield.
 - A **Private Overlay** is derived from **Hidden State** for one viewer.
+- A **Room** has one **Game Log** made of public **Game Log Events** for that Room's lifetime.
+- The **Game Log** remains replayable during the Room's lifetime, including after players reconnect.
+- Players and spectators see the same **Game Log**.
+- The **Game Log** is not part of the **Yjs Document**.
+- A **Game Log Event** may describe visible gameplay that does not change the **Yjs Document**.
 - **Card Movement Resolution** determines how cards move between public zones and **Hidden State**.
 - **Deck Import** creates cards that later participate in **Card Movement Resolution**.
 - A **Discord Room Invite** provisions access to one **Room**.

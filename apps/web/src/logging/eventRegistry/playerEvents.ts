@@ -1,5 +1,6 @@
-import { buildCardPart, buildPlayerPart } from "../helpers";
+import { buildCardPart, buildPlayerPart, getLogZone } from "../helpers";
 import type { LogEventDefinition, LogEventId } from "@/logging/types";
+import type { ZoneType } from "@/types";
 
 import { DEFAULT_AGGREGATE_WINDOW_MS } from "./constants";
 
@@ -19,6 +20,7 @@ export type CommanderTaxPayload = {
   delta?: number;
   cardId?: string;
   zoneId?: string;
+  zoneType?: ZoneType;
   cardName?: string;
 };
 
@@ -39,7 +41,7 @@ const formatCommanderTax: LogEventDefinition<CommanderTaxPayload>["format"] = (p
   const absDelta = Math.abs(delta);
   const verb = delta >= 0 ? "added" : "removed";
   const preposition = delta >= 0 ? "to" : "from";
-  const zone = payload.zoneId ? ctx.zones[payload.zoneId] : undefined;
+  const zone = getLogZone(ctx, payload.zoneId, payload.zoneType);
   const cardPart = buildCardPart(
     ctx,
     payload.cardId,

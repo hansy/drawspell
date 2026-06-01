@@ -268,6 +268,166 @@ describe("server lifecycle guards", () => {
     }
   });
 
+  it("broadcasts sequenced Game Log Events and replays retained snapshots", async () => {
+    const { applyIntentToDoc } = await import("../domain/intents/applyIntentToDoc");
+    const applyMock = vi.mocked(applyIntentToDoc);
+    applyMock.mockReturnValueOnce({
+      ok: true,
+      hiddenChanged: false,
+      impact: { changedOwners: [], changedZones: [], changedRevealScopes: { toAll: false, toPlayers: [] }, changedPublicDoc: false },
+      logEvents: [
+        { eventId: "player.endTurn", payload: { actorId: "p1" } },
+      ],
+    });
+
+    const state = createState();
+    const server = new Room(state, createEnv());
+    (server as any).hiddenState = createEmptyHiddenState();
+
+    const conn = new TestConnection();
+    conn.state = { playerId: "p1", viewerRole: "player" };
+    const sent: string[] = [];
+    conn.send = (payload: string) => {
+      sent.push(payload);
+    };
+    (server as any).intentConnections.add(conn);
+
+    await (server as any).handleIntent(conn, {
+      id: "intent-1",
+      type: "player.endTurn",
+      payload: { actorId: "p1" },
+    });
+
+    const gameLogEvent = sent.map((payload) => JSON.parse(payload)).find(
+      (message) => message.type === "gameLogEvent"
+    );
+    expect(gameLogEvent).toMatchObject({
+      type: "gameLogEvent",
+      seq: 1,
+      eventId: "player.endTurn",
+      payload: { actorId: "p1" },
+    });
+
+    const replayConn = new TestConnection();
+    const replayed: string[] = [];
+    replayConn.send = (payload: string) => {
+      replayed.push(payload);
+    };
+    (server as any).handleGameLogRequest(replayConn, { type: "gameLogRequest" });
+
+    expect(JSON.parse(replayed[0])).toMatchObject({
+      type: "gameLogSnapshot",
+      events: [
+        {
+          seq: 1,
+          eventId: "player.endTurn",
+          payload: { actorId: "p1" },
+        },
+      ],
+    });
+  });
+
+  it("persists the retained Game Log in a debounced batch", async () => {
+    vi.useFakeTimers();
+    try {
+      const { applyIntentToDoc } = await import("../domain/intents/applyIntentToDoc");
+      const applyMock = vi.mocked(applyIntentToDoc);
+      applyMock.mockReturnValueOnce({
+        ok: true,
+        hiddenChanged: false,
+        impact: { changedOwners: [], changedZones: [], changedRevealScopes: { toAll: false, toPlayers: [] }, changedPublicDoc: false },
+        logEvents: [
+          { eventId: "coin.flip", payload: { actorId: "p1", result: "heads" } },
+        ],
+      });
+
+      const state = createState();
+      const server = new Room(state, createEnv());
+      (server as any).hiddenState = createEmptyHiddenState();
+
+      const conn = new TestConnection();
+      conn.state = { playerId: "p1", viewerRole: "player" };
+      (server as any).intentConnections.add(conn);
+
+      await (server as any).handleIntent(conn, {
+        id: "intent-1",
+        type: "coin.flip",
+        payload: { actorId: "p1" },
+      });
+
+      expect(state.storage.put).not.toHaveBeenCalledWith(
+        "game-log:v1",
+        expect.anything(),
+      );
+
+      await vi.runAllTimersAsync();
+
+      expect(state.storage.put).toHaveBeenCalledWith(
+        "game-log:v1",
+        expect.objectContaining({
+          nextSeq: 2,
+          entries: [
+            expect.objectContaining({
+              seq: 1,
+              eventId: "coin.flip",
+              payload: { actorId: "p1", result: "heads" },
+            }),
+          ],
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("drains in-flight Game Log persistence before clearing room storage", async () => {
+    const store = new Map<string, unknown>();
+    const gameLogPutGate = createDeferred<void>();
+    const storage = {
+      get: vi.fn(async (key: string) => store.get(key)),
+      put: vi.fn(async (key: string, value: unknown) => {
+        if (key === "game-log:v1") {
+          await gameLogPutGate.promise;
+        }
+        store.set(key, value);
+      }),
+      delete: vi.fn(async (key: string) => {
+        store.delete(key);
+      }),
+      list: vi.fn(async () => store.entries()),
+    };
+    const state = {
+      id: { name: "room-test" },
+      storage,
+    } as any;
+    const server = new Room(state, createEnv());
+    (server as any).gameLog.append([
+      { eventId: "player.endTurn", payload: { actorId: "p1" } },
+    ], 100);
+    (server as any).gameLogPersistQueued = true;
+
+    const persistPromise = (server as any).flushGameLogPersist();
+    for (let i = 0; i < 3 && storage.put.mock.calls.length === 0; i += 1) {
+      await Promise.resolve();
+    }
+    expect(storage.put).toHaveBeenCalledWith(
+      "game-log:v1",
+      expect.anything(),
+    );
+
+    const teardownPromise = (server as any).teardownRoomIfEmpty(
+      (server as any).teardownGeneration,
+    );
+    await Promise.resolve();
+    expect(storage.delete).not.toHaveBeenCalled();
+
+    gameLogPutGate.resolve();
+    await persistPromise;
+    await teardownPromise;
+
+    expect(store.has("game-log:v1")).toBe(false);
+  });
+
   it("flushes hidden-state persistence after idle timeout", async () => {
     vi.useFakeTimers();
     try {

@@ -2,7 +2,11 @@ import type * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
 import YPartyServerProvider from "y-partyserver/provider";
 import { toast } from "sonner";
-import { clearLogs, emitLog } from "@/logging/logStore";
+import {
+  emitLog,
+  receiveGameLogEvents,
+  replaceGameLog,
+} from "@/logging/logStore";
 import { getPostHogDistinctId } from "@/lib/posthog";
 import { resolvePartyKitHost } from "@/lib/partyKitHost";
 import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
@@ -31,6 +35,7 @@ import { PARTY_NAME } from "@/partykit/config";
 import type {
   PrivateOverlayDiffPayload,
   PrivateOverlayPayload,
+  GameLogEntry,
   RoomTokensPayload,
 } from "@/partykit/messages";
 import { handleShareLinksResponse } from "@/partykit/shareLinksClient";
@@ -74,6 +79,7 @@ export type SessionSetupDeps = {
   onAuthFailure?: (reason: string) => void;
   onIntentOpen?: () => void;
   onIntentClose?: (event: CloseEvent) => void;
+  onGameLogSync?: () => void;
   joinToken?: string;
 };
 
@@ -85,6 +91,7 @@ export function setupSessionResources({
   onAuthFailure,
   onIntentOpen,
   onIntentClose,
+  onGameLogSync,
   joinToken,
 }: SessionSetupDeps): SessionSetupResult | null {
   const partyHost = resolvePartyKitHost(origins.server) ?? "localhost:8787";
@@ -460,6 +467,40 @@ export function setupSessionResources({
         }
         return;
       }
+      if (message.type === "gameLogEvent") {
+        const { players, cards, zones } = useGameStore.getState();
+        receiveGameLogEvents([{
+          seq: message.seq,
+          ts: message.ts,
+          eventId: message.eventId,
+          payload: message.payload,
+        }], {
+          players,
+          cards,
+          zones,
+        });
+        return;
+      }
+      if (message.type === "gameLogReplay") {
+        const { players, cards, zones } = useGameStore.getState();
+        receiveGameLogEvents(message.events as GameLogEntry[], {
+          players,
+          cards,
+          zones,
+        });
+        onGameLogSync?.();
+        return;
+      }
+      if (message.type === "gameLogSnapshot") {
+        const { players, cards, zones } = useGameStore.getState();
+        replaceGameLog(message.events as GameLogEntry[], {
+          players,
+          cards,
+          zones,
+        });
+        onGameLogSync?.();
+        return;
+      }
       if (message.type === "logEvent") {
         const { players, cards, zones } = useGameStore.getState();
         emitLog(message.eventId as any, message.payload as any, {
@@ -481,7 +522,6 @@ export function setupSessionResources({
 
   provider.on("status", ({ status: s }: any) => {
     if (s === "connected") {
-      clearLogs();
       statusSetter("connected");
     }
     if (s === "disconnected") {

@@ -230,6 +230,78 @@ describe("logEventRegistry", () => {
     expect(parts.map((p) => p.text).join("")).toBe("Alice played Lightning Bolt from Hand");
   });
 
+  it("formats replayed card moves from event-time public facts when current card and zones are missing", () => {
+    const ctx: LogContext = {
+      players: { p1: makePlayer("p1", "Alice") },
+      cards: {},
+      zones: {},
+    };
+
+    const parts = logEventRegistry["card.move"].format(
+      {
+        actorId: "p1",
+        cardId: "c1",
+        fromZoneId: "hand",
+        toZoneId: "bf",
+        fromZoneType: "hand",
+        toZoneType: "battlefield",
+        cardName: "Lightning Bolt",
+      },
+      ctx
+    );
+
+    expect(parts.map((p) => p.text).join("")).toBe("Alice played Lightning Bolt from Hand");
+  });
+
+  it("keeps replayed face-down moves redacted even when event-time zones are public", () => {
+    const ctx: LogContext = {
+      players: { p1: makePlayer("p1", "Alice") },
+      cards: {},
+      zones: {},
+    };
+
+    const parts = logEventRegistry["card.move"].format(
+      {
+        actorId: "p1",
+        cardId: "c1",
+        fromZoneId: "hand",
+        toZoneId: "bf",
+        fromZoneType: "hand",
+        toZoneType: "battlefield",
+        cardName: "Hidden Name",
+        faceDown: true,
+        forceHidden: true,
+      },
+      ctx
+    );
+
+    expect(parts.map((p) => p.text).join("")).toBe("Alice played a card from Hand");
+  });
+
+  it("formats replayed control changes from event-time zone type when current zones are missing", () => {
+    const ctx: LogContext = {
+      players: { p1: makePlayer("p1", "Alice"), p2: makePlayer("p2", "Bob") },
+      cards: {},
+      zones: {},
+    };
+
+    const parts = logEventRegistry["card.move"].format(
+      {
+        actorId: "p1",
+        gainsControlBy: "p2",
+        cardId: "c1",
+        fromZoneId: "bf1",
+        toZoneId: "bf2",
+        fromZoneType: "battlefield",
+        toZoneType: "battlefield",
+        cardName: "Lightning Bolt",
+      },
+      ctx
+    );
+
+    expect(parts.map((p) => p.text).join("")).toBe("Bob gains control of Lightning Bolt");
+  });
+
   it("formats random hand discards distinctly from chosen discards", () => {
     const hand = makeZone("hand", "hand", "p1", ["c1"]);
     const graveyard = makeZone("gy", "graveyard", "p1", []);
@@ -297,6 +369,60 @@ describe("logEventRegistry", () => {
 
     expect(parts.map((p) => p.text).join("")).toBe(
       "Alice revealed Mystic Snake from facedown"
+    );
+  });
+
+  it("formats replayed non-move public card events from event-time zone facts", () => {
+    const ctx: LogContext = {
+      players: { p1: makePlayer("p1", "Alice") },
+      cards: {},
+      zones: {},
+    };
+
+    const tapped = logEventRegistry["card.tap"].format(
+      {
+        actorId: "p1",
+        cardId: "c1",
+        zoneId: "bf",
+        zoneType: "battlefield",
+        tapped: true,
+        cardName: "Mystic Snake",
+      },
+      ctx
+    );
+    const counter = logEventRegistry["counter.add"].format(
+      {
+        actorId: "p1",
+        cardId: "c1",
+        zoneId: "bf",
+        zoneType: "battlefield",
+        counterType: "+1/+1",
+        delta: 1,
+        newTotal: 1,
+        cardName: "Mystic Snake",
+      },
+      ctx
+    );
+    const tax = logEventRegistry["player.commanderTax"].format(
+      {
+        playerId: "p1",
+        cardId: "c1",
+        zoneId: "cmd",
+        zoneType: "commander",
+        cardName: "Mystic Snake",
+        from: 0,
+        to: 2,
+        delta: 2,
+      },
+      ctx
+    );
+
+    expect(tapped.map((p) => p.text).join("")).toBe("Alice tapped Mystic Snake");
+    expect(counter.map((p) => p.text).join("")).toBe(
+      "Alice added 1 +1/+1 counter to Mystic Snake (now 1)"
+    );
+    expect(tax.map((p) => p.text).join("")).toBe(
+      "Alice added 2 commander tax to Mystic Snake"
     );
   });
 

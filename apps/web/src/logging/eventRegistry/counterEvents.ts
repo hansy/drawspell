@@ -1,10 +1,12 @@
-import { buildCardPart, buildPlayerPart } from "../helpers";
+import { buildCardPart, buildPlayerPart, getLogZone } from "../helpers";
 import type { LogEventDefinition, LogEventId } from "@/logging/types";
+import type { ZoneType } from "@/types";
 import { DEFAULT_AGGREGATE_WINDOW_MS } from "./constants";
 
 export type CounterPayload = {
   cardId: string;
   zoneId: string;
+  zoneType?: ZoneType;
   actorId?: string;
   counterType: string;
   delta: number;
@@ -16,7 +18,7 @@ export type GlobalCounterPayload = { counterType: string; color?: string; actorI
 
 const formatCounterAdd: LogEventDefinition<CounterPayload>["format"] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
-  const zone = ctx.zones[payload.zoneId];
+  const zone = getLogZone(ctx, payload.zoneId, payload.zoneType);
   const cardPart = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
   return [
     actor,
@@ -31,7 +33,7 @@ const formatCounterAdd: LogEventDefinition<CounterPayload>["format"] = (payload,
 
 const formatCounterRemove: LogEventDefinition<CounterPayload>["format"] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
-  const zone = ctx.zones[payload.zoneId];
+  const zone = getLogZone(ctx, payload.zoneId, payload.zoneType);
   const cardPart = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
   const absDelta = Math.abs(payload.delta);
   return [
