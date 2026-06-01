@@ -1,5 +1,11 @@
-import { buildCardPart, buildPlayerPart, getZoneLabel } from "../helpers";
+import {
+  buildCardPart,
+  buildPlayerPart,
+  getLogZone,
+  getLogZoneLabel,
+} from "../helpers";
 import type { LogEventDefinition, LogEventId } from "@/logging/types";
+import type { ZoneType } from "@/types";
 import { DEFAULT_AGGREGATE_WINDOW_MS } from "./constants";
 
 export type MovePayload = {
@@ -10,8 +16,8 @@ export type MovePayload = {
   gainsControlBy?: string;
   placement?: "top" | "bottom";
   cardName?: string;
-  fromZoneType?: string;
-  toZoneType?: string;
+  fromZoneType?: ZoneType;
+  toZoneType?: ZoneType;
   faceDown?: boolean;
   forceHidden?: boolean;
   random?: boolean;
@@ -20,6 +26,7 @@ export type MovePayload = {
 export type TapPayload = {
   cardId: string;
   zoneId: string;
+  zoneType?: ZoneType;
   actorId?: string;
   tapped: boolean;
   cardName?: string;
@@ -30,6 +37,7 @@ export type UntapAllPayload = { playerId: string; actorId?: string };
 export type TransformPayload = {
   cardId: string;
   zoneId: string;
+  zoneType?: ZoneType;
   actorId?: string;
   fromFaceName?: string;
   toFaceName?: string;
@@ -41,15 +49,17 @@ export type DuplicatePayload = {
   sourceCardId: string;
   newCardId: string;
   zoneId: string;
+  zoneType?: ZoneType;
   actorId?: string;
   cardName?: string;
 };
 
-export type RemoveCardPayload = { cardId: string; zoneId: string; actorId?: string; cardName?: string };
+export type RemoveCardPayload = { cardId: string; zoneId: string; zoneType?: ZoneType; actorId?: string; cardName?: string };
 
 export type PTPayload = {
   cardId: string;
   zoneId: string;
+  zoneType?: ZoneType;
   actorId?: string;
   fromPower?: string;
   fromToughness?: string;
@@ -68,18 +78,21 @@ export type TokenCreatePayload = {
 export type FaceUpPayload = {
   cardId: string;
   zoneId: string;
+  zoneType?: ZoneType;
   actorId?: string;
   cardName?: string;
 };
 
 const formatMove: LogEventDefinition<MovePayload>["format"] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
-  const fromZone = ctx.zones[payload.fromZoneId];
-  const toZone = ctx.zones[payload.toZoneId];
-  const cardPart = buildCardPart(ctx, payload.cardId, fromZone, toZone, payload.cardName);
+  const fromZone = getLogZone(ctx, payload.fromZoneId, payload.fromZoneType);
+  const toZone = getLogZone(ctx, payload.toZoneId, payload.toZoneType);
+  const forceHidden = payload.forceHidden || payload.faceDown;
+  const fallbackCardName = forceHidden ? "a card" : payload.cardName;
+  const cardPart = buildCardPart(ctx, payload.cardId, fromZone, toZone, fallbackCardName, forceHidden);
 
-  const fromLabel = getZoneLabel(ctx, payload.fromZoneId);
-  const toLabel = getZoneLabel(ctx, payload.toZoneId);
+  const fromLabel = getLogZoneLabel(ctx, payload.fromZoneId, payload.fromZoneType);
+  const toLabel = getLogZoneLabel(ctx, payload.toZoneId, payload.toZoneType);
   const placementLabel =
     payload.placement === "top" || payload.placement === "bottom" ? payload.placement : null;
 
@@ -151,7 +164,7 @@ const formatMove: LogEventDefinition<MovePayload>["format"] = (payload, ctx) => 
 
 const formatTap: LogEventDefinition<TapPayload>["format"] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
-  const zone = ctx.zones[payload.zoneId];
+  const zone = getLogZone(ctx, payload.zoneId, payload.zoneType);
   const card = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
   const verb = payload.tapped ? "tapped" : "untapped";
   return [actor, { kind: "text", text: ` ${verb} ` }, card];
@@ -164,7 +177,7 @@ const formatUntapAll: LogEventDefinition<UntapAllPayload>["format"] = (payload, 
 
 const formatTransform: LogEventDefinition<TransformPayload>["format"] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
-  const zone = ctx.zones[payload.zoneId];
+  const zone = getLogZone(ctx, payload.zoneId, payload.zoneType);
   const cardPart = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
   const includeFace = cardPart.text !== "a card" && payload.toFaceName;
   const verb =
@@ -180,21 +193,21 @@ const formatTransform: LogEventDefinition<TransformPayload>["format"] = (payload
 
 const formatDuplicate: LogEventDefinition<DuplicatePayload>["format"] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
-  const zone = ctx.zones[payload.zoneId];
+  const zone = getLogZone(ctx, payload.zoneId, payload.zoneType);
   const cardPart = buildCardPart(ctx, payload.sourceCardId, zone, zone, payload.cardName);
   return [actor, { kind: "text", text: " created a token copy of " }, cardPart];
 };
 
 const formatRemove: LogEventDefinition<RemoveCardPayload>["format"] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
-  const zone = ctx.zones[payload.zoneId];
+  const zone = getLogZone(ctx, payload.zoneId, payload.zoneType);
   const cardPart = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
   return [actor, { kind: "text", text: " removed " }, cardPart];
 };
 
 const formatPT: LogEventDefinition<PTPayload>["format"] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
-  const zone = ctx.zones[payload.zoneId];
+  const zone = getLogZone(ctx, payload.zoneId, payload.zoneType);
   const cardPart = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
   const from = `${payload.fromPower ?? "?"} / ${payload.fromToughness ?? "?"}`;
   const to = `${payload.toPower ?? "?"} / ${payload.toToughness ?? "?"}`;
@@ -211,7 +224,7 @@ const formatTokenCreate: LogEventDefinition<TokenCreatePayload>["format"] = (pay
 
 const formatFaceUp: LogEventDefinition<FaceUpPayload>["format"] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
-  const zone = ctx.zones[payload.zoneId];
+  const zone = getLogZone(ctx, payload.zoneId, payload.zoneType);
   const cardPart = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
   return [
     actor,

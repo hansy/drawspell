@@ -107,4 +107,107 @@ describe("logDrawerModel", () => {
 
     expect(name).toBe("a card");
   });
+
+  it("uses event-time public zone facts when current card state would hide the old event", () => {
+    const logContext: LogContext = {
+      players: {},
+      cards: {
+        c1: {
+          id: "c1",
+          name: "",
+          ownerId: "p1",
+          controllerId: "p1",
+          zoneId: "bf",
+          tapped: false,
+          faceDown: true,
+          position: { x: 0, y: 0 },
+          rotation: 0,
+          counters: [],
+        } as any,
+      },
+      zones: {},
+    };
+
+    const entry: LogMessage = {
+      id: "log-1",
+      ts: 1,
+      eventId: "card.move",
+      visibility: "public",
+      parts: [],
+      payload: {
+        cardId: "c1",
+        fromZoneId: "hand",
+        toZoneId: "bf",
+        fromZoneType: "hand",
+        toZoneType: "battlefield",
+        cardName: "Lightning Bolt",
+      },
+    };
+
+    const part: LogMessagePart = { kind: "card", cardId: "c1", text: "a card" };
+    const cardContext = resolveLogCardContext(entry, logContext);
+    const name = resolveLogCardDisplayName({ part, logContext, cardContext });
+
+    expect(name).toBe("Lightning Bolt");
+  });
+
+  it("uses event-time public zone facts for non-move replay entries", () => {
+    const logContext: LogContext = {
+      players: {},
+      cards: {},
+      zones: {},
+    };
+
+    const entry: LogMessage = {
+      id: "log-1",
+      ts: 1,
+      eventId: "card.tap",
+      visibility: "public",
+      parts: [],
+      payload: {
+        cardId: "c1",
+        zoneId: "bf",
+        zoneType: "battlefield",
+        tapped: true,
+        cardName: "Lightning Bolt",
+      },
+    };
+
+    const part: LogMessagePart = { kind: "card", cardId: "c1", text: "a card" };
+    const cardContext = resolveLogCardContext(entry, logContext);
+    const name = resolveLogCardDisplayName({ part, logContext, cardContext });
+
+    expect(name).toBe("Lightning Bolt");
+  });
+
+  it("does not use event-time card names for forced-hidden replay entries", () => {
+    const logContext: LogContext = {
+      players: {},
+      cards: {},
+      zones: {},
+    };
+
+    const entry: LogMessage = {
+      id: "log-1",
+      ts: 1,
+      eventId: "card.move",
+      visibility: "public",
+      parts: [],
+      payload: {
+        cardId: "c1",
+        fromZoneId: "hand",
+        toZoneId: "bf",
+        fromZoneType: "hand",
+        toZoneType: "battlefield",
+        cardName: "Hidden Name",
+        forceHidden: true,
+      },
+    };
+
+    const part: LogMessagePart = { kind: "card", cardId: "c1", text: "a card" };
+    const cardContext = resolveLogCardContext(entry, logContext);
+    const name = resolveLogCardDisplayName({ part, logContext, cardContext });
+
+    expect(name).toBe("a card");
+  });
 });

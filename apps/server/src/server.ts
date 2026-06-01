@@ -39,6 +39,7 @@ import {
   normalizeHiddenState,
   syncPublicRevealsToAllFromHiddenState,
 } from "./domain/hiddenState";
+import { GameLogBuffer, type GameLogEntry } from "./domain/gameLog";
 import {
   buildSnapshot,
   clearYMap,
@@ -85,8 +86,11 @@ const SNAPSHOT_META_KEY = "snapshot:meta";
 const SNAPSHOT_HIDDEN_PREFIX = "snapshot:hidden:";
 const INTENT_LOG_META_KEY = "intent-log:meta";
 const INTENT_LOG_PREFIX = "intent-log:";
+const GAME_LOG_STORAGE_KEY = "game-log:v1";
 const HIDDEN_STATE_PERSIST_DEBOUNCE_MS = 1500;
 const HIDDEN_STATE_PERSIST_IDLE_MS = 5_000;
+const GAME_LOG_MAX_ENTRIES = 200;
+const GAME_LOG_PERSIST_DEBOUNCE_MS = 2_000;
 const HIDDEN_STATE_CLEANUP_INTERVAL_MS = 10 * 60_000;
 const SNAPSHOT_INTENT_THRESHOLD = 200;
 const SNAPSHOT_TIME_THRESHOLD_MS = 30_000;
@@ -428,6 +432,10 @@ export class Room extends YServer<Env> {
   private snapshotMeta: SnapshotMeta | null = null;
   private intentLogWritePromise: Promise<void> = Promise.resolve();
   private intentLogWritePending = false;
+  private gameLog = new GameLogBuffer(GAME_LOG_MAX_ENTRIES);
+  private gameLogPersistTimer: number | null = null;
+  private gameLogPersistInFlight: Promise<void> | null = null;
+  private gameLogPersistQueued = false;
   private snapshotBarrier: Promise<void> | null = null;
   private snapshotBarrierResolve: (() => void) | null = null;
   private inflightIntentCount = 0;
@@ -477,6 +485,7 @@ export class Room extends YServer<Env> {
 
   async onLoad() {
     this.ensureYjsMetricsListener();
+    await this.restoreGameLog();
     await this.restoreFromSnapshotAndLog();
   }
 
@@ -784,6 +793,59 @@ export class Room extends YServer<Env> {
         await this.hiddenStatePersistInFlight;
       }
     }
+    await this.flushGameLogPersist();
+  }
+
+  private async restoreGameLog() {
+    try {
+      const stored = await this.ctx.storage.get<unknown>(GAME_LOG_STORAGE_KEY);
+      this.gameLog.restore(stored);
+    } catch (err) {
+      console.error("[party] failed to restore game log", {
+        room: this.name,
+        error: resolveErrorMessage(err),
+      });
+    }
+  }
+
+  private scheduleGameLogPersist() {
+    if (this.teardownInProgress) return;
+    this.gameLogPersistQueued = true;
+    if (this.gameLogPersistTimer !== null) return;
+    this.gameLogPersistTimer = setTimeout(() => {
+      this.gameLogPersistTimer = null;
+      void this.flushGameLogPersist();
+    }, GAME_LOG_PERSIST_DEBOUNCE_MS) as unknown as number;
+  }
+
+  private async flushGameLogPersist() {
+    if (this.gameLogPersistTimer !== null) {
+      clearTimeout(this.gameLogPersistTimer);
+      this.gameLogPersistTimer = null;
+    }
+    if (!this.gameLogPersistQueued && !this.gameLogPersistInFlight) return;
+    if (this.gameLogPersistInFlight) {
+      await this.gameLogPersistInFlight;
+      if (!this.gameLogPersistQueued) return;
+    }
+    this.gameLogPersistQueued = false;
+    const snapshot = this.gameLog.snapshot();
+    const persistPromise = this.ctx.storage
+      .put(GAME_LOG_STORAGE_KEY, snapshot)
+      .catch((err) => {
+        this.gameLogPersistQueued = true;
+        console.error("[party] failed to persist game log", {
+          room: this.name,
+          error: resolveErrorMessage(err),
+        });
+      })
+      .finally(() => {
+        if (this.gameLogPersistInFlight === persistPromise) {
+          this.gameLogPersistInFlight = null;
+        }
+      });
+    this.gameLogPersistInFlight = persistPromise;
+    await persistPromise;
   }
 
   onMessage(conn: Connection, message: WSMessage) {
@@ -1272,6 +1334,23 @@ export class Room extends YServer<Env> {
       clearTimeout(this.hiddenStateIdleTimer);
       this.hiddenStateIdleTimer = null;
     }
+  }
+
+  private clearGameLogPersistTimer() {
+    if (this.gameLogPersistTimer !== null) {
+      clearTimeout(this.gameLogPersistTimer);
+      this.gameLogPersistTimer = null;
+    }
+  }
+
+  private async cancelAndDrainGameLogPersist() {
+    this.clearGameLogPersistTimer();
+    const inFlight = this.gameLogPersistInFlight;
+    if (inFlight) {
+      await inFlight;
+    }
+    this.gameLogPersistQueued = false;
+    this.gameLogPersistInFlight = null;
   }
 
   private clearPerfMetricsTimer() {
@@ -1868,6 +1947,7 @@ export class Room extends YServer<Env> {
     if (this.isHiddenStateDirty()) {
       await this.flushHiddenStatePersist(this.resetGeneration);
     }
+    await this.flushGameLogPersist();
     this.scheduleEmptyRoomTeardown();
   }
 
@@ -2065,6 +2145,7 @@ export class Room extends YServer<Env> {
     this.clearEmptyRoomIdleTimer();
     this.clearEmptyRoomHardResetTimer();
     this.clearHiddenStatePersistTimer();
+    await this.cancelAndDrainGameLogPersist();
     this.clearPerfMetricsTimer();
     this.resetGeneration += 1;
     try {
@@ -2088,6 +2169,7 @@ export class Room extends YServer<Env> {
       this.intentLogMeta = null;
       this.snapshotMeta = null;
       this.intentLogWritePromise = Promise.resolve();
+      this.gameLog.clear();
       this.libraryViews.clear();
       this.clearLibraryViewCleanupTimer();
       this.overlayService.clearCache();
@@ -2385,6 +2467,10 @@ export class Room extends YServer<Env> {
         void this.handleShareLinksRequest(conn, parsed.requestId);
         return;
       }
+      if (parsed.type === "gameLogRequest") {
+        this.handleGameLogRequest(conn, parsed);
+        return;
+      }
       if (parsed.type !== "intent") return;
       const intent = parsed.intent as Intent | undefined;
       if (!intent || typeof intent.id !== "string") return;
@@ -2584,7 +2670,9 @@ export class Room extends YServer<Env> {
 
       if (ok && logEvents.length > 0) {
         try {
-          this.broadcastLogEvents(logEvents);
+          const entries = this.gameLog.append(logEvents);
+          this.scheduleGameLogPersist();
+          this.broadcastGameLogEvents(entries);
         } catch (err: any) {
           console.error("[party] log events broadcast failed", {
             room: this.name,
@@ -2609,13 +2697,24 @@ export class Room extends YServer<Env> {
     }
   }
 
-  private broadcastLogEvents(
-    logEvents: { eventId: string; payload: Record<string, unknown> }[],
-  ) {
-    if (logEvents.length === 0) return;
-    const messages = logEvents.map((event) =>
+  private handleGameLogRequest(conn: Connection, parsed: Record<string, unknown>) {
+    const lastLogSeq =
+      typeof parsed.lastLogSeq === "number" ? parsed.lastLogSeq : undefined;
+    const response = this.gameLog.replayAfter(lastLogSeq);
+    const type =
+      response.kind === "replay" ? "gameLogReplay" : "gameLogSnapshot";
+    try {
+      conn.send(JSON.stringify({ type, events: response.entries }));
+    } catch (_err) {}
+  }
+
+  private broadcastGameLogEvents(entries: GameLogEntry[]) {
+    if (entries.length === 0) return;
+    const messages = entries.map((event) =>
       JSON.stringify({
-        type: "logEvent",
+        type: "gameLogEvent",
+        seq: event.seq,
+        ts: event.ts,
         eventId: event.eventId,
         payload: event.payload,
       }),

@@ -209,6 +209,7 @@ const handleCardCounterAdjust: IntentHandler = ({ actorId, maps, payload, pushLo
         actorId,
         cardId,
         zoneId: card.zoneId,
+        zoneType: zone.type,
         counterType: counter.type,
         delta,
         newTotal: nextCount,
@@ -232,6 +233,7 @@ const handleCardCounterAdjust: IntentHandler = ({ actorId, maps, payload, pushLo
       actorId,
       cardId,
       zoneId: card.zoneId,
+      zoneType: zone.type,
       counterType,
       delta: appliedDelta,
       newTotal: nextCount,
@@ -257,6 +259,7 @@ const handleCardTap: IntentHandler = ({ actorId, maps, payload, pushLogEvent }) 
     actorId,
     cardId: card.id,
     zoneId: card.zoneId,
+    zoneType: zone?.type,
     tapped,
     cardName: card.name,
   });
@@ -338,6 +341,7 @@ const handleCardRemove: IntentHandler = ({ actorId, maps, hidden, payload, pushL
       actorId,
       cardId,
       zoneId: card.zoneId,
+      zoneType: zone.type,
       cardName: card.name,
     });
     maps.cards.delete(cardId);
@@ -382,6 +386,7 @@ const handleCardRemove: IntentHandler = ({ actorId, maps, hidden, payload, pushL
     actorId,
     cardId,
     zoneId: hiddenCard.zoneId,
+    zoneType: hiddenZone.type,
     cardName: "a card",
   });
   markHiddenChanged({
@@ -493,6 +498,7 @@ const handleCardUpdate: IntentHandler = ({ actorId, maps, hidden, payload, pushL
       actorId,
       cardId,
       zoneId: card.zoneId,
+      zoneType: zone.type,
       ...(faceDownIdentity?.name ? { cardName: faceDownIdentity.name } : {}),
     });
   }
@@ -508,6 +514,7 @@ const handleCardUpdate: IntentHandler = ({ actorId, maps, hidden, payload, pushL
       actorId,
       cardId,
       zoneId: card.zoneId,
+      zoneType: zone.type,
       fromPower: card.power,
       fromToughness: card.toughness,
       toPower: newPower ?? card.power,
@@ -523,6 +530,7 @@ const handleCardUpdate: IntentHandler = ({ actorId, maps, hidden, payload, pushL
       playerId: card.ownerId,
       cardId: card.id,
       zoneId: card.zoneId,
+      zoneType: zone.type,
       cardName: card.name,
       from: commanderTaxBefore,
       to: commanderTaxAfter,
@@ -554,6 +562,7 @@ const handleCardTransform: IntentHandler = ({ actorId, maps, hidden, payload, pu
     actorId,
     cardId,
     zoneId: card.zoneId,
+    zoneType: zone.type,
     fromFaceName,
     toFaceName,
     cardName: fromFaceName ?? card.name,
@@ -734,6 +743,7 @@ const handleCardDuplicate: IntentHandler = ({ actorId, maps, payload, pushLogEve
     sourceCardId: card.id,
     newCardId: clone.id,
     zoneId: zone.id,
+    zoneType: zone.type,
     cardName: card.name,
   });
   return { ok: true };

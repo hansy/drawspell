@@ -148,7 +148,13 @@ const intentTransportMocks = vi.hoisted(() => ({
   })),
 }));
 const resolveJoinToken = vi.hoisted(() => vi.fn(async () => "test-join-token"));
-const logStoreMocks = vi.hoisted(() => ({ emitLog: vi.fn(), clearLogs: vi.fn() }));
+const logStoreMocks = vi.hoisted(() => ({
+  emitLog: vi.fn(),
+  clearLogs: vi.fn(),
+  getLatestGameLogSeq: vi.fn(() => undefined),
+  receiveGameLogEvents: vi.fn(),
+  replaceGameLog: vi.fn(),
+}));
 vi.mock("y-partyserver/provider", () => {
   class MockPartyKitProvider {
     callbacks = new Map<string, (payload: any) => void>();
@@ -869,7 +875,7 @@ describe("useMultiplayerSync", () => {
     });
   });
 
-  it("forwards logEvent messages to the log store", async () => {
+  it("forwards gameLogEvent messages to the log store", async () => {
     renderHook(() => useMultiplayerSync("session-789"));
 
     await waitFor(() => {
@@ -878,14 +884,147 @@ describe("useMultiplayerSync", () => {
 
     const [{ onMessage }] = intentTransportMocks.createIntentTransport.mock.calls[0] as any;
     onMessage({
-      type: "logEvent",
+      type: "gameLogEvent",
+      seq: 7,
+      ts: 1234,
       eventId: "library.shuffle",
       payload: { actorId: "player-1", playerId: "player-1" },
     });
 
-    expect(logStoreMocks.emitLog).toHaveBeenCalledWith(
-      "library.shuffle",
-      { actorId: "player-1", playerId: "player-1" },
+    expect(logStoreMocks.receiveGameLogEvents).toHaveBeenCalledWith(
+      [{
+        seq: 7,
+        ts: 1234,
+        eventId: "library.shuffle",
+        payload: { actorId: "player-1", playerId: "player-1" },
+      }],
+      expect.objectContaining({
+        players: expect.any(Object),
+        cards: expect.any(Object),
+        zones: expect.any(Object),
+      })
+    );
+  });
+
+  it("requests Game Log replay after the intent socket opens and initial sync completes", async () => {
+    (logStoreMocks.getLatestGameLogSeq as any).mockReturnValue(12);
+    renderHook(() => useMultiplayerSync("session-789"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+
+    const [{ onOpen }] = intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+    act(() => {
+      onOpen();
+    });
+
+    expect(intentTransportMocks.sendPartyMessage).not.toHaveBeenCalledWith({
+      type: "gameLogRequest",
+    });
+
+    act(() => {
+      providerInstances[0].emit("sync", true);
+    });
+
+    expect(intentTransportMocks.sendPartyMessage).toHaveBeenCalledWith({
+      type: "gameLogRequest",
+    });
+    expect(intentTransportMocks.sendPartyMessage).not.toHaveBeenCalledWith({
+      type: "gameLogRequest",
+      lastLogSeq: 12,
+    });
+  });
+
+  it("requests Game Log replay again when the intent socket reconnects", async () => {
+    (logStoreMocks.getLatestGameLogSeq as any).mockReturnValue(12);
+    renderHook(() => useMultiplayerSync("session-789"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+
+    const [{ onOpen, onClose, onMessage }] = intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+    act(() => {
+      providerInstances[0].emit("sync", true);
+      onOpen();
+    });
+
+    expect(intentTransportMocks.sendPartyMessage).toHaveBeenCalledWith({
+      type: "gameLogRequest",
+    });
+
+    (logStoreMocks.getLatestGameLogSeq as any).mockReturnValue(16);
+    act(() => {
+      onMessage({ type: "gameLogSnapshot", events: [] });
+      onClose({ code: 1006, reason: "network" });
+      onOpen();
+    });
+
+    expect(intentTransportMocks.sendPartyMessage).toHaveBeenCalledWith({
+      type: "gameLogRequest",
+      lastLogSeq: 16,
+    });
+  });
+
+  it("omits the Game Log replay cursor when a live log event arrives before initial replay", async () => {
+    (logStoreMocks.getLatestGameLogSeq as any).mockReturnValue(7);
+    renderHook(() => useMultiplayerSync("session-789"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+
+    const [{ onOpen, onMessage }] = intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+    act(() => {
+      onOpen();
+      onMessage({
+        type: "gameLogEvent",
+        seq: 7,
+        ts: 1234,
+        eventId: "library.shuffle",
+        payload: { actorId: "player-1", playerId: "player-1" },
+      });
+      providerInstances[0].emit("sync", true);
+    });
+
+    expect(intentTransportMocks.sendPartyMessage).toHaveBeenCalledWith({
+      type: "gameLogRequest",
+    });
+    expect(intentTransportMocks.sendPartyMessage).not.toHaveBeenCalledWith({
+      type: "gameLogRequest",
+      lastLogSeq: 7,
+    });
+  });
+
+  it("replaces logs from gameLogSnapshot and appends gameLogReplay", async () => {
+    renderHook(() => useMultiplayerSync("session-789"));
+
+    await waitFor(() => {
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalled();
+    });
+
+    const [{ onMessage }] = intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+    const events = [{
+      seq: 3,
+      ts: 1234,
+      eventId: "player.endTurn",
+      payload: { actorId: "player-1" },
+    }];
+
+    onMessage({ type: "gameLogSnapshot", events });
+    expect(logStoreMocks.replaceGameLog).toHaveBeenCalledWith(
+      events,
+      expect.objectContaining({
+        players: expect.any(Object),
+        cards: expect.any(Object),
+        zones: expect.any(Object),
+      })
+    );
+
+    onMessage({ type: "gameLogReplay", events });
+    expect(logStoreMocks.receiveGameLogEvents).toHaveBeenCalledWith(
+      events,
       expect.objectContaining({
         players: expect.any(Object),
         cards: expect.any(Object),
