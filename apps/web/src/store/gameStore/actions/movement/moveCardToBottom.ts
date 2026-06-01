@@ -1,17 +1,12 @@
 import type { GameState } from "@/types";
 
-import { ZONE, isCommanderZoneType } from "@/constants/zones";
+import { ZONE } from "@/constants/zones";
 import { canMoveCard } from "@/rules/permissions";
 import { logPermission } from "@/rules/logger";
-import { enforceZoneCounterRules } from "@/lib/counters";
 import { resetCardToFrontFace } from "@/lib/cardDisplay";
 import { syncCommanderDecklistForPlayer } from "@/store/gameStore/actions/deck/commanderDecklist";
 import { debugLog, type DebugFlagKey } from "@/lib/debug";
-import {
-  computeRevealPatchAfterMove,
-  resolveControllerAfterMove,
-  resolveFaceDownAfterMove,
-} from "../movementModel";
+import { planCardMovement } from "../movementModel";
 import { moveCardIdBetweenZones, removeCardFromZones } from "../movementState";
 import type { Deps, GetState, SetState } from "./types";
 
@@ -33,8 +28,6 @@ export const createMoveCardToBottom =
     const toZone = snapshot.zones[toZoneId];
     if (!fromZone || !toZone) return;
 
-    const nextControllerId = resolveControllerAfterMove(card, fromZone, toZone);
-    const controlWillChange = nextControllerId !== card.controllerId;
     const permission = canMoveCard({
       actorId: actor,
       role,
@@ -59,25 +52,14 @@ export const createMoveCardToBottom =
       details: { cardId, fromZoneId, toZoneId },
     });
 
-    const isCommanderDestination = isCommanderZoneType(toZone.type);
-    const shouldMarkCommander =
-      isCommanderDestination && card.ownerId === toZone.ownerId && !card.isCommander && !card.isToken;
+    const initialPlan = planCardMovement({
+      card,
+      fromZone,
+      toZone,
+      placement: "bottom",
+    });
     const shouldSyncCommander =
-      shouldMarkCommander && actor === get().myPlayerId && card.ownerId === actor;
-
-    const faceDownResolution = resolveFaceDownAfterMove({
-      fromZoneType: fromZone.type,
-      toZoneType: toZone.type,
-      currentFaceDown: card.faceDown,
-      currentFaceDownMode: card.faceDownMode,
-      requestedFaceDown: undefined,
-      requestedFaceDownMode: undefined,
-    });
-    const revealPatch = computeRevealPatchAfterMove({
-      fromZoneType: fromZone.type,
-      toZoneType: toZone.type,
-      effectiveFaceDown: faceDownResolution.effectiveFaceDown,
-    });
+      initialPlan.shouldMarkCommander && actor === get().myPlayerId && card.ownerId === actor;
     const debugKey: DebugFlagKey = "faceDownDrag";
 
     const applyMove = (state: GameState) => {
@@ -102,42 +84,29 @@ export const createMoveCardToBottom =
         };
       }
 
-      const nextTapped =
-        toZoneState.type === ZONE.BATTLEFIELD ? workingCard.tapped : false;
-      const nextCounters = enforceZoneCounterRules(
-        workingCard.counters,
-        toZoneState
-      );
-      const nextCommanderFlag = shouldMarkCommander
-        ? true
-        : workingCard.isCommander;
-      const leavingBattlefield =
-        currentFromZone.type === ZONE.BATTLEFIELD &&
-        toZoneState.type !== ZONE.BATTLEFIELD;
-      const nextCard = leavingBattlefield
+      const plan = planCardMovement({
+        card: workingCard,
+        fromZone: currentFromZone,
+        toZone: toZoneState,
+        placement: "bottom",
+      });
+      const nextCard = plan.resetToFrontFace
         ? resetCardToFrontFace(workingCard)
         : workingCard;
 
-      if (workingCard.faceDown || faceDownResolution.effectiveFaceDown) {
+      if (workingCard.faceDown || plan.faceDown.effectiveFaceDown) {
         debugLog(debugKey, "apply-move-bottom", {
           cardId,
           fromZoneId: currentFromZoneId,
           toZoneId,
-          faceDown: faceDownResolution.effectiveFaceDown,
+          faceDown: plan.faceDown.effectiveFaceDown,
           overlayActive: Boolean(state.privateOverlay),
         });
       }
 
       cardsCopy[cardId] = {
         ...nextCard,
-        zoneId: toZoneId,
-        tapped: nextTapped,
-        counters: nextCounters,
-        faceDown: faceDownResolution.effectiveFaceDown,
-        faceDownMode: faceDownResolution.effectiveFaceDownMode,
-        controllerId: controlWillChange ? nextControllerId : nextCard.controllerId,
-        ...(revealPatch ?? {}),
-        isCommander: nextCommanderFlag,
+        ...plan.cardPatch,
       };
 
       return {

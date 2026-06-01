@@ -1,6 +1,6 @@
 import type { Card } from "@mtg/shared/types/cards";
 
-import { isCommanderZoneType, isHiddenZoneType, isPublicZoneType, ZONE } from "./constants";
+import { isCommanderZoneType, isHiddenZoneType, ZONE } from "./constants";
 import type {
   HiddenReveal,
   HiddenState,
@@ -9,7 +9,6 @@ import type {
 } from "./types";
 import {
   buildCardIdentity,
-  enforceZoneCounterRules,
   mergeCardIdentity,
   resetCardToFrontFace,
   stripCardIdentity,
@@ -20,10 +19,9 @@ import {
   resolveBattlefieldGroupCollisionPositions,
 } from "./positions";
 import {
-  computeRevealPatchAfterMove,
   normalizeMovePosition,
-  resolveControllerAfterMove,
-  resolveFaceDownAfterMove,
+  planCardMovement,
+  type CardMovementLogFacts,
 } from "@mtg/shared/movement";
 import { readCard, readZone, writeCard, writeZone } from "./yjsStore";
 import { placeCardId, removeFromArray } from "./lists";
@@ -53,6 +51,48 @@ const readMovePosition = (
     x: typeof position.x === "number" ? position.x : fallback.x,
     y: typeof position.y === "number" ? position.y : fallback.y,
   };
+};
+
+const pushMovementLogFacts = (
+  logFacts: CardMovementLogFacts,
+  actorId: string | undefined,
+  cardId: string,
+  fromZoneId: string,
+  toZoneId: string,
+  pushLogEvent: (eventId: string, payload: Record<string, unknown>) => void
+) => {
+  if (logFacts.event === "none") return;
+  if (logFacts.event === "draw") {
+    pushLogEvent("card.draw", {
+      actorId,
+      playerId: logFacts.playerId,
+      count: logFacts.count,
+    });
+    return;
+  }
+  if (logFacts.event === "discard") {
+    pushLogEvent("card.discard", {
+      actorId,
+      playerId: logFacts.playerId,
+      count: logFacts.count,
+    });
+    return;
+  }
+  if (logFacts.event !== "move") return;
+  pushLogEvent("card.move", {
+    actorId,
+    cardId,
+    fromZoneId,
+    toZoneId,
+    placement: logFacts.placement,
+    random: logFacts.random,
+    cardName: logFacts.cardName,
+    fromZoneType: logFacts.fromZoneType,
+    toZoneType: logFacts.toZoneType,
+    faceDown: logFacts.faceDown,
+    forceHidden: logFacts.forceHidden,
+    ...(logFacts.gainsControlBy ? { gainsControlBy: logFacts.gainsControlBy } : null),
+  });
 };
 
 export const applyCardMove = (
@@ -103,22 +143,18 @@ export const applyCardMove = (
   const opts = payload.opts && typeof payload.opts === "object" ? (payload.opts as MoveOpts) : undefined;
   const actorId = typeof payload.actorId === "string" ? payload.actorId : undefined;
 
-  const nextControllerId = resolveControllerAfterMove(card, fromZone, toZone);
-  const controlWillChange = nextControllerId !== card.controllerId;
-
-  const shouldMarkCommander =
-    isCommanderZoneType(toZone.type) &&
-    card.ownerId === toZone.ownerId &&
-    !card.isCommander &&
-    !card.isToken;
-
-  const faceDownResolution = resolveFaceDownAfterMove({
-    fromZoneType: fromZone.type,
-    toZoneType: toZone.type,
-    currentFaceDown: card.faceDown,
-    currentFaceDownMode: card.faceDownMode,
-    requestedFaceDown: opts?.faceDown,
-    requestedFaceDownMode: opts?.faceDownMode,
+  const faceDownIdentityForLog =
+    card.faceDown && fromZone.type === ZONE.BATTLEFIELD
+      ? hidden.faceDownBattlefield[cardId]
+      : undefined;
+  const plan = planCardMovement({
+    card,
+    fromZone,
+    toZone,
+    placement,
+    position,
+    opts,
+    cardNameForLog: faceDownIdentityForLog?.name,
   });
 
   const sameBattlefield =
@@ -129,56 +165,16 @@ export const applyCardMove = (
   const fromHidden = isHiddenZoneType(fromZone.type);
   const toHidden = isHiddenZoneType(toZone.type);
 
-  if (opts?.suppressLog) {
-    if (fromZone.type === ZONE.LIBRARY && toZone.type === ZONE.HAND) {
-      pushLogEvent("card.draw", {
-        actorId,
-        playerId: fromZone.ownerId,
-        count: 1,
-      });
-    } else if (fromZone.type === ZONE.LIBRARY && toZone.type === ZONE.GRAVEYARD) {
-      pushLogEvent("card.discard", {
-        actorId,
-        playerId: fromZone.ownerId,
-        count: 1,
-      });
-    }
-  } else if (!sameBattlefield) {
-    const faceDownIdentityForLog =
-      card.faceDown && fromZone.type === ZONE.BATTLEFIELD
-        ? hidden.faceDownBattlefield[cardId]
-        : undefined;
-    const leavingFaceDownBattlefield =
-      fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD && card.faceDown;
-    const enteringFaceDownBattlefield =
-      toZone.type === ZONE.BATTLEFIELD && faceDownResolution.effectiveFaceDown;
-    const toPublicZone = isPublicZoneType(toZone.type);
-    const shouldHideMoveName =
-      !toPublicZone || enteringFaceDownBattlefield || (leavingFaceDownBattlefield && !toPublicZone);
-    const movePayload: Record<string, unknown> = {
+  if (!sameBattlefield || opts?.suppressLog) {
+    pushMovementLogFacts(
+      plan.logFacts,
       actorId,
       cardId,
-      fromZoneId: fromZone.id,
+      fromZone.id,
       toZoneId,
-      placement,
-      random: opts?.random === true,
-      cardName: shouldHideMoveName ? "a card" : faceDownIdentityForLog?.name ?? card.name,
-      fromZoneType: fromZone.type,
-      toZoneType: toZone.type,
-      faceDown: faceDownResolution.effectiveFaceDown,
-      forceHidden: shouldHideMoveName,
-    };
-    if (controlWillChange && toZone.type === ZONE.BATTLEFIELD) {
-      movePayload.gainsControlBy = nextControllerId;
-    }
-    pushLogEvent("card.move", movePayload);
+      pushLogEvent
+    );
   }
-
-  const revealPatch = computeRevealPatchAfterMove({
-    fromZoneType: fromZone.type,
-    toZoneType: toZone.type,
-    effectiveFaceDown: faceDownResolution.effectiveFaceDown,
-  });
 
   if (!fromHidden && !toHidden) {
     const leavingBattlefield =
@@ -190,9 +186,6 @@ export const applyCardMove = (
       maps.cards.delete(cardId);
       return { ok: true };
     }
-
-    const nextTapped = toZone.type === ZONE.BATTLEFIELD ? card.tapped : false;
-    const nextCounters = enforceZoneCounterRules(card.counters, toZone);
 
     const wasFaceDownBattlefield = fromZone.type === ZONE.BATTLEFIELD && card.faceDown;
     const faceDownIdentity = wasFaceDownBattlefield
@@ -250,27 +243,19 @@ export const applyCardMove = (
     }
 
     const baseCard = leavingBattlefield ? resetCardToFrontFace(cardWithIdentity) : cardWithIdentity;
+    const branchPlan = planCardMovement({
+      card,
+      fromZone,
+      toZone,
+      placement,
+      position: resolvedPosition,
+      opts,
+      cardNameForLog: faceDownIdentityForLog?.name,
+    });
     const nextCard: Card = {
       ...baseCard,
-      zoneId: toZoneId,
-      position: resolvedPosition,
-      tapped: nextTapped,
-      counters: nextCounters,
-      faceDown: faceDownResolution.effectiveFaceDown,
-      faceDownMode: faceDownResolution.effectiveFaceDownMode,
-      controllerId: controlWillChange ? nextControllerId : baseCard.controllerId,
-      isCommander: shouldMarkCommander ? true : baseCard.isCommander,
+      ...branchPlan.cardPatch,
     };
-
-    if (revealPatch) {
-      nextCard.knownToAll = revealPatch.knownToAll ?? nextCard.knownToAll;
-      if (revealPatch.revealedToAll !== undefined) {
-        nextCard.revealedToAll = revealPatch.revealedToAll;
-      }
-      if (revealPatch.revealedTo !== undefined) {
-        nextCard.revealedTo = revealPatch.revealedTo;
-      }
-    }
 
     const willBeFaceDownBattlefield =
       toZone.type === ZONE.BATTLEFIELD && nextCard.faceDown;
@@ -314,27 +299,10 @@ export const applyCardMove = (
   }
 
   if (fromHidden && toHidden) {
-    const nextCounters = enforceZoneCounterRules(card.counters, toZone);
     const nextCard: Card = {
       ...card,
-      zoneId: toZoneId,
-      tapped: false,
-      counters: nextCounters,
-      faceDown: false,
-      faceDownMode: undefined,
-      controllerId: controlWillChange ? nextControllerId : card.controllerId,
-      isCommander: shouldMarkCommander ? true : card.isCommander,
+      ...plan.cardPatch,
     };
-
-    if (revealPatch) {
-      nextCard.knownToAll = revealPatch.knownToAll ?? nextCard.knownToAll;
-      if (revealPatch.revealedToAll !== undefined) {
-        nextCard.revealedToAll = revealPatch.revealedToAll;
-      }
-      if (revealPatch.revealedTo !== undefined) {
-        nextCard.revealedTo = revealPatch.revealedTo;
-      }
-    }
 
     if (fromZone.type === ZONE.HAND) {
       const nextOrder =
@@ -445,7 +413,6 @@ export const applyCardMove = (
       return { ok: true };
     }
 
-    const nextCounters = enforceZoneCounterRules(card.counters, toZone);
     const wasFaceDownBattlefield = fromZone.type === ZONE.BATTLEFIELD && card.faceDown;
     const faceDownIdentity = wasFaceDownBattlefield
       ? hidden.faceDownBattlefield[cardId]
@@ -454,24 +421,8 @@ export const applyCardMove = (
     const baseCard = leavingBattlefield ? resetCardToFrontFace(cardWithIdentity) : cardWithIdentity;
     const nextCard: Card = {
       ...baseCard,
-      zoneId: toZoneId,
-      tapped: false,
-      counters: nextCounters,
-      faceDown: false,
-      faceDownMode: undefined,
-      controllerId: controlWillChange ? nextControllerId : baseCard.controllerId,
-      isCommander: shouldMarkCommander ? true : baseCard.isCommander,
+      ...plan.cardPatch,
     };
-
-    if (revealPatch) {
-      nextCard.knownToAll = revealPatch.knownToAll ?? nextCard.knownToAll;
-      if (revealPatch.revealedToAll !== undefined) {
-        nextCard.revealedToAll = revealPatch.revealedToAll;
-      }
-      if (revealPatch.revealedTo !== undefined) {
-        nextCard.revealedTo = revealPatch.revealedTo;
-      }
-    }
 
     const nextFromIds = removeFromArray(fromZoneCardIds, cardId);
     writeZone(maps, { ...fromZone, cardIds: nextFromIds });
@@ -553,7 +504,6 @@ export const applyCardMove = (
       );
     }
 
-    const nextCounters = enforceZoneCounterRules(card.counters, toZone);
     const fallbackPosition =
       !position && toZone.type === ZONE.BATTLEFIELD && fromZone.type !== ZONE.BATTLEFIELD
         ? { x: 0.5, y: 0.5 }
@@ -603,28 +553,19 @@ export const applyCardMove = (
       }
     }
 
+    const branchPlan = planCardMovement({
+      card,
+      fromZone,
+      toZone,
+      placement,
+      position: resolvedPosition,
+      opts,
+      cardNameForLog: faceDownIdentityForLog?.name,
+    });
     const nextCard: Card = {
       ...card,
-      zoneId: toZoneId,
-      position: resolvedPosition,
-      tapped: toZone.type === ZONE.BATTLEFIELD ? card.tapped : false,
-      counters: nextCounters,
-      faceDown: toZone.type === ZONE.BATTLEFIELD ? faceDownResolution.effectiveFaceDown : false,
-      faceDownMode:
-        toZone.type === ZONE.BATTLEFIELD ? faceDownResolution.effectiveFaceDownMode : undefined,
-      controllerId: controlWillChange ? nextControllerId : card.controllerId,
-      isCommander: shouldMarkCommander ? true : card.isCommander,
+      ...branchPlan.cardPatch,
     };
-
-    if (revealPatch) {
-      nextCard.knownToAll = revealPatch.knownToAll ?? nextCard.knownToAll;
-      if (revealPatch.revealedToAll !== undefined) {
-        nextCard.revealedToAll = revealPatch.revealedToAll;
-      }
-      if (revealPatch.revealedTo !== undefined) {
-        nextCard.revealedTo = revealPatch.revealedTo;
-      }
-    }
 
     const nextToIds = placeCardId(toZoneCardIds, cardId, placement);
     writeZone(maps, { ...toZone, cardIds: nextToIds });

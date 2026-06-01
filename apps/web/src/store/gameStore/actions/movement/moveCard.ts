@@ -1,9 +1,8 @@
 import type { CardId, GameState } from "@/types";
 
-import { ZONE, isCommanderZoneType } from "@/constants/zones";
+import { ZONE } from "@/constants/zones";
 import { canMoveCard } from "@/rules/permissions";
 import { logPermission } from "@/rules/logger";
-import { enforceZoneCounterRules } from "@/lib/counters";
 import {
   resolveBattlefieldCollisionPosition,
   resolveBattlefieldGroupCollisionPositions,
@@ -12,12 +11,7 @@ import { resetCardToFrontFace } from "@/lib/cardDisplay";
 import { getCanonicalGridSteps } from "@/lib/positions";
 import { syncCommanderDecklistForPlayer } from "@/store/gameStore/actions/deck/commanderDecklist";
 import { debugLog, type DebugFlagKey } from "@/lib/debug";
-import {
-  computeRevealPatchAfterMove,
-  normalizeMovePosition,
-  resolveControllerAfterMove,
-  resolveFaceDownAfterMove,
-} from "../movementModel";
+import { normalizeMovePosition, planCardMovement } from "../movementModel";
 import { moveCardIdBetweenZones, removeCardFromZones } from "../movementState";
 import type { Deps, GetState, SetState } from "./types";
 
@@ -36,8 +30,6 @@ export const createMoveCard =
 
     if (!fromZone || !toZone) return;
 
-    const nextControllerId = resolveControllerAfterMove(card, fromZone, toZone);
-    const controlWillChange = nextControllerId !== card.controllerId;
     const permission = canMoveCard({
       actorId: actor,
       role,
@@ -62,25 +54,16 @@ export const createMoveCard =
       details: { cardId, fromZoneId, toZoneId },
     });
 
-    const isCommanderDestination = isCommanderZoneType(toZone.type);
-    const shouldMarkCommander =
-      isCommanderDestination && card.ownerId === toZone.ownerId && !card.isCommander && !card.isToken;
+    const initialPlan = planCardMovement({
+      card,
+      fromZone,
+      toZone,
+      placement: "top",
+      position,
+      opts,
+    });
     const shouldSyncCommander =
-      shouldMarkCommander && actor === get().myPlayerId && card.ownerId === actor;
-
-    const faceDownResolution = resolveFaceDownAfterMove({
-      fromZoneType: fromZone.type,
-      toZoneType: toZone.type,
-      currentFaceDown: card.faceDown,
-      currentFaceDownMode: card.faceDownMode,
-      requestedFaceDown: opts?.faceDown,
-      requestedFaceDownMode: opts?.faceDownMode,
-    });
-    const revealPatch = computeRevealPatchAfterMove({
-      fromZoneType: fromZone.type,
-      toZoneType: toZone.type,
-      effectiveFaceDown: faceDownResolution.effectiveFaceDown,
-    });
+      initialPlan.shouldMarkCommander && actor === get().myPlayerId && card.ownerId === actor;
     const debugKey: DebugFlagKey = "faceDownDrag";
     const resolvedOpts = (() => {
       if (_isRemote) return opts;
@@ -155,12 +138,6 @@ export const createMoveCard =
         };
       }
 
-      const nextTapped =
-        toZoneState.type === ZONE.BATTLEFIELD ? workingCard.tapped : false;
-      const nextCounters = enforceZoneCounterRules(
-        workingCard.counters,
-        toZoneState
-      );
       const fallbackPosition =
         !position &&
         toZoneState.type === ZONE.BATTLEFIELD &&
@@ -210,26 +187,26 @@ export const createMoveCard =
         }
       }
 
-      const localFaceDown = faceDownResolution.effectiveFaceDown;
-      const localFaceDownMode = faceDownResolution.effectiveFaceDownMode;
-      const nextCommanderFlag = shouldMarkCommander
-        ? true
-        : workingCard.isCommander;
+      const plan = planCardMovement({
+        card: workingCard,
+        fromZone: currentFromZone,
+        toZone: toZoneState,
+        placement: "top",
+        position: resolvedPosition,
+        opts: resolvedOpts,
+      });
 
-      const leavingBattlefield =
-        currentFromZone.type === ZONE.BATTLEFIELD &&
-        toZoneState.type !== ZONE.BATTLEFIELD;
-      const nextCard = leavingBattlefield
+      const nextCard = plan.resetToFrontFace
         ? resetCardToFrontFace(workingCard)
         : workingCard;
 
-      if (workingCard.faceDown || localFaceDown) {
+      if (workingCard.faceDown || plan.faceDown.effectiveFaceDown) {
         debugLog(debugKey, "apply-move", {
           cardId,
           fromZoneId: currentFromZoneId,
           toZoneId,
           position: resolvedPosition,
-          faceDown: localFaceDown,
+          faceDown: plan.faceDown.effectiveFaceDown,
           overlayActive: Boolean(state.privateOverlay),
         });
       }
@@ -237,16 +214,7 @@ export const createMoveCard =
       if (currentFromZoneId === toZoneId) {
         cardsCopy[cardId] = {
           ...nextCard,
-          ...(revealPatch ?? {}),
-          position: resolvedPosition,
-          tapped: nextTapped,
-          counters: nextCounters,
-          faceDown: localFaceDown,
-          faceDownMode: localFaceDownMode,
-          controllerId: controlWillChange
-            ? nextControllerId
-            : nextCard.controllerId,
-          isCommander: nextCommanderFlag,
+          ...plan.cardPatch,
         };
         return {
           cards: cardsCopy,
@@ -262,17 +230,7 @@ export const createMoveCard =
 
       cardsCopy[cardId] = {
         ...nextCard,
-        ...(revealPatch ?? {}),
-        zoneId: toZoneId,
-        position: resolvedPosition,
-        tapped: nextTapped,
-        counters: nextCounters,
-        faceDown: localFaceDown,
-        faceDownMode: localFaceDownMode,
-        controllerId: controlWillChange
-          ? nextControllerId
-          : nextCard.controllerId,
-        isCommander: nextCommanderFlag,
+        ...plan.cardPatch,
       };
 
       return {

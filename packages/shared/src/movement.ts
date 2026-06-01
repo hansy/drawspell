@@ -1,9 +1,23 @@
-import { isHiddenZoneType, ZONE } from "./constants/zones";
+import {
+  isCommanderZoneType,
+  isHiddenZoneType,
+  isPublicZoneType,
+  ZONE,
+} from "./constants/zones";
 import type { Card, FaceDownMode } from "./types/cards";
 import type { Zone } from "./types/zones";
 import { normalizeMovePosition, type Position } from "./positions";
 
 export { normalizeMovePosition } from "./positions";
+
+export type CardMovementPlacement = "top" | "bottom";
+
+export type CardMovementOptions = {
+  faceDown?: boolean;
+  faceDownMode?: FaceDownMode;
+  random?: boolean;
+  suppressLog?: boolean;
+};
 
 export type FaceDownMoveResolution = {
   effectiveFaceDown: boolean;
@@ -29,6 +43,66 @@ export type CardMovementFacts = {
   faceDown: FaceDownMoveResolution;
   revealPatch: RevealPatch;
   position: Position;
+};
+
+export type CardMovementVisibility = {
+  fromHidden: boolean;
+  toHidden: boolean;
+  fromPublic: boolean;
+  toPublic: boolean;
+};
+
+export type CardMovementLogFacts =
+  | { event: "none" }
+  | {
+      event: "draw" | "discard";
+      playerId: string;
+      count: 1;
+    }
+  | {
+      event: "move";
+      fromZoneType: Zone["type"];
+      toZoneType: Zone["type"];
+      placement: CardMovementPlacement;
+      random: boolean;
+      faceDown: boolean;
+      forceHidden: boolean;
+      cardName: string;
+      gainsControlBy?: string;
+    };
+
+export type CardMovementPlan = {
+  cardId: Card["id"];
+  fromZoneId: Zone["id"];
+  toZoneId: Zone["id"];
+  placement: CardMovementPlacement;
+  visibility: CardMovementVisibility;
+  tokenLeavesBattlefield: boolean;
+  resetToFrontFace: boolean;
+  enteringFaceDownBattlefield: boolean;
+  leavingFaceDownBattlefield: boolean;
+  shouldMarkCommander: boolean;
+  nextControllerId: string;
+  controlWillChange: boolean;
+  faceDown: FaceDownMoveResolution;
+  revealPatch: RevealPatch;
+  cardPatch: Partial<
+    Pick<
+      Card,
+      | "zoneId"
+      | "position"
+      | "tapped"
+      | "counters"
+      | "faceDown"
+      | "faceDownMode"
+      | "controllerId"
+      | "isCommander"
+      | "knownToAll"
+      | "revealedToAll"
+      | "revealedTo"
+    >
+  >;
+  logFacts: CardMovementLogFacts;
 };
 
 export const resolveControllerAfterMove = (
@@ -182,5 +256,169 @@ export const resolveCardMovementFacts = ({
       effectiveFaceDown: faceDown.effectiveFaceDown,
     }),
     position: normalizeMovePosition(position, fallbackPosition),
+  };
+};
+
+const enforceZoneCounterRulesForMove = (
+  counters: Card["counters"],
+  zone: Pick<Zone, "type">
+): Card["counters"] => (zone.type === ZONE.BATTLEFIELD ? counters : []);
+
+const resolveMoveLogFacts = (params: {
+  card: Pick<Card, "id" | "name" | "faceDown">;
+  fromZone: Zone;
+  toZone: Zone;
+  placement: CardMovementPlacement;
+  opts?: CardMovementOptions;
+  faceDown: FaceDownMoveResolution;
+  controlWillChange: boolean;
+  nextControllerId: string;
+  cardNameForLog?: string;
+}): CardMovementLogFacts => {
+  if (params.opts?.suppressLog) {
+    if (params.fromZone.type === ZONE.LIBRARY && params.toZone.type === ZONE.HAND) {
+      return { event: "draw", playerId: params.fromZone.ownerId, count: 1 };
+    }
+    if (params.fromZone.type === ZONE.LIBRARY && params.toZone.type === ZONE.GRAVEYARD) {
+      return { event: "discard", playerId: params.fromZone.ownerId, count: 1 };
+    }
+    return { event: "none" };
+  }
+
+  const sameBattlefield =
+    params.fromZone.type === ZONE.BATTLEFIELD &&
+    params.toZone.type === ZONE.BATTLEFIELD &&
+    params.fromZone.id === params.toZone.id;
+  if (sameBattlefield) return { event: "none" };
+
+  const leavingFaceDownBattlefield =
+    params.fromZone.type === ZONE.BATTLEFIELD &&
+    params.toZone.type !== ZONE.BATTLEFIELD &&
+    params.card.faceDown;
+  const enteringFaceDownBattlefield =
+    params.toZone.type === ZONE.BATTLEFIELD &&
+    params.faceDown.effectiveFaceDown;
+  const shouldHideMoveName =
+    !isPublicZoneType(params.toZone.type) ||
+    enteringFaceDownBattlefield ||
+    (leavingFaceDownBattlefield && !isPublicZoneType(params.toZone.type));
+  const cardName = shouldHideMoveName
+    ? "a card"
+    : params.cardNameForLog ?? params.card.name;
+
+  return {
+    event: "move",
+    fromZoneType: params.fromZone.type,
+    toZoneType: params.toZone.type,
+    placement: params.placement,
+    random: params.opts?.random === true,
+    faceDown: params.faceDown.effectiveFaceDown,
+    forceHidden: shouldHideMoveName,
+    cardName,
+    ...(params.controlWillChange && params.toZone.type === ZONE.BATTLEFIELD
+      ? { gainsControlBy: params.nextControllerId }
+      : null),
+  };
+};
+
+export const planCardMovement = ({
+  card,
+  fromZone,
+  toZone,
+  placement,
+  position,
+  opts,
+  cardNameForLog,
+}: {
+  card: Card;
+  fromZone: Zone;
+  toZone: Zone;
+  placement: CardMovementPlacement;
+  position?: Position;
+  opts?: CardMovementOptions;
+  cardNameForLog?: string;
+}): CardMovementPlan => {
+  const visibility = {
+    fromHidden: isHiddenZoneType(fromZone.type),
+    toHidden: isHiddenZoneType(toZone.type),
+    fromPublic: isPublicZoneType(fromZone.type),
+    toPublic: isPublicZoneType(toZone.type),
+  };
+  const nextControllerId = resolveControllerAfterMove(card, fromZone, toZone);
+  const controlWillChange = nextControllerId !== card.controllerId;
+  const shouldMarkCommander =
+    isCommanderZoneType(toZone.type) &&
+    card.ownerId === toZone.ownerId &&
+    !card.isCommander &&
+    !card.isToken;
+  const faceDown = resolveFaceDownAfterMove({
+    fromZoneType: fromZone.type,
+    toZoneType: toZone.type,
+    currentFaceDown: card.faceDown,
+    currentFaceDownMode: card.faceDownMode,
+    requestedFaceDown: opts?.faceDown,
+    requestedFaceDownMode: opts?.faceDownMode,
+  });
+  const fallbackPosition =
+    !position && toZone.type === ZONE.BATTLEFIELD && fromZone.type !== ZONE.BATTLEFIELD
+      ? { x: 0.5, y: 0.5 }
+      : position;
+  const resolvedPosition = normalizeMovePosition(fallbackPosition, card.position);
+  const revealPatch = computeRevealPatchAfterMove({
+    fromZoneType: fromZone.type,
+    toZoneType: toZone.type,
+    effectiveFaceDown: faceDown.effectiveFaceDown,
+  });
+  const tokenLeavesBattlefield =
+    card.isToken === true &&
+    fromZone.type === ZONE.BATTLEFIELD &&
+    toZone.type !== ZONE.BATTLEFIELD;
+  const resetToFrontFace =
+    fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD;
+  const enteringFaceDownBattlefield =
+    toZone.type === ZONE.BATTLEFIELD && faceDown.effectiveFaceDown;
+  const leavingFaceDownBattlefield =
+    fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD && card.faceDown;
+  const nextTapped = toZone.type === ZONE.BATTLEFIELD ? card.tapped : false;
+  const cardPatch: CardMovementPlan["cardPatch"] = {
+    zoneId: toZone.id,
+    position: resolvedPosition,
+    tapped: nextTapped,
+    counters: enforceZoneCounterRulesForMove(card.counters, toZone),
+    faceDown: toZone.type === ZONE.BATTLEFIELD ? faceDown.effectiveFaceDown : false,
+    faceDownMode:
+      toZone.type === ZONE.BATTLEFIELD ? faceDown.effectiveFaceDownMode : undefined,
+    controllerId: controlWillChange ? nextControllerId : card.controllerId,
+    isCommander: shouldMarkCommander ? true : card.isCommander,
+    ...(revealPatch ?? {}),
+  };
+
+  return {
+    cardId: card.id,
+    fromZoneId: fromZone.id,
+    toZoneId: toZone.id,
+    placement,
+    visibility,
+    tokenLeavesBattlefield,
+    resetToFrontFace,
+    enteringFaceDownBattlefield,
+    leavingFaceDownBattlefield,
+    shouldMarkCommander,
+    nextControllerId,
+    controlWillChange,
+    faceDown,
+    revealPatch,
+    cardPatch,
+    logFacts: resolveMoveLogFacts({
+      card,
+      fromZone,
+      toZone,
+      placement,
+      opts,
+      faceDown,
+      controlWillChange,
+      nextControllerId,
+      cardNameForLog,
+    }),
   };
 };

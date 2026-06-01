@@ -5,6 +5,7 @@ export type {
 export {
   computeRevealPatchAfterMove,
   normalizeMovePosition,
+  planCardMovement,
   resolveCardMovementFacts,
   resolveControllerAfterMove,
   resolveFaceDownAfterMove,

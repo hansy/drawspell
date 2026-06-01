@@ -9,12 +9,18 @@ export * from "./counters";
 export * from "./discord/provisioning";
 export {
   computeRevealPatchAfterMove,
+  planCardMovement,
   resolveCardMovementFacts,
   resolveControllerAfterMove,
   resolveFaceDownAfterMove,
 } from "./movement";
 export type {
   CardMovementFacts,
+  CardMovementLogFacts,
+  CardMovementOptions,
+  CardMovementPlacement,
+  CardMovementPlan,
+  CardMovementVisibility,
   FaceDownMoveResolution,
   RevealPatch,
 } from "./movement";
