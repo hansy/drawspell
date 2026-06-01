@@ -183,6 +183,25 @@ export const clearFaceDownStateForCard = (maps: Maps, hidden: HiddenState, cardI
   maps.faceDownRevealsToAll.delete(cardId);
 };
 
+const resolveLibraryZoneIdForPlayer = (
+  maps: Maps,
+  playerId: string,
+  libraryZoneId?: string
+) => {
+  if (libraryZoneId) return libraryZoneId;
+
+  let resolvedLibraryZoneId: string | undefined;
+  maps.zones.forEach((value, key) => {
+    const raw = readRecord(value);
+    if (!raw) return;
+    const zone = raw as unknown as Zone;
+    if (zone.ownerId === playerId && zone.type === ZONE.LIBRARY) {
+      resolvedLibraryZoneId = String(key);
+    }
+  });
+  return resolvedLibraryZoneId;
+};
+
 export const syncLibraryRevealsToAllForPlayer = (
   maps: Maps,
   hidden: HiddenState,
@@ -202,17 +221,11 @@ export const syncLibraryRevealsToAllForPlayer = (
     }
   });
 
-  let resolvedLibraryZoneId = libraryZoneId;
-    if (!resolvedLibraryZoneId) {
-      maps.zones.forEach((value, key) => {
-        const raw = readRecord(value);
-        if (!raw) return;
-        const zone = raw as unknown as Zone;
-        if (zone.ownerId === playerId && zone.type === ZONE.LIBRARY) {
-          resolvedLibraryZoneId = String(key);
-        }
-      });
-    }
+  const resolvedLibraryZoneId = resolveLibraryZoneIdForPlayer(
+    maps,
+    playerId,
+    libraryZoneId
+  );
 
   maps.libraryRevealsToAll.forEach((value, key) => {
     const cardId = String(key);
