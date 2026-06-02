@@ -13,6 +13,20 @@ const TOKEN_STORAGE_PREFIX = "drawspell:roomTokens:";
 const PENDING_HOST_PREFIX = "drawspell:pendingHost:";
 const ROOM_UNAVAILABLE_PREFIX = "drawspell:roomUnavailable:";
 const DEVICE_ID_KEY = "drawspell:deviceId";
+const INVITE_TOKEN_QUERY_PARAMS = [
+  "gt",
+  "st",
+  "viewerRole",
+  "playerToken",
+  "spectatorToken",
+  "rt",
+  "resumeToken",
+  "connectionGroupId",
+  "cid",
+  "token",
+  "role",
+  "playerId",
+] as const;
 const storage = createSafeStorage();
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -54,18 +68,9 @@ export const clearInviteTokenFromUrl = (href?: string) => {
   const currentHref = href ?? window.location.href;
   try {
     const url = new URL(currentHref);
-    url.searchParams.delete("gt");
-    url.searchParams.delete("st");
-    url.searchParams.delete("viewerRole");
-    url.searchParams.delete("playerToken");
-    url.searchParams.delete("spectatorToken");
-    url.searchParams.delete("rt");
-    url.searchParams.delete("resumeToken");
-    url.searchParams.delete("connectionGroupId");
-    url.searchParams.delete("cid");
-    url.searchParams.delete("token");
-    url.searchParams.delete("role");
-    url.searchParams.delete("playerId");
+    INVITE_TOKEN_QUERY_PARAMS.forEach((param) => {
+      url.searchParams.delete(param);
+    });
     window.history.replaceState({}, "", url.toString());
   } catch (_err) {}
 };
