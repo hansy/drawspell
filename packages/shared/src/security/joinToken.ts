@@ -53,6 +53,11 @@ const ensureArrayBufferBackedView = (
   return copy;
 };
 
+const decodeBase64UrlBytes = (value: string): Uint8Array<ArrayBuffer> | null => {
+  const bytes = fromBase64Url(value);
+  return bytes ? ensureArrayBufferBackedView(bytes) : null;
+};
+
 const importHmacKey = async (secret: string) => {
   const secretBytes = textEncoder.encode(secret);
   return crypto.subtle.importKey(
@@ -95,16 +100,16 @@ const decodeJoinTokenParts = (token: string): DecodedJoinTokenParts => {
     return { ok: false, reason: "invalid token format" };
   }
 
-  const payloadBytes = fromBase64Url(payloadPart);
-  const signatureBytes = fromBase64Url(signaturePart);
+  const payloadBytes = decodeBase64UrlBytes(payloadPart);
+  const signatureBytes = decodeBase64UrlBytes(signaturePart);
   if (!payloadBytes || !signatureBytes) {
     return { ok: false, reason: "invalid token encoding" };
   }
 
   return {
     ok: true,
-    payloadBytes: ensureArrayBufferBackedView(payloadBytes),
-    signatureBytes: ensureArrayBufferBackedView(signatureBytes),
+    payloadBytes,
+    signatureBytes,
   };
 };
 
