@@ -4,7 +4,7 @@ import type { ScryfallFetchError } from "@/services/scryfall/scryfallErrors";
 
 import { ZONE } from "@/constants/zones";
 
-export const getNonComboRelatedParts = (
+export const filterNonComboRelatedParts = (
   parts: ScryfallRelatedCard[] | undefined
 ): ScryfallRelatedCard[] => {
   return (parts ?? []).filter((part) => part.component !== "combo_piece");
@@ -23,7 +23,7 @@ export const fetchBattlefieldRelatedParts = async (params: {
   try {
     const result = await params.fetchCardById(params.card.scryfallId);
     const fullCard = result.card;
-    return fullCard?.all_parts ? getNonComboRelatedParts(fullCard.all_parts) : undefined;
+    return fullCard?.all_parts ? filterNonComboRelatedParts(fullCard.all_parts) : undefined;
   } catch {
     return undefined;
   }

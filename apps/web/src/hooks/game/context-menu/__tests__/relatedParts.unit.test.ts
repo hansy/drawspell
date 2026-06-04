@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { ZONE } from "@/constants/zones";
 
-import { fetchBattlefieldRelatedParts, getNonComboRelatedParts } from "../relatedParts";
+import { fetchBattlefieldRelatedParts, filterNonComboRelatedParts } from "../relatedParts";
 
 describe("gameContextMenu/relatedParts", () => {
   it("filters out combo pieces", () => {
     expect(
-      getNonComboRelatedParts([
+      filterNonComboRelatedParts([
         {
           object: "related_card",
           id: "1",
