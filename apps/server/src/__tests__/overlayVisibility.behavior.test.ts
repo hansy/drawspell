@@ -1314,6 +1314,7 @@ describe("server migration behavior", () => {
             actorId: "p1",
             cardId: "c1",
             zoneId: battlefield.id,
+            zoneType: "battlefield",
             counterType: "poison",
             delta: -1,
             newTotal: 3,

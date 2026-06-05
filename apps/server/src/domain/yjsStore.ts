@@ -104,6 +104,20 @@ const setSnapshotZone = (
   }
 };
 
+const copyMapEntries = <T>(
+  source: Y.Map<unknown>,
+  target: Record<string, T>,
+  shouldCopyValue: (value: unknown) => boolean,
+  readKey: (key: unknown) => string | null = (key) => String(key)
+) => {
+  source.forEach((value, key) => {
+    const targetKey = readKey(key);
+    if (targetKey === null) return;
+    if (!shouldCopyValue(value)) return;
+    target[targetKey] = value as T;
+  });
+};
+
 export const writeZone = (maps: Maps, zone: Zone) => {
   const cardIds = uniqueStrings(zone.cardIds ?? []);
   maps.zones.set(zone.id, { ...zone, cardIds });
@@ -142,19 +156,15 @@ export const buildSnapshot = (maps: Maps): Snapshot => {
     setSnapshotEntity(cards, value, key);
   });
 
-  maps.globalCounters.forEach((value, key) => {
-    if (typeof value === "string") globalCounters[String(key)] = value;
-  });
-
-  maps.battlefieldViewScale.forEach((value, key) => {
-    if (typeof value === "number" && Number.isFinite(value)) {
-      battlefieldViewScale[String(key)] = value;
-    }
-  });
-
-  maps.meta.forEach((value, key) => {
-    if (typeof key === "string") meta[key] = value;
-  });
+  copyMapEntries(maps.globalCounters, globalCounters, (value) => typeof value === "string");
+  copyMapEntries(
+    maps.battlefieldViewScale,
+    battlefieldViewScale,
+    (value) => typeof value === "number" && Number.isFinite(value)
+  );
+  copyMapEntries(maps.meta, meta, () => true, (key) =>
+    typeof key === "string" ? key : null
+  );
 
   const playerOrder = maps.playerOrder
     .toArray()
