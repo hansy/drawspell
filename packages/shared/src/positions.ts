@@ -18,10 +18,12 @@ export {
 
 export type Position = { x: number; y: number };
 
-export const resolveBaseCardDimensions = (params?: {
+type CardDimensionOptions = {
   baseCardHeight?: number;
   baseCardWidth?: number;
-}) => {
+};
+
+export const resolveBaseCardDimensions = (params?: CardDimensionOptions) => {
   const baseCardHeight = params?.baseCardHeight ?? BASE_CARD_HEIGHT;
   const baseCardWidth = params?.baseCardWidth ?? baseCardHeight * CARD_ASPECT_RATIO;
   return { baseCardHeight, baseCardWidth };
@@ -57,9 +59,7 @@ export const normalizeMovePosition = (
 export const getCardPixelSize = (params?: {
   viewScale?: number;
   isTapped?: boolean;
-  baseCardHeight?: number;
-  baseCardWidth?: number;
-}) => {
+} & CardDimensionOptions) => {
   const viewScale = params?.viewScale ?? 1;
   const isTapped = params?.isTapped ?? false;
   const { baseCardHeight, baseCardWidth } = resolveBaseCardDimensions({
@@ -73,9 +73,7 @@ export const getCardPixelSize = (params?: {
 
 export const getCanonicalCardPixelSize = (params?: {
   isTapped?: boolean;
-  baseCardHeight?: number;
-  baseCardWidth?: number;
-}) =>
+} & CardDimensionOptions) =>
   getCardPixelSize({
     isTapped: params?.isTapped,
     baseCardHeight: params?.baseCardHeight,
@@ -88,9 +86,7 @@ export const getNormalizedGridSteps = (params?: {
   zoneWidth?: number;
   zoneHeight?: number;
   viewScale?: number;
-  baseCardHeight?: number;
-  baseCardWidth?: number;
-}) => {
+} & CardDimensionOptions) => {
   const { cardWidth, cardHeight } = getCardPixelSize({
     isTapped: params?.isTapped,
     viewScale: params?.viewScale,
@@ -109,9 +105,7 @@ export const getCanonicalGridSteps = (params?: {
   isTapped?: boolean;
   zoneWidth?: number;
   zoneHeight?: number;
-  baseCardHeight?: number;
-  baseCardWidth?: number;
-}) =>
+} & CardDimensionOptions) =>
   getNormalizedGridSteps({
     isTapped: params?.isTapped,
     zoneWidth: params?.zoneWidth,
