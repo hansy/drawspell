@@ -53,6 +53,78 @@ const readMovePosition = (
   };
 };
 
+const resolveMoveApplicationPosition = (params: {
+  maps: Maps;
+  card: Card;
+  cardId: string;
+  fromZoneType: string;
+  toZoneType: string;
+  toZoneCardIds: string[];
+  position: Card["position"] | undefined;
+  opts: MoveOpts | undefined;
+}): Card["position"] => {
+  const fallbackPosition =
+    !params.position &&
+    params.toZoneType === ZONE.BATTLEFIELD &&
+    params.fromZoneType !== ZONE.BATTLEFIELD
+      ? { x: 0.5, y: 0.5 }
+      : params.position;
+  let resolvedPosition = normalizeMovePosition(
+    fallbackPosition,
+    params.card.position
+  );
+
+  if (
+    params.toZoneType !== ZONE.BATTLEFIELD ||
+    !fallbackPosition ||
+    (params.opts?.skipCollision && !params.opts?.groupCollision)
+  ) {
+    return resolvedPosition;
+  }
+
+  const cardsById: Record<string, Card> = {};
+  params.toZoneCardIds.forEach((id) => {
+    const entry = readCard(params.maps, id);
+    if (entry) cardsById[id] = entry;
+  });
+
+  if (params.opts?.groupCollision) {
+    const movingIds = Array.isArray(params.opts.groupCollision.movingCardIds)
+      ? params.opts.groupCollision.movingCardIds
+      : [];
+    const targetPositions =
+      params.opts.groupCollision.targetPositions &&
+      typeof params.opts.groupCollision.targetPositions === "object"
+        ? (params.opts.groupCollision.targetPositions as Record<
+            string,
+            { x: number; y: number } | undefined
+          >)
+        : {};
+    const resolved = resolveBattlefieldGroupCollisionPositions({
+      movingCardIds: movingIds,
+      targetPositions,
+      orderedCardIds: params.toZoneCardIds,
+      getPosition: (id) => cardsById[id]?.position,
+      getStepY: (id) =>
+        params.opts?.groupCollision?.stepYById?.[id] ??
+        params.opts?.gridStepY ??
+        getNormalizedGridSteps({ isTapped: cardsById[id]?.tapped }).stepY,
+    });
+    return resolved[params.cardId] ?? resolvedPosition;
+  }
+
+  const stepY =
+    params.opts?.gridStepY ??
+    getNormalizedGridSteps({ isTapped: params.card.tapped }).stepY;
+  return resolveBattlefieldCollisionPosition({
+    movingCardId: params.cardId,
+    targetPosition: resolvedPosition,
+    orderedCardIds: params.toZoneCardIds,
+    getPosition: (id) => cardsById[id]?.position,
+    stepY,
+  });
+};
+
 const pushMovementLogFacts = (
   logFacts: CardMovementLogFacts,
   actorId: string | undefined,
@@ -193,54 +265,16 @@ export const applyCardMove = (
       : undefined;
     const cardWithIdentity = mergeCardIdentity(card, faceDownIdentity);
 
-    const fallbackPosition =
-      !position && toZone.type === ZONE.BATTLEFIELD && fromZone.type !== ZONE.BATTLEFIELD
-        ? { x: 0.5, y: 0.5 }
-        : position;
-    let resolvedPosition = normalizeMovePosition(fallbackPosition, card.position);
-    if (
-      toZone.type === ZONE.BATTLEFIELD &&
-      fallbackPosition &&
-      (!opts?.skipCollision || opts?.groupCollision)
-    ) {
-      const ordered = toZoneCardIds;
-      const cardsById: Record<string, Card> = {};
-      ordered.forEach((id) => {
-        const entry = readCard(maps, id);
-        if (entry) cardsById[id] = entry;
-      });
-
-      if (opts?.groupCollision) {
-        const movingIds = Array.isArray(opts.groupCollision.movingCardIds)
-          ? opts.groupCollision.movingCardIds
-          : [];
-        const targetPositions =
-          opts.groupCollision.targetPositions && typeof opts.groupCollision.targetPositions === "object"
-            ? (opts.groupCollision.targetPositions as Record<string, { x: number; y: number } | undefined>)
-            : {};
-        const resolved = resolveBattlefieldGroupCollisionPositions({
-          movingCardIds: movingIds,
-          targetPositions,
-          orderedCardIds: ordered,
-          getPosition: (id) => cardsById[id]?.position,
-          getStepY: (id) =>
-            opts?.groupCollision?.stepYById?.[id] ??
-            opts?.gridStepY ??
-            getNormalizedGridSteps({ isTapped: cardsById[id]?.tapped }).stepY,
-        });
-        resolvedPosition = resolved[cardId] ?? resolvedPosition;
-      } else {
-        const stepY =
-          opts?.gridStepY ?? getNormalizedGridSteps({ isTapped: card.tapped }).stepY;
-        resolvedPosition = resolveBattlefieldCollisionPosition({
-          movingCardId: cardId,
-          targetPosition: resolvedPosition,
-          orderedCardIds: ordered,
-          getPosition: (id) => cardsById[id]?.position,
-          stepY,
-        });
-      }
-    }
+    const resolvedPosition = resolveMoveApplicationPosition({
+      maps,
+      card,
+      cardId,
+      fromZoneType: fromZone.type,
+      toZoneType: toZone.type,
+      toZoneCardIds,
+      position,
+      opts,
+    });
 
     const baseCard = leavingBattlefield ? resetCardToFrontFace(cardWithIdentity) : cardWithIdentity;
     const branchPlan = planCardMovement({
@@ -504,54 +538,16 @@ export const applyCardMove = (
       );
     }
 
-    const fallbackPosition =
-      !position && toZone.type === ZONE.BATTLEFIELD && fromZone.type !== ZONE.BATTLEFIELD
-        ? { x: 0.5, y: 0.5 }
-        : position;
-    let resolvedPosition = normalizeMovePosition(fallbackPosition, card.position);
-    if (
-      toZone.type === ZONE.BATTLEFIELD &&
-      fallbackPosition &&
-      (!opts?.skipCollision || opts?.groupCollision)
-    ) {
-      const ordered = toZoneCardIds;
-      const cardsById: Record<string, Card> = {};
-      ordered.forEach((id) => {
-        const entry = readCard(maps, id);
-        if (entry) cardsById[id] = entry;
-      });
-
-      if (opts?.groupCollision) {
-        const movingIds = Array.isArray(opts.groupCollision.movingCardIds)
-          ? opts.groupCollision.movingCardIds
-          : [];
-        const targetPositions =
-          opts.groupCollision.targetPositions && typeof opts.groupCollision.targetPositions === "object"
-            ? (opts.groupCollision.targetPositions as Record<string, { x: number; y: number } | undefined>)
-            : {};
-        const resolved = resolveBattlefieldGroupCollisionPositions({
-          movingCardIds: movingIds,
-          targetPositions,
-          orderedCardIds: ordered,
-          getPosition: (id) => cardsById[id]?.position,
-          getStepY: (id) =>
-            opts?.groupCollision?.stepYById?.[id] ??
-            opts?.gridStepY ??
-            getNormalizedGridSteps({ isTapped: cardsById[id]?.tapped }).stepY,
-        });
-        resolvedPosition = resolved[cardId] ?? resolvedPosition;
-      } else {
-        const stepY =
-          opts?.gridStepY ?? getNormalizedGridSteps({ isTapped: card.tapped }).stepY;
-        resolvedPosition = resolveBattlefieldCollisionPosition({
-          movingCardId: cardId,
-          targetPosition: resolvedPosition,
-          orderedCardIds: ordered,
-          getPosition: (id) => cardsById[id]?.position,
-          stepY,
-        });
-      }
-    }
+    const resolvedPosition = resolveMoveApplicationPosition({
+      maps,
+      card,
+      cardId,
+      fromZoneType: fromZone.type,
+      toZoneType: toZone.type,
+      toZoneCardIds,
+      position,
+      opts,
+    });
 
     const branchPlan = planCardMovement({
       card,
