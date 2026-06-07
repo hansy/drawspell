@@ -44,9 +44,10 @@ const readRevealMap = (value: unknown): Record<string, HiddenReveal> => {
   const result: Record<string, HiddenReveal> = {};
   recordEntries(value).forEach(([key, raw]) => {
     if (!raw || typeof raw !== "object") return;
-    const toAll = (raw as HiddenReveal).toAll === true;
-    const toPlayers = Array.isArray((raw as HiddenReveal).toPlayers)
-      ? uniqueStrings((raw as HiddenReveal).toPlayers ?? [])
+    const reveal = raw as HiddenReveal;
+    const toAll = reveal.toAll === true;
+    const toPlayers = Array.isArray(reveal.toPlayers)
+      ? uniqueStrings(reveal.toPlayers ?? [])
       : [];
     result[key] = {
       ...(toAll ? { toAll: true } : null),
