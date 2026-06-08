@@ -56,11 +56,14 @@ export const computeBackoffDelay = (
 const normalizeCloseReason = (reason?: string | null) =>
   (reason ?? "").trim().replace(/\.$/, "").toLowerCase();
 
+const isRoomResetReason = (reason?: string | null) =>
+  normalizeCloseReason(reason) === "room reset";
+
 export const isRoomResetClose = (
   event?: { code?: number; reason?: string } | null
 ) => {
   if (!event) return false;
-  return normalizeCloseReason(event.reason) === "room reset";
+  return isRoomResetReason(event.reason);
 };
 
 export const isRateLimitedClose = (
@@ -68,7 +71,7 @@ export const isRateLimitedClose = (
 ) => {
   if (!event) return false;
   const reason = normalizeCloseReason(event.reason);
-  if (reason === "room reset") return false;
+  if (isRoomResetReason(reason)) return false;
   if (event.code === 1013) return true;
   return reason.includes("rate limit");
 };
