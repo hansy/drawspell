@@ -12,7 +12,7 @@
  * For a 100-card deck: ~300KB → ~30KB
  */
 
-import type { ScryfallLayout } from "./scryfall";
+import type { ScryfallCard, ScryfallLayout } from "./scryfall";
 
 /**
  * Minimal image URIs - only what's needed for display
@@ -48,7 +48,7 @@ export interface ScryfallCardLite {
  * Convert a full ScryfallCard to the lite version for sync
  */
 export const toScryfallCardLite = (
-  card: import("./scryfall").ScryfallCard
+  card: ScryfallCard
 ): ScryfallCardLite => {
   const lite: ScryfallCardLite = {
     id: card.id,
@@ -97,7 +97,7 @@ export const toScryfallCardLite = (
  */
 export const isFullScryfallCard = (
   card: unknown
-): card is import("./scryfall").ScryfallCard => {
+): card is ScryfallCard => {
   // Full cards have type_line, lite cards don't
   return (
     typeof card === "object" &&
