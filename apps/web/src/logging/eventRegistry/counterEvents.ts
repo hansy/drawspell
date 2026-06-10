@@ -16,6 +16,16 @@ export type CounterPayload = {
 
 export type GlobalCounterPayload = { counterType: string; color?: string; actorId?: string };
 
+const buildCounterAggregate = (): NonNullable<LogEventDefinition<CounterPayload>["aggregate"]> => ({
+  key: (payload) => `counter:${payload.cardId}:${payload.counterType}:${payload.actorId ?? "unknown"}`,
+  mergePayload: (existing, incoming) => ({
+    ...incoming,
+    delta: existing.delta + incoming.delta,
+    newTotal: incoming.newTotal,
+  }),
+  windowMs: DEFAULT_AGGREGATE_WINDOW_MS,
+});
+
 const formatCounterAdd: LogEventDefinition<CounterPayload>["format"] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = getLogZone(ctx, payload.zoneId, payload.zoneType);
@@ -55,29 +65,11 @@ const formatGlobalCounterAdd: LogEventDefinition<GlobalCounterPayload>["format"]
 export const counterEvents = {
   "counter.add": {
     format: formatCounterAdd,
-    aggregate: {
-      key: (payload: CounterPayload) =>
-        `counter:${payload.cardId}:${payload.counterType}:${payload.actorId ?? "unknown"}`,
-      mergePayload: (existing: CounterPayload, incoming: CounterPayload) => ({
-        ...incoming,
-        delta: existing.delta + incoming.delta,
-        newTotal: incoming.newTotal,
-      }),
-      windowMs: DEFAULT_AGGREGATE_WINDOW_MS,
-    },
+    aggregate: buildCounterAggregate(),
   },
   "counter.remove": {
     format: formatCounterRemove,
-    aggregate: {
-      key: (payload: CounterPayload) =>
-        `counter:${payload.cardId}:${payload.counterType}:${payload.actorId ?? "unknown"}`,
-      mergePayload: (existing: CounterPayload, incoming: CounterPayload) => ({
-        ...incoming,
-        delta: existing.delta + incoming.delta,
-        newTotal: incoming.newTotal,
-      }),
-      windowMs: DEFAULT_AGGREGATE_WINDOW_MS,
-    },
+    aggregate: buildCounterAggregate(),
   },
   "counter.global.add": {
     format: formatGlobalCounterAdd,
