@@ -17,10 +17,10 @@ import type { CardId, ViewerRole, ZoneId } from "@/types";
 import { computeDragEndPlan, computeDragMoveUiState } from "./model";
 import { getEffectiveCardSize } from "@/lib/dndBattlefield";
 import {
+  clampCanonicalBattlefieldGroupDelta,
+  clampNormalizedToCanonicalBattlefieldBounds,
   fromNormalizedPosition,
-  getCanonicalGridSteps,
   mirrorNormalizedY,
-  snapNormalizedWithZone,
   toNormalizedPosition,
 } from "@/lib/positions";
 import { ZONE } from "@/constants/zones";
@@ -31,12 +31,103 @@ import { debugLog, isDebugEnabled, type DebugFlagKey } from "@/lib/debug";
 const DRAG_MOVE_THROTTLE_MS = 16; // ~60fps
 const FACE_DOWN_DEBUG_KEY: DebugFlagKey = "faceDownDrag";
 
+const DEFAULT_DRAG_TRANSFORM_ORIGIN = "50% 50%";
+
+const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
+
+const getEventCoordinates = (event: Event) => {
+  if (typeof MouseEvent !== "undefined" && event instanceof MouseEvent) {
+    return { x: event.clientX, y: event.clientY };
+  }
+  if (typeof TouchEvent !== "undefined" && event instanceof TouchEvent) {
+    const touch = event.touches[0] ?? event.changedTouches[0];
+    return touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }
+  return null;
+};
+
+const computeDragTransformOrigin = (
+  event: Event,
+  rect: { left: number; top: number; width: number; height: number } | null
+) => {
+  const anchor = computeDragAnchor(event, rect);
+  if (!anchor) return DEFAULT_DRAG_TRANSFORM_ORIGIN;
+  return `${anchor.x * 100}% ${anchor.y * 100}%`;
+};
+
+const computeDragAnchor = (
+  event: Event,
+  rect: { left: number; top: number; width: number; height: number } | null
+) => {
+  const coordinates = getEventCoordinates(event);
+  if (!coordinates || !rect?.width || !rect.height) {
+    return null;
+  }
+  return {
+    x: clampPercent(((coordinates.x - rect.left) / rect.width) * 100) / 100,
+    y: clampPercent(((coordinates.y - rect.top) / rect.height) * 100) / 100,
+  };
+};
+
+const getCurrentPointerScreen = (params: {
+  activatorEvent: Event;
+  delta: { x: number; y: number };
+}) => {
+  const start = getEventCoordinates(params.activatorEvent);
+  if (!start) return null;
+  return {
+    x: start.x + params.delta.x,
+    y: start.y + params.delta.y,
+  };
+};
+
+const escapeSelectorValue = (value: string) =>
+  value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+
+const getInitialBattlefieldGroupGhostCards = (params: {
+  cardIds: CardId[];
+  cards: ReturnType<typeof useGameStore.getState>["cards"];
+  zoneId: ZoneId;
+}) => {
+  if (typeof document === "undefined") return null;
+  const zoneNode = document.querySelector(
+    `[data-zone-id="${escapeSelectorValue(params.zoneId)}"]`
+  );
+  if (!(zoneNode instanceof HTMLElement)) return null;
+
+  const zoneRect = zoneNode.getBoundingClientRect();
+  const ghostCards = params.cardIds
+    .map((cardId) => {
+      const card = params.cards[cardId];
+      const cardNode = zoneNode.querySelector(
+        `[data-card-id="${escapeSelectorValue(cardId)}"]`
+      );
+      if (!card || !(cardNode instanceof HTMLElement)) return null;
+      const cardRect = cardNode.getBoundingClientRect();
+      return {
+        cardId,
+        zoneId: params.zoneId,
+        position: {
+          x: cardRect.left - zoneRect.left + cardRect.width / 2,
+          y: cardRect.top - zoneRect.top + cardRect.height / 2,
+        },
+        tapped: card.tapped,
+      };
+    })
+    .filter((value): value is NonNullable<typeof value> => Boolean(value));
+
+  return ghostCards.length === params.cardIds.length ? ghostCards : null;
+};
+
 export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
   const moveCard = useGameStore((state) => state.moveCard);
   const reorderZoneCards = useGameStore((state) => state.reorderZoneCards);
   const setGhostCards = useDragStore((state) => state.setGhostCards);
   const setActiveCardId = useDragStore((state) => state.setActiveCardId);
   const setActiveCardScale = useDragStore((state) => state.setActiveCardScale);
+  const setActiveCardTransformOrigin = useDragStore(
+    (state) => state.setActiveCardTransformOrigin
+  );
   const setIsGroupDragging = useDragStore((state) => state.setIsGroupDragging);
   const setOverCardScale = useDragStore((state) => state.setOverCardScale);
   const myPlayerId = useGameStore((state) => state.myPlayerId);
@@ -65,14 +156,17 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     startPositions: Record<CardId, { x: number; y: number }>;
     startZoneId: ZoneId;
   } | null>(null);
+  const dragAnchorRef = React.useRef<{ x: number; y: number } | null>(null);
 
   const handleDragStart = (event: DragStartEvent) => {
     if (isSpectator) return;
     currentDragSeq.current = ++dragSeq.current;
     dragSelectionRef.current = null;
+    dragAnchorRef.current = null;
     loggedMissingGhostRef.current = false;
 
     setGhostCards(null);
+    setActiveCardTransformOrigin(DEFAULT_DRAG_TRANSFORM_ORIGIN);
     setIsGroupDragging(false);
     if (event.active.data.current?.cardId) {
       const cardId = event.active.data.current.cardId as CardId;
@@ -82,6 +176,16 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
           ? event.active.data.current.cardScale
           : 1;
       setActiveCardScale(cardScale);
+      dragAnchorRef.current = computeDragAnchor(
+        event.activatorEvent,
+        event.active.rect.current.initial
+      );
+      setActiveCardTransformOrigin(
+        computeDragTransformOrigin(
+          event.activatorEvent,
+          event.active.rect.current.initial
+        )
+      );
 
       const state = useGameStore.getState();
       const activeCard = state.cards[cardId];
@@ -117,6 +221,16 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
           startPositions,
           startZoneId: activeCard.zoneId,
         };
+        const startZone = state.zones[activeCard.zoneId];
+        if (startZone?.type === ZONE.BATTLEFIELD) {
+          setGhostCards(
+            getInitialBattlefieldGroupGhostCards({
+              cardIds: groupIds,
+              cards: state.cards,
+              zoneId: activeCard.zoneId,
+            })
+          );
+        }
       }
     }
   };
@@ -176,6 +290,11 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       zones: state.zones,
       activeCardId,
       activeRect: active.rect.current?.translated,
+      pointerScreen: getCurrentPointerScreen({
+        activatorEvent: event.activatorEvent,
+        delta: event.delta,
+      }),
+      dragAnchor: dragAnchorRef.current,
       activeTapped: Boolean(active.data.current?.tapped),
       over: over
         ? {
@@ -275,6 +394,12 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       x: activeGhostCanonical.x - activeStart.x,
       y: activeGhostCanonical.y - activeStart.y,
     };
+    const clampedDelta = clampCanonicalBattlefieldGroupDelta({
+      movingIds: group.groupCardIds,
+      startPositions: group.startPositions,
+      delta,
+      isTapped: (id) => state.cards[id]?.tapped,
+    });
 
     const ghostCards = group.groupCardIds
       .map((id) => {
@@ -283,29 +408,20 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         if (!card || !startPos) return null;
 
         const candidate = {
-          x: startPos.x + delta.x,
-          y: startPos.y + delta.y,
+          x: startPos.x + clampedDelta.x,
+          y: startPos.y + clampedDelta.y,
         };
-        const { cardWidth, cardHeight } = getEffectiveCardSize({
-          viewScale: 1,
-          isTapped: card.tapped,
-          baseCardHeight,
-          baseCardWidth,
-        });
         const visualSize = getEffectiveCardSize({
           viewScale,
           isTapped: card.tapped,
           baseCardHeight,
           baseCardWidth,
         });
-        const snapped = snapNormalizedWithZone(
+        const target = clampNormalizedToCanonicalBattlefieldBounds(
           candidate,
-          zoneWidth,
-          zoneHeight,
-          cardWidth,
-          cardHeight
+          { isTapped: card.tapped }
         );
-        const viewNormalized = mirrorY ? mirrorNormalizedY(snapped) : snapped;
+        const viewNormalized = mirrorY ? mirrorNormalizedY(target) : target;
         const position = fromNormalizedPosition(
           viewNormalized,
           zoneWidth,
@@ -336,6 +452,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       setGhostCards(null);
       setActiveCardId(null);
       setActiveCardScale(1);
+      setActiveCardTransformOrigin(DEFAULT_DRAG_TRANSFORM_ORIGIN);
       setIsGroupDragging(false);
       setOverCardScale(1);
       currentDragSeq.current = null;
@@ -356,6 +473,11 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         toZoneId,
         overCardId: over.data.current?.cardId as CardId | undefined,
         activeRect: active.rect.current?.translated,
+        pointerScreen: getCurrentPointerScreen({
+          activatorEvent: event.activatorEvent,
+          delta: event.delta,
+        }),
+        dragAnchor: dragAnchorRef.current,
         overRect: over.rect,
         overScale: over.data.current?.scale,
         overCardScale: over.data.current?.cardScale,
@@ -376,6 +498,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
 
       const group = dragSelectionRef.current;
       dragSelectionRef.current = null;
+      dragAnchorRef.current = null;
 
       if (plan.kind === "reorderHand") {
         const zone = state.zones[plan.zoneId];
@@ -398,15 +521,15 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
               x: plan.position.x - activeStart.x,
               y: plan.position.y - activeStart.y,
             };
-            const zoneScale = over?.data.current?.scale ?? 1;
-            const baseCardHeight = over?.data.current?.cardBaseHeight;
-            const baseCardWidth = over?.data.current?.cardBaseWidth;
-            const zoneWidth = (over?.rect.width ?? 0) / (zoneScale || 1);
-            const zoneHeight = (over?.rect.height ?? 0) / (zoneScale || 1);
+            const clampedDelta = clampCanonicalBattlefieldGroupDelta({
+              movingIds: group.groupCardIds,
+              startPositions: group.startPositions,
+              delta,
+              isTapped: (id) => state.cards[id]?.tapped,
+            });
 
             const targetPositions: Record<CardId, { x: number; y: number }> = {};
             const movingIds: CardId[] = [];
-            const stepYById: Record<CardId, number> = {};
             group.groupCardIds.forEach((id) => {
               const card = state.cards[id];
               if (!card) return;
@@ -415,44 +538,25 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
               if (!startPos) return;
 
               const target = {
-                x: startPos.x + delta.x,
-                y: startPos.y + delta.y,
+                x: startPos.x + clampedDelta.x,
+                y: startPos.y + clampedDelta.y,
               };
-              const { cardWidth, cardHeight } = getEffectiveCardSize({
-                viewScale: 1,
-                isTapped: card.tapped,
-                baseCardHeight,
-                baseCardWidth,
-              });
-              const snapped = snapNormalizedWithZone(
+              const resolvedTarget = clampNormalizedToCanonicalBattlefieldBounds(
                 target,
-                zoneWidth,
-                zoneHeight,
-                cardWidth,
-                cardHeight
+                { isTapped: card.tapped }
               );
-              targetPositions[id] = snapped;
+              targetPositions[id] = resolvedTarget;
               movingIds.push(id);
-
-              const stepY = getCanonicalGridSteps({
-                isTapped: card.tapped,
-                zoneWidth,
-                zoneHeight,
-                baseCardHeight,
-                baseCardWidth,
-              }).stepY;
-              if (stepY) stepYById[id] = stepY;
             });
 
             const groupCollision = {
               movingCardIds: movingIds,
               targetPositions,
-              stepYById,
             };
             movingIds.forEach((id) => {
-              const snapped = targetPositions[id];
-              if (!snapped) return;
-              moveCard(id, plan.toZoneId, snapped, myPlayerId, undefined, {
+              const target = targetPositions[id];
+              if (!target) return;
+              moveCard(id, plan.toZoneId, target, myPlayerId, undefined, {
                 suppressLog: id !== group.activeCardId,
                 groupCollision,
               });
@@ -480,29 +584,13 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
 
         const targetZone = state.zones[plan.toZoneId];
         const activeCard = state.cards[plan.cardId];
-        const zoneScale = over?.data.current?.scale ?? 1;
-        const zoneWidth = (over?.rect.width ?? 0) / (zoneScale || 1);
-        const zoneHeight = (over?.rect.height ?? 0) / (zoneScale || 1);
-        const baseCardHeight = over?.data.current?.cardBaseHeight;
-        const baseCardWidth = over?.data.current?.cardBaseWidth;
-        const gridStepY =
-          targetZone?.type === ZONE.BATTLEFIELD && zoneHeight
-            ? getCanonicalGridSteps({
-                isTapped: activeCard?.tapped,
-                zoneWidth,
-                zoneHeight,
-                baseCardHeight,
-                baseCardWidth,
-              }).stepY
-            : undefined;
 
         moveCard(
           plan.cardId,
           plan.toZoneId,
           plan.position,
           myPlayerId,
-          undefined,
-          gridStepY ? { gridStepY } : undefined
+          undefined
         );
         if (
           targetZone &&
@@ -529,6 +617,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       reorderZoneCards,
       setActiveCardId,
       setActiveCardScale,
+      setActiveCardTransformOrigin,
       setGhostCards,
       setOverCardScale,
     ]

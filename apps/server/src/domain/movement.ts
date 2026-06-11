@@ -14,7 +14,7 @@ import {
   stripCardIdentity,
 } from "./cards";
 import {
-  getNormalizedGridSteps,
+  getCanonicalBattlefieldGridSteps,
   resolveBattlefieldCollisionPosition,
   resolveBattlefieldGroupCollisionPositions,
 } from "./positions";
@@ -106,16 +106,12 @@ const resolveMoveApplicationPosition = (params: {
       orderedCardIds: params.toZoneCardIds,
       getPosition: (id) => cardsById[id]?.position,
       getStepY: (id) =>
-        params.opts?.groupCollision?.stepYById?.[id] ??
-        params.opts?.gridStepY ??
-        getNormalizedGridSteps({ isTapped: cardsById[id]?.tapped }).stepY,
+        getCanonicalBattlefieldGridSteps({ isTapped: cardsById[id]?.tapped }).stepY,
     });
     return resolved[params.cardId] ?? resolvedPosition;
   }
 
-  const stepY =
-    params.opts?.gridStepY ??
-    getNormalizedGridSteps({ isTapped: params.card.tapped }).stepY;
+  const stepY = getCanonicalBattlefieldGridSteps({ isTapped: params.card.tapped }).stepY;
   return resolveBattlefieldCollisionPosition({
     movingCardId: params.cardId,
     targetPosition: resolvedPosition,

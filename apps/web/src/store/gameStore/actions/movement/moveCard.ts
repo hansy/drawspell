@@ -1,4 +1,4 @@
-import type { CardId, GameState } from "@/types";
+import type { GameState } from "@/types";
 
 import { ZONE } from "@/constants/zones";
 import { canMoveCard } from "@/rules/permissions";
@@ -8,7 +8,7 @@ import {
   resolveBattlefieldGroupCollisionPositions,
 } from "@/lib/battlefieldCollision";
 import { resetCardToFrontFace } from "@/lib/cardDisplay";
-import { getCanonicalGridSteps } from "@/lib/positions";
+import { getCanonicalBattlefieldGridSteps } from "@/lib/positions";
 import { syncCommanderDecklistForPlayer } from "@/store/gameStore/actions/deck/commanderDecklist";
 import { debugLog, type DebugFlagKey } from "@/lib/debug";
 import { normalizeMovePosition, planCardMovement } from "../movementModel";
@@ -65,56 +65,7 @@ export const createMoveCard =
     const shouldSyncCommander =
       initialPlan.shouldMarkCommander && actor === get().myPlayerId && card.ownerId === actor;
     const debugKey: DebugFlagKey = "faceDownDrag";
-    const resolvedOpts = (() => {
-      if (_isRemote) return opts;
-      if (toZone.type !== ZONE.BATTLEFIELD) return opts;
-      const sizing = snapshot.battlefieldGridSizing[toZone.ownerId];
-      if (!sizing) return opts;
-
-      let nextOpts: typeof opts | undefined = opts ? { ...opts } : undefined;
-      let changed = false;
-
-      if (typeof opts?.gridStepY !== "number") {
-        const stepY = getCanonicalGridSteps({
-          isTapped: card.tapped,
-          zoneWidth: sizing.zoneWidthPx,
-          zoneHeight: sizing.zoneHeightPx,
-          baseCardHeight: sizing.baseCardHeightPx,
-          baseCardWidth: sizing.baseCardWidthPx,
-        }).stepY;
-        if (stepY) {
-          if (!nextOpts) nextOpts = {};
-          nextOpts.gridStepY = stepY;
-          changed = true;
-        }
-      }
-
-      if (opts?.groupCollision && !opts.groupCollision.stepYById) {
-        const stepYById: Record<CardId, number> = {};
-        opts.groupCollision.movingCardIds.forEach((id) => {
-          const movingCard = snapshot.cards[id];
-          if (!movingCard) return;
-          const stepY = getCanonicalGridSteps({
-            isTapped: movingCard.tapped,
-            zoneWidth: sizing.zoneWidthPx,
-            zoneHeight: sizing.zoneHeightPx,
-            baseCardHeight: sizing.baseCardHeightPx,
-            baseCardWidth: sizing.baseCardWidthPx,
-          }).stepY;
-          if (stepY) stepYById[id] = stepY;
-        });
-        if (Object.keys(stepYById).length > 0) {
-          if (!nextOpts) nextOpts = {};
-          nextOpts.groupCollision = {
-            ...opts.groupCollision,
-            stepYById,
-          };
-          changed = true;
-        }
-      }
-
-      return changed ? nextOpts : opts;
-    })();
+    const resolvedOpts = opts;
 
     const applyMove = (state: GameState) => {
       const cardsCopy = { ...state.cards };
@@ -164,18 +115,15 @@ export const createMoveCard =
                 state.zones[toZoneId]?.cardIds ?? toZoneState.cardIds,
               getPosition: (id) => cardsCopy[id]?.position,
               getStepY: (id) =>
-                resolvedOpts.groupCollision?.stepYById?.[id] ??
-                resolvedOpts?.gridStepY ??
-                getCanonicalGridSteps({ isTapped: cardsCopy[id]?.tapped })
-                  .stepY,
+                getCanonicalBattlefieldGridSteps({
+                  isTapped: cardsCopy[id]?.tapped,
+                }).stepY,
             });
           resolvedPosition = resolvedPositions[cardId] ?? newPosition;
         } else {
-          const stepY =
-            resolvedOpts?.gridStepY ??
-            getCanonicalGridSteps({
-              isTapped: workingCard.tapped,
-            }).stepY;
+          const stepY = getCanonicalBattlefieldGridSteps({
+            isTapped: workingCard.tapped,
+          }).stepY;
           resolvedPosition = resolveBattlefieldCollisionPosition({
             movingCardId: cardId,
             targetPosition: newPosition,

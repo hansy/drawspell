@@ -114,7 +114,6 @@ export const useTokenCreationController = ({
       battlefieldZoneId,
       existingBattlefieldCardIds: battlefield?.cardIds ?? [],
       cardsById: state.cards,
-      battlefieldSizing: state.battlefieldGridSizing[playerId],
       quantity,
       createId: uuidv4,
     });

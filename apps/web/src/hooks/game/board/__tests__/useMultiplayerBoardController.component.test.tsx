@@ -95,6 +95,7 @@ const mockDragState = vi.hoisted(() => ({
   overCardScale: 1,
   activeCardId: null as string | null,
   activeCardScale: 1,
+  activeCardTransformOrigin: "50% 50%",
   isGroupDragging: false,
   ghostCards: null as any,
 }));

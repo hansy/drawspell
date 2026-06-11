@@ -6,7 +6,10 @@ import { Zone } from '../zone/Zone';
 import { useDragStore } from '@/store/dragStore';
 import { useGameStore } from '@/store/gameStore';
 import { useSelectionStore } from '@/store/selectionStore';
-import { computeBattlefieldCardLayout } from '@/models/game/seat/battlefieldModel';
+import {
+    computeBattlefieldCardLayout,
+    computeBattlefieldGridProjection,
+} from '@/models/game/seat/battlefieldModel';
 import { getCardPixelSize } from '@/lib/positions';
 import { useElementSize } from "@/hooks/shared/useElementSize";
 import { useBattlefieldZoomControls } from "@/hooks/game/board/useBattlefieldZoomControls";
@@ -151,15 +154,20 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     const showGrid = Boolean(activeCardId);
     const cardsById = useGameStore((state) => state.cards);
     const activeCard = activeCardId ? cardsById[activeCardId] : undefined;
-    const { cardWidth, cardHeight } = getCardPixelSize({
-        viewScale: 1,
+    const { ref: zoneSizeRef, size: zoneSize } = useElementSize<HTMLDivElement>();
+    const {
+        gridStepX,
+        gridStepY,
+        originOffsetX: gridOriginOffsetX,
+        originOffsetY: gridOriginOffsetY,
+    } = computeBattlefieldGridProjection({
+        zoneWidth: zoneSize.width,
+        zoneHeight: zoneSize.height,
+        viewScale,
         isTapped: Boolean(activeCard?.tapped),
         baseCardHeight,
         baseCardWidth,
     });
-    const gridStepX = cardWidth / 2;
-    const gridStepY = cardHeight / 4;
-    const { ref: zoneSizeRef, size: zoneSize } = useElementSize<HTMLDivElement>();
     const zoneNodeRef = React.useRef<HTMLDivElement | null>(null);
     const [zoneNode, setZoneNode] = React.useState<HTMLDivElement | null>(null);
     const setBattlefieldGridSizing = useGameStore(
@@ -377,7 +385,13 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                 onPointerCancel={handlePointerCancel}
                 onPointerLeave={handlePointerCancel}
             >
-                <BattlefieldGridOverlay visible={showGrid} gridStepX={gridStepX} gridStepY={gridStepY} />
+                <BattlefieldGridOverlay
+                    visible={showGrid}
+                    gridStepX={gridStepX}
+                    gridStepY={gridStepY}
+                    originOffsetX={gridOriginOffsetX}
+                    originOffsetY={gridOriginOffsetY}
+                />
                 {selectionRect && (
                     <div
                         className="pointer-events-none absolute z-10 border border-indigo-400/70 bg-indigo-400/10"

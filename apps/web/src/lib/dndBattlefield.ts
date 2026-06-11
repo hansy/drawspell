@@ -1,11 +1,11 @@
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from './constants';
 import {
+  clampNormalizedToCanonicalBattlefieldBounds,
   fromNormalizedPosition,
   mirrorNormalizedY,
-  snapNormalizedWithZone,
+  snapNormalizedToCanonicalBattlefieldGrid,
   toNormalizedPosition,
 } from './positions';
-import { clampToZoneBounds } from './dndMath';
 
 export type RectLike = Pick<
   DOMRect,
@@ -26,7 +26,9 @@ export const getEffectiveCardSize = (params: {
 };
 
 export const computeBattlefieldPlacement = (params: {
-  centerScreen: { x: number; y: number };
+  centerScreen?: { x: number; y: number };
+  pointerScreen?: { x: number; y: number };
+  dragAnchor?: { x: number; y: number };
   overRect: RectLike;
   zoneScale: number;
   viewScale: number;
@@ -39,47 +41,43 @@ export const computeBattlefieldPlacement = (params: {
   const zoneWidth = (params.overRect.width || 0) / safeScale;
   const zoneHeight = (params.overRect.height || 0) / safeScale;
 
-  const unsnappedPos = {
-    x: (params.centerScreen.x - params.overRect.left) / safeScale,
-    y: (params.centerScreen.y - params.overRect.top) / safeScale,
-  };
-
   const { cardWidth, cardHeight } = getEffectiveCardSize({
     isTapped: params.isTapped,
     viewScale: params.viewScale || 1,
     baseCardHeight: params.baseCardHeight,
     baseCardWidth: params.baseCardWidth,
   });
-  const { cardWidth: baseCardWidth, cardHeight: baseCardHeight } =
-    getEffectiveCardSize({
-      isTapped: params.isTapped,
-      viewScale: 1,
-      baseCardHeight: params.baseCardHeight,
-      baseCardWidth: params.baseCardWidth,
-    });
+  const centerScreen =
+    params.pointerScreen && params.dragAnchor
+      ? {
+          x:
+            params.pointerScreen.x +
+            (0.5 - params.dragAnchor.x) * cardWidth * safeScale,
+          y:
+            params.pointerScreen.y +
+            (0.5 - params.dragAnchor.y) * cardHeight * safeScale,
+        }
+      : params.centerScreen ?? { x: 0, y: 0 };
 
-  const clampedCanonicalPos = clampToZoneBounds(
-    unsnappedPos,
-    zoneWidth,
-    zoneHeight,
-    baseCardWidth,
-    baseCardHeight
-  );
-
+  const unsnappedPos = {
+    x: (centerScreen.x - params.overRect.left) / safeScale,
+    y: (centerScreen.y - params.overRect.top) / safeScale,
+  };
   const unsnappedCanonicalNormalized = toNormalizedPosition(
-    clampedCanonicalPos,
+    unsnappedPos,
     zoneWidth,
     zoneHeight
   );
   const baseCanonical = params.mirrorY
     ? mirrorNormalizedY(unsnappedCanonicalNormalized)
     : unsnappedCanonicalNormalized;
-  const snappedCanonical = snapNormalizedWithZone(
+  const previewCanonical = clampNormalizedToCanonicalBattlefieldBounds(
     baseCanonical,
-    zoneWidth,
-    zoneHeight,
-    baseCardWidth,
-    baseCardHeight
+    { isTapped: params.isTapped }
+  );
+  const snappedCanonical = snapNormalizedToCanonicalBattlefieldGrid(
+    baseCanonical,
+    { isTapped: params.isTapped }
   );
 
   const ghostNormalized = params.mirrorY
@@ -92,6 +90,7 @@ export const computeBattlefieldPlacement = (params: {
     cardHeight,
     zoneWidth,
     zoneHeight,
+    previewCanonical,
     snappedCanonical,
     ghostPosition,
   };

@@ -8,6 +8,9 @@ import {
   LEGACY_BATTLEFIELD_HEIGHT,
   LEGACY_BATTLEFIELD_WIDTH,
   clampNormalizedPosition,
+  clampCanonicalBattlefieldGroupDelta,
+  clampNormalizedToCanonicalBattlefieldBounds,
+  getCanonicalBattlefieldGridSteps,
   getNormalizedGridSteps,
   getCardPixelSize,
   findAvailablePositionNormalized,
@@ -20,7 +23,7 @@ describe('positions', () => {
     const baseWidth = BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;
     expect(LEGACY_BATTLEFIELD_WIDTH).toBe(1000);
     expect(LEGACY_BATTLEFIELD_HEIGHT).toBe(600);
-    expect(GRID_STEP_X).toBeCloseTo((baseWidth / 2) / LEGACY_BATTLEFIELD_WIDTH, 8);
+    expect(GRID_STEP_X).toBeCloseTo(baseWidth / LEGACY_BATTLEFIELD_WIDTH, 8);
     expect(GRID_STEP_Y).toBeCloseTo((BASE_CARD_HEIGHT / 4) / LEGACY_BATTLEFIELD_HEIGHT, 8);
   });
 
@@ -72,7 +75,46 @@ describe('positions', () => {
       zoneWidth: 800,
       zoneHeight: 640,
     });
-    expect(stepX).toBeCloseTo(((120 * 1.25) / 2) / 800, 6);
+    expect(stepX).toBeCloseTo((120 * 1.25) / 800, 6);
     expect(stepY).toBeCloseTo(((160 * 1.25) / 4) / 640, 6);
+  });
+
+  it('uses canonical battlefield grid steps for stored battlefield movement', () => {
+    const normal = getCanonicalBattlefieldGridSteps();
+    const tapped = getCanonicalBattlefieldGridSteps({ isTapped: true });
+
+    expect(normal.stepX).toBeCloseTo(GRID_STEP_X, 8);
+    expect(normal.stepY).toBeCloseTo(GRID_STEP_Y, 8);
+    expect(tapped.stepX).toBeCloseTo(BASE_CARD_HEIGHT / LEGACY_BATTLEFIELD_WIDTH, 8);
+    expect(tapped.stepY).toBeCloseTo(
+      ((BASE_CARD_HEIGHT * CARD_ASPECT_RATIO) / 4) / LEGACY_BATTLEFIELD_HEIGHT,
+      8
+    );
+  });
+
+  it('clamps a group delta without changing the relative card offsets', () => {
+    const clamped = clampCanonicalBattlefieldGroupDelta({
+      movingIds: ['a', 'b'],
+      startPositions: {
+        a: { x: 0.1, y: 0.5 },
+        b: { x: 0.18, y: 0.6 },
+      },
+      delta: { x: -0.2, y: 0.1 },
+    });
+
+    expect(clamped.x).toBeCloseTo(-0.06, 6);
+    expect(clamped.y).toBeCloseTo(0.1, 6);
+
+    const nextA = clampNormalizedToCanonicalBattlefieldBounds({
+      x: 0.1 + clamped.x,
+      y: 0.5 + clamped.y,
+    });
+    const nextB = clampNormalizedToCanonicalBattlefieldBounds({
+      x: 0.18 + clamped.x,
+      y: 0.6 + clamped.y,
+    });
+
+    expect(nextB.x - nextA.x).toBeCloseTo(0.08, 6);
+    expect(nextB.y - nextA.y).toBeCloseTo(0.1, 6);
   });
 });

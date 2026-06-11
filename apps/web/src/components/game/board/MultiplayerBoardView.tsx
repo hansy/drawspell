@@ -322,6 +322,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   overCardScale,
   activeCardId,
   activeCardScale,
+  activeCardTransformOrigin,
   isGroupDragging,
   showGroupDragOverlay,
   groupDragCardIds,
@@ -1058,7 +1059,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                     style={{
                       ...(overlayCardVars ?? {}),
                       transform: `scale(${overlayScale})`,
-                      transformOrigin: "top left",
+                      transformOrigin: activeCardTransformOrigin,
                     }}
                   >
                     <div
@@ -1130,7 +1131,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                       style={{
                         ...(overlayCardVars ?? {}),
                         transform: `scale(${overlayScale})`,
-                        transformOrigin: "top left",
+                        transformOrigin: activeCardTransformOrigin,
                       }}
                     >
                       <CardView

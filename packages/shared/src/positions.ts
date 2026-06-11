@@ -96,7 +96,7 @@ export const getNormalizedGridSteps = (params?: {
   const zoneWidth = params?.zoneWidth ?? LEGACY_BATTLEFIELD_WIDTH;
   const zoneHeight = params?.zoneHeight ?? LEGACY_BATTLEFIELD_HEIGHT;
   return {
-    stepX: zoneWidth ? (cardWidth / 2) / zoneWidth : 0,
+    stepX: zoneWidth ? cardWidth / zoneWidth : 0,
     stepY: zoneHeight ? (cardHeight / 4) / zoneHeight : 0,
   };
 };
@@ -113,6 +113,17 @@ export const getCanonicalGridSteps = (params?: {
     baseCardHeight: params?.baseCardHeight,
     baseCardWidth: params?.baseCardWidth,
     viewScale: 1,
+  });
+
+export const getCanonicalBattlefieldGridSteps = (params?: {
+  isTapped?: boolean;
+}) =>
+  getCanonicalGridSteps({
+    isTapped: params?.isTapped,
+    zoneWidth: LEGACY_BATTLEFIELD_WIDTH,
+    zoneHeight: LEGACY_BATTLEFIELD_HEIGHT,
+    baseCardHeight: BASE_CARD_HEIGHT,
+    baseCardWidth: BASE_CARD_HEIGHT * CARD_ASPECT_RATIO,
   });
 
 export const normalizedPositionKey = (position: Position) =>
@@ -190,7 +201,7 @@ export const snapNormalizedWithZone = (
   if (!zoneWidth || !zoneHeight) return clampNormalizedPosition(position);
 
   const asPixels = fromNormalizedPosition(position, zoneWidth, zoneHeight);
-  const gridX = cardWidth / 2;
+  const gridX = cardWidth;
   const gridY = cardHeight / 4;
   const left = asPixels.x - cardWidth / 2;
   const top = asPixels.y - cardHeight / 2;
@@ -209,6 +220,84 @@ export const snapNormalizedWithZone = (
     cardHeight
   );
   return toNormalizedPosition(clampedPixels, zoneWidth, zoneHeight);
+};
+
+export const snapNormalizedToCanonicalBattlefieldGrid = (
+  position: Position,
+  params?: { isTapped?: boolean }
+) => {
+  const { cardWidth, cardHeight } = getCanonicalCardPixelSize({
+    isTapped: params?.isTapped,
+    baseCardHeight: BASE_CARD_HEIGHT,
+    baseCardWidth: BASE_CARD_HEIGHT * CARD_ASPECT_RATIO,
+  });
+  return snapNormalizedWithZone(
+    position,
+    LEGACY_BATTLEFIELD_WIDTH,
+    LEGACY_BATTLEFIELD_HEIGHT,
+    cardWidth,
+    cardHeight
+  );
+};
+
+export const getCanonicalBattlefieldCardBounds = (params?: {
+  isTapped?: boolean;
+}) => {
+  const { cardWidth, cardHeight } = getCanonicalCardPixelSize({
+    isTapped: params?.isTapped,
+    baseCardHeight: BASE_CARD_HEIGHT,
+    baseCardWidth: BASE_CARD_HEIGHT * CARD_ASPECT_RATIO,
+  });
+  const halfW = cardWidth / 2 / LEGACY_BATTLEFIELD_WIDTH;
+  const halfH = cardHeight / 2 / LEGACY_BATTLEFIELD_HEIGHT;
+  return {
+    minX: halfW,
+    maxX: 1 - halfW,
+    minY: halfH,
+    maxY: 1 - halfH,
+  };
+};
+
+export const clampNormalizedToCanonicalBattlefieldBounds = (
+  position: Position,
+  params?: { isTapped?: boolean }
+) => {
+  const bounds = getCanonicalBattlefieldCardBounds({
+    isTapped: params?.isTapped,
+  });
+  return {
+    x: clampNumber(position.x, bounds.minX, bounds.maxX),
+    y: clampNumber(position.y, bounds.minY, bounds.maxY),
+  };
+};
+
+export const clampCanonicalBattlefieldGroupDelta = <T extends string>(params: {
+  movingIds: T[];
+  startPositions: Record<T, Position | undefined>;
+  delta: Position;
+  isTapped?: (id: T) => boolean | undefined;
+}) => {
+  let minDx = -Infinity;
+  let maxDx = Infinity;
+  let minDy = -Infinity;
+  let maxDy = Infinity;
+
+  params.movingIds.forEach((id) => {
+    const start = params.startPositions[id];
+    if (!start) return;
+    const bounds = getCanonicalBattlefieldCardBounds({
+      isTapped: params.isTapped?.(id),
+    });
+    minDx = Math.max(minDx, bounds.minX - start.x);
+    maxDx = Math.min(maxDx, bounds.maxX - start.x);
+    minDy = Math.max(minDy, bounds.minY - start.y);
+    maxDy = Math.min(maxDy, bounds.maxY - start.y);
+  });
+
+  return {
+    x: clampNumber(params.delta.x, minDx, maxDx),
+    y: clampNumber(params.delta.y, minDy, maxDy),
+  };
 };
 
 /**

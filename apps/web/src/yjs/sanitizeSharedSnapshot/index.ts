@@ -9,6 +9,13 @@ import type {
 
 import { enforceZoneCounterRules } from "@/lib/counters";
 import { MAX_CARDS, MAX_CARDS_PER_ZONE } from "@/lib/limits";
+import {
+  getCanonicalBattlefieldGridSteps,
+  normalizedPositionKey,
+  positionsRoughlyEqual,
+  resolvePositionAgainstOccupied,
+  snapNormalizedToCanonicalBattlefieldGrid,
+} from "@/lib/positions";
 import { MAX_PLAYERS, MAX_ZONES } from "../sanitizeLimits";
 
 import { sanitizeCard } from "./card";
@@ -131,6 +138,31 @@ export function sanitizeSharedSnapshot(snapshot: SharedSnapshotLike) {
     if (counters !== card.counters) {
       safeCards[card.id] = { ...card, counters };
     }
+  });
+
+  Object.values(safeZones).forEach((zone) => {
+    if (zone.type !== "battlefield") return;
+
+    const occupied = new Set<string>();
+    zone.cardIds.forEach((cardId) => {
+      const card = safeCards[cardId];
+      if (!card) return;
+
+      const snapped = snapNormalizedToCanonicalBattlefieldGrid(card.position, {
+        isTapped: card.tapped,
+      });
+      const resolved = resolvePositionAgainstOccupied({
+        targetPosition: snapped,
+        occupied,
+        maxAttempts: MAX_CARDS_PER_ZONE,
+        stepY: getCanonicalBattlefieldGridSteps({ isTapped: card.tapped }).stepY,
+      });
+
+      occupied.add(normalizedPositionKey(resolved));
+      if (!positionsRoughlyEqual(card.position, resolved)) {
+        safeCards[card.id] = { ...card, position: resolved };
+      }
+    });
   });
 
   const safeGlobalCounters: Record<string, string> = {};
