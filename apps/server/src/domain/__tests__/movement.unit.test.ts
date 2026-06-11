@@ -6,6 +6,7 @@ import type { Zone } from "@mtg/shared/types/zones";
 import { ZONE } from "../constants";
 import { createEmptyHiddenState } from "../hiddenState";
 import { applyCardMove } from "../movement";
+import { getCanonicalBattlefieldGridSteps } from "../positions";
 import { getMaps, readCard, readZone, writeCard, writeZone } from "../yjsStore";
 
 const createDoc = () => new Y.Doc();
@@ -117,7 +118,7 @@ describe("applyCardMove", () => {
     expect(hiddenChanged).toBe(true);
   });
 
-  it("uses gridStepY overrides for battlefield collision resolution", () => {
+  it("ignores client gridStepY overrides for battlefield collision resolution", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
     const hidden = createEmptyHiddenState();
@@ -152,7 +153,10 @@ describe("applyCardMove", () => {
 
     expect(result.ok).toBe(true);
     const moved = readCard(maps, "c1");
-    expect(moved?.position.y).toBeCloseTo(0.7, 6);
+    expect(moved?.position.y).toBeCloseTo(
+      0.5 + getCanonicalBattlefieldGridSteps().stepY,
+      6
+    );
     expect(hiddenChanged).toBe(true);
     expect(logEvents[0]?.eventId).toBe("card.move");
   });

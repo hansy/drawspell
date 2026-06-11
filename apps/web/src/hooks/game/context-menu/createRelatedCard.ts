@@ -12,7 +12,7 @@ export type LoggerLike = Pick<Console, "error">;
 
 type StoreLike = Pick<
   GameState,
-  "zones" | "cards" | "players" | "battlefieldGridSizing" | "addCard"
+  "zones" | "cards" | "players" | "addCard"
 >;
 
 export const createRelatedCardHandler = (params: {
@@ -35,7 +35,6 @@ export const createRelatedCardHandler = (params: {
       viewerRole: params.viewerRole,
       zonesById: state.zones,
       cardsById: state.cards,
-      battlefieldGridSizing: state.battlefieldGridSizing,
       fetchScryfallCardByUri: params.fetchScryfallCardByUri,
       createId: params.createId,
     });

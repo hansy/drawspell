@@ -85,6 +85,79 @@ describe("gameDnD model", () => {
       });
     });
 
+    it("keeps ghost placement canonical while matching zoomed-out visual size", () => {
+      const zones: Record<string, Zone> = {
+        "p1-hand": { id: "p1-hand", type: ZONE.HAND, ownerId: "p1", cardIds: ["c1"] },
+        "p1-battlefield": {
+          id: "p1-battlefield",
+          type: ZONE.BATTLEFIELD,
+          ownerId: "p1",
+          cardIds: [],
+        },
+      };
+      const cards = {
+        c1: createCard("c1", { zoneId: "p1-hand" }),
+      };
+
+      const state = computeDragMoveUiState({
+        myPlayerId: "p1",
+        cards,
+        zones,
+        activeCardId: "c1",
+        activeRect: rect({ left: 300, top: 300, width: 40, height: 60 }),
+        activeTapped: false,
+        over: {
+          id: "p1-battlefield",
+          type: ZONE.BATTLEFIELD,
+          rect: rect({ left: 0, top: 0, width: 1000, height: 600 }),
+          scale: 1,
+          cardScale: 0.5,
+          mirrorY: false,
+        },
+      });
+
+      expect(state.overCardScale).toBe(0.5);
+      expect(state.ghostCard?.position).toEqual({ x: 360, y: 330 });
+      expect(state.ghostCard?.size).toEqual({ width: 40, height: 60 });
+    });
+
+    it("uses the pointer anchor when the drag preview changes scale", () => {
+      const zones: Record<string, Zone> = {
+        "p1-hand": { id: "p1-hand", type: ZONE.HAND, ownerId: "p1", cardIds: ["c1"] },
+        "p1-battlefield": {
+          id: "p1-battlefield",
+          type: ZONE.BATTLEFIELD,
+          ownerId: "p1",
+          cardIds: [],
+        },
+      };
+      const cards = {
+        c1: createCard("c1", { zoneId: "p1-hand" }),
+      };
+
+      const state = computeDragMoveUiState({
+        myPlayerId: "p1",
+        cards,
+        zones,
+        activeCardId: "c1",
+        activeRect: rect({ left: 300, top: 300, width: 80, height: 120 }),
+        pointerScreen: { x: 320, y: 330 },
+        dragAnchor: { x: 0.25, y: 0.25 },
+        activeTapped: false,
+        over: {
+          id: "p1-battlefield",
+          type: ZONE.BATTLEFIELD,
+          rect: rect({ left: 0, top: 0, width: 1000, height: 600 }),
+          scale: 1,
+          cardScale: 0.5,
+          mirrorY: false,
+        },
+      });
+
+      expect(state.ghostCard?.position).toEqual({ x: 360, y: 360 });
+      expect(state.ghostCard?.size).toEqual({ width: 40, height: 60 });
+    });
+
     it("returns defaults when permission is denied", () => {
       const zones: Record<string, Zone> = {
         "p2-battlefield": {

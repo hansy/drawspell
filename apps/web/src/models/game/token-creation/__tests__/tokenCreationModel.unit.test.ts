@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { Card } from "@/types";
 import type { ScryfallCard } from "@/types/scryfall";
 
-import { GRID_STEP_X, GRID_STEP_Y } from "@/lib/positions";
+import {
+  GRID_STEP_X,
+  GRID_STEP_Y,
+  snapNormalizedToCanonicalBattlefieldGrid,
+} from "@/lib/positions";
 import { planTokenCards } from "../tokenCreationModel";
 
 const createToken = (overrides: Partial<ScryfallCard> = {}) =>
@@ -21,6 +25,7 @@ describe("tokenCreationModel", () => {
     let index = 0;
     const createId = () => ids[index++]!;
 
+    const snappedStart = snapNormalizedToCanonicalBattlefieldGrid({ x: 0.5, y: 0.5 });
     const existingCard: Card = {
       id: "existing",
       name: "Existing",
@@ -29,7 +34,7 @@ describe("tokenCreationModel", () => {
       zoneId: "p1-battlefield",
       tapped: false,
       faceDown: false,
-      position: { x: 0.5, y: 0.5 },
+      position: snappedStart,
       rotation: 0,
       counters: [],
     };
@@ -48,10 +53,10 @@ describe("tokenCreationModel", () => {
 
     expect(planned).toHaveLength(2);
 
-    expect(planned[0]?.position.x).toBeCloseTo(0.5 + GRID_STEP_X, 6);
-    expect(planned[0]?.position.y).toBeCloseTo(0.5 + GRID_STEP_Y, 6);
-    expect(planned[1]?.position.x).toBeCloseTo(0.5 + 2 * GRID_STEP_X, 6);
-    expect(planned[1]?.position.y).toBeCloseTo(0.5 + 2 * GRID_STEP_Y, 6);
+    expect(planned[0]?.position.x).toBeCloseTo(snappedStart.x + GRID_STEP_X, 6);
+    expect(planned[0]?.position.y).toBeCloseTo(snappedStart.y + GRID_STEP_Y, 6);
+    expect(planned[1]?.position.x).toBeCloseTo(snappedStart.x + 2 * GRID_STEP_X, 6);
+    expect(planned[1]?.position.y).toBeCloseTo(snappedStart.y + 2 * GRID_STEP_Y, 6);
   });
 
   it("derives name and P/T from token faces and top-level fields", () => {

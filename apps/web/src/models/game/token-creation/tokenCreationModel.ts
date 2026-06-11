@@ -1,10 +1,11 @@
-import type { BattlefieldGridSizing, Card, CardId, PlayerId, ZoneId } from "@/types";
+import type { Card, CardId, PlayerId, ZoneId } from "@/types";
 import type { ScryfallCard } from "@/types/scryfall";
 
 import {
   clampNormalizedPosition,
   findAvailablePositionNormalized,
   offsetNormalizedByGrid,
+  snapNormalizedToCanonicalBattlefieldGrid,
 } from "@/lib/positions";
 import { toScryfallCardLite } from "@/types/scryfallLite";
 
@@ -24,7 +25,6 @@ export const planTokenCards = (params: {
   battlefieldZoneId: ZoneId;
   existingBattlefieldCardIds: CardId[];
   cardsById: Record<CardId, Pick<Card, "position">>;
-  battlefieldSizing?: BattlefieldGridSizing;
   quantity: number;
   createId: () => string;
 }): Card[] => {
@@ -35,10 +35,6 @@ export const planTokenCards = (params: {
     stepsX: 0,
     stepsY: 0,
     isTapped: false,
-    zoneWidth: params.battlefieldSizing?.zoneWidthPx,
-    zoneHeight: params.battlefieldSizing?.zoneHeightPx,
-    baseCardHeight: params.battlefieldSizing?.baseCardHeightPx,
-    baseCardWidth: params.battlefieldSizing?.baseCardWidthPx,
   });
 
   const occupiedCardIds = [...params.existingBattlefieldCardIds];
@@ -54,9 +50,10 @@ export const planTokenCards = (params: {
       x: DEFAULT_START.x + index * stepX,
       y: DEFAULT_START.y + index * stepY,
     });
+    const snappedBase = snapNormalizedToCanonicalBattlefieldGrid(base);
 
     const position = findAvailablePositionNormalized(
-      base,
+      snappedBase,
       occupiedCardIds,
       combinedCardsById,
       stepX,

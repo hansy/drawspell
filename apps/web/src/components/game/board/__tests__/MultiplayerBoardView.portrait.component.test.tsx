@@ -123,6 +123,7 @@ const renderBoard = (players: PlayerSlot[]) => {
         overCardScale: 1,
         activeCardId: null,
         activeCardScale: 1,
+        activeCardTransformOrigin: "50% 50%",
         isGroupDragging: false,
         showGroupDragOverlay: false,
         groupDragCardIds: [],

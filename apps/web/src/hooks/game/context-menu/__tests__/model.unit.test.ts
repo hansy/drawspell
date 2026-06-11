@@ -78,7 +78,8 @@ describe("gameContextMenu model", () => {
 
   it("builds a related battlefield card near the source card and populates derived fields", () => {
     const zone = createZone({ id: "bf", type: ZONE_CONST.BATTLEFIELD, cardIds: ["base"] });
-    const source = createCard({ id: "base", zoneId: "bf", position: { x: 0.1, y: 0.1 } });
+    const sourcePosition = { x: 0.12, y: 0.1 };
+    const source = createCard({ id: "base", zoneId: "bf", position: sourcePosition });
 
     const scryfall = createScryfallCard({
       id: "scry",
@@ -116,15 +117,16 @@ describe("gameContextMenu model", () => {
     expect(planned?.basePower).toBe("2");
     expect(planned?.baseToughness).toBe("1");
 
-    expect(planned?.position.x).toBeCloseTo(0.1 + GRID_STEP_X, 6);
-    expect(planned?.position.y).toBeCloseTo(0.1 + GRID_STEP_Y, 6);
+    expect(planned?.position.x).toBeCloseTo(sourcePosition.x + GRID_STEP_X, 6);
+    expect(planned?.position.y).toBeCloseTo(sourcePosition.y + GRID_STEP_Y, 6);
   });
 
   it("bumps the planned position when it would overlap an existing card", () => {
     const zone = createZone({ id: "bf", type: ZONE_CONST.BATTLEFIELD, cardIds: ["base", "occ"] });
-    const source = createCard({ id: "base", zoneId: "bf", position: { x: 0.1, y: 0.1 } });
+    const sourcePosition = { x: 0.12, y: 0.1 };
+    const source = createCard({ id: "base", zoneId: "bf", position: sourcePosition });
     const occupied: Pick<Card, "position"> = {
-      position: { x: 0.1 + GRID_STEP_X, y: 0.1 + GRID_STEP_Y },
+      position: { x: sourcePosition.x + GRID_STEP_X, y: sourcePosition.y + GRID_STEP_Y },
     };
 
     const planned = buildRelatedBattlefieldCard({
@@ -137,8 +139,8 @@ describe("gameContextMenu model", () => {
       createId: () => "new1",
     });
 
-    expect(planned?.position.x).toBeCloseTo(0.1 + 2 * GRID_STEP_X, 6);
-    expect(planned?.position.y).toBeCloseTo(0.1 + 2 * GRID_STEP_Y, 6);
+    expect(planned?.position.x).toBeCloseTo(sourcePosition.x + 2 * GRID_STEP_X, 6);
+    expect(planned?.position.y).toBeCloseTo(sourcePosition.y + 2 * GRID_STEP_Y, 6);
   });
 
   it("returns null for non-battlefield zones", () => {
@@ -158,4 +160,3 @@ describe("gameContextMenu model", () => {
     ).toBeNull();
   });
 });
-

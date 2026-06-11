@@ -95,6 +95,9 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const overCardScale = useDragStore((state) => state.overCardScale);
   const activeCardId = useDragStore((state) => state.activeCardId);
   const activeCardScale = useDragStore((state) => state.activeCardScale);
+  const activeCardTransformOrigin = useDragStore(
+    (state) => state.activeCardTransformOrigin,
+  );
   const isGroupDragging = useDragStore((state) => state.isGroupDragging);
   const ghostCards = useDragStore((state) => state.ghostCards);
   const selectedCardIds = useSelectionStore((state) => state.selectedCardIds);
@@ -562,6 +565,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     overCardScale,
     activeCardId,
     activeCardScale,
+    activeCardTransformOrigin,
     isGroupDragging,
     showGroupDragOverlay,
     groupDragCardIds,

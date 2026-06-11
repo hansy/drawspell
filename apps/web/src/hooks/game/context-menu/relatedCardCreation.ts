@@ -1,11 +1,4 @@
-import type {
-  BattlefieldGridSizing,
-  Card,
-  PlayerId,
-  ViewerRole,
-  Zone,
-  ZoneId,
-} from "@/types";
+import type { Card, PlayerId, ViewerRole, Zone, ZoneId } from "@/types";
 import type { ScryfallCard, ScryfallRelatedCard } from "@/types/scryfall";
 
 import { ZONE } from "@/constants/zones";
@@ -29,7 +22,6 @@ export const planRelatedBattlefieldCardCreation = async (params: {
   viewerRole?: ViewerRole;
   zonesById: Record<ZoneId, Zone>;
   cardsById: Record<string, Pick<Card, "position">>;
-  battlefieldGridSizing?: Record<PlayerId, BattlefieldGridSizing>;
   fetchScryfallCardByUri: (uri: string) => Promise<ScryfallCard>;
   createId: () => string;
 }): Promise<RelatedCardCreationResult> => {
@@ -70,7 +62,6 @@ export const planRelatedBattlefieldCardCreation = async (params: {
     related: params.related,
     scryfallCard,
     cardsById: params.cardsById,
-    battlefieldSizing: params.battlefieldGridSizing?.[battlefield.ownerId],
     createId: params.createId,
   });
 

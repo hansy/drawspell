@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeBattlefieldCardLayout } from '../battlefieldModel';
+import {
+  computeBattlefieldCardLayout,
+  computeBattlefieldGridProjection,
+} from '../battlefieldModel';
+import {
+  fromNormalizedPosition,
+  getCardPixelSize,
+  snapNormalizedToCanonicalBattlefieldGrid,
+} from '@/lib/positions';
 
 const createCard = (overrides: Partial<any> = {}) =>
   ({
@@ -16,6 +24,11 @@ const createCard = (overrides: Partial<any> = {}) =>
     counters: [],
     ...overrides,
   }) as any;
+
+const distanceToGrid = (value: number, origin: number, step: number) => {
+  const remainder = ((value - origin) % step + step) % step;
+  return Math.min(remainder, step - remainder);
+};
 
 describe('battlefieldModel', () => {
   it('computes left/top from normalized position', () => {
@@ -103,5 +116,73 @@ describe('battlefieldModel', () => {
     });
 
     expect(layout.disableDrag).toBe(false);
+  });
+
+  it('projects the canonical grid onto a zoomed-out narrow battlefield', () => {
+    const zoneWidth = 149.328125;
+    const zoneHeight = 676;
+    const viewScale = 0.5;
+    const snappedPosition = snapNormalizedToCanonicalBattlefieldGrid({
+      x: 0.613,
+      y: 0.375,
+    });
+    const center = fromNormalizedPosition(snappedPosition, zoneWidth, zoneHeight);
+    const { cardWidth, cardHeight } = getCardPixelSize({ viewScale });
+    const projection = computeBattlefieldGridProjection({
+      zoneWidth,
+      zoneHeight,
+      viewScale,
+    });
+
+    expect(
+      distanceToGrid(
+        center.x - cardWidth / 2,
+        projection.originOffsetX,
+        projection.gridStepX
+      )
+    ).toBeLessThan(0.0001);
+    expect(
+      distanceToGrid(
+        center.y - cardHeight / 2,
+        projection.originOffsetY,
+        projection.gridStepY
+      )
+    ).toBeLessThan(0.0001);
+  });
+
+  it('uses tapped dimensions when projecting the active drag grid', () => {
+    const zoneWidth = 900;
+    const zoneHeight = 540;
+    const viewScale = 0.65;
+    const snappedPosition = snapNormalizedToCanonicalBattlefieldGrid(
+      { x: 0.4, y: 0.4 },
+      { isTapped: true }
+    );
+    const center = fromNormalizedPosition(snappedPosition, zoneWidth, zoneHeight);
+    const { cardWidth, cardHeight } = getCardPixelSize({
+      viewScale,
+      isTapped: true,
+    });
+    const projection = computeBattlefieldGridProjection({
+      zoneWidth,
+      zoneHeight,
+      viewScale,
+      isTapped: true,
+    });
+
+    expect(
+      distanceToGrid(
+        center.x - cardWidth / 2,
+        projection.originOffsetX,
+        projection.gridStepX
+      )
+    ).toBeLessThan(0.0001);
+    expect(
+      distanceToGrid(
+        center.y - cardHeight / 2,
+        projection.originOffsetY,
+        projection.gridStepY
+      )
+    ).toBeLessThan(0.0001);
   });
 });

@@ -5,7 +5,7 @@ import {
 } from "@/lib/battlefieldCollision";
 import {
   clampNormalizedPosition,
-  getCanonicalGridSteps,
+  getCanonicalBattlefieldGridSteps,
   migratePositionToNormalized,
 } from "@/lib/positions";
 import { resetCardToFrontFace } from "@/lib/cardDisplay";
@@ -24,11 +24,9 @@ export function moveCard(
   position?: { x: number; y: number },
   opts?: {
     skipCollision?: boolean;
-    gridStepY?: number;
     groupCollision?: {
       movingCardIds: string[];
       targetPositions: Record<string, { x: number; y: number } | undefined>;
-      stepYById?: Record<string, number>;
     };
   }
 ) {
@@ -67,14 +65,15 @@ export function moveCard(
         orderedCardIds: toOrder.toArray(),
         getPosition: (id) => readCard(maps, id)?.position,
         getStepY: (id) =>
-          opts.groupCollision?.stepYById?.[id] ??
-          opts?.gridStepY ??
-          getCanonicalGridSteps({ isTapped: readCard(maps, id)?.tapped }).stepY,
+          getCanonicalBattlefieldGridSteps({
+            isTapped: readCard(maps, id)?.tapped,
+          }).stepY,
       });
       newPosition = resolvedPositions[cardId] ?? basePosition;
     } else {
-      const stepY =
-        opts?.gridStepY ?? getCanonicalGridSteps({ isTapped: card.tapped }).stepY;
+      const stepY = getCanonicalBattlefieldGridSteps({
+        isTapped: card.tapped,
+      }).stepY;
       newPosition = resolveBattlefieldCollisionPosition({
         movingCardId: cardId,
         targetPosition: basePosition,

@@ -70,14 +70,12 @@ export interface GameState {
       faceDown?: boolean;
       faceDownMode?: FaceDownMode;
       skipCollision?: boolean;
-      gridStepY?: number;
       groupCollision?: {
         movingCardIds: CardId[];
         targetPositions: Record<
           CardId,
           { x: number; y: number } | undefined
         >;
-        stepYById?: Record<CardId, number>;
       };
     }
   ) => void;

@@ -23,6 +23,8 @@ export const computeDragMoveUiState = (params: {
   zones: Record<ZoneId, Zone>;
   activeCardId?: CardId;
   activeRect?: RectLike | null;
+  pointerScreen?: { x: number; y: number } | null;
+  dragAnchor?: { x: number; y: number } | null;
   activeTapped?: boolean;
   over:
     | null
@@ -82,6 +84,8 @@ export const computeDragMoveUiState = (params: {
 
   const placement = computeBattlefieldPlacement({
     centerScreen,
+    pointerScreen: params.pointerScreen ?? undefined,
+    dragAnchor: params.dragAnchor ?? undefined,
     isTapped,
     mirrorY,
     overRect: params.over.rect,
@@ -121,6 +125,8 @@ export const computeDragEndPlan = (params: {
   toZoneId: ZoneId;
   overCardId?: CardId;
   activeRect?: RectLike | null;
+  pointerScreen?: { x: number; y: number } | null;
+  dragAnchor?: { x: number; y: number } | null;
   overRect?: RectLike | null;
   overScale?: number;
   overCardScale?: number;
@@ -178,6 +184,8 @@ export const computeDragEndPlan = (params: {
 
   const placement = computeBattlefieldPlacement({
     centerScreen,
+    pointerScreen: params.pointerScreen ?? undefined,
+    dragAnchor: params.dragAnchor ?? undefined,
     isTapped,
     mirrorY,
     overRect: params.overRect,

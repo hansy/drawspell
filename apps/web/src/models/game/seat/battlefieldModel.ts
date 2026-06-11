@@ -1,13 +1,33 @@
 import type { Card, PlayerId } from '@/types';
 
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from '@/lib/constants';
-import { fromNormalizedPosition, mirrorNormalizedY } from '@/lib/positions';
+import {
+  fromNormalizedPosition,
+  getCanonicalBattlefieldGridSteps,
+  getCanonicalCardPixelSize,
+  getCardPixelSize,
+  LEGACY_BATTLEFIELD_HEIGHT,
+  LEGACY_BATTLEFIELD_WIDTH,
+  mirrorNormalizedY,
+} from '@/lib/positions';
 
 export type BattlefieldCardLayout = {
   left: number;
   top: number;
   highlightColor?: string;
   disableDrag: boolean;
+};
+
+export type BattlefieldGridProjection = {
+  gridStepX: number;
+  gridStepY: number;
+  originOffsetX: number;
+  originOffsetY: number;
+};
+
+const positiveModulo = (value: number, divisor: number) => {
+  if (!divisor) return 0;
+  return ((value % divisor) + divisor) % divisor;
 };
 
 export const computeBattlefieldCardLayout = (params: {
@@ -40,4 +60,46 @@ export const computeBattlefieldCardLayout = (params: {
   const disableDrag = !canDrag;
 
   return { left, top, highlightColor, disableDrag };
+};
+
+export const computeBattlefieldGridProjection = (params: {
+  zoneWidth: number;
+  zoneHeight: number;
+  viewScale: number;
+  isTapped?: boolean;
+  baseCardHeight?: number;
+  baseCardWidth?: number;
+}): BattlefieldGridProjection => {
+  const canonicalSteps = getCanonicalBattlefieldGridSteps({
+    isTapped: params.isTapped,
+  });
+  const gridStepX = params.zoneWidth * canonicalSteps.stepX;
+  const gridStepY = params.zoneHeight * canonicalSteps.stepY;
+  const {
+    cardWidth: canonicalCardWidth,
+    cardHeight: canonicalCardHeight,
+  } = getCanonicalCardPixelSize({
+    isTapped: params.isTapped,
+  });
+  const { cardWidth, cardHeight } = getCardPixelSize({
+    viewScale: params.viewScale,
+    isTapped: params.isTapped,
+    baseCardHeight: params.baseCardHeight,
+    baseCardWidth: params.baseCardWidth,
+  });
+
+  return {
+    gridStepX,
+    gridStepY,
+    originOffsetX: positiveModulo(
+      (canonicalCardWidth / 2 / LEGACY_BATTLEFIELD_WIDTH) * params.zoneWidth -
+        cardWidth / 2,
+      gridStepX
+    ),
+    originOffsetY: positiveModulo(
+      (canonicalCardHeight / 2 / LEGACY_BATTLEFIELD_HEIGHT) * params.zoneHeight -
+        cardHeight / 2,
+      gridStepY
+    ),
+  };
 };
