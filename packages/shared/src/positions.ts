@@ -118,7 +118,7 @@ export const getCanonicalGridSteps = (params?: {
 export const normalizedPositionKey = (position: Position) =>
   `${position.x.toFixed(4)}:${position.y.toFixed(4)}`;
 
-const addOccupiedPosition = (
+const addOccupiedPositionKey = (
   occupied: Set<string>,
   position: Position | null | undefined
 ) => {
@@ -132,7 +132,7 @@ const createOccupiedPositionSet = <T>(
 ) => {
   const occupied = new Set<string>();
   for (const item of items) {
-    addOccupiedPosition(occupied, getPosition(item));
+    addOccupiedPositionKey(occupied, getPosition(item));
   }
   return occupied;
 };
