@@ -113,6 +113,19 @@ const buildCardLite = (id: string, zoneId = "hand") => ({
   counters: [],
 });
 
+const createPrivateOverlayActionHarness = (initialState: GameState) => {
+  let state = initialState;
+  const set = (next: any) => {
+    state = typeof next === "function" ? next(state) : { ...state, ...next };
+  };
+  const get = () => state;
+
+  return {
+    ...createPrivateOverlayActions(set as any, get as any),
+    getState: get,
+  };
+};
+
 describe("mergePrivateOverlay", () => {
   it("creates placeholders for hand cards", () => {
     const base = buildBaseState();
@@ -327,7 +340,7 @@ describe("applyPrivateOverlay", () => {
       ],
     });
 
-    let state = {
+    const initialState = {
       ...basePublic,
       zones: {
         ...basePublic.zones,
@@ -354,16 +367,13 @@ describe("applyPrivateOverlay", () => {
       },
     } as GameState;
 
-    const set = (next: any) => {
-      state = typeof next === "function" ? next(state) : { ...state, ...next };
-    };
-    const get = () => state;
-
     setAuthoritativeState(basePublic as any, basePublic as any);
 
-    const { applyPrivateOverlay } = createPrivateOverlayActions(set as any, get as any);
+    const { applyPrivateOverlay, getState } =
+      createPrivateOverlayActionHarness(initialState);
     applyPrivateOverlay(overlay as any);
 
+    const state = getState();
     expect(state.cards.ghost).toBeUndefined();
     expect(state.cards.c1?.name).toBe("Secret");
   });
@@ -380,16 +390,11 @@ describe("applyPrivateOverlayDiff", () => {
       zoneCardOrderVersions: { lib: 1 },
     });
 
-    let state = { ...base, privateOverlay: initialOverlay } as GameState;
-    const set = (next: any) => {
-      state = typeof next === "function" ? next(state) : { ...state, ...next };
-    };
-    const get = () => state;
-
-    const { applyPrivateOverlayDiff } = createPrivateOverlayActions(
-      set as any,
-      get as any
-    );
+    const { applyPrivateOverlayDiff, getState } =
+      createPrivateOverlayActionHarness({
+        ...base,
+        privateOverlay: initialOverlay,
+      } as GameState);
 
     const ok = applyPrivateOverlayDiff({
       schemaVersion: 1,
@@ -403,6 +408,7 @@ describe("applyPrivateOverlayDiff", () => {
     });
 
     expect(ok).toBe(true);
+    const state = getState();
     expect(state.privateOverlay?.overlayVersion).toBe(2);
     expect(state.privateOverlay?.cards.map((card) => card.id).sort()).toEqual([
       "c2",
@@ -423,16 +429,11 @@ describe("applyPrivateOverlayDiff", () => {
       zoneCardOrderVersions: { lib: 1 },
     });
 
-    let state = { ...base, privateOverlay: initialOverlay } as GameState;
-    const set = (next: any) => {
-      state = typeof next === "function" ? next(state) : { ...state, ...next };
-    };
-    const get = () => state;
-
-    const { applyPrivateOverlayDiff } = createPrivateOverlayActions(
-      set as any,
-      get as any
-    );
+    const { applyPrivateOverlayDiff, getState } =
+      createPrivateOverlayActionHarness({
+        ...base,
+        privateOverlay: initialOverlay,
+      } as GameState);
 
     const ok = applyPrivateOverlayDiff({
       schemaVersion: 1,
@@ -445,6 +446,7 @@ describe("applyPrivateOverlayDiff", () => {
     });
 
     expect(ok).toBe(true);
+    const state = getState();
     expect(state.privateOverlay?.zoneCardOrders?.lib).toBeUndefined();
     expect(state.privateOverlay?.zoneCardOrderVersions?.lib).toBeUndefined();
   });
@@ -457,16 +459,11 @@ describe("applyPrivateOverlayDiff", () => {
       cards: [buildCardLite("c1")],
     });
 
-    let state = { ...base, privateOverlay: initialOverlay } as GameState;
-    const set = (next: any) => {
-      state = typeof next === "function" ? next(state) : { ...state, ...next };
-    };
-    const get = () => state;
-
-    const { applyPrivateOverlayDiff } = createPrivateOverlayActions(
-      set as any,
-      get as any
-    );
+    const { applyPrivateOverlayDiff, getState } =
+      createPrivateOverlayActionHarness({
+        ...base,
+        privateOverlay: initialOverlay,
+      } as GameState);
 
     const ok = applyPrivateOverlayDiff({
       schemaVersion: 1,
@@ -478,6 +475,7 @@ describe("applyPrivateOverlayDiff", () => {
     });
 
     expect(ok).toBe(false);
+    const state = getState();
     expect(state.privateOverlay?.overlayVersion).toBe(5);
     expect(state.privateOverlay?.cards.map((card) => card.id)).toEqual(["c1"]);
   });
