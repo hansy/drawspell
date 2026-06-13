@@ -52,7 +52,7 @@ export const createCardActionAdapters = (params: {
     });
   };
 
-  const withTargetIds = (
+  const applyToTargetIds = (
     seedId: CardId | undefined,
     action: (targetIds: CardId[]) => void
   ) => {
@@ -65,7 +65,7 @@ export const createCardActionAdapters = (params: {
     seedId: CardId | undefined,
     action: (card: Card) => void
   ) => {
-    withTargetIds(seedId, (targetIds) => {
+    applyToTargetIds(seedId, (targetIds) => {
       targetIds.forEach((id) => {
         const card = params.store.cards[id];
         if (card) action(card);
@@ -106,12 +106,12 @@ export const createCardActionAdapters = (params: {
       const targetTapped = !seedCard.tapped;
 
       applyToTargetCards(cardId, (card) => {
-          if (card.tapped === targetTapped) return;
-          params.store.tapCard(card.id, params.myPlayerId);
+        if (card.tapped === targetTapped) return;
+        params.store.tapCard(card.id, params.myPlayerId);
       });
     },
     transformCard: (cardId: CardId, faceIndex?: number) => {
-      withTargetIds(cardId, (targetIds) => {
+      applyToTargetIds(cardId, (targetIds) => {
         targetIds.forEach((id) => {
           params.store.transformCard(id, faceIndex);
         });
@@ -122,7 +122,7 @@ export const createCardActionAdapters = (params: {
         params.store.duplicateCard(card.id, params.myPlayerId)
       ),
     createRelatedCard: (card: Card, related: ScryfallRelatedCard) => {
-      withTargetIds(card.id, (targetIds) => {
+      applyToTargetIds(card.id, (targetIds) => {
         if (targetIds.length === 1) {
           params.createRelatedCard(card, related);
           return;
@@ -161,7 +161,7 @@ export const createCardActionAdapters = (params: {
       params.store.setActiveModal({ type: "ADD_COUNTER", cardIds: targetIds });
     },
     removeCard: (card: Card) => {
-      withTargetIds(card.id, (targetIds) => {
+      applyToTargetIds(card.id, (targetIds) => {
         targetIds.forEach((id) => {
           params.store.removeCard(id, params.myPlayerId);
         });
