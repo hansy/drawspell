@@ -137,6 +137,17 @@ export const extractReveal = (card: Card): HiddenReveal => {
 const hasRevealAudience = (reveal: HiddenReveal) =>
   reveal.toAll || Boolean(reveal.toPlayers?.length);
 
+const forEachToAllReveal = (
+  reveals: Record<string, HiddenReveal>,
+  visit: (cardId: string) => void
+) => {
+  Object.entries(reveals).forEach(([cardId, reveal]) => {
+    if (reveal?.toAll) {
+      visit(cardId);
+    }
+  });
+};
+
 export const buildRevealPatch = (
   card: Card,
   reveal: { toAll?: boolean; to?: string[] } | null,
@@ -203,6 +214,12 @@ const resolveLibraryZoneIdForPlayer = (
   return resolvedLibraryZoneId;
 };
 
+const buildLibraryRevealToAllEntry = (card: Card, orderKey: string) => ({
+  card: buildCardIdentity(card),
+  orderKey,
+  ownerId: card.ownerId,
+});
+
 export const syncLibraryRevealsToAllForPlayer = (
   maps: Maps,
   hidden: HiddenState,
@@ -252,11 +269,7 @@ export const syncLibraryRevealsToAllForPlayer = (
     if (!card) return;
     const index = orderIndexById.get(cardId);
     const orderKey = buildLibraryOrderKey(typeof index === "number" ? index : order.length);
-    maps.libraryRevealsToAll.set(cardId, {
-      card: buildCardIdentity(card),
-      orderKey,
-      ownerId: card.ownerId,
-    });
+    maps.libraryRevealsToAll.set(cardId, buildLibraryRevealToAllEntry(card, orderKey));
   });
 };
 
@@ -268,29 +281,22 @@ export const syncPublicRevealsToAllFromHiddenState = (
   clearYMap(maps.libraryRevealsToAll);
   clearYMap(maps.faceDownRevealsToAll);
 
-  Object.entries(hidden.handReveals).forEach(([cardId, reveal]) => {
-    if (!reveal?.toAll) return;
+  forEachToAllReveal(hidden.handReveals, (cardId) => {
     const card = hidden.cards[cardId];
     if (!card) return;
     maps.handRevealsToAll.set(cardId, buildCardIdentity(card));
   });
 
-  Object.entries(hidden.libraryReveals).forEach(([cardId, reveal]) => {
-    if (!reveal?.toAll) return;
+  forEachToAllReveal(hidden.libraryReveals, (cardId) => {
     const card = hidden.cards[cardId];
     if (!card) return;
     const order = hidden.libraryOrder[card.ownerId] ?? [];
     const index = order.indexOf(cardId);
     const orderKey = buildLibraryOrderKey(index >= 0 ? index : order.length);
-    maps.libraryRevealsToAll.set(cardId, {
-      card: buildCardIdentity(card),
-      orderKey,
-      ownerId: card.ownerId,
-    });
+    maps.libraryRevealsToAll.set(cardId, buildLibraryRevealToAllEntry(card, orderKey));
   });
 
-  Object.entries(hidden.faceDownReveals).forEach(([cardId, reveal]) => {
-    if (!reveal?.toAll) return;
+  forEachToAllReveal(hidden.faceDownReveals, (cardId) => {
     const identity = hidden.faceDownBattlefield[cardId];
     if (!identity) return;
     maps.faceDownRevealsToAll.set(cardId, identity);
