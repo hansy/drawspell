@@ -160,4 +160,69 @@ describe("applyCardMove", () => {
     expect(hiddenChanged).toBe(true);
     expect(logEvents[0]?.eventId).toBe("card.move");
   });
+
+  it("uses tapped spacing when resolving server group battlefield collisions", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1", [
+      "blocker",
+      "c1",
+      "c2",
+    ]);
+    writeZone(maps, battlefield);
+
+    writeCard(
+      maps,
+      makeCard("blocker", "p1", battlefield.id, {
+        position: { x: 0.5, y: 0.5 },
+      })
+    );
+    writeCard(
+      maps,
+      makeCard("c1", "p1", battlefield.id, {
+        tapped: true,
+        position: { x: 0.2, y: 0.2 },
+      })
+    );
+    writeCard(
+      maps,
+      makeCard("c2", "p1", battlefield.id, {
+        position: { x: 0.3, y: 0.3 },
+      })
+    );
+
+    const target = { x: 0.5, y: 0.5 };
+    const result = applyCardMove(
+      maps,
+      hidden,
+      {
+        actorId: "p1",
+        cardId: "c2",
+        toZoneId: battlefield.id,
+        position: target,
+        opts: {
+          suppressLog: true,
+          groupCollision: {
+            movingCardIds: ["c1", "c2"],
+            targetPositions: {
+              c1: target,
+              c2: target,
+            },
+          },
+        },
+      },
+      "top",
+      () => {},
+      () => {}
+    );
+
+    expect(result.ok).toBe(true);
+    const moved = readCard(maps, "c2");
+    expect(moved?.position.y).toBeCloseTo(
+      target.y + getCanonicalBattlefieldGridSteps().stepY,
+      6
+    );
+  });
 });

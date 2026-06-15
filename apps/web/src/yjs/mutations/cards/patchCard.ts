@@ -21,6 +21,7 @@ export function patchCard(maps: SharedMaps, cardId: string, updates: CardPatch) 
   const target = ensureCardMap(maps, cardId);
   if (!target) return;
 
+  if ("zoneId" in updates) setIfChanged(target, "zoneId", updates.zoneId);
   if ("tapped" in updates) setIfChanged(target, "tapped", updates.tapped);
   if ("faceDown" in updates) setIfChanged(target, "faceDown", updates.faceDown);
   if ("faceDownMode" in updates) setIfChanged(target, "faceDownMode", updates.faceDownMode);

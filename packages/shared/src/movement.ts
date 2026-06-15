@@ -6,7 +6,14 @@ import {
 } from "./constants/zones";
 import type { Card, FaceDownMode } from "./types/cards";
 import type { Zone } from "./types/zones";
-import { normalizeMovePosition, type Position } from "./positions";
+import {
+  getCanonicalBattlefieldGridSteps,
+  normalizeMovePosition,
+  resolveBattlefieldCollisionPosition,
+  resolveBattlefieldGroupCollisionPositions,
+  type Position,
+} from "./positions";
+import { resetCardToFrontFace } from "./cards";
 
 export { normalizeMovePosition } from "./positions";
 
@@ -17,6 +24,11 @@ export type CardMovementOptions = {
   faceDownMode?: FaceDownMode;
   random?: boolean;
   suppressLog?: boolean;
+  skipCollision?: boolean;
+  groupCollision?: {
+    movingCardIds: string[];
+    targetPositions: Record<string, Position | undefined>;
+  };
 };
 
 export type FaceDownMoveResolution = {
@@ -104,6 +116,83 @@ export type CardMovementPlan = {
   >;
   logFacts: CardMovementLogFacts;
 };
+
+export const resolveCardMovementPosition = ({
+  card,
+  cardId = card.id,
+  fromZone,
+  toZone,
+  orderedCardIds,
+  position,
+  opts,
+  getPosition,
+  getStepY,
+}: {
+  card: Pick<Card, "id" | "position" | "tapped">;
+  cardId?: Card["id"];
+  fromZone: Pick<Zone, "type">;
+  toZone: Pick<Zone, "type">;
+  orderedCardIds: string[];
+  position?: Position;
+  opts?: CardMovementOptions;
+  getPosition: (id: string) => Position | undefined;
+  getStepY?: (id: string) => number | undefined;
+}): Position => {
+  const fallbackPosition =
+    !position && toZone.type === ZONE.BATTLEFIELD && fromZone.type !== ZONE.BATTLEFIELD
+      ? { x: 0.5, y: 0.5 }
+      : position;
+  const resolvedPosition = normalizeMovePosition(fallbackPosition, card.position);
+
+  if (
+    toZone.type !== ZONE.BATTLEFIELD ||
+    !fallbackPosition ||
+    (opts?.skipCollision && !opts?.groupCollision)
+  ) {
+    return resolvedPosition;
+  }
+
+  if (opts?.groupCollision) {
+    const resolved = resolveBattlefieldGroupCollisionPositions({
+      movingCardIds: Array.isArray(opts.groupCollision.movingCardIds)
+        ? opts.groupCollision.movingCardIds
+        : [],
+      targetPositions:
+        opts.groupCollision.targetPositions &&
+        typeof opts.groupCollision.targetPositions === "object"
+          ? opts.groupCollision.targetPositions
+          : {},
+      orderedCardIds,
+      getPosition,
+      getStepY: (id) =>
+        getStepY?.(id) ??
+        getCanonicalBattlefieldGridSteps({ isTapped: id === cardId ? card.tapped : undefined }).stepY,
+    });
+    return resolved[cardId] ?? resolvedPosition;
+  }
+
+  const stepY =
+    getStepY?.(cardId) ??
+    getCanonicalBattlefieldGridSteps({ isTapped: card.tapped }).stepY;
+  return resolveBattlefieldCollisionPosition({
+    movingCardId: cardId,
+    targetPosition: resolvedPosition,
+    orderedCardIds,
+    getPosition,
+    stepY,
+  });
+};
+
+export const buildMovedCard = (
+  card: Card,
+  plan: CardMovementPlan,
+  options?: { resetCardToFrontFace?: (card: Card) => Card }
+): Card => ({
+  ...(plan.resetToFrontFace
+    ? (options?.resetCardToFrontFace ?? resetCardToFrontFace)(card)
+    : card),
+  ...plan.cardPatch,
+});
 
 export const resolveControllerAfterMove = (
   card: Pick<Card, "ownerId" | "controllerId">,

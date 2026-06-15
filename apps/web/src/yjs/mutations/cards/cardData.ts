@@ -152,6 +152,7 @@ export const readCard = (maps: SharedMaps, cardId: string): Card | null => {
 export type CardPatch = Partial<
   Pick<
     Card,
+    | "zoneId"
     | "tapped"
     | "faceDown"
     | "faceDownMode"

@@ -3,10 +3,9 @@ import type { GameState } from "@/types";
 import { ZONE } from "@/constants/zones";
 import { canMoveCard } from "@/rules/permissions";
 import { logPermission } from "@/rules/logger";
-import { resetCardToFrontFace } from "@/lib/cardDisplay";
 import { syncCommanderDecklistForPlayer } from "@/store/gameStore/actions/deck/commanderDecklist";
 import { debugLog, type DebugFlagKey } from "@/lib/debug";
-import { planCardMovement } from "../movementModel";
+import { buildMovedCard, planCardMovement } from "../movementModel";
 import { moveCardIdBetweenZones, removeCardFromZones } from "../movementState";
 import type { Deps, GetState, SetState } from "./types";
 
@@ -90,10 +89,6 @@ export const createMoveCardToBottom =
         toZone: toZoneState,
         placement: "bottom",
       });
-      const nextCard = plan.resetToFrontFace
-        ? resetCardToFrontFace(workingCard)
-        : workingCard;
-
       if (workingCard.faceDown || plan.faceDown.effectiveFaceDown) {
         debugLog(debugKey, "apply-move-bottom", {
           cardId,
@@ -104,10 +99,7 @@ export const createMoveCardToBottom =
         });
       }
 
-      cardsCopy[cardId] = {
-        ...nextCard,
-        ...plan.cardPatch,
-      };
+      cardsCopy[cardId] = buildMovedCard(workingCard, plan);
 
       return {
         cards: cardsCopy,

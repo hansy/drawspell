@@ -8,8 +8,10 @@ export * from "./cards";
 export * from "./counters";
 export * from "./discord/provisioning";
 export {
+  buildMovedCard,
   computeRevealPatchAfterMove,
   planCardMovement,
+  resolveCardMovementPosition,
   resolveCardMovementFacts,
   resolveControllerAfterMove,
   resolveFaceDownAfterMove,

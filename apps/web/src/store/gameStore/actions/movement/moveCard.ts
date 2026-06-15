@@ -3,15 +3,14 @@ import type { GameState } from "@/types";
 import { ZONE } from "@/constants/zones";
 import { canMoveCard } from "@/rules/permissions";
 import { logPermission } from "@/rules/logger";
-import {
-  resolveBattlefieldCollisionPosition,
-  resolveBattlefieldGroupCollisionPositions,
-} from "@/lib/battlefieldCollision";
-import { resetCardToFrontFace } from "@/lib/cardDisplay";
 import { getCanonicalBattlefieldGridSteps } from "@/lib/positions";
 import { syncCommanderDecklistForPlayer } from "@/store/gameStore/actions/deck/commanderDecklist";
 import { debugLog, type DebugFlagKey } from "@/lib/debug";
-import { normalizeMovePosition, planCardMovement } from "../movementModel";
+import {
+  buildMovedCard,
+  planCardMovement,
+  resolveCardMovementPosition,
+} from "../movementModel";
 import { moveCardIdBetweenZones, removeCardFromZones } from "../movementState";
 import type { Deps, GetState, SetState } from "./types";
 
@@ -89,51 +88,19 @@ export const createMoveCard =
         };
       }
 
-      const fallbackPosition =
-        !position &&
-        toZoneState.type === ZONE.BATTLEFIELD &&
-        currentFromZone.type !== ZONE.BATTLEFIELD
-          ? { x: 0.5, y: 0.5 }
-          : position;
-      const newPosition = normalizeMovePosition(
-        fallbackPosition,
-        workingCard.position
-      );
-      let resolvedPosition = newPosition;
-
-      if (
-        toZoneState.type === ZONE.BATTLEFIELD &&
-        fallbackPosition &&
-        (!resolvedOpts?.skipCollision || resolvedOpts?.groupCollision)
-      ) {
-        if (resolvedOpts?.groupCollision) {
-          const resolvedPositions =
-            resolveBattlefieldGroupCollisionPositions({
-              movingCardIds: resolvedOpts.groupCollision.movingCardIds,
-              targetPositions: resolvedOpts.groupCollision.targetPositions,
-              orderedCardIds:
-                state.zones[toZoneId]?.cardIds ?? toZoneState.cardIds,
-              getPosition: (id) => cardsCopy[id]?.position,
-              getStepY: (id) =>
-                getCanonicalBattlefieldGridSteps({
-                  isTapped: cardsCopy[id]?.tapped,
-                }).stepY,
-            });
-          resolvedPosition = resolvedPositions[cardId] ?? newPosition;
-        } else {
-          const stepY = getCanonicalBattlefieldGridSteps({
-            isTapped: workingCard.tapped,
-          }).stepY;
-          resolvedPosition = resolveBattlefieldCollisionPosition({
-            movingCardId: cardId,
-            targetPosition: newPosition,
-            orderedCardIds:
-              state.zones[toZoneId]?.cardIds ?? toZoneState.cardIds,
-            getPosition: (id) => cardsCopy[id]?.position,
-            stepY,
-          });
-        }
-      }
+      const resolvedPosition = resolveCardMovementPosition({
+        card: workingCard,
+        fromZone: currentFromZone,
+        toZone: toZoneState,
+        orderedCardIds: state.zones[toZoneId]?.cardIds ?? toZoneState.cardIds,
+        position,
+        opts: resolvedOpts,
+        getPosition: (id) => cardsCopy[id]?.position,
+        getStepY: (id) =>
+          getCanonicalBattlefieldGridSteps({
+            isTapped: cardsCopy[id]?.tapped,
+          }).stepY,
+      });
 
       const plan = planCardMovement({
         card: workingCard,
@@ -143,10 +110,6 @@ export const createMoveCard =
         position: resolvedPosition,
         opts: resolvedOpts,
       });
-
-      const nextCard = plan.resetToFrontFace
-        ? resetCardToFrontFace(workingCard)
-        : workingCard;
 
       if (workingCard.faceDown || plan.faceDown.effectiveFaceDown) {
         debugLog(debugKey, "apply-move", {
@@ -160,10 +123,7 @@ export const createMoveCard =
       }
 
       if (currentFromZoneId === toZoneId) {
-        cardsCopy[cardId] = {
-          ...nextCard,
-          ...plan.cardPatch,
-        };
+        cardsCopy[cardId] = buildMovedCard(workingCard, plan);
         return {
           cards: cardsCopy,
           zones: moveCardIdBetweenZones({
@@ -176,10 +136,7 @@ export const createMoveCard =
         };
       }
 
-      cardsCopy[cardId] = {
-        ...nextCard,
-        ...plan.cardPatch,
-      };
+      cardsCopy[cardId] = buildMovedCard(workingCard, plan);
 
       return {
         cards: cardsCopy,

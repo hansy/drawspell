@@ -1,4 +1,5 @@
 import type { Card } from "@mtg/shared/types/cards";
+import type { Zone } from "@mtg/shared/types/zones";
 
 import { isCommanderZoneType, isHiddenZoneType, ZONE } from "./constants";
 import type {
@@ -10,19 +11,15 @@ import type {
 import {
   buildCardIdentity,
   mergeCardIdentity,
-  resetCardToFrontFace,
   stripCardIdentity,
 } from "./cards";
 import {
-  getCanonicalBattlefieldGridSteps,
-  resolveBattlefieldCollisionPosition,
-  resolveBattlefieldGroupCollisionPositions,
-} from "./positions";
-import {
-  normalizeMovePosition,
+  buildMovedCard,
   planCardMovement,
+  resolveCardMovementPosition,
   type CardMovementLogFacts,
 } from "@mtg/shared/movement";
+import { getCanonicalBattlefieldGridSteps } from "@mtg/shared/positions";
 import { readCard, readZone, writeCard, writeZone } from "./yjsStore";
 import { placeCardId, removeFromArray } from "./lists";
 import { syncLibraryRevealsToAllForPlayer, updatePlayerCounts } from "./hiddenState";
@@ -57,67 +54,31 @@ const resolveMoveApplicationPosition = (params: {
   maps: Maps;
   card: Card;
   cardId: string;
-  fromZoneType: string;
-  toZoneType: string;
+  fromZone: Pick<Zone, "type">;
+  toZone: Pick<Zone, "type">;
   toZoneCardIds: string[];
   position: Card["position"] | undefined;
   opts: MoveOpts | undefined;
 }): Card["position"] => {
-  const fallbackPosition =
-    !params.position &&
-    params.toZoneType === ZONE.BATTLEFIELD &&
-    params.fromZoneType !== ZONE.BATTLEFIELD
-      ? { x: 0.5, y: 0.5 }
-      : params.position;
-  let resolvedPosition = normalizeMovePosition(
-    fallbackPosition,
-    params.card.position
-  );
-
-  if (
-    params.toZoneType !== ZONE.BATTLEFIELD ||
-    !fallbackPosition ||
-    (params.opts?.skipCollision && !params.opts?.groupCollision)
-  ) {
-    return resolvedPosition;
-  }
-
   const cardsById: Record<string, Card> = {};
   params.toZoneCardIds.forEach((id) => {
     const entry = readCard(params.maps, id);
     if (entry) cardsById[id] = entry;
   });
 
-  if (params.opts?.groupCollision) {
-    const movingIds = Array.isArray(params.opts.groupCollision.movingCardIds)
-      ? params.opts.groupCollision.movingCardIds
-      : [];
-    const targetPositions =
-      params.opts.groupCollision.targetPositions &&
-      typeof params.opts.groupCollision.targetPositions === "object"
-        ? (params.opts.groupCollision.targetPositions as Record<
-            string,
-            { x: number; y: number } | undefined
-          >)
-        : {};
-    const resolved = resolveBattlefieldGroupCollisionPositions({
-      movingCardIds: movingIds,
-      targetPositions,
-      orderedCardIds: params.toZoneCardIds,
-      getPosition: (id) => cardsById[id]?.position,
-      getStepY: (id) =>
-        getCanonicalBattlefieldGridSteps({ isTapped: cardsById[id]?.tapped }).stepY,
-    });
-    return resolved[params.cardId] ?? resolvedPosition;
-  }
-
-  const stepY = getCanonicalBattlefieldGridSteps({ isTapped: params.card.tapped }).stepY;
-  return resolveBattlefieldCollisionPosition({
-    movingCardId: params.cardId,
-    targetPosition: resolvedPosition,
+  return resolveCardMovementPosition({
+    card: params.card,
+    cardId: params.cardId,
+    fromZone: params.fromZone,
+    toZone: params.toZone,
     orderedCardIds: params.toZoneCardIds,
+    position: params.position,
+    opts: params.opts,
     getPosition: (id) => cardsById[id]?.position,
-    stepY,
+    getStepY: (id) =>
+      getCanonicalBattlefieldGridSteps({
+        isTapped: (id === params.cardId ? params.card : cardsById[id])?.tapped,
+      }).stepY,
   });
 };
 
@@ -245,8 +206,6 @@ export const applyCardMove = (
   }
 
   if (!fromHidden && !toHidden) {
-    const leavingBattlefield =
-      fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD;
     const tokenLeavingBattlefield = card.isToken && toZone.type !== ZONE.BATTLEFIELD;
     if (tokenLeavingBattlefield) {
       const nextFromIds = removeFromArray(fromZoneCardIds, cardId);
@@ -265,14 +224,13 @@ export const applyCardMove = (
       maps,
       card,
       cardId,
-      fromZoneType: fromZone.type,
-      toZoneType: toZone.type,
+      fromZone,
+      toZone,
       toZoneCardIds,
       position,
       opts,
     });
 
-    const baseCard = leavingBattlefield ? resetCardToFrontFace(cardWithIdentity) : cardWithIdentity;
     const branchPlan = planCardMovement({
       card,
       fromZone,
@@ -282,10 +240,7 @@ export const applyCardMove = (
       opts,
       cardNameForLog: faceDownIdentityForLog?.name,
     });
-    const nextCard: Card = {
-      ...baseCard,
-      ...branchPlan.cardPatch,
-    };
+    const nextCard = buildMovedCard(cardWithIdentity, branchPlan);
 
     const willBeFaceDownBattlefield =
       toZone.type === ZONE.BATTLEFIELD && nextCard.faceDown;
@@ -329,10 +284,7 @@ export const applyCardMove = (
   }
 
   if (fromHidden && toHidden) {
-    const nextCard: Card = {
-      ...card,
-      ...plan.cardPatch,
-    };
+    const nextCard = buildMovedCard(card, plan);
 
     if (fromZone.type === ZONE.HAND) {
       const nextOrder =
@@ -432,8 +384,6 @@ export const applyCardMove = (
   }
 
   if (!fromHidden && toHidden) {
-    const leavingBattlefield =
-      fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD;
     const tokenLeavingBattlefield =
       card.isToken && fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD;
     if (tokenLeavingBattlefield) {
@@ -448,11 +398,7 @@ export const applyCardMove = (
       ? hidden.faceDownBattlefield[cardId]
       : undefined;
     const cardWithIdentity = mergeCardIdentity(card, faceDownIdentity);
-    const baseCard = leavingBattlefield ? resetCardToFrontFace(cardWithIdentity) : cardWithIdentity;
-    const nextCard: Card = {
-      ...baseCard,
-      ...plan.cardPatch,
-    };
+    const nextCard = buildMovedCard(cardWithIdentity, plan);
 
     const nextFromIds = removeFromArray(fromZoneCardIds, cardId);
     writeZone(maps, { ...fromZone, cardIds: nextFromIds });
@@ -538,8 +484,8 @@ export const applyCardMove = (
       maps,
       card,
       cardId,
-      fromZoneType: fromZone.type,
-      toZoneType: toZone.type,
+      fromZone,
+      toZone,
       toZoneCardIds,
       position,
       opts,
@@ -554,10 +500,7 @@ export const applyCardMove = (
       opts,
       cardNameForLog: faceDownIdentityForLog?.name,
     });
-    const nextCard: Card = {
-      ...card,
-      ...branchPlan.cardPatch,
-    };
+    const nextCard = buildMovedCard(card, branchPlan);
 
     const nextToIds = placeCardId(toZoneCardIds, cardId, placement);
     writeZone(maps, { ...toZone, cardIds: nextToIds });
