@@ -27,7 +27,7 @@ type CardLine = {
   name: string;
   normalizedName: string;
   hasQuantityToken: boolean;
-  qtyToken?: string;
+  quantityToken?: string;
   rest: string;
 };
 
@@ -52,14 +52,14 @@ const parseCardLine = (line: string): CardLine | null => {
     name: parsedCardLine.name,
     normalizedName: normalizeDecklistName(parsedCardLine.name),
     hasQuantityToken: parsedCardLine.hasQuantityToken,
-    qtyToken: parsedCardLine.quantityToken,
+    quantityToken: parsedCardLine.quantityToken,
     rest: parsedCardLine.rest,
   };
 };
 
 const formatCardLine = (card: CardLine, quantity: number) => {
   if (!card.hasQuantityToken && quantity === card.quantity) return card.raw;
-  const suffix = card.qtyToken?.endsWith("x") ? "x" : "";
+  const suffix = card.quantityToken?.endsWith("x") ? "x" : "";
   const rest = card.rest.trim();
   return `${card.leading}${quantity}${suffix} ${rest}`.trimEnd();
 };
