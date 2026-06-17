@@ -14,16 +14,25 @@ export type LibraryTopRevealPayload = {
   toAllPlayers?: boolean;
 };
 
+type CountedLibraryPayload = { count?: number };
+
+const getLoggedCardCount = (payload: CountedLibraryPayload) => payload.count || 1;
+
+const mergeLoggedCardCounts = <T extends CountedLibraryPayload>(existing: T, incoming: T): T => ({
+  ...incoming,
+  count: getLoggedCardCount(existing) + getLoggedCardCount(incoming),
+});
+
 const formatDraw: LogEventDefinition<DrawPayload>["format"] = (payload, ctx) => {
   const player = buildPlayerPart(ctx, payload.playerId);
-  const count = payload.count || 1;
+  const count = getLoggedCardCount(payload);
   const cardText = `drew ${count} card${count === 1 ? "" : "s"}`;
   return [player, { kind: "text", text: ` ${cardText}` }];
 };
 
 const formatDiscard: LogEventDefinition<DiscardPayload>["format"] = (payload, ctx) => {
   const player = buildPlayerPart(ctx, payload.playerId);
-  const count = payload.count || 1;
+  const count = getLoggedCardCount(payload);
   const cardText = `discarded ${count} card${count === 1 ? "" : "s"} from Library`;
   return [player, { kind: "text", text: ` ${cardText}` }];
 };
@@ -75,14 +84,7 @@ export const libraryEvents = {
     format: formatDraw,
     aggregate: {
       key: (payload: DrawPayload) => `draw:${payload.playerId}`,
-      mergePayload: (existing: DrawPayload, incoming: DrawPayload) => {
-        const existingCount = existing.count || 1;
-        const incomingCount = incoming.count || 1;
-        return {
-          ...incoming,
-          count: existingCount + incomingCount,
-        };
-      },
+      mergePayload: mergeLoggedCardCounts,
       windowMs: DEFAULT_AGGREGATE_WINDOW_MS,
     },
   },
@@ -90,14 +92,7 @@ export const libraryEvents = {
     format: formatDiscard,
     aggregate: {
       key: (payload: DiscardPayload) => `discard:${payload.playerId}`,
-      mergePayload: (existing: DiscardPayload, incoming: DiscardPayload) => {
-        const existingCount = existing.count || 1;
-        const incomingCount = incoming.count || 1;
-        return {
-          ...incoming,
-          count: existingCount + incomingCount,
-        };
-      },
+      mergePayload: mergeLoggedCardCounts,
       windowMs: DEFAULT_AGGREGATE_WINDOW_MS,
     },
   },
