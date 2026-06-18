@@ -71,9 +71,13 @@ const createDmChannelResponseSchema = z.object({
 type DiscordUser = z.infer<typeof discordUserSchema>;
 type ParsedInteraction = z.infer<typeof interactionSchema>;
 
+type RoomRecipient = {
+  userId: string;
+  displayName: string;
+};
+
 type RecipientResolution = {
-  recipientIds: string[];
-  recipientNames: string[];
+  recipients: RoomRecipient[];
   truncatedTaggedUsers: boolean;
 };
 
@@ -144,9 +148,10 @@ const resolveRoomRecipients = (
 ): RecipientResolution => {
   const taggedIds = collectTaggedUserIds(interaction.data?.options);
   const resolvedUsers = interaction.data?.resolved?.users ?? {};
-  const includedIds = [invoker.id];
-  const recipientNames = [displayNameForUser(invoker)];
-  const seenIds = new Set<string>(includedIds);
+  const recipients: RoomRecipient[] = [
+    { userId: invoker.id, displayName: displayNameForUser(invoker) },
+  ];
+  const seenIds = new Set<string>([invoker.id]);
   let taggedIncludedCount = 0;
   let truncatedTaggedUsers = false;
 
@@ -160,13 +165,14 @@ const resolveRoomRecipients = (
     }
     seenIds.add(taggedId);
     taggedIncludedCount += 1;
-    includedIds.push(taggedId);
-    recipientNames.push(taggedUser ? displayNameForUser(taggedUser) : taggedId);
+    recipients.push({
+      userId: taggedId,
+      displayName: taggedUser ? displayNameForUser(taggedUser) : taggedId,
+    });
   }
 
   return {
-    recipientIds: includedIds,
-    recipientNames,
+    recipients,
     truncatedTaggedUsers,
   };
 };
@@ -321,25 +327,25 @@ const sendDmMessage = async (
 const fanOutDmMessage = async ({
   apiBaseUrl,
   botToken,
-  recipientIds,
-  recipientNames,
+  recipients,
   content,
 }: {
   apiBaseUrl: string;
   botToken: string;
-  recipientIds: string[];
-  recipientNames: string[];
+  recipients: RoomRecipient[];
   content: string;
 }) => {
   const failures: RecipientFailure[] = [];
-  for (let i = 0; i < recipientIds.length; i += 1) {
-    const userId = recipientIds[i];
-    const displayName = recipientNames[i] ?? userId;
+  for (const recipient of recipients) {
     try {
-      const dmChannel = await createDmChannel(apiBaseUrl, botToken, userId);
+      const dmChannel = await createDmChannel(
+        apiBaseUrl,
+        botToken,
+        recipient.userId,
+      );
       await sendDmMessage(apiBaseUrl, botToken, dmChannel.id, content);
     } catch (_error) {
-      failures.push({ userId, displayName });
+      failures.push(recipient);
     }
   }
   return failures;
@@ -531,17 +537,21 @@ app.post("/interactions", async (c) => {
   }
 
   const recipients = resolveRoomRecipients(invoker, interaction);
+  const recipientIds = recipients.recipients.map((recipient) => recipient.userId);
+  const recipientNames = recipients.recipients.map(
+    (recipient) => recipient.displayName,
+  );
   const provisioningPayload = createProvisionRequest(
     interaction,
     invoker,
-    recipients.recipientIds,
+    recipientIds,
   );
   logInteractionEvent("provisioning_request_started", {
     requestId,
     interactionId: interaction.id,
     guildId: interaction.guild_id,
     channelId: interaction.channel_id,
-    participants: recipients.recipientIds.length,
+    participants: recipientIds.length,
   });
 
   let provisionedRoom: DiscordRoomProvisionResponse;
@@ -577,27 +587,26 @@ app.post("/interactions", async (c) => {
 
   const dmContent = buildDmContent({
     inviteUrl: provisionedRoom.playerInviteUrl,
-    participantNames: recipients.recipientNames,
+    participantNames: recipientNames,
   });
   const apiBaseUrl = DISCORD_API_DEFAULT_BASE_URL;
   const failures = await fanOutDmMessage({
     apiBaseUrl,
     botToken: discordBotToken,
-    recipientIds: recipients.recipientIds,
-    recipientNames: recipients.recipientNames,
+    recipients: recipients.recipients,
     content: dmContent,
   });
-  const successCount = recipients.recipientIds.length - failures.length;
+  const successCount = recipientIds.length - failures.length;
   logInteractionEvent("command_processed", {
     requestId,
     interactionId: interaction.id,
-    recipients: recipients.recipientIds.length,
+    recipients: recipientIds.length,
     dmFailures: failures.length,
     alreadyProvisioned: provisionedRoom.alreadyProvisioned,
   });
   const confirmation = buildCommandConfirmation({
     successCount,
-    recipientNames: recipients.recipientNames,
+    recipientNames,
     failures,
     truncatedTaggedUsers: recipients.truncatedTaggedUsers,
   });
