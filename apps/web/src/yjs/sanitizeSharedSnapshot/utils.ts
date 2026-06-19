@@ -10,12 +10,14 @@ export const clampNumber = (
   return Math.min(Math.max(value, min), max);
 };
 
-export const normalizePosition = (pos: any) => {
-  if (!pos || typeof pos.x !== "number" || typeof pos.y !== "number") {
+export const normalizePosition = (pos: unknown) => {
+  const rawPosition = pos as { x?: unknown; y?: unknown };
+  if (!rawPosition || typeof rawPosition.x !== "number" || typeof rawPosition.y !== "number") {
     return { x: 0.5, y: 0.5 };
   }
-  const needsMigration = pos.x > 1 || pos.y > 1;
-  const next = needsMigration ? migratePositionToNormalized(pos) : clampNormalizedPosition(pos);
+  const position = rawPosition as { x: number; y: number };
+  const needsMigration = position.x > 1 || position.y > 1;
+  const next = needsMigration ? migratePositionToNormalized(position) : clampNormalizedPosition(position);
   return { x: next.x, y: next.y };
 };
 

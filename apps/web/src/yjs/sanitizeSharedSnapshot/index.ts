@@ -25,16 +25,16 @@ import { clampNumber } from "./utils";
 import { sanitizeZone } from "./zone";
 
 export type SharedSnapshotLike = {
-  players: Record<string, any>;
-  zones: Record<string, any>;
-  cards: Record<string, any>;
-  handRevealsToAll?: Record<string, any>;
-  libraryRevealsToAll?: Record<string, any>;
-  faceDownRevealsToAll?: Record<string, any>;
-  globalCounters: Record<string, any>;
-  battlefieldViewScale?: Record<string, any>;
-  playerOrder: any;
-  meta?: Record<string, any>;
+  players: Record<string, unknown>;
+  zones: Record<string, unknown>;
+  cards: Record<string, unknown>;
+  handRevealsToAll?: Record<string, unknown>;
+  libraryRevealsToAll?: Record<string, unknown>;
+  faceDownRevealsToAll?: Record<string, unknown>;
+  globalCounters: Record<string, unknown>;
+  battlefieldViewScale?: Record<string, unknown>;
+  playerOrder: unknown;
+  meta?: Record<string, unknown>;
 };
 
 export function sanitizeSharedSnapshot(snapshot: SharedSnapshotLike) {
