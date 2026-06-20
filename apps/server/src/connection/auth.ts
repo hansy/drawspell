@@ -26,21 +26,32 @@ const parseViewerRole = (
 ): IntentConnectionState["viewerRole"] =>
   value === "player" || value === "spectator" ? value : undefined;
 
+const getFirstSearchParam = (
+  searchParams: URLSearchParams,
+  names: readonly string[]
+): string | undefined => {
+  for (const name of names) {
+    const value = searchParams.get(name);
+    if (value !== null) {
+      return value;
+    }
+  }
+  return undefined;
+};
+
 export const parseConnectionParams = (url: URL): IntentConnectionState => {
-  const playerId = url.searchParams.get("playerId") ?? undefined;
-  const userId = url.searchParams.get("uid") ?? undefined;
-  const resumeToken =
-    url.searchParams.get("rt") ??
-    url.searchParams.get("resumeToken") ??
-    undefined;
-  const connectionGroupId =
-    url.searchParams.get("cid") ??
-    url.searchParams.get("connectionGroupId") ??
-    undefined;
-  const spectatorToken = url.searchParams.get("st");
-  const playerToken = url.searchParams.get("gt");
+  const { searchParams } = url;
+  const playerId = getFirstSearchParam(searchParams, ["playerId"]);
+  const userId = getFirstSearchParam(searchParams, ["uid"]);
+  const resumeToken = getFirstSearchParam(searchParams, ["rt", "resumeToken"]);
+  const connectionGroupId = getFirstSearchParam(searchParams, [
+    "cid",
+    "connectionGroupId",
+  ]);
+  const spectatorToken = getFirstSearchParam(searchParams, ["st"]);
+  const playerToken = getFirstSearchParam(searchParams, ["gt"]);
   const token = spectatorToken ?? playerToken ?? undefined;
-  const viewerRoleParam = url.searchParams.get("viewerRole");
+  const viewerRoleParam = getFirstSearchParam(searchParams, ["viewerRole"]);
   let viewerRole = parseViewerRole(viewerRoleParam);
   if (spectatorToken) {
     viewerRole = "spectator";
