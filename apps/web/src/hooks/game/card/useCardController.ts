@@ -20,6 +20,14 @@ import {
   shouldDisableHoverAnimation,
 } from "@/models/game/card/cardModel";
 import { resolveSelectedCardIds } from "@/models/game/selection/selectionModel";
+import {
+  debugLog,
+  isDebugEnabled,
+  summarizeCardElement,
+  summarizeDndCardGeometry,
+  summarizeZoneElement,
+  type DebugFlagKey,
+} from "@/lib/debug";
 
 import type { CardProps, CardViewProps } from "@/components/game/card/types";
 
@@ -28,6 +36,7 @@ const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
 const TOUCH_PREVIEW_TAP_TOLERANCE_PX = 6;
 const SUPPRESS_MOUSE_HOVER_AFTER_TOUCH_MS = 700;
+const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
 type TouchPointState = {
   startX: number;
@@ -37,6 +46,54 @@ type TouchPointState = {
   target: HTMLDivElement;
   moved: boolean;
   consumed: boolean;
+};
+
+const pointerSummary = (
+  event: Pick<
+    React.PointerEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>,
+    "clientX" | "clientY"
+  > & {
+    pointerType?: string;
+    button?: number;
+    shiftKey?: boolean;
+    metaKey?: boolean;
+    ctrlKey?: boolean;
+    altKey?: boolean;
+  }
+) => ({
+  x: event.clientX,
+  y: event.clientY,
+  pointerType: event.pointerType,
+  button: event.button,
+  modifiers: {
+    shift: Boolean(event.shiftKey),
+    meta: Boolean(event.metaKey),
+    ctrl: Boolean(event.ctrlKey),
+    alt: Boolean(event.altKey),
+  },
+});
+
+const queueCardDebugFrame = (
+  event: string,
+  getPayload: () => Record<string, unknown>
+) => {
+  if (!isDebugEnabled(BATTLEFIELD_DND_DEBUG_KEY)) return;
+  if (typeof requestAnimationFrame === "undefined") return;
+  requestAnimationFrame(() => {
+    debugLog(BATTLEFIELD_DND_DEBUG_KEY, event, getPayload());
+  });
+};
+
+const queueCardDebugTimeout = (
+  event: string,
+  getPayload: () => Record<string, unknown>,
+  delayMs = 250
+) => {
+  if (!isDebugEnabled(BATTLEFIELD_DND_DEBUG_KEY)) return;
+  if (typeof window === "undefined") return;
+  window.setTimeout(() => {
+    debugLog(BATTLEFIELD_DND_DEBUG_KEY, event, getPayload());
+  }, delayMs);
 };
 
 export type CardController = {
@@ -277,13 +334,73 @@ export const useCardController = (props: CardProps): CardController => {
     [zoneType, interactionsDisabled, faceDown, canPeek]
   );
 
-  const handleDoubleClick = React.useCallback(() => {
+  const handleDoubleClick = React.useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     if (viewerRole === "spectator") return;
     if (interactionsDisabled) return;
     if (zoneType !== ZONE.BATTLEFIELD) return;
     const actorId = myPlayerId;
     const selection = useSelectionStore.getState();
     const state = useGameStore.getState();
+    const logTapResult = (targetCardId: string, targetTapped: boolean) => {
+      queueCardDebugFrame("tap-after-frame", () => {
+        const nextCard = useGameStore.getState().cards[targetCardId];
+        return {
+          pointer: pointerSummary(event),
+          cardId: targetCardId,
+          targetTapped,
+          cardStateAfterTap: nextCard
+            ? {
+                zoneId: nextCard.zoneId,
+                position: nextCard.position,
+                tapped: nextCard.tapped,
+                rotation: nextCard.rotation,
+                faceDown: nextCard.faceDown,
+              }
+            : null,
+          cardElement: summarizeCardElement(targetCardId),
+          zoneElement: nextCard ? summarizeZoneElement(nextCard.zoneId) : null,
+        };
+      });
+      queueCardDebugTimeout("tap-after-settled", () => {
+        const nextCard = useGameStore.getState().cards[targetCardId];
+        return {
+          pointer: pointerSummary(event),
+          cardId: targetCardId,
+          targetTapped,
+          cardStateAfterTap: nextCard
+            ? {
+                zoneId: nextCard.zoneId,
+                position: nextCard.position,
+                tapped: nextCard.tapped,
+                rotation: nextCard.rotation,
+                faceDown: nextCard.faceDown,
+              }
+            : null,
+          cardElement: summarizeCardElement(targetCardId),
+          zoneElement: nextCard ? summarizeZoneElement(nextCard.zoneId) : null,
+        };
+      });
+    };
+
+    debugLog(BATTLEFIELD_DND_DEBUG_KEY, "tap-before", {
+      pointer: pointerSummary(event),
+      cardId: card.id,
+      actorId,
+      interactionsDisabled,
+      zoneType,
+      selectedCardIds: selection.selectedCardIds,
+      selectionZoneId: selection.selectionZoneId,
+      cardStateBeforeTap: {
+        zoneId: card.zoneId,
+        position: card.position,
+        tapped: card.tapped,
+        rotation: card.rotation,
+        faceDown: card.faceDown,
+      },
+      cardElement: summarizeCardElement(card.id),
+      zoneElement: summarizeZoneElement(card.zoneId),
+    });
+
     const groupIds = resolveSelectedCardIds({
       seedCardId: card.id,
       cardsById: state.cards,
@@ -299,12 +416,28 @@ export const useCardController = (props: CardProps): CardController => {
         if (targetCard.zoneId !== card.zoneId) return;
         if (targetCard.controllerId !== actorId) return;
         if (targetCard.tapped === targetTapped) return;
+        debugLog(BATTLEFIELD_DND_DEBUG_KEY, "tap-group-card-before", {
+          pointer: pointerSummary(event),
+          cardId: targetCard.id,
+          targetTapped,
+          cardStateBeforeTap: {
+            zoneId: targetCard.zoneId,
+            position: targetCard.position,
+            tapped: targetCard.tapped,
+            rotation: targetCard.rotation,
+            faceDown: targetCard.faceDown,
+          },
+          cardElement: summarizeCardElement(targetCard.id),
+          zoneElement: summarizeZoneElement(targetCard.zoneId),
+        });
         tapCard(targetCard.id, actorId);
+        logTapResult(targetCard.id, targetTapped);
       });
       return;
     }
     if (card.controllerId !== actorId) return;
     tapCard(card.id, actorId);
+    logTapResult(card.id, !card.tapped);
   }, [
     interactionsDisabled,
     zoneType,
@@ -500,6 +633,27 @@ export const useCardController = (props: CardProps): CardController => {
 
   const handlePointerDown = React.useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
+      debugLog(BATTLEFIELD_DND_DEBUG_KEY, "card-pointer-down", {
+        pointer: pointerSummary(e),
+        cardId: card.id,
+        cardState: {
+          zoneId: card.zoneId,
+          position: card.position,
+          tapped: card.tapped,
+          rotation: card.rotation,
+          faceDown: card.faceDown,
+        },
+        cardElement: summarizeCardElement(card.id),
+        zoneElement: summarizeZoneElement(card.zoneId),
+        dndGeometry: summarizeDndCardGeometry(card.id, {
+          pointer: { x: e.clientX, y: e.clientY },
+        }),
+        interactionsDisabled,
+        viewerRole,
+        zoneType,
+        zoneOwnerId,
+        myPlayerId,
+      });
       if (viewerRole === "spectator") return;
       if (interactionsDisabled) return;
       if (e.button !== 0) return;
@@ -570,6 +724,23 @@ export const useCardController = (props: CardProps): CardController => {
         handleTouchPressMove(event);
       },
       onPointerUp: (event: React.PointerEvent<HTMLDivElement>) => {
+        debugLog(BATTLEFIELD_DND_DEBUG_KEY, "card-pointer-up", {
+          pointer: pointerSummary(event),
+          cardId: card.id,
+          cardState: {
+            zoneId: card.zoneId,
+            position: card.position,
+            tapped: card.tapped,
+            rotation: card.rotation,
+            faceDown: card.faceDown,
+          },
+          cardElement: summarizeCardElement(card.id),
+          zoneElement: summarizeZoneElement(card.zoneId),
+          activeDragCardId: useDragStore.getState().activeCardId,
+          dndGeometry: summarizeDndCardGeometry(card.id, {
+            pointer: { x: event.clientX, y: event.clientY },
+          }),
+        });
         handleDesktopPreviewPressEnd(event);
         handleTouchPressFinish(event);
       },

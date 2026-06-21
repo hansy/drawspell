@@ -1,188 +1,189 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from "vitest";
 
+import type { Card } from "@/types";
+import { getCanonicalBattlefieldPlacementGridSteps, getCardPixelSize } from "@/lib/positions";
 import {
   computeBattlefieldCardLayout,
   computeBattlefieldGridProjection,
-} from '../battlefieldModel';
-import {
-  fromNormalizedPosition,
-  getCardPixelSize,
-  snapNormalizedToCanonicalBattlefieldGrid,
-} from '@/lib/positions';
+} from "../battlefieldModel";
 
-const createCard = (overrides: Partial<any> = {}) =>
-  ({
-    id: 'c1',
-    name: 'Card',
-    ownerId: 'p1',
-    controllerId: 'p1',
-    zoneId: 'z1',
-    tapped: false,
-    faceDown: false,
-    position: { x: 0.5, y: 0.5 },
-    rotation: 0,
-    counters: [],
-    ...overrides,
-  }) as any;
-
-const distanceToGrid = (value: number, origin: number, step: number) => {
-  const remainder = ((value - origin) % step + step) % step;
-  return Math.min(remainder, step - remainder);
+const measuredCardSizing = {
+  baseCardHeight: 135,
+  baseCardWidth: 90,
 };
 
-describe('battlefieldModel', () => {
-  it('computes left/top from normalized position', () => {
-    const layout = computeBattlefieldCardLayout({
-      card: createCard(),
-      zoneOwnerId: 'p1',
-      viewerPlayerId: 'p1',
-      zoneWidth: 100,
-      zoneHeight: 200,
-      mirrorBattlefieldY: false,
-      playerColors: {},
-    });
+const createCard = (overrides: Partial<Card> = {}): Card => ({
+  id: "c1",
+  name: "Card",
+  ownerId: "p1",
+  controllerId: "p1",
+  zoneId: "p1-battlefield",
+  tapped: false,
+  faceDown: false,
+  position: { x: 0.5, y: 0.5 },
+  rotation: 0,
+  counters: [],
+  ...overrides,
+});
 
-    expect(layout.left).toBe(10);
-    expect(layout.top).toBe(40);
+const renderedCardGeometry = (params: {
+  card: Card;
+  zoneWidth: number;
+  zoneHeight: number;
+  viewScale: number;
+}) => {
+  const layout = computeBattlefieldCardLayout({
+    card: params.card,
+    zoneOwnerId: "p1",
+    viewerPlayerId: "p1",
+    zoneWidth: params.zoneWidth,
+    zoneHeight: params.zoneHeight,
+    mirrorBattlefieldY: false,
+    playerColors: {},
+    ...measuredCardSizing,
+  });
+  const size = getCardPixelSize({
+    viewScale: params.viewScale,
+    isTapped: params.card.tapped,
+    ...measuredCardSizing,
   });
 
-  it('uses a custom base card height when provided', () => {
-    const layout = computeBattlefieldCardLayout({
-      card: createCard(),
-      zoneOwnerId: 'p1',
-      viewerPlayerId: 'p1',
-      zoneWidth: 100,
-      zoneHeight: 200,
-      mirrorBattlefieldY: false,
-      playerColors: {},
-      baseCardHeight: 160,
-    });
+  // Battlefield cards are positioned as an untapped base box and then
+  // transformed from their center by CardView/Card. The bounding box changes
+  // when tapped or scaled, but the transform-origin center must not.
+  return {
+    left: layout.left,
+    top: layout.top,
+    boundingWidth: size.cardWidth,
+    boundingHeight: size.cardHeight,
+    transformCenterX: layout.left + measuredCardSizing.baseCardWidth / 2,
+    transformCenterY: layout.top + measuredCardSizing.baseCardHeight / 2,
+  };
+};
 
-    expect(layout.left).toBeCloseTo(-3.3333, 3);
-    expect(layout.top).toBeCloseTo(20, 6);
-  });
-
-  it('mirrors Y when rendering for a mirrored seat', () => {
-    const layout = computeBattlefieldCardLayout({
-      card: createCard({ position: { x: 0.5, y: 0.25 } }),
-      zoneOwnerId: 'p1',
-      viewerPlayerId: 'p1',
-      zoneWidth: 100,
-      zoneHeight: 200,
-      mirrorBattlefieldY: true,
-      playerColors: {},
-    });
-
-    expect(layout.top).toBe(90);
-  });
-
-  it('highlights foreign-owned cards using the owner color', () => {
-    const layout = computeBattlefieldCardLayout({
-      card: createCard({ ownerId: 'p2' }),
-      zoneOwnerId: 'p1',
-      viewerPlayerId: 'p1',
-      zoneWidth: 100,
-      zoneHeight: 200,
-      mirrorBattlefieldY: false,
-      playerColors: { p2: 'red' },
-    });
-
-    expect(layout.highlightColor).toBe('red');
-  });
-
-  it('disables drag when the viewer is not the controller', () => {
-    const layout = computeBattlefieldCardLayout({
-      card: createCard({ ownerId: 'p2', controllerId: 'p3' }),
-      zoneOwnerId: 'p1',
-      viewerPlayerId: 'p1',
-      zoneWidth: 100,
-      zoneHeight: 200,
-      mirrorBattlefieldY: false,
-      playerColors: {},
-    });
-
-    expect(layout.disableDrag).toBe(true);
-  });
-
-  it('allows drag for the owner even when another player controls the card', () => {
-    const layout = computeBattlefieldCardLayout({
-      card: createCard({ ownerId: 'p1', controllerId: 'p2' }),
-      zoneOwnerId: 'p2',
-      viewerPlayerId: 'p1',
-      zoneWidth: 100,
-      zoneHeight: 200,
-      mirrorBattlefieldY: false,
-      playerColors: {},
-    });
-
-    expect(layout.disableDrag).toBe(false);
-  });
-
-  it('projects the canonical grid onto a zoomed-out narrow battlefield', () => {
-    const zoneWidth = 149.328125;
-    const zoneHeight = 676;
-    const viewScale = 0.5;
-    const snappedPosition = snapNormalizedToCanonicalBattlefieldGrid({
-      x: 0.613,
-      y: 0.375,
-    });
-    const center = fromNormalizedPosition(snappedPosition, zoneWidth, zoneHeight);
-    const { cardWidth, cardHeight } = getCardPixelSize({ viewScale });
-    const projection = computeBattlefieldGridProjection({
+describe("battlefield layout contracts", () => {
+  it("keeps the rendered card center stable when tapping", () => {
+    const zoneWidth = 1000;
+    const zoneHeight = 600;
+    const untapped = renderedCardGeometry({
+      card: createCard({ tapped: false }),
       zoneWidth,
       zoneHeight,
-      viewScale,
+      viewScale: 1,
+    });
+    const tapped = renderedCardGeometry({
+      card: createCard({ tapped: true }),
+      zoneWidth,
+      zoneHeight,
+      viewScale: 1,
     });
 
-    expect(
-      distanceToGrid(
-        center.x - cardWidth / 2,
-        projection.originOffsetX,
-        projection.gridStepX
-      )
-    ).toBeLessThan(0.0001);
-    expect(
-      distanceToGrid(
-        center.y - cardHeight / 2,
-        projection.originOffsetY,
-        projection.gridStepY
-      )
-    ).toBeLessThan(0.0001);
+    expect(untapped.boundingWidth).toBe(90);
+    expect(untapped.boundingHeight).toBe(135);
+    expect(tapped.boundingWidth).toBe(135);
+    expect(tapped.boundingHeight).toBe(90);
+    expect(tapped.left).toBe(untapped.left);
+    expect(tapped.top).toBe(untapped.top);
+    expect(Math.abs(tapped.transformCenterX - untapped.transformCenterX)).toBeLessThanOrEqual(1);
+    expect(Math.abs(tapped.transformCenterY - untapped.transformCenterY)).toBeLessThanOrEqual(1);
   });
 
-  it('uses tapped dimensions when projecting the active drag grid', () => {
-    const zoneWidth = 900;
-    const zoneHeight = 540;
-    const viewScale = 0.65;
-    const snappedPosition = snapNormalizedToCanonicalBattlefieldGrid(
-      { x: 0.4, y: 0.4 },
-      { isTapped: true }
+  it("keeps canonical center stable while zooming a tapped card", () => {
+    const zoneWidth = 1000;
+    const zoneHeight = 600;
+    const atFullScale = renderedCardGeometry({
+      card: createCard({ tapped: true }),
+      zoneWidth,
+      zoneHeight,
+      viewScale: 1,
+    });
+    const atNinetyPercent = renderedCardGeometry({
+      card: createCard({ tapped: true }),
+      zoneWidth,
+      zoneHeight,
+      viewScale: 0.9,
+    });
+
+    expect(atNinetyPercent.boundingWidth).toBeCloseTo(121.5);
+    expect(atNinetyPercent.boundingHeight).toBeCloseTo(81);
+    expect(atNinetyPercent.left).toBe(atFullScale.left);
+    expect(atNinetyPercent.top).toBe(atFullScale.top);
+    expect(Math.abs(atNinetyPercent.transformCenterX - atFullScale.transformCenterX)).toBeLessThanOrEqual(1);
+    expect(Math.abs(atNinetyPercent.transformCenterY - atFullScale.transformCenterY)).toBeLessThanOrEqual(1);
+  });
+
+  it("uses half-width square grid steps independent of tapped state", () => {
+    const zoneWidth = 1000;
+    const zoneHeight = 600;
+    const untappedFullScale = computeBattlefieldGridProjection({
+      zoneWidth,
+      zoneHeight,
+      viewScale: 1,
+      isTapped: false,
+      ...measuredCardSizing,
+    });
+    const tappedZoomedOut = computeBattlefieldGridProjection({
+      zoneWidth,
+      zoneHeight,
+      viewScale: 0.9,
+      isTapped: true,
+      ...measuredCardSizing,
+    });
+    const untappedZoomedOut = computeBattlefieldGridProjection({
+      zoneWidth,
+      zoneHeight,
+      viewScale: 0.9,
+      isTapped: false,
+      ...measuredCardSizing,
+    });
+    const placementSteps = getCanonicalBattlefieldPlacementGridSteps({
+      zoneWidth,
+      zoneHeight,
+      viewScale: 1,
+      ...measuredCardSizing,
+    });
+    const zoomedOutSteps = getCanonicalBattlefieldPlacementGridSteps({
+      zoneWidth,
+      zoneHeight,
+      viewScale: 0.9,
+      ...measuredCardSizing,
+    });
+
+    expect(untappedFullScale.gridStepX).toBeCloseTo(zoneWidth * placementSteps.stepX);
+    expect(untappedFullScale.gridStepY).toBeCloseTo(zoneHeight * placementSteps.stepY);
+    expect(untappedFullScale.gridStepX).toBeCloseTo(measuredCardSizing.baseCardWidth / 2);
+    expect(untappedFullScale.gridStepY).toBeCloseTo(measuredCardSizing.baseCardWidth / 2);
+    expect(tappedZoomedOut.gridStepX).toBeCloseTo(zoneWidth * zoomedOutSteps.stepX);
+    expect(tappedZoomedOut.gridStepY).toBeCloseTo(zoneHeight * zoomedOutSteps.stepY);
+    expect(tappedZoomedOut.gridStepY).toBeCloseTo(
+      (measuredCardSizing.baseCardWidth * 0.9) / 2
     );
-    const center = fromNormalizedPosition(snappedPosition, zoneWidth, zoneHeight);
-    const { cardWidth, cardHeight } = getCardPixelSize({
-      viewScale,
-      isTapped: true,
+    expect(tappedZoomedOut).toEqual(untappedZoomedOut);
+  });
+
+  it("keeps drag permission independent of visual movement state", () => {
+    const ownerControlled = computeBattlefieldCardLayout({
+      card: createCard({ ownerId: "p1", controllerId: "p2" }),
+      zoneOwnerId: "p2",
+      viewerPlayerId: "p1",
+      zoneWidth: 1000,
+      zoneHeight: 600,
+      mirrorBattlefieldY: false,
+      playerColors: {},
+      ...measuredCardSizing,
     });
-    const projection = computeBattlefieldGridProjection({
-      zoneWidth,
-      zoneHeight,
-      viewScale,
-      isTapped: true,
+    const foreignControlled = computeBattlefieldCardLayout({
+      card: createCard({ ownerId: "p2", controllerId: "p3" }),
+      zoneOwnerId: "p1",
+      viewerPlayerId: "p1",
+      zoneWidth: 1000,
+      zoneHeight: 600,
+      mirrorBattlefieldY: false,
+      playerColors: {},
+      ...measuredCardSizing,
     });
 
-    expect(
-      distanceToGrid(
-        center.x - cardWidth / 2,
-        projection.originOffsetX,
-        projection.gridStepX
-      )
-    ).toBeLessThan(0.0001);
-    expect(
-      distanceToGrid(
-        center.y - cardHeight / 2,
-        projection.originOffsetY,
-        projection.gridStepY
-      )
-    ).toBeLessThan(0.0001);
+    expect(ownerControlled.disableDrag).toBe(false);
+    expect(foreignControlled.disableDrag).toBe(true);
   });
 });

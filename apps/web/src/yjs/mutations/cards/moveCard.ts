@@ -3,7 +3,7 @@ import {
   planCardMovement,
   resolveCardMovementPosition,
 } from "@mtg/shared/movement";
-import { getCanonicalBattlefieldGridSteps } from "@/lib/positions";
+import { getCanonicalBattlefieldPlacementGridSteps } from "@/lib/positions";
 import { resetCardToFrontFace } from "@/lib/cardDisplay";
 
 import type { SharedMaps } from "../shared";
@@ -43,10 +43,7 @@ export function moveCard(
     position,
     opts,
     getPosition: (id) => readCard(maps, id)?.position,
-    getStepY: (id) =>
-      getCanonicalBattlefieldGridSteps({
-        isTapped: readCard(maps, id)?.tapped,
-      }).stepY,
+    getStepY: () => getCanonicalBattlefieldPlacementGridSteps().stepY,
   });
   const plan = planCardMovement({
     card,

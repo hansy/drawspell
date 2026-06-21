@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import { useGameStore } from "@/store/gameStore";
+import { debugLog, type DebugFlagKey } from "@/lib/debug";
 
 export type UseBattlefieldZoomControlsArgs = {
   playerId: string;
@@ -10,6 +11,7 @@ export type UseBattlefieldZoomControlsArgs = {
 };
 
 const PINCH_STEP_PX = 20;
+const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
 export const useBattlefieldZoomControls = ({
   playerId,
@@ -32,6 +34,15 @@ export const useBattlefieldZoomControls = ({
         ? currentScale + delta
         : currentScale - delta;
 
+      debugLog(BATTLEFIELD_DND_DEBUG_KEY, "battlefield-zoom-adjust", {
+        playerId,
+        direction,
+        currentScale,
+        requestedScale: nextScale,
+        enabled,
+        isBlocked,
+      });
+
       setBattlefieldViewScale(playerId, nextScale);
     },
     [enabled, isBlocked, playerId, setBattlefieldViewScale]
@@ -45,6 +56,14 @@ export const useBattlefieldZoomControls = ({
       if (isBlocked) return;
 
       const direction = event.deltaY < 0 ? "in" : "out";
+      debugLog(BATTLEFIELD_DND_DEBUG_KEY, "battlefield-zoom-wheel", {
+        playerId,
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        direction,
+      });
       adjustScale(direction);
       event.preventDefault();
     };
@@ -91,6 +110,14 @@ export const useBattlefieldZoomControls = ({
       if (steps === 0) return;
 
       const direction = steps > 0 ? "in" : "out";
+      debugLog(BATTLEFIELD_DND_DEBUG_KEY, "battlefield-zoom-pinch", {
+        playerId,
+        previousDistance: pinchDistance,
+        nextDistance,
+        delta,
+        steps,
+        direction,
+      });
       for (let i = 0; i < Math.abs(steps); i += 1) {
         adjustScale(direction);
       }

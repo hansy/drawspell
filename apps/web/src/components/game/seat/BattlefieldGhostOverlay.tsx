@@ -4,6 +4,12 @@ import type { Card } from "@/types";
 import { getCardPixelSize } from "@/lib/positions";
 import { getFlipRotation } from "@/lib/cardDisplay";
 import { CardView } from "../card/CardView";
+import {
+  debugLog,
+  isDebugEnabled,
+  summarizeGhostElement,
+  type DebugFlagKey,
+} from "@/lib/debug";
 
 type GhostCardView = {
   card: Card;
@@ -21,6 +27,8 @@ type BattlefieldGhostOverlayProps = {
   selectedCardIds: string[];
 };
 
+const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
+
 export const BattlefieldGhostOverlay = React.memo(
   ({
     ghostCards,
@@ -31,6 +39,25 @@ export const BattlefieldGhostOverlay = React.memo(
     playerColors,
     selectedCardIds,
   }: BattlefieldGhostOverlayProps) => {
+    React.useEffect(() => {
+      if (!isDebugEnabled(BATTLEFIELD_DND_DEBUG_KEY)) return;
+      if (typeof requestAnimationFrame === "undefined") return;
+      const frame = requestAnimationFrame(() => {
+        debugLog(BATTLEFIELD_DND_DEBUG_KEY, "group-ghost-overlay-rendered", {
+          viewScale,
+          baseCardHeight,
+          baseCardWidth,
+          ghostCards: ghostCards.map((ghost) => ({
+            cardId: ghost.card.id,
+            position: ghost.position,
+            tapped: ghost.tapped,
+            element: summarizeGhostElement(ghost.card.id),
+          })),
+        });
+      });
+      return () => cancelAnimationFrame(frame);
+    }, [baseCardHeight, baseCardWidth, ghostCards, viewScale]);
+
     if (ghostCards.length === 0) return null;
     const { cardWidth: baseWidth, cardHeight: baseHeight } = getCardPixelSize({
       viewScale: 1,
@@ -60,6 +87,8 @@ export const BattlefieldGhostOverlay = React.memo(
                 transform,
                 transformOrigin: "center center",
               }}
+              data-dnd-ghost-card-id={card.id}
+              data-dnd-ghost-kind="group"
               className="pointer-events-none opacity-80 z-10"
               faceDown={card.faceDown}
               imageTransform={

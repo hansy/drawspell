@@ -5,7 +5,7 @@ import {
   clampNormalizedPosition,
   findAvailablePositionNormalized,
   offsetNormalizedByGrid,
-  snapNormalizedToCanonicalBattlefieldGrid,
+  snapNormalizedToBattlefieldPlacementGrid,
 } from "@/lib/positions";
 import { toScryfallCardLite } from "@/types/scryfallLite";
 
@@ -46,11 +46,9 @@ export const planTokenCards = (params: {
 
   for (let index = 0; index < params.quantity; index += 1) {
     const id = params.createId();
-    const base = clampNormalizedPosition({
-      x: DEFAULT_START.x + index * stepX,
-      y: DEFAULT_START.y + index * stepY,
-    });
-    const snappedBase = snapNormalizedToCanonicalBattlefieldGrid(base);
+    const snappedBase = snapNormalizedToBattlefieldPlacementGrid(
+      clampNormalizedPosition(DEFAULT_START)
+    );
 
     const position = findAvailablePositionNormalized(
       snappedBase,

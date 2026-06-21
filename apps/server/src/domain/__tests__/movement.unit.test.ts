@@ -6,7 +6,7 @@ import type { Zone } from "@mtg/shared/types/zones";
 import { ZONE } from "../constants";
 import { createEmptyHiddenState } from "../hiddenState";
 import { applyCardMove } from "../movement";
-import { getCanonicalBattlefieldGridSteps } from "../positions";
+import { getCanonicalBattlefieldPlacementGridSteps } from "../positions";
 import { getMaps, readCard, readZone, writeCard, writeZone } from "../yjsStore";
 
 const createDoc = () => new Y.Doc();
@@ -154,14 +154,14 @@ describe("applyCardMove", () => {
     expect(result.ok).toBe(true);
     const moved = readCard(maps, "c1");
     expect(moved?.position.y).toBeCloseTo(
-      0.5 + getCanonicalBattlefieldGridSteps().stepY,
+      0.5 + getCanonicalBattlefieldPlacementGridSteps().stepY,
       6
     );
     expect(hiddenChanged).toBe(true);
     expect(logEvents[0]?.eventId).toBe("card.move");
   });
 
-  it("uses tapped spacing when resolving server group battlefield collisions", () => {
+  it("uses visible placement rows when resolving server group battlefield collisions", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
     const hidden = createEmptyHiddenState();
@@ -219,9 +219,13 @@ describe("applyCardMove", () => {
     );
 
     expect(result.ok).toBe(true);
+    const reservedMovingCard = readCard(maps, "c1");
     const moved = readCard(maps, "c2");
+    const stepY = getCanonicalBattlefieldPlacementGridSteps().stepY;
+    expect(reservedMovingCard?.position).toEqual({ x: 0.2, y: 0.2 });
+    expect(moved?.position.x).toBeCloseTo(target.x, 6);
     expect(moved?.position.y).toBeCloseTo(
-      target.y + getCanonicalBattlefieldGridSteps().stepY,
+      target.y + stepY * 2,
       6
     );
   });

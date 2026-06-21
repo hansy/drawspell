@@ -14,28 +14,51 @@ import { useGameStore } from "@/store/gameStore";
 import { useDragStore } from "@/store/dragStore";
 import { useSelectionStore } from "@/store/selectionStore";
 import type { CardId, ViewerRole, ZoneId } from "@/types";
-import { computeDragEndPlan, computeDragMoveUiState } from "./model";
-import { getEffectiveCardSize } from "@/lib/dndBattlefield";
+import {
+  computeBattlefieldGroupGhostCards,
+  computeDragEndPlan,
+  computeDragMoveUiState,
+} from "./model";
 import {
   clampCanonicalBattlefieldGroupDelta,
   clampNormalizedToCanonicalBattlefieldBounds,
-  fromNormalizedPosition,
-  mirrorNormalizedY,
-  toNormalizedPosition,
 } from "@/lib/positions";
 import { ZONE } from "@/constants/zones";
 import { resolveSelectedCardIds } from "@/models/game/selection/selectionModel";
-import { debugLog, isDebugEnabled, type DebugFlagKey } from "@/lib/debug";
+import {
+  debugLog,
+  isDebugEnabled,
+  summarizeDndCardGeometry,
+  summarizeDragOverlayCardElement,
+  summarizeCardElement,
+  summarizeDragOverlayElement,
+  summarizeGhostElement,
+  summarizeRect,
+  summarizeRectPointerRelation,
+  summarizeZoneElement,
+  type DebugFlagKey,
+} from "@/lib/debug";
 
 // Throttle helper for drag move events
 const DRAG_MOVE_THROTTLE_MS = 16; // ~60fps
 const FACE_DOWN_DEBUG_KEY: DebugFlagKey = "faceDownDrag";
+const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
 const DEFAULT_DRAG_TRANSFORM_ORIGIN = "50% 50%";
 
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
 const getEventCoordinates = (event: Event) => {
+  const eventLike = event as Event & {
+    clientX?: unknown;
+    clientY?: unknown;
+  };
+  if (
+    typeof eventLike.clientX === "number" &&
+    typeof eventLike.clientY === "number"
+  ) {
+    return { x: eventLike.clientX, y: eventLike.clientY };
+  }
   if (typeof MouseEvent !== "undefined" && event instanceof MouseEvent) {
     return { x: event.clientX, y: event.clientY };
   }
@@ -84,6 +107,83 @@ const getCurrentPointerScreen = (params: {
 const escapeSelectorValue = (value: string) =>
   value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
+const getCardElementRect = (cardId: string) => {
+  if (typeof document === "undefined") return null;
+  const node = document.querySelector(
+    `[data-card-id="${escapeSelectorValue(cardId)}"]`
+  );
+  if (!(node instanceof HTMLElement)) return null;
+  return node.getBoundingClientRect();
+};
+
+const getDraggableSourceElementRect = (cardId: string) => {
+  if (typeof document === "undefined") return null;
+  const handSortableNode = document.querySelector(
+    `[data-dnd-hand-sortable-card-id="${escapeSelectorValue(cardId)}"]`
+  );
+  if (handSortableNode instanceof HTMLElement) {
+    return handSortableNode.getBoundingClientRect();
+  }
+  return getCardElementRect(cardId);
+};
+
+const summarizeRectLike = (
+  rect:
+    | { left: number; top: number; right: number; bottom: number; width: number; height: number }
+    | null
+    | undefined
+) => (rect ? summarizeRect(rect) : null);
+
+const pointDelta = (
+  from: { x: number; y: number } | null | undefined,
+  to: { x: number; y: number } | null | undefined
+) => {
+  if (!from || !to) return null;
+  const delta = {
+    x: to.x - from.x,
+    y: to.y - from.y,
+  };
+  return {
+    ...delta,
+    distance: Math.hypot(delta.x, delta.y),
+  };
+};
+
+const localBattlefieldPointToScreen = (
+  point: { x: number; y: number } | null | undefined,
+  overRect: { left: number; top: number } | null | undefined,
+  zoneScale: number
+) => {
+  if (!point || !overRect) return null;
+  return {
+    x: overRect.left + point.x * zoneScale,
+    y: overRect.top + point.y * zoneScale,
+  };
+};
+
+const queueDebugFrame = (
+  event: string,
+  getPayload: () => Record<string, unknown>
+) => {
+  if (!isDebugEnabled(BATTLEFIELD_DND_DEBUG_KEY)) return;
+  if (typeof requestAnimationFrame === "undefined") return;
+  requestAnimationFrame(() => {
+    debugLog(BATTLEFIELD_DND_DEBUG_KEY, event, getPayload());
+  });
+};
+
+const queueDebugTimeout = (
+  event: string,
+  getPayload: () => Record<string, unknown>,
+  delayMs = 250
+) => {
+  if (!isDebugEnabled(BATTLEFIELD_DND_DEBUG_KEY)) return;
+  if (typeof window === "undefined") return;
+  window.setTimeout(() => {
+    debugLog(BATTLEFIELD_DND_DEBUG_KEY, event, getPayload());
+  }, delayMs);
+};
+
 const getInitialBattlefieldGroupGhostCards = (params: {
   cardIds: CardId[];
   cards: ReturnType<typeof useGameStore.getState>["cards"];
@@ -128,6 +228,12 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
   const setActiveCardTransformOrigin = useDragStore(
     (state) => state.setActiveCardTransformOrigin
   );
+  const setActiveCardDragAnchor = useDragStore(
+    (state) => state.setActiveCardDragAnchor
+  );
+  const setActiveCardSourceSize = useDragStore(
+    (state) => state.setActiveCardSourceSize
+  );
   const setIsGroupDragging = useDragStore((state) => state.setIsGroupDragging);
   const setOverCardScale = useDragStore((state) => state.setOverCardScale);
   const myPlayerId = useGameStore((state) => state.myPlayerId);
@@ -157,16 +263,24 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     startZoneId: ZoneId;
   } | null>(null);
   const dragAnchorRef = React.useRef<{ x: number; y: number } | null>(null);
+  const lastSingleBattlefieldPreviewRef = React.useRef<{
+    cardId: CardId;
+    toZoneId: ZoneId;
+    position: { x: number; y: number };
+  } | null>(null);
 
   const handleDragStart = (event: DragStartEvent) => {
     if (isSpectator) return;
     currentDragSeq.current = ++dragSeq.current;
     dragSelectionRef.current = null;
     dragAnchorRef.current = null;
+    lastSingleBattlefieldPreviewRef.current = null;
     loggedMissingGhostRef.current = false;
 
     setGhostCards(null);
     setActiveCardTransformOrigin(DEFAULT_DRAG_TRANSFORM_ORIGIN);
+    setActiveCardDragAnchor(null);
+    setActiveCardSourceSize(null);
     setIsGroupDragging(false);
     if (event.active.data.current?.cardId) {
       const cardId = event.active.data.current.cardId as CardId;
@@ -176,20 +290,94 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
           ? event.active.data.current.cardScale
           : 1;
       setActiveCardScale(cardScale);
+      const visibleSourceRect = getCardElementRect(cardId);
+      const activeInitialRect =
+        visibleSourceRect ?? event.active.rect.current.initial ?? null;
+      const draggableSourceRect =
+        getDraggableSourceElementRect(cardId) ??
+        event.active.rect.current.initial ??
+        visibleSourceRect;
+      const activatorPointer = getEventCoordinates(event.activatorEvent);
       dragAnchorRef.current = computeDragAnchor(
         event.activatorEvent,
-        event.active.rect.current.initial
+        activeInitialRect
+      );
+      setActiveCardDragAnchor(dragAnchorRef.current);
+      setActiveCardSourceSize(
+        visibleSourceRect
+          ? {
+              width: visibleSourceRect.width,
+              height: visibleSourceRect.height,
+              offsetX: draggableSourceRect
+                ? visibleSourceRect.left - draggableSourceRect.left
+                : 0,
+              offsetY: draggableSourceRect
+                ? visibleSourceRect.top - draggableSourceRect.top
+                : 0,
+            }
+          : null
       );
       setActiveCardTransformOrigin(
         computeDragTransformOrigin(
           event.activatorEvent,
-          event.active.rect.current.initial
+          activeInitialRect
         )
       );
 
       const state = useGameStore.getState();
       const activeCard = state.cards[cardId];
       if (!activeCard) return;
+      const activeZone = state.zones[activeCard.zoneId];
+      debugLog(BATTLEFIELD_DND_DEBUG_KEY, "drag-start", {
+        seq: currentDragSeq.current,
+        cardId,
+        activatorPointer,
+        dragAnchor: dragAnchorRef.current,
+        activeRectInitial: summarizeRectLike(event.active.rect.current.initial),
+        activeInitialPointerRelation: summarizeRectPointerRelation(
+          summarizeRectLike(activeInitialRect),
+          activatorPointer,
+          dragAnchorRef.current
+        ),
+        activeRectTranslated: summarizeRectLike(event.active.rect.current.translated),
+        activeData: {
+          zoneId: event.active.data.current?.zoneId,
+          cardScale: event.active.data.current?.cardScale,
+          tapped: event.active.data.current?.tapped,
+        },
+        cardScale,
+        sourceGeometry: {
+          visibleSourceRect: summarizeRectLike(visibleSourceRect),
+          draggableSourceRect: summarizeRectLike(draggableSourceRect),
+          sourceOffset:
+            visibleSourceRect && draggableSourceRect
+              ? {
+                  x: visibleSourceRect.left - draggableSourceRect.left,
+                  y: visibleSourceRect.top - draggableSourceRect.top,
+                }
+              : null,
+        },
+        sourceZone: activeZone
+          ? {
+              id: activeZone.id,
+              type: activeZone.type,
+              ownerId: activeZone.ownerId,
+            }
+          : null,
+        cardState: {
+          zoneId: activeCard.zoneId,
+          position: activeCard.position,
+          tapped: activeCard.tapped,
+          rotation: activeCard.rotation,
+          faceDown: activeCard.faceDown,
+        },
+        cardElement: summarizeCardElement(cardId),
+        zoneElement: summarizeZoneElement(activeCard.zoneId),
+        dndGeometry: summarizeDndCardGeometry(cardId, {
+          pointer: activatorPointer,
+          dragAnchor: dragAnchorRef.current,
+        }),
+      });
       if (activeCard.faceDown) {
         debugLog(FACE_DOWN_DEBUG_KEY, "drag-start", {
           cardId,
@@ -282,6 +470,10 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
 
     const activeCardId = active.data.current?.cardId as CardId | undefined;
     const activeCard = activeCardId ? state.cards[activeCardId] : undefined;
+    const pointerScreen = getCurrentPointerScreen({
+      activatorEvent: event.activatorEvent,
+      delta: event.delta,
+    });
 
     const result = computeDragMoveUiState({
       myPlayerId,
@@ -290,10 +482,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       zones: state.zones,
       activeCardId,
       activeRect: active.rect.current?.translated,
-      pointerScreen: getCurrentPointerScreen({
-        activatorEvent: event.activatorEvent,
-        delta: event.delta,
-      }),
+      pointerScreen,
+      movementScreen: event.delta,
       dragAnchor: dragAnchorRef.current,
       activeTapped: Boolean(active.data.current?.tapped),
       over: over
@@ -306,6 +496,128 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
             cardBaseHeight: over.data.current?.cardBaseHeight,
             cardBaseWidth: over.data.current?.cardBaseWidth,
             mirrorY: Boolean(over.data.current?.mirrorY),
+          }
+        : null,
+    });
+    const placementRelations = result.debug
+      ? (() => {
+          const zoneScale = result.debug.zoneScale || 1;
+          const ghostScreenCenter = localBattlefieldPointToScreen(
+            result.debug.placement.ghostPosition,
+            result.debug.overRect,
+            zoneScale
+          );
+          const snappedScreenCenter = localBattlefieldPointToScreen(
+            result.debug.placement.snappedPosition,
+            result.debug.overRect,
+            zoneScale
+          );
+          const livePositionScreenCenter = localBattlefieldPointToScreen(
+            result.debug.placement.livePosition,
+            result.debug.overRect,
+            zoneScale
+          );
+          const liveDraggedCenterScreen = result.debug.centerScreen;
+
+          return {
+            liveDraggedCenterScreen,
+            livePositionScreenCenter,
+            ghostScreenCenter,
+            snappedScreenCenter,
+            ghostRelativeToLiveDragged: pointDelta(
+              liveDraggedCenterScreen,
+              ghostScreenCenter
+            ),
+            ghostRelativeToLivePosition: pointDelta(
+              livePositionScreenCenter,
+              ghostScreenCenter
+            ),
+            snappedRelativeToGhost: pointDelta(
+              ghostScreenCenter,
+              snappedScreenCenter
+            ),
+            snappedRelativeToLiveDragged: pointDelta(
+              liveDraggedCenterScreen,
+              snappedScreenCenter
+            ),
+          };
+        })()
+      : null;
+    debugLog(BATTLEFIELD_DND_DEBUG_KEY, "drag-move-compute", {
+      seq: currentDragSeq.current,
+      cardId: activeCardId,
+      pointerScreen,
+      delta: event.delta,
+      activeRectTranslated: summarizeRectLike(active.rect.current?.translated),
+      activeTranslatedPointerRelation: summarizeRectPointerRelation(
+        summarizeRectLike(active.rect.current?.translated),
+        pointerScreen,
+        dragAnchorRef.current
+      ),
+      activeRectInitial: summarizeRectLike(active.rect.current?.initial),
+      activeInitialPointerRelation: summarizeRectPointerRelation(
+        summarizeRectLike(active.rect.current?.initial),
+        pointerScreen,
+        dragAnchorRef.current
+      ),
+      over: over
+        ? {
+            id: over.id,
+            type: over.data.current?.type,
+            rect: summarizeRectLike(over.rect),
+            scale: over.data.current?.scale,
+            cardScale: over.data.current?.cardScale,
+            cardBaseHeight: over.data.current?.cardBaseHeight,
+            cardBaseWidth: over.data.current?.cardBaseWidth,
+            mirrorY: Boolean(over.data.current?.mirrorY),
+          }
+        : null,
+      cardState: activeCard
+        ? {
+            zoneId: activeCard.zoneId,
+            position: activeCard.position,
+            tapped: activeCard.tapped,
+            rotation: activeCard.rotation,
+            faceDown: activeCard.faceDown,
+          }
+        : null,
+      cardElement: activeCardId ? summarizeCardElement(activeCardId) : null,
+      dragOverlayElement: activeCardId
+        ? summarizeDragOverlayElement(activeCardId)
+        : null,
+      dragOverlayCardElement: activeCardId
+        ? summarizeDragOverlayCardElement(activeCardId)
+        : null,
+      ghostElementBeforeRender: activeCardId ? summarizeGhostElement(activeCardId) : null,
+      dndGeometry: activeCardId
+        ? summarizeDndCardGeometry(activeCardId, {
+            pointer: pointerScreen,
+            dragAnchor: dragAnchorRef.current,
+          })
+        : null,
+      ghostCard: result.ghostCard,
+      placementRelations,
+      placement: result.debug
+        ? {
+            centerScreen: result.debug.centerScreen,
+            pointerScreen: result.debug.pointerScreen,
+            movementScreen: result.debug.movementScreen,
+            dragAnchor: result.debug.dragAnchor,
+            isTapped: result.debug.isTapped,
+            zoneScale: result.debug.zoneScale,
+            viewScale: result.debug.viewScale,
+            overRect: summarizeRectLike(result.debug.overRect),
+            cardWidth: result.debug.placement.cardWidth,
+            cardHeight: result.debug.placement.cardHeight,
+            zoneWidth: result.debug.placement.zoneWidth,
+            zoneHeight: result.debug.placement.zoneHeight,
+            livePosition: result.debug.placement.livePosition,
+            liveCanonical: result.debug.placement.liveCanonical,
+            leadScreen: result.debug.placement.leadScreen,
+            previewCanonical: result.debug.placement.previewCanonical,
+            snappedCanonical: result.debug.placement.snappedCanonical,
+            ghostPosition: result.debug.placement.ghostPosition,
+            snappedPosition: result.debug.placement.snappedPosition,
           }
         : null,
     });
@@ -331,6 +643,13 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
 
     if (!isGroupDragging) {
       if (result.ghostCard && activeCardId) {
+        lastSingleBattlefieldPreviewRef.current = result.debug
+          ? {
+              cardId: activeCardId,
+              toZoneId: result.ghostCard.zoneId,
+              position: result.debug.placement.snappedCanonical,
+            }
+          : null;
         setGhostCards([
           {
             cardId: activeCardId,
@@ -340,7 +659,23 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
             size: result.ghostCard.size,
           },
         ]);
+        queueDebugFrame("drag-move-ghost-rendered", () => ({
+          seq: currentDragSeq.current,
+          cardId: activeCardId,
+          ghostState: useDragStore.getState().ghostCards?.find(
+            (ghost) => ghost.cardId === activeCardId
+          ),
+          ghostElement: summarizeGhostElement(activeCardId),
+          dragOverlayElement: summarizeDragOverlayElement(activeCardId),
+          dragOverlayCardElement: summarizeDragOverlayCardElement(activeCardId),
+          cardElement: summarizeCardElement(activeCardId),
+          dndGeometry: summarizeDndCardGeometry(activeCardId, {
+            pointer: pointerScreen,
+            dragAnchor: dragAnchorRef.current,
+          }),
+        }));
       } else {
+        lastSingleBattlefieldPreviewRef.current = null;
         setGhostCards(null);
       }
       return;
@@ -375,70 +710,61 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     const baseCardHeight = over.data.current?.cardBaseHeight;
     const baseCardWidth = over.data.current?.cardBaseWidth;
 
-    const activeStart = group.startPositions[group.activeCardId];
-    if (!activeStart) {
-      setGhostCards(null);
-      return;
-    }
-
-    const activeGhostView = toNormalizedPosition(
-      result.ghostCard.position,
-      zoneWidth,
-      zoneHeight
-    );
-    const activeGhostCanonical = mirrorY
-      ? mirrorNormalizedY(activeGhostView)
-      : activeGhostView;
-
-    const delta = {
-      x: activeGhostCanonical.x - activeStart.x,
-      y: activeGhostCanonical.y - activeStart.y,
-    };
-    const clampedDelta = clampCanonicalBattlefieldGroupDelta({
-      movingIds: group.groupCardIds,
+    const ghostCards = computeBattlefieldGroupGhostCards({
+      groupCardIds: group.groupCardIds,
+      activeCardId: group.activeCardId,
       startPositions: group.startPositions,
-      delta,
-      isTapped: (id) => state.cards[id]?.tapped,
+      cards: state.cards,
+      targetZoneId: targetZone.id,
+      activeGhostPosition: result.ghostCard.position,
+      zoneWidth,
+      zoneHeight,
+      mirrorY,
+      viewScale,
+      baseCardHeight,
+      baseCardWidth,
     });
 
-    const ghostCards = group.groupCardIds
-      .map((id) => {
-        const card = state.cards[id];
-        const startPos = group.startPositions[id];
-        if (!card || !startPos) return null;
-
-        const candidate = {
-          x: startPos.x + clampedDelta.x,
-          y: startPos.y + clampedDelta.y,
-        };
-        const visualSize = getEffectiveCardSize({
-          viewScale,
-          isTapped: card.tapped,
-          baseCardHeight,
-          baseCardWidth,
-        });
-        const target = clampNormalizedToCanonicalBattlefieldBounds(
-          candidate,
-          { isTapped: card.tapped }
-        );
-        const viewNormalized = mirrorY ? mirrorNormalizedY(target) : target;
-        const position = fromNormalizedPosition(
-          viewNormalized,
-          zoneWidth,
-          zoneHeight
-        );
-        return {
-          cardId: card.id,
-          zoneId: targetZone.id,
-          position,
-          tapped: card.tapped,
-          size: { width: visualSize.cardWidth, height: visualSize.cardHeight },
-        };
-      })
-      .filter((value): value is NonNullable<typeof value> => Boolean(value));
-
     setGhostCards(ghostCards.length > 0 ? ghostCards : null);
+    queueDebugFrame("drag-move-group-ghost-rendered", () => ({
+      seq: currentDragSeq.current,
+      ghostCards: useDragStore.getState().ghostCards,
+      activeDndGeometry: activeCardId
+        ? summarizeDndCardGeometry(activeCardId, {
+            pointer: pointerScreen,
+            dragAnchor: dragAnchorRef.current,
+          })
+        : null,
+      ghostElements: ghostCards.map((ghost) => ({
+        cardId: ghost.cardId,
+        element: summarizeGhostElement(ghost.cardId),
+      })),
+    }));
   };
+
+  const cleanupDragState = React.useCallback(() => {
+    setGhostCards(null);
+    setActiveCardId(null);
+    setActiveCardScale(1);
+    setActiveCardTransformOrigin(DEFAULT_DRAG_TRANSFORM_ORIGIN);
+    setActiveCardDragAnchor(null);
+    setActiveCardSourceSize(null);
+    setIsGroupDragging(false);
+    setOverCardScale(1);
+    currentDragSeq.current = null;
+    dragSelectionRef.current = null;
+    dragAnchorRef.current = null;
+    lastSingleBattlefieldPreviewRef.current = null;
+  }, [
+    setActiveCardDragAnchor,
+    setActiveCardId,
+    setActiveCardScale,
+    setActiveCardSourceSize,
+    setActiveCardTransformOrigin,
+    setGhostCards,
+    setIsGroupDragging,
+    setOverCardScale,
+  ]);
 
   const handleDragEnd = React.useCallback(
     (event: DragEndEvent) => {
@@ -449,123 +775,192 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       }
 
       const { active, over } = event;
-      setGhostCards(null);
-      setActiveCardId(null);
-      setActiveCardScale(1);
-      setActiveCardTransformOrigin(DEFAULT_DRAG_TRANSFORM_ORIGIN);
-      setIsGroupDragging(false);
-      setOverCardScale(1);
-      currentDragSeq.current = null;
+      const finishedDragSeq = currentDragSeq.current;
+      try {
+        if (!over || active.id === over.id) return;
 
-      if (!over || active.id === over.id) return;
+        const cardId = active.data.current?.cardId as CardId | undefined;
+        const toZoneId = over.data.current?.zoneId as ZoneId | undefined;
+        if (!cardId || !toZoneId) return;
 
-      const cardId = active.data.current?.cardId as CardId | undefined;
-      const toZoneId = over.data.current?.zoneId as ZoneId | undefined;
-      if (!cardId || !toZoneId) return;
-
-      const state = useGameStore.getState();
-      const plan = computeDragEndPlan({
-        myPlayerId,
-        viewerRole: params.viewerRole,
-        cards: state.cards,
-        zones: state.zones,
-        cardId,
-        toZoneId,
-        overCardId: over.data.current?.cardId as CardId | undefined,
-        activeRect: active.rect.current?.translated,
-        pointerScreen: getCurrentPointerScreen({
+        const state = useGameStore.getState();
+        const pointerScreen = getCurrentPointerScreen({
           activatorEvent: event.activatorEvent,
           delta: event.delta,
-        }),
-        dragAnchor: dragAnchorRef.current,
-        overRect: over.rect,
-        overScale: over.data.current?.scale,
-        overCardScale: over.data.current?.cardScale,
-        overCardBaseHeight: over.data.current?.cardBaseHeight,
-        overCardBaseWidth: over.data.current?.cardBaseWidth,
-        mirrorY: Boolean(over.data.current?.mirrorY),
-        activeTapped: Boolean(active.data.current?.tapped),
-      });
-      const activeCard = state.cards[cardId];
-      if (activeCard?.faceDown) {
-        debugLog(FACE_DOWN_DEBUG_KEY, "drag-end-plan", {
-          cardId,
-          plan,
-          fromZoneId: activeCard.zoneId,
-          faceDown: activeCard.faceDown,
         });
-      }
+        const releasePreview = lastSingleBattlefieldPreviewRef.current;
+        const plan = computeDragEndPlan({
+          myPlayerId,
+          viewerRole: params.viewerRole,
+          cards: state.cards,
+          zones: state.zones,
+          cardId,
+          toZoneId,
+          overCardId: over.data.current?.cardId as CardId | undefined,
+          activeRect: active.rect.current?.translated,
+          pointerScreen,
+          movementScreen: event.delta,
+          dragAnchor: dragAnchorRef.current,
+          overRect: over.rect,
+          overScale: over.data.current?.scale,
+          overCardScale: over.data.current?.cardScale,
+          overCardBaseHeight: over.data.current?.cardBaseHeight,
+          overCardBaseWidth: over.data.current?.cardBaseWidth,
+          releasePreviewPosition:
+            releasePreview &&
+            releasePreview.cardId === cardId &&
+            releasePreview.toZoneId === toZoneId
+              ? releasePreview.position
+              : null,
+          mirrorY: Boolean(over.data.current?.mirrorY),
+          activeTapped: Boolean(active.data.current?.tapped),
+        });
+        const activeCard = state.cards[cardId];
+        debugLog(BATTLEFIELD_DND_DEBUG_KEY, "drag-end-plan", {
+          seq: finishedDragSeq,
+          cardId,
+          pointerScreen,
+          delta: event.delta,
+          over: over
+            ? {
+                id: over.id,
+                type: over.data.current?.type,
+                rect: summarizeRectLike(over.rect),
+                scale: over.data.current?.scale,
+                cardScale: over.data.current?.cardScale,
+                cardBaseHeight: over.data.current?.cardBaseHeight,
+                cardBaseWidth: over.data.current?.cardBaseWidth,
+                mirrorY: Boolean(over.data.current?.mirrorY),
+              }
+            : null,
+          activeRectTranslated: summarizeRectLike(active.rect.current?.translated),
+          activeTranslatedPointerRelation: summarizeRectPointerRelation(
+            summarizeRectLike(active.rect.current?.translated),
+            pointerScreen,
+            dragAnchorRef.current
+          ),
+          activeRectInitial: summarizeRectLike(active.rect.current?.initial),
+          activeInitialPointerRelation: summarizeRectPointerRelation(
+            summarizeRectLike(active.rect.current?.initial),
+            pointerScreen,
+            dragAnchorRef.current
+          ),
+          dragAnchor: dragAnchorRef.current,
+          plan,
+          cardStateBeforeMove: activeCard
+            ? {
+                zoneId: activeCard.zoneId,
+                position: activeCard.position,
+                tapped: activeCard.tapped,
+                rotation: activeCard.rotation,
+                faceDown: activeCard.faceDown,
+              }
+            : null,
+          cardElementBeforeMove: summarizeCardElement(cardId),
+          dragOverlayElementBeforeMove: summarizeDragOverlayElement(cardId),
+          dragOverlayCardElementBeforeMove: summarizeDragOverlayCardElement(cardId),
+          ghostElementBeforeClear: summarizeGhostElement(cardId),
+          dndGeometryBeforeMove: summarizeDndCardGeometry(cardId, {
+            pointer: pointerScreen,
+            dragAnchor: dragAnchorRef.current,
+          }),
+        });
+        if (activeCard?.faceDown) {
+          debugLog(FACE_DOWN_DEBUG_KEY, "drag-end-plan", {
+            cardId,
+            plan,
+            fromZoneId: activeCard.zoneId,
+            faceDown: activeCard.faceDown,
+          });
+        }
 
-      const group = dragSelectionRef.current;
-      dragSelectionRef.current = null;
-      dragAnchorRef.current = null;
+        const group = dragSelectionRef.current;
 
-      if (plan.kind === "reorderHand") {
-        const zone = state.zones[plan.zoneId];
-        if (!zone) return;
-        const newOrder = arrayMove(zone.cardIds, plan.oldIndex, plan.newIndex);
-        reorderZoneCards(plan.zoneId, newOrder, myPlayerId);
-        return;
-      }
+        if (plan.kind === "reorderHand") {
+          const zone = state.zones[plan.zoneId];
+          if (!zone) return;
+          const newOrder = arrayMove(zone.cardIds, plan.oldIndex, plan.newIndex);
+          reorderZoneCards(plan.zoneId, newOrder, myPlayerId);
+          return;
+        }
 
-      if (plan.kind === "moveCard") {
-        if (group && group.groupCardIds.length > 1) {
-          const targetZone = state.zones[plan.toZoneId];
-          if (!targetZone) return;
+        if (plan.kind === "moveCard") {
+          if (group && group.groupCardIds.length > 1) {
+            const targetZone = state.zones[plan.toZoneId];
+            if (!targetZone) return;
 
-          const activeStart = group.startPositions[group.activeCardId];
-          if (!activeStart) return;
+            const activeStart = group.startPositions[group.activeCardId];
+            if (!activeStart) return;
 
-          if (targetZone.type === ZONE.BATTLEFIELD && plan.position) {
-            const delta = {
-              x: plan.position.x - activeStart.x,
-              y: plan.position.y - activeStart.y,
-            };
-            const clampedDelta = clampCanonicalBattlefieldGroupDelta({
-              movingIds: group.groupCardIds,
-              startPositions: group.startPositions,
-              delta,
-              isTapped: (id) => state.cards[id]?.tapped,
-            });
-
-            const targetPositions: Record<CardId, { x: number; y: number }> = {};
-            const movingIds: CardId[] = [];
-            group.groupCardIds.forEach((id) => {
-              const card = state.cards[id];
-              if (!card) return;
-              if (card.zoneId !== group.startZoneId) return;
-              const startPos = group.startPositions[id];
-              if (!startPos) return;
-
-              const target = {
-                x: startPos.x + clampedDelta.x,
-                y: startPos.y + clampedDelta.y,
+            if (targetZone.type === ZONE.BATTLEFIELD && plan.position) {
+              const delta = {
+                x: plan.position.x - activeStart.x,
+                y: plan.position.y - activeStart.y,
               };
-              const resolvedTarget = clampNormalizedToCanonicalBattlefieldBounds(
-                target,
-                { isTapped: card.tapped }
-              );
-              targetPositions[id] = resolvedTarget;
-              movingIds.push(id);
-            });
-
-            const groupCollision = {
-              movingCardIds: movingIds,
-              targetPositions,
-            };
-            movingIds.forEach((id) => {
-              const target = targetPositions[id];
-              if (!target) return;
-              moveCard(id, plan.toZoneId, target, myPlayerId, undefined, {
-                suppressLog: id !== group.activeCardId,
-                groupCollision,
+              const clampedDelta = clampCanonicalBattlefieldGroupDelta({
+                movingIds: group.groupCardIds,
+                startPositions: group.startPositions,
+                delta,
+                isTapped: (id) => state.cards[id]?.tapped,
               });
-            });
-            if (targetZone.ownerId !== myPlayerId) {
-              clearSelection();
+
+              const targetPositions: Record<CardId, { x: number; y: number }> = {};
+              const movingIds: CardId[] = [];
+              group.groupCardIds.forEach((id) => {
+                const card = state.cards[id];
+                if (!card) return;
+                if (card.zoneId !== group.startZoneId) return;
+                const startPos = group.startPositions[id];
+                if (!startPos) return;
+
+                const target = {
+                  x: startPos.x + clampedDelta.x,
+                  y: startPos.y + clampedDelta.y,
+                };
+                const resolvedTarget = clampNormalizedToCanonicalBattlefieldBounds(
+                  target,
+                  { isTapped: card.tapped }
+                );
+                targetPositions[id] = resolvedTarget;
+                movingIds.push(id);
+              });
+
+              const groupCollision = {
+                movingCardIds: movingIds,
+                targetPositions,
+              };
+              movingIds.forEach((id) => {
+                const target = targetPositions[id];
+                if (!target) return;
+                moveCard(id, plan.toZoneId, target, myPlayerId, undefined, {
+                  suppressLog: id !== group.activeCardId,
+                  groupCollision,
+                });
+                queueDebugFrame("drag-end-landed", () => {
+                  const landedCard = useGameStore.getState().cards[id];
+                  return {
+                    seq: finishedDragSeq,
+                    cardId: id,
+                    plannedPosition: target,
+                    cardStateAfterMove: landedCard
+                      ? {
+                          zoneId: landedCard.zoneId,
+                          position: landedCard.position,
+                          tapped: landedCard.tapped,
+                          rotation: landedCard.rotation,
+                          faceDown: landedCard.faceDown,
+                        }
+                      : null,
+                    cardElement: summarizeCardElement(id),
+                    zoneElement: summarizeZoneElement(plan.toZoneId),
+                  };
+                });
+              });
+              if (targetZone.ownerId !== myPlayerId) {
+                clearSelection();
+              }
+              return;
             }
-            return;
-          }
 
           group.groupCardIds.forEach((id) => {
             const card = state.cards[id];
@@ -575,8 +970,30 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
               suppressLog: id !== group.activeCardId,
               skipCollision: true,
             });
+            queueDebugFrame("drag-end-landed", () => {
+              const landedCard = useGameStore.getState().cards[id];
+              return {
+                seq: finishedDragSeq,
+                cardId: id,
+                plannedPosition: plan.position,
+                cardStateAfterMove: landedCard
+                  ? {
+                      zoneId: landedCard.zoneId,
+                      position: landedCard.position,
+                      tapped: landedCard.tapped,
+                      rotation: landedCard.rotation,
+                      faceDown: landedCard.faceDown,
+                    }
+                  : null,
+                cardElement: summarizeCardElement(id),
+                zoneElement: summarizeZoneElement(plan.toZoneId),
+              };
+            });
           });
-          if (targetZone.type !== ZONE.BATTLEFIELD || targetZone.ownerId !== myPlayerId) {
+          if (
+            targetZone.type !== ZONE.BATTLEFIELD ||
+            targetZone.ownerId !== myPlayerId
+          ) {
             clearSelection();
           }
           return;
@@ -592,6 +1009,44 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
           myPlayerId,
           undefined
         );
+        queueDebugFrame("drag-end-landed", () => {
+          const landedCard = useGameStore.getState().cards[plan.cardId];
+          return {
+            seq: finishedDragSeq,
+            cardId: plan.cardId,
+            plannedPosition: plan.position,
+            cardStateAfterMove: landedCard
+              ? {
+                  zoneId: landedCard.zoneId,
+                  position: landedCard.position,
+                  tapped: landedCard.tapped,
+                  rotation: landedCard.rotation,
+                  faceDown: landedCard.faceDown,
+                }
+              : null,
+            cardElement: summarizeCardElement(plan.cardId),
+            zoneElement: summarizeZoneElement(plan.toZoneId),
+          };
+        });
+        queueDebugTimeout("drag-end-landed-settled", () => {
+          const landedCard = useGameStore.getState().cards[plan.cardId];
+          return {
+            seq: finishedDragSeq,
+            cardId: plan.cardId,
+            plannedPosition: plan.position,
+            cardStateAfterMove: landedCard
+              ? {
+                  zoneId: landedCard.zoneId,
+                  position: landedCard.position,
+                  tapped: landedCard.tapped,
+                  rotation: landedCard.rotation,
+                  faceDown: landedCard.faceDown,
+                }
+              : null,
+            cardElement: summarizeCardElement(plan.cardId),
+            zoneElement: summarizeZoneElement(plan.toZoneId),
+          };
+        });
         if (
           targetZone &&
           activeCard &&
@@ -606,20 +1061,19 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
             clearSelection();
           }
         }
+        }
+      } finally {
+        cleanupDragState();
       }
     },
     [
+      cleanupDragState,
       clearSelection,
       isSpectator,
       moveCard,
       myPlayerId,
       params.viewerRole,
       reorderZoneCards,
-      setActiveCardId,
-      setActiveCardScale,
-      setActiveCardTransformOrigin,
-      setGhostCards,
-      setOverCardScale,
     ]
   );
 

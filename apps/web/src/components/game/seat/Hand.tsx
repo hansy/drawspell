@@ -6,6 +6,7 @@ import { Zone } from "../zone/Zone";
 import { ZONE_LABEL } from "@/constants/zones";
 import { shouldRenderFaceDown } from "@/lib/reveal";
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from "@/lib/constants";
+import { debugLog, isDebugEnabled, summarizeDndCardGeometry } from "@/lib/debug";
 import { useTwoFingerScroll } from "@/hooks/shared/useTwoFingerScroll";
 import {
   HAND_BASE_CARD_SCALE,
@@ -89,18 +90,49 @@ const SortableCard = React.memo(
       disabled: !isMe,
     });
 
+    const resolvedBaseHeight = baseCardHeight ?? BASE_CARD_HEIGHT;
+    const cardWidth = resolvedBaseHeight * CARD_ASPECT_RATIO * cardScale;
+    const overlapWidth = useFullSlotWidth
+      ? cardWidth
+      : cardWidth * HAND_CARD_OVERLAP_RATIO;
+
     const style = React.useMemo(() => {
-      const resolvedBaseHeight = baseCardHeight ?? BASE_CARD_HEIGHT;
-      const cardWidth = resolvedBaseHeight * CARD_ASPECT_RATIO * cardScale;
-      const overlapWidth = useFullSlotWidth
-        ? cardWidth
-        : cardWidth * HAND_CARD_OVERLAP_RATIO;
       return {
         transform: CSS.Transform.toString(transform),
         transition,
         ["--hand-card-max-width" as string]: `${overlapWidth}px`,
       } as React.CSSProperties;
-    }, [transform, transition, cardScale, baseCardHeight, useFullSlotWidth]);
+    }, [transform, transition, overlapWidth]);
+
+    React.useEffect(() => {
+      if (!isDebugEnabled("battlefieldDnd")) return;
+      debugLog("battlefieldDnd", "hand-card-layout", {
+        cardId: card.id,
+        zoneId: card.zoneId,
+        isDragging,
+        cardScale,
+        baseCardHeight,
+        resolvedBaseHeight,
+        cardWidth,
+        overlapWidth,
+        useFullSlotWidth,
+        transform,
+        transition,
+        dndGeometry: summarizeDndCardGeometry(card.id),
+      });
+    }, [
+      baseCardHeight,
+      card.id,
+      card.zoneId,
+      cardScale,
+      cardWidth,
+      isDragging,
+      overlapWidth,
+      resolvedBaseHeight,
+      transform,
+      transition,
+      useFullSlotWidth,
+    ]);
 
     const handleContextMenu = React.useCallback(
       (e: React.MouseEvent) => {
@@ -114,6 +146,8 @@ const SortableCard = React.memo(
       <div
         ref={setNodeRef}
         style={style}
+        data-dnd-hand-sortable-card-id={card.id}
+        data-dnd-hand-card-scale={cardScale}
         className={cn(
           "relative shrink-0 h-full w-auto max-w-[var(--hand-card-max-width)] transition-all duration-200 ease-out group",
           "hover:max-w-[20rem] hover:z-50 hover:scale-110",
@@ -123,6 +157,7 @@ const SortableCard = React.memo(
         {...listeners}
       >
         <div
+          data-dnd-hand-card-frame-id={card.id}
           className={cn(
             "w-auto aspect-[11/15] transition-transform duration-200",
           )}

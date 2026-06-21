@@ -7,7 +7,7 @@ import {
   findAvailablePositionNormalized,
   migratePositionToNormalized,
   offsetNormalizedByGrid,
-  snapNormalizedToCanonicalBattlefieldGrid,
+  snapNormalizedToBattlefieldPlacementGrid,
 } from "@/lib/positions";
 import { toScryfallCardLite } from "@/types/scryfallLite";
 
@@ -43,7 +43,7 @@ export const buildRelatedBattlefieldCard = (params: {
 
   const sourcePosition = normalizeMaybeLegacyPosition(params.sourceCard.position);
   const { stepX, stepY, position: basePosition } = offsetNormalizedByGrid({
-    position: snapNormalizedToCanonicalBattlefieldGrid(clampNormalizedPosition(sourcePosition)),
+    position: snapNormalizedToBattlefieldPlacementGrid(clampNormalizedPosition(sourcePosition)),
     isTapped: false,
   });
   const position = findAvailablePositionNormalized(

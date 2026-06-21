@@ -3,7 +3,7 @@ import type { GameState } from "@/types";
 import { ZONE } from "@/constants/zones";
 import { canMoveCard } from "@/rules/permissions";
 import { logPermission } from "@/rules/logger";
-import { getCanonicalBattlefieldGridSteps } from "@/lib/positions";
+import { getCanonicalBattlefieldPlacementGridSteps } from "@/lib/positions";
 import { syncCommanderDecklistForPlayer } from "@/store/gameStore/actions/deck/commanderDecklist";
 import { debugLog, type DebugFlagKey } from "@/lib/debug";
 import {
@@ -13,6 +13,8 @@ import {
 } from "../movementModel";
 import { moveCardIdBetweenZones, removeCardFromZones } from "../movementState";
 import type { Deps, GetState, SetState } from "./types";
+
+const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
 export const createMoveCard =
   (_set: SetState, get: GetState, { dispatchIntent }: Deps): GameState["moveCard"] =>
@@ -51,6 +53,23 @@ export const createMoveCard =
       actorId: actor,
       allowed: true,
       details: { cardId, fromZoneId, toZoneId },
+    });
+    debugLog(BATTLEFIELD_DND_DEBUG_KEY, "move-card-request", {
+      cardId,
+      actorId: actor,
+      fromZoneId,
+      toZoneId,
+      requestedPosition: position,
+      opts,
+      cardStateBeforeMove: {
+        zoneId: card.zoneId,
+        position: card.position,
+        tapped: card.tapped,
+        rotation: card.rotation,
+        faceDown: card.faceDown,
+      },
+      fromZoneType: fromZone.type,
+      toZoneType: toZone.type,
     });
 
     const initialPlan = planCardMovement({
@@ -96,10 +115,7 @@ export const createMoveCard =
         position,
         opts: resolvedOpts,
         getPosition: (id) => cardsCopy[id]?.position,
-        getStepY: (id) =>
-          getCanonicalBattlefieldGridSteps({
-            isTapped: cardsCopy[id]?.tapped,
-          }).stepY,
+        getStepY: () => getCanonicalBattlefieldPlacementGridSteps().stepY,
       });
 
       const plan = planCardMovement({
@@ -121,6 +137,25 @@ export const createMoveCard =
           overlayActive: Boolean(state.privateOverlay),
         });
       }
+      debugLog(BATTLEFIELD_DND_DEBUG_KEY, "move-card-apply", {
+        cardId,
+        actorId: actor,
+        fromZoneId: currentFromZoneId,
+        toZoneId,
+        requestedPosition: position,
+        resolvedPosition,
+        planPosition: plan.cardPatch.position,
+        opts: resolvedOpts,
+        cardStateBeforeApply: {
+          zoneId: workingCard.zoneId,
+          position: workingCard.position,
+          tapped: workingCard.tapped,
+          rotation: workingCard.rotation,
+          faceDown: workingCard.faceDown,
+        },
+        fromZoneType: currentFromZone.type,
+        toZoneType: toZoneState.type,
+      });
 
       if (currentFromZoneId === toZoneId) {
         cardsCopy[cardId] = buildMovedCard(workingCard, plan);

@@ -9,10 +9,15 @@ import {
 
 import { ZONE } from "@/constants/zones";
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from "@/lib/constants";
+import { debugLog, isDebugEnabled, summarizeDndCardGeometry } from "@/lib/debug";
+import {
+  computeAnchoredResizeOffset,
+  computeDragOverlayBaseScale,
+} from "@/lib/dndBattlefield";
 import { cn } from "@/lib/utils";
-import { CardView } from "../card/CardView";
 import { CardPreviewProvider } from "../card/CardPreviewProvider";
 import { shouldRenderFaceDown } from "@/lib/reveal";
+import { CardDragOverlayView } from "./CardDragOverlayView";
 import { Seat } from "../seat/Seat";
 import { ContextMenu } from "../context-menu/ContextMenu";
 import { AddCounterModal } from "../add-counter/AddCounterModal";
@@ -323,6 +328,8 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   activeCardId,
   activeCardScale,
   activeCardTransformOrigin,
+  activeCardDragAnchor,
+  activeCardSourceSize,
   isGroupDragging,
   showGroupDragOverlay,
   groupDragCardIds,
@@ -398,46 +405,135 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
     activeZone?.type === ZONE.BATTLEFIELD
       ? (battlefieldViewScale[activeZone.ownerId] ?? 1)
       : 1;
-  const [dragBaseScale, setDragBaseScale] = React.useState(1);
   const hasActiveBaseSizing = Boolean(activeBaseCardHeight || activeBaseCardWidth);
   const overlayBaseHeight =
     activeBaseCardHeight ??
     (activeBaseCardWidth ? activeBaseCardWidth / CARD_ASPECT_RATIO : BASE_CARD_HEIGHT);
   const overlayBaseWidth =
     activeBaseCardWidth ?? overlayBaseHeight * CARD_ASPECT_RATIO;
+  const dragBaseScale = React.useMemo(() => {
+    if (hasActiveBaseSizing) return 1;
+
+    return computeDragOverlayBaseScale({
+      sourceWidth: activeCardSourceSize?.width,
+      sourceHeight: activeCardSourceSize?.height,
+      sourceScale: activeCardScale || activeViewScale || 1,
+      baseCardWidth: overlayBaseWidth,
+      baseCardHeight: overlayBaseHeight,
+      isTapped: Boolean(activeCard?.tapped),
+    });
+  }, [
+    activeCard?.tapped,
+    activeCardScale,
+    activeCardSourceSize,
+    activeViewScale,
+    hasActiveBaseSizing,
+    overlayBaseHeight,
+    overlayBaseWidth,
+  ]);
   const overlayCardVars = hasActiveBaseSizing
     ? ({
         ["--card-h" as string]: `${overlayBaseHeight}px`,
         ["--card-w" as string]: `${overlayBaseWidth}px`,
       } as React.CSSProperties)
     : undefined;
+  const activeOverlayTargetScale = overCardScale || activeViewScale;
+  const activeOverlayScale =
+    scale * activeOverlayTargetScale * (hasActiveBaseSizing ? 1 : dragBaseScale);
 
-  React.useLayoutEffect(() => {
-    if (hasActiveBaseSizing) {
-      if (dragBaseScale !== 1) setDragBaseScale(1);
-      return;
-    }
-    if (!activeCardId || typeof document === "undefined") {
-      setDragBaseScale(1);
-      return;
-    }
-    const node = document.querySelector(`[data-card-id="${activeCardId}"]`);
-    if (!(node instanceof HTMLElement)) {
-      setDragBaseScale(1);
-      return;
-    }
-    const rect = node.getBoundingClientRect();
-    const maxDim = Math.max(rect.width, rect.height);
-    const effectiveCardScale = activeCardScale || activeViewScale || 1;
-    const denom = BASE_CARD_HEIGHT * scale * effectiveCardScale;
-    setDragBaseScale(denom > 0 ? maxDim / denom : 1);
+  const getOverlayVisualSize = React.useCallback(
+    (card: typeof activeCard, overlayScale: number) => {
+      if (!card) return null;
+      return {
+        width: (card.tapped ? overlayBaseHeight : overlayBaseWidth) * overlayScale,
+        height: (card.tapped ? overlayBaseWidth : overlayBaseHeight) * overlayScale,
+      };
+    },
+    [overlayBaseHeight, overlayBaseWidth]
+  );
+
+  const getAnchoredOverlayTransform = React.useCallback(
+    (card: typeof activeCard, overlayScale: number) => {
+      const visualSize = getOverlayVisualSize(card, overlayScale);
+      const offset =
+        activeCardDragAnchor && activeCardSourceSize && visualSize
+          ? computeAnchoredResizeOffset({
+              dragAnchor: activeCardDragAnchor,
+              sourceWidth: activeCardSourceSize.width,
+              sourceHeight: activeCardSourceSize.height,
+              sourceOffsetX: activeCardSourceSize.offsetX,
+              sourceOffsetY: activeCardSourceSize.offsetY,
+              targetWidth: visualSize.width,
+              targetHeight: visualSize.height,
+            })
+          : { x: 0, y: 0 };
+
+      return {
+        transform: `translate(${offset.x}px, ${offset.y}px) scale(${overlayScale})`,
+        transformOrigin: "top left",
+        offset,
+        visualSize,
+      };
+    },
+    [activeCardDragAnchor, activeCardSourceSize, getOverlayVisualSize]
+  );
+
+  React.useEffect(() => {
+    if (!activeCardId || !activeCard) return;
+    if (!isDebugEnabled("battlefieldDnd")) return;
+    debugLog("battlefieldDnd", "drag-overlay-sizing", {
+      activeCardId,
+      cardState: {
+        zoneId: activeCard.zoneId,
+        tapped: activeCard.tapped,
+        position: activeCard.position,
+        rotation: activeCard.rotation,
+      },
+      activeZone: activeZone
+        ? {
+            id: activeZone.id,
+            type: activeZone.type,
+            ownerId: activeZone.ownerId,
+          }
+        : null,
+      scale,
+      overCardScale,
+      activeCardScale,
+      activeViewScale,
+      activeOverlayTargetScale,
+      dragBaseScale,
+      hasActiveBaseSizing,
+      activeBaseCardHeight,
+      activeBaseCardWidth,
+      overlayBaseHeight,
+      overlayBaseWidth,
+      overlayScale: activeOverlayScale,
+      activeCardTransformOrigin,
+      activeCardDragAnchor,
+      activeCardSourceSize,
+      anchoredOverlay: getAnchoredOverlayTransform(activeCard, activeOverlayScale),
+      dndGeometry: summarizeDndCardGeometry(activeCardId),
+    });
   }, [
-    dragBaseScale,
+    activeBaseCardHeight,
+    activeBaseCardWidth,
+    activeCard,
     activeCardId,
     activeCardScale,
+    activeCardTransformOrigin,
+    activeCardDragAnchor,
+    activeCardSourceSize,
+    activeOverlayScale,
+    activeOverlayTargetScale,
     activeViewScale,
+    activeZone,
+    dragBaseScale,
     hasActiveBaseSizing,
+    overCardScale,
+    overlayBaseHeight,
+    overlayBaseWidth,
     scale,
+    getAnchoredOverlayTransform,
   ]);
 
   const isPortraitViewport = usePortraitViewport();
@@ -1035,6 +1131,10 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                 const targetScale = overCardScale || viewScale;
                 const overlayScale =
                   scale * targetScale * (hasActiveBaseSizing ? 1 : dragBaseScale);
+                const anchoredOverlay = getAnchoredOverlayTransform(
+                  overlayCard,
+                  overlayScale
+                );
                 const offset = 10;
                 const overlayCards = groupDragCardIds
                   .map((id) => cards[id])
@@ -1056,10 +1156,12 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
 
                 return (
                   <div
+                    data-dnd-drag-overlay-card-id={overlayCard.id}
+                    data-dnd-drag-overlay-kind="group"
                     style={{
                       ...(overlayCardVars ?? {}),
-                      transform: `scale(${overlayScale})`,
-                      transformOrigin: activeCardTransformOrigin,
+                      transform: anchoredOverlay.transform,
+                      transformOrigin: anchoredOverlay.transformOrigin,
                     }}
                   >
                     <div
@@ -1087,11 +1189,11 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                               top: index * offset,
                             }}
                           >
-                            <CardView
+                            <CardDragOverlayView
                               card={card}
-                              isDragging
                               preferArtCrop={overlayPreferArtCrop}
                               faceDown={faceDown}
+                              data-dnd-drag-overlay-card-view-id={card.id}
                             />
                           </div>
                         );
@@ -1117,6 +1219,10 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                   const targetScale = overCardScale || viewScale;
                   const overlayScale =
                     scale * targetScale * (hasActiveBaseSizing ? 1 : dragBaseScale);
+                  const anchoredOverlay = getAnchoredOverlayTransform(
+                    overlayCard,
+                    overlayScale
+                  );
                   const overlayFaceDown =
                     overlayZone?.type === ZONE.LIBRARY
                       ? true
@@ -1128,17 +1234,19 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                         );
                   return (
                     <div
+                      data-dnd-drag-overlay-card-id={overlayCard.id}
+                      data-dnd-drag-overlay-kind="single"
                       style={{
                         ...(overlayCardVars ?? {}),
-                        transform: `scale(${overlayScale})`,
-                        transformOrigin: activeCardTransformOrigin,
+                        transform: anchoredOverlay.transform,
+                        transformOrigin: anchoredOverlay.transformOrigin,
                       }}
                     >
-                      <CardView
+                      <CardDragOverlayView
                         card={overlayCard}
-                        isDragging
                         preferArtCrop={overlayPreferArtCrop}
                         faceDown={overlayFaceDown}
+                        data-dnd-drag-overlay-card-view-id={overlayCard.id}
                       />
                     </div>
                   );

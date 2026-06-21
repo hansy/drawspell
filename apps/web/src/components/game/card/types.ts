@@ -29,7 +29,7 @@ export interface CardViewProps {
   faceDown?: boolean;
   isDragging?: boolean;
   rotateLabel?: boolean;
-  onDoubleClick?: () => void;
+  onDoubleClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
   onClick?: (e: React.MouseEvent) => void;
   onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>) => void;
@@ -41,4 +41,7 @@ export interface CardViewProps {
   disableHoverAnimation?: boolean;
   isSelected?: boolean;
   showCommanderBadge?: boolean;
+  "data-dnd-ghost-card-id"?: string;
+  "data-dnd-ghost-kind"?: string;
+  "data-dnd-drag-overlay-card-view-id"?: string;
 }

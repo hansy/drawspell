@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { GRID_STEP_Y, clampNormalizedPosition, getNormalizedGridSteps } from '../positions';
+import {
+  clampNormalizedPosition,
+  getCanonicalBattlefieldPlacementGridSteps,
+} from '../positions';
 import {
   resolveBattlefieldCollisionPosition,
   resolveBattlefieldGroupCollisionPositions,
 } from '../battlefieldCollision';
 
 describe('resolveBattlefieldCollisionPosition', () => {
-  it('returns the target when nothing overlaps', () => {
+  it('returns the target when the center is unoccupied', () => {
     const position = resolveBattlefieldCollisionPosition({
       movingCardId: 'c1',
       targetPosition: { x: 0.5, y: 0.5 },
@@ -18,6 +21,7 @@ describe('resolveBattlefieldCollisionPosition', () => {
   });
 
   it('moves the incoming card down by one grid step when occupied', () => {
+    const { stepY } = getCanonicalBattlefieldPlacementGridSteps();
     const position = resolveBattlefieldCollisionPosition({
       movingCardId: 'c1',
       targetPosition: { x: 0.5, y: 0.5 },
@@ -26,18 +30,12 @@ describe('resolveBattlefieldCollisionPosition', () => {
     });
 
     expect(position).toEqual(
-      clampNormalizedPosition({ x: 0.5, y: 0.5 + GRID_STEP_Y })
+      clampNormalizedPosition({ x: 0.5, y: 0.5 + stepY })
     );
   });
 
-  it('accepts a custom grid step size', () => {
-    const viewScale = 0.75;
-    const stepY = getNormalizedGridSteps({
-      baseCardHeight: 160,
-      baseCardWidth: 120,
-      zoneHeight: 640,
-      viewScale,
-    }).stepY;
+  it('accepts a custom visible grid row size', () => {
+    const stepY = 0.125;
     const position = resolveBattlefieldCollisionPosition({
       movingCardId: 'c1',
       targetPosition: { x: 0.5, y: 0.5 },
@@ -52,8 +50,9 @@ describe('resolveBattlefieldCollisionPosition', () => {
   });
 
   it('cascades until a free spot is found', () => {
+    const { stepY } = getCanonicalBattlefieldPlacementGridSteps();
     const target = { x: 0.5, y: 0.5 };
-    const occupied = clampNormalizedPosition({ x: 0.5, y: target.y + GRID_STEP_Y });
+    const occupied = clampNormalizedPosition({ x: 0.5, y: target.y + stepY });
 
     const position = resolveBattlefieldCollisionPosition({
       movingCardId: 'c1',
@@ -67,7 +66,7 @@ describe('resolveBattlefieldCollisionPosition', () => {
     });
 
     expect(position.x).toBeCloseTo(0.5, 6);
-    expect(position.y).toBeCloseTo(target.y + GRID_STEP_Y * 2, 6);
+    expect(position.y).toBeCloseTo(target.y + stepY * 2, 6);
   });
 
   it('keeps the original target if no free spot is found', () => {
@@ -84,7 +83,8 @@ describe('resolveBattlefieldCollisionPosition', () => {
 });
 
 describe('resolveBattlefieldGroupCollisionPositions', () => {
-  it('moves only colliding moved cards and leaves others unchanged', () => {
+  it('moves only cards targeting occupied centers and leaves others unchanged', () => {
+    const { stepY } = getCanonicalBattlefieldPlacementGridSteps();
     const resolved = resolveBattlefieldGroupCollisionPositions({
       movingCardIds: ['m1', 'm2'],
       targetPositions: {
@@ -96,12 +96,13 @@ describe('resolveBattlefieldGroupCollisionPositions', () => {
     });
 
     expect(resolved.m1).toEqual(
-      clampNormalizedPosition({ x: 0.5, y: 0.5 + GRID_STEP_Y })
+      clampNormalizedPosition({ x: 0.5, y: 0.5 + stepY })
     );
     expect(resolved.m2).toEqual({ x: 0.25, y: 0.25 });
   });
 
-  it('avoids collisions among moved cards', () => {
+  it('avoids duplicate centers among moved cards', () => {
+    const { stepY } = getCanonicalBattlefieldPlacementGridSteps();
     const resolved = resolveBattlefieldGroupCollisionPositions({
       movingCardIds: ['m1', 'm2'],
       targetPositions: {
@@ -114,7 +115,7 @@ describe('resolveBattlefieldGroupCollisionPositions', () => {
 
     expect(resolved.m1).toEqual({ x: 0.5, y: 0.5 });
     expect(resolved.m2).toEqual(
-      clampNormalizedPosition({ x: 0.5, y: 0.5 + GRID_STEP_Y })
+      clampNormalizedPosition({ x: 0.5, y: 0.5 + stepY })
     );
   });
 });

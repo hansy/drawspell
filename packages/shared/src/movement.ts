@@ -7,7 +7,7 @@ import {
 import type { Card, FaceDownMode } from "./types/cards";
 import type { Zone } from "./types/zones";
 import {
-  getCanonicalBattlefieldGridSteps,
+  getCanonicalBattlefieldPlacementGridSteps,
   normalizeMovePosition,
   resolveBattlefieldCollisionPosition,
   resolveBattlefieldGroupCollisionPositions,
@@ -166,14 +166,14 @@ export const resolveCardMovementPosition = ({
       getPosition,
       getStepY: (id) =>
         getStepY?.(id) ??
-        getCanonicalBattlefieldGridSteps({ isTapped: id === cardId ? card.tapped : undefined }).stepY,
+        getCanonicalBattlefieldPlacementGridSteps().stepY,
     });
     return resolved[cardId] ?? resolvedPosition;
   }
 
   const stepY =
     getStepY?.(cardId) ??
-    getCanonicalBattlefieldGridSteps({ isTapped: card.tapped }).stepY;
+    getCanonicalBattlefieldPlacementGridSteps().stepY;
   return resolveBattlefieldCollisionPosition({
     movingCardId: cardId,
     targetPosition: resolvedPosition,

@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useGameStore } from '../gameStore';
 import { ZONE } from '@/constants/zones';
-import { GRID_STEP_X, GRID_STEP_Y, getCanonicalBattlefieldGridSteps } from '@/lib/positions';
+import { getCanonicalBattlefieldPlacementGridSteps } from '@/lib/positions';
 import { ensureLocalStorage } from '@test/utils/storage';
 
 const makeZone = (id: string, type: keyof typeof ZONE, ownerId: string, cardIds: string[] = []) => ({
@@ -121,7 +121,7 @@ describe('gameStore move/tap interactions', () => {
     expect(moved.revealedTo ?? []).toHaveLength(0);
   });
 
-  it('uses canonical collision steps when moving to the battlefield', () => {
+  it('bumps exact occupied centers by one visible placement grid row when moving to the battlefield', () => {
     const battlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', ['c2']);
     const hand = makeZone('hand-me', 'HAND', 'me', ['c1']);
     const moving = makeCard('c1', hand.id, 'me', false);
@@ -145,12 +145,13 @@ describe('gameStore move/tap interactions', () => {
 
     useGameStore.getState().moveCard(moving.id, battlefield.id, { x: 0.5, y: 0.5 }, 'me');
 
-    const stepY = getCanonicalBattlefieldGridSteps().stepY;
+    const stepY = getCanonicalBattlefieldPlacementGridSteps().stepY;
     const moved = useGameStore.getState().cards[moving.id];
+    expect(moved.position.x).toBeCloseTo(0.5, 6);
     expect(moved.position.y).toBeCloseTo(0.5 + stepY, 6);
   });
 
-  it('uses canonical group collision steps independent of local battlefield sizing', () => {
+  it('uses visible placement rows for group occupied-center resolution independent of local battlefield sizing', () => {
     const battlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', ['c2']);
     const hand = makeZone('hand-me', 'HAND', 'me', ['c1']);
     const moving = makeCard('c1', hand.id, 'me', false);
@@ -179,8 +180,9 @@ describe('gameStore move/tap interactions', () => {
       },
     });
 
-    const stepY = getCanonicalBattlefieldGridSteps().stepY;
+    const stepY = getCanonicalBattlefieldPlacementGridSteps().stepY;
     const moved = useGameStore.getState().cards[moving.id];
+    expect(moved.position.x).toBeCloseTo(0.5, 6);
     expect(moved.position.y).toBeCloseTo(0.5 + stepY, 6);
   });
 
@@ -215,6 +217,25 @@ describe('gameStore move/tap interactions', () => {
 
     const updated = useGameStore.getState().cards[card.id];
     expect(updated.tapped).toBe(false);
+  });
+
+  it('keeps canonical battlefield position unchanged when tapping', () => {
+    const battlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', ['cTap']);
+    const card = {
+      ...makeCard('cTap', battlefield.id, 'me', false),
+      position: { x: 0.42, y: 0.37 },
+    };
+
+    useGameStore.setState((state) => ({
+      zones: { ...state.zones, [battlefield.id]: battlefield },
+      cards: { ...state.cards, [card.id]: card },
+    }));
+
+    useGameStore.getState().tapCard(card.id, 'me');
+
+    const updated = useGameStore.getState().cards[card.id];
+    expect(updated.tapped).toBe(true);
+    expect(updated.position).toEqual({ x: 0.42, y: 0.37 });
   });
 
   it('marks a card as known when entering a public zone face-up and keeps it when returning to hand', () => {
@@ -373,7 +394,7 @@ describe('gameStore move/tap interactions', () => {
     expect(clone.basePower).toBe(card.basePower);
     expect(clone.baseToughness).toBe(card.baseToughness);
     expect(clone.tapped).toBe(true);
-    const { stepX, stepY } = getCanonicalBattlefieldGridSteps({ isTapped: true });
+    const { stepX, stepY } = getCanonicalBattlefieldPlacementGridSteps();
     expect(clone.position).toEqual({
       x: card.position.x + stepX,
       y: card.position.y + stepY,
@@ -382,11 +403,12 @@ describe('gameStore move/tap interactions', () => {
     expect(clone.controllerId).toBe(card.controllerId);
   });
 
-  it('stacks duplicates to the next free grid slot if the first is occupied', () => {
+  it('keeps duplicate retry in the same grid column when the initial center is occupied', () => {
     const battlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', ['c11', 'c12']);
     const basePosition = { x: 0, y: 0 };
+    const { stepX, stepY } = getCanonicalBattlefieldPlacementGridSteps();
     const card = { ...makeCard('c11', battlefield.id, 'me'), position: basePosition };
-    const occupied = { ...makeCard('c12', battlefield.id, 'me'), position: { x: GRID_STEP_X, y: GRID_STEP_Y } };
+    const occupied = { ...makeCard('c12', battlefield.id, 'me'), position: { x: stepX, y: stepY } };
 
     useGameStore.setState((state) => ({
       myPlayerId: 'me',
@@ -402,8 +424,8 @@ describe('gameStore move/tap interactions', () => {
 
     const clone = state.cards[newIds[0]];
     expect(clone.position).toEqual({
-      x: basePosition.x + GRID_STEP_X * 2,
-      y: basePosition.y + GRID_STEP_Y * 2,
+      x: basePosition.x + stepX,
+      y: basePosition.y + stepY * 2,
     });
   });
 

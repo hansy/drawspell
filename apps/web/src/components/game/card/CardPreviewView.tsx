@@ -63,6 +63,8 @@ export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewP
       <div
         ref={ref}
         data-card-preview
+        data-card-preview-card-id={currentCard.id}
+        data-card-preview-locked={String(locked)}
         className={cn(
           "fixed z-[9999] rounded-xl shadow-2xl bg-zinc-900 transition-opacity duration-200 ease-out",
           locked ? "pointer-events-auto" : "pointer-events-none",

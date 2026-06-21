@@ -16,6 +16,13 @@ import { useBattlefieldZoomControls } from "@/hooks/game/board/useBattlefieldZoo
 import { useBattlefieldSelection } from "@/hooks/game/board/useBattlefieldSelection";
 import { BattlefieldGridOverlay } from "./BattlefieldGridOverlay";
 import { BattlefieldGhostOverlay } from "./BattlefieldGhostOverlay";
+import {
+    debugLog,
+    isDebugEnabled,
+    summarizeCardElement,
+    summarizeZoneElement,
+    type DebugFlagKey,
+} from "@/lib/debug";
 
 interface BattlefieldProps {
     zone: ZoneType;
@@ -39,6 +46,7 @@ interface BattlefieldProps {
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
+const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
 type TouchPressState = {
     pointerId: number;
@@ -151,7 +159,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     const activeCardId = useDragStore((state) => state.activeCardId);
     const ghostCards = useDragStore((state) => state.ghostCards);
     const isGroupDragging = useDragStore((state) => state.isGroupDragging);
-    const showGrid = Boolean(activeCardId);
+    const showGrid = true;
     const cardsById = useGameStore((state) => state.cards);
     const activeCard = activeCardId ? cardsById[activeCardId] : undefined;
     const { ref: zoneSizeRef, size: zoneSize } = useElementSize<HTMLDivElement>();
@@ -209,6 +217,83 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
         zone.ownerId,
         zoneSize.width,
         zoneSize.height,
+    ]);
+
+    React.useEffect(() => {
+        if (!isDebugEnabled(BATTLEFIELD_DND_DEBUG_KEY)) return;
+        if (typeof requestAnimationFrame === "undefined") return;
+        const frame = requestAnimationFrame(() => {
+            const untappedSize = getCardPixelSize({
+                viewScale,
+                isTapped: false,
+                baseCardHeight,
+                baseCardWidth,
+            });
+            const tappedSize = getCardPixelSize({
+                viewScale,
+                isTapped: true,
+                baseCardHeight,
+                baseCardWidth,
+            });
+            debugLog(BATTLEFIELD_DND_DEBUG_KEY, "battlefield-render-geometry", {
+                zoneId: zone.id,
+                ownerId: zone.ownerId,
+                scale,
+                viewScale,
+                zoneSize,
+                baseCardHeight,
+                baseCardWidth,
+                baseCardWidthPx,
+                baseCardHeightPx,
+                cardSizesByState: {
+                    untapped: {
+                        width: untappedSize.cardWidth,
+                        height: untappedSize.cardHeight,
+                    },
+                    tapped: {
+                        width: tappedSize.cardWidth,
+                        height: tappedSize.cardHeight,
+                    },
+                },
+                grid: {
+                    visible: showGrid,
+                    gridStepX,
+                    gridStepY,
+                    originOffsetX: gridOriginOffsetX,
+                    originOffsetY: gridOriginOffsetY,
+                    activeCardId,
+                    activeCardTapped: activeCard?.tapped,
+                },
+                zoneElement: summarizeZoneElement(zone.id),
+                cards: cards.map((card) => ({
+                    cardId: card.id,
+                    position: card.position,
+                    tapped: card.tapped,
+                    rotation: card.rotation,
+                    faceDown: card.faceDown,
+                    element: summarizeCardElement(card.id),
+                })),
+            });
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [
+        activeCard?.tapped,
+        activeCardId,
+        baseCardHeight,
+        baseCardHeightPx,
+        baseCardWidth,
+        baseCardWidthPx,
+        cards,
+        gridOriginOffsetX,
+        gridOriginOffsetY,
+        gridStepX,
+        gridStepY,
+        scale,
+        showGrid,
+        viewScale,
+        zone.id,
+        zone.ownerId,
+        zoneSize,
     ]);
 
     useBattlefieldZoomControls({

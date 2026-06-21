@@ -13,12 +13,28 @@ interface DragStore {
     activeCardId: string | null;
     activeCardScale: number;
     activeCardTransformOrigin: string;
+    activeCardDragAnchor: { x: number; y: number } | null;
+    activeCardSourceSize: {
+        width: number;
+        height: number;
+        offsetX: number;
+        offsetY: number;
+    } | null;
     isGroupDragging: boolean;
     overCardScale: number;
     setGhostCards: (ghostCards: GhostCardState[] | null) => void;
     setActiveCardId: (activeCardId: string | null) => void;
     setActiveCardScale: (scale: number) => void;
     setActiveCardTransformOrigin: (origin: string) => void;
+    setActiveCardDragAnchor: (anchor: { x: number; y: number } | null) => void;
+    setActiveCardSourceSize: (
+        size: {
+            width: number;
+            height: number;
+            offsetX: number;
+            offsetY: number;
+        } | null
+    ) => void;
     setIsGroupDragging: (isGroupDragging: boolean) => void;
     setOverCardScale: (scale: number) => void;
 }
@@ -28,6 +44,8 @@ export const useDragStore = create<DragStore>((set) => ({
     activeCardId: null,
     activeCardScale: 1,
     activeCardTransformOrigin: "50% 50%",
+    activeCardDragAnchor: null,
+    activeCardSourceSize: null,
     isGroupDragging: false,
     overCardScale: 1,
     setGhostCards: (ghostCards) => set({ ghostCards }),
@@ -35,6 +53,10 @@ export const useDragStore = create<DragStore>((set) => ({
     setActiveCardScale: (activeCardScale) => set({ activeCardScale }),
     setActiveCardTransformOrigin: (activeCardTransformOrigin) =>
         set({ activeCardTransformOrigin }),
+    setActiveCardDragAnchor: (activeCardDragAnchor) =>
+        set({ activeCardDragAnchor }),
+    setActiveCardSourceSize: (activeCardSourceSize) =>
+        set({ activeCardSourceSize }),
     setIsGroupDragging: (isGroupDragging) => set({ isGroupDragging }),
     setOverCardScale: (overCardScale) => set({ overCardScale }),
 }));

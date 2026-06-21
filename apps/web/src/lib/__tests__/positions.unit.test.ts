@@ -10,6 +10,7 @@ import {
   clampNormalizedPosition,
   clampCanonicalBattlefieldGroupDelta,
   clampNormalizedToCanonicalBattlefieldBounds,
+  getCanonicalBattlefieldPlacementGridSteps,
   getCanonicalBattlefieldGridSteps,
   getNormalizedGridSteps,
   getCardPixelSize,
@@ -46,16 +47,17 @@ describe('positions', () => {
   });
 
   it('finds the next available position when the start is occupied', () => {
+    const placementSteps = getCanonicalBattlefieldPlacementGridSteps();
     const cards = {
       c1: { position: { x: 0.5, y: 0.5 } },
-      c2: { position: { x: 0.5, y: 0.55 } },
+      c2: { position: { x: 0.5, y: 0.5 + placementSteps.stepY } },
     };
     const zoneCardIds = Object.keys(cards);
     const start = { x: 0.5, y: 0.5 };
 
     const resolved = findAvailablePositionNormalized(start, zoneCardIds, cards);
-    expect(resolved.x).toBeCloseTo(0.5 + GRID_STEP_X, 6);
-    expect(resolved.y).toBeCloseTo(0.5 + GRID_STEP_Y, 6);
+    expect(resolved.x).toBeCloseTo(0.5, 6);
+    expect(resolved.y).toBeCloseTo(0.5 + placementSteps.stepY * 2, 6);
   });
 
   it('computes card pixel size with a custom base height and width', () => {
@@ -90,6 +92,19 @@ describe('positions', () => {
       ((BASE_CARD_HEIGHT * CARD_ASPECT_RATIO) / 4) / LEGACY_BATTLEFIELD_HEIGHT,
       8
     );
+  });
+
+  it('uses half-short-side square steps for visible battlefield placement', () => {
+    const steps = getCanonicalBattlefieldPlacementGridSteps({
+      zoneWidth: 1000,
+      zoneHeight: 600,
+      viewScale: 0.9,
+      baseCardHeight: 135,
+      baseCardWidth: 90,
+    });
+
+    expect(steps.stepX * 1000).toBeCloseTo((90 * 0.9) / 2, 6);
+    expect(steps.stepY * 600).toBeCloseTo((90 * 0.9) / 2, 6);
   });
 
   it('clamps a group delta without changing the relative card offsets', () => {

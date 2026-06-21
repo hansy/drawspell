@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { MAX_REVEALED_TO } from "@/lib/limits";
 import { ZONE } from "@/constants/zones";
-import { getCanonicalBattlefieldGridSteps } from "@/lib/positions";
+import { getCanonicalBattlefieldPlacementGridSteps } from "@/lib/positions";
 
 import { MAX_NAME_LENGTH } from "../sanitizeLimits";
 import { sanitizeSharedSnapshot } from "../sanitizeSharedSnapshot";
@@ -149,7 +149,7 @@ describe("sanitizeSharedSnapshot", () => {
     expect(safe.cards.c1.position.y).toBeLessThanOrEqual(1);
   });
 
-  it("canonicalizes legacy battlefield positions and resolves snapped collisions", () => {
+  it("preserves battlefield positions and resolves exact occupied-position collisions", () => {
     const safe = sanitizeSharedSnapshot({
       players: { p1: { id: "p1", name: "P1", life: 40 } },
       zones: {
@@ -176,7 +176,7 @@ describe("sanitizeSharedSnapshot", () => {
           name: "Card 2",
           tapped: false,
           faceDown: false,
-          position: { x: 0.503, y: 0.5 },
+          position: { x: 0.5, y: 0.5 },
           rotation: 0,
           counters: [],
         },
@@ -185,11 +185,39 @@ describe("sanitizeSharedSnapshot", () => {
       playerOrder: [],
     } as any);
 
-    const stepY = getCanonicalBattlefieldGridSteps().stepY;
-    expect(safe.cards.c1.position.x).toBeCloseTo(0.52, 6);
+    const stepY = getCanonicalBattlefieldPlacementGridSteps().stepY;
+    expect(safe.cards.c1.position.x).toBeCloseTo(0.5, 6);
     expect(safe.cards.c1.position.y).toBeCloseTo(0.5, 6);
-    expect(safe.cards.c2.position.x).toBeCloseTo(0.52, 6);
+    expect(safe.cards.c2.position.x).toBeCloseTo(0.5, 6);
     expect(safe.cards.c2.position.y).toBeCloseTo(0.5 + stepY, 6);
+  });
+
+  it("preserves a battlefield card center when only tapped state changes", () => {
+    const position = { x: 0.78, y: 0.7333333333333333 };
+    const safe = sanitizeSharedSnapshot({
+      players: { p1: { id: "p1", name: "P1", life: 40 } },
+      zones: {
+        z1: { id: "z1", ownerId: "p1", type: ZONE.BATTLEFIELD, cardIds: ["c1"] },
+      },
+      cards: {
+        c1: {
+          id: "c1",
+          ownerId: "p1",
+          controllerId: "p1",
+          zoneId: "z1",
+          name: "Card",
+          tapped: false,
+          faceDown: false,
+          position,
+          rotation: 0,
+          counters: [],
+        },
+      },
+      globalCounters: {},
+      playerOrder: [],
+    } as any);
+
+    expect(safe.cards.c1.position).toEqual(position);
   });
 
   it("strips counters when cards are not on the battlefield", () => {

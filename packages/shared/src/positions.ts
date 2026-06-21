@@ -126,6 +126,48 @@ export const getCanonicalBattlefieldGridSteps = (params?: {
     baseCardWidth: BASE_CARD_HEIGHT * CARD_ASPECT_RATIO,
   });
 
+export const BATTLEFIELD_PLACEMENT_GRID_WIDTH_FRACTION = 1 / 2;
+export const BATTLEFIELD_PLACEMENT_GRID_SHORT_SIDE_FRACTION = 1 / 2;
+
+const snapNormalizedValueToStep = (value: number, step: number) =>
+  step > 0 ? Math.round(value / step) * step : value;
+
+export const getCanonicalBattlefieldPlacementGridSteps = (params?: {
+  zoneWidth?: number;
+  zoneHeight?: number;
+  viewScale?: number;
+} & CardDimensionOptions) => {
+  const { baseCardWidth } = resolveBaseCardDimensions({
+    baseCardHeight: params?.baseCardHeight,
+    baseCardWidth: params?.baseCardWidth,
+  });
+  const zoneWidth = params?.zoneWidth ?? LEGACY_BATTLEFIELD_WIDTH;
+  const zoneHeight = params?.zoneHeight ?? LEGACY_BATTLEFIELD_HEIGHT;
+  const viewScale = params?.viewScale ?? 1;
+
+  return {
+    stepX: zoneWidth
+      ? (baseCardWidth * viewScale * BATTLEFIELD_PLACEMENT_GRID_WIDTH_FRACTION) /
+        zoneWidth
+      : 0,
+    stepY: zoneHeight
+      ? (baseCardWidth * viewScale * BATTLEFIELD_PLACEMENT_GRID_SHORT_SIDE_FRACTION) /
+        zoneHeight
+      : 0,
+  };
+};
+
+export const snapNormalizedToBattlefieldPlacementGrid = (
+  position: Position,
+  params?: Parameters<typeof getCanonicalBattlefieldPlacementGridSteps>[0]
+) => {
+  const { stepX, stepY } = getCanonicalBattlefieldPlacementGridSteps(params);
+  return clampNormalizedPosition({
+    x: snapNormalizedValueToStep(position.x, stepX),
+    y: snapNormalizedValueToStep(position.y, stepY),
+  });
+};
+
 export const normalizedPositionKey = (position: Position) =>
   `${position.x.toFixed(4)}:${position.y.toFixed(4)}`;
 
@@ -321,7 +363,7 @@ export const resolvePositionAgainstOccupied = ({
   targetPosition,
   occupied,
   maxAttempts,
-  stepY = GRID_STEP_Y,
+  stepY = getCanonicalBattlefieldPlacementGridSteps().stepY,
 }: {
   targetPosition: Position;
   occupied: Set<string>;
@@ -349,7 +391,7 @@ export const resolveBattlefieldCollisionPosition = ({
   targetPosition,
   orderedCardIds,
   getPosition,
-  stepY = GRID_STEP_Y,
+  stepY = getCanonicalBattlefieldPlacementGridSteps().stepY,
   maxAttempts = 200,
 }: {
   movingCardId: string;
@@ -378,7 +420,7 @@ export const resolveBattlefieldGroupCollisionPositions = ({
   orderedCardIds,
   getPosition,
   getStepY,
-  stepY = GRID_STEP_Y,
+  stepY = getCanonicalBattlefieldPlacementGridSteps().stepY,
   maxAttempts = 200,
 }: {
   movingCardIds: string[];
@@ -430,8 +472,7 @@ export const offsetNormalizedByGrid = (params: {
   baseCardHeight?: number;
   baseCardWidth?: number;
 }) => {
-  const { stepX, stepY } = getCanonicalGridSteps({
-    isTapped: params.isTapped,
+  const { stepX, stepY } = getCanonicalBattlefieldPlacementGridSteps({
     zoneWidth: params.zoneWidth,
     zoneHeight: params.zoneHeight,
     baseCardHeight: params.baseCardHeight,
@@ -451,8 +492,8 @@ export const findAvailablePositionNormalized = (
   start: Position,
   zoneCardIds: string[],
   cards: Record<string, { position: Position }>,
-  stepX: number = GRID_STEP_X,
-  stepY: number = GRID_STEP_Y,
+  _stepX: number = GRID_STEP_X,
+  stepY: number = getCanonicalBattlefieldPlacementGridSteps().stepY,
   maxChecks: number = 50
 ) => {
   const occupied = createOccupiedPositionSet(zoneCardIds, (id) => cards[id]?.position);
@@ -463,7 +504,7 @@ export const findAvailablePositionNormalized = (
     occupied.has(normalizedPositionKey(candidate)) &&
     attempts < maxChecks
   ) {
-    candidate = clampNormalizedPosition({ x: candidate.x + stepX, y: candidate.y + stepY });
+    candidate = clampNormalizedPosition({ x: candidate.x, y: candidate.y + stepY });
     attempts += 1;
   }
 

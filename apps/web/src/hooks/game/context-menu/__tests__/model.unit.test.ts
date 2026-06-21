@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import type { Card, Zone } from "@/types";
 import type { ScryfallCard, ScryfallRelatedCard } from "@/types/scryfall";
 import { ZONE as ZONE_CONST } from "@/constants/zones";
-import { GRID_STEP_X, GRID_STEP_Y } from "@/lib/positions";
+import {
+  getCanonicalBattlefieldPlacementGridSteps,
+  snapNormalizedToBattlefieldPlacementGrid,
+} from "@/lib/positions";
 
 import { buildRelatedBattlefieldCard, isScryfallTokenCard } from "../model";
 
@@ -117,16 +120,20 @@ describe("gameContextMenu model", () => {
     expect(planned?.basePower).toBe("2");
     expect(planned?.baseToughness).toBe("1");
 
-    expect(planned?.position.x).toBeCloseTo(sourcePosition.x + GRID_STEP_X, 6);
-    expect(planned?.position.y).toBeCloseTo(sourcePosition.y + GRID_STEP_Y, 6);
+    const snappedSource = snapNormalizedToBattlefieldPlacementGrid(sourcePosition);
+    const { stepX, stepY } = getCanonicalBattlefieldPlacementGridSteps();
+    expect(planned?.position.x).toBeCloseTo(snappedSource.x + stepX, 6);
+    expect(planned?.position.y).toBeCloseTo(snappedSource.y + stepY, 6);
   });
 
   it("bumps the planned position when it would overlap an existing card", () => {
     const zone = createZone({ id: "bf", type: ZONE_CONST.BATTLEFIELD, cardIds: ["base", "occ"] });
     const sourcePosition = { x: 0.12, y: 0.1 };
     const source = createCard({ id: "base", zoneId: "bf", position: sourcePosition });
+    const snappedSource = snapNormalizedToBattlefieldPlacementGrid(sourcePosition);
+    const { stepX, stepY } = getCanonicalBattlefieldPlacementGridSteps();
     const occupied: Pick<Card, "position"> = {
-      position: { x: sourcePosition.x + GRID_STEP_X, y: sourcePosition.y + GRID_STEP_Y },
+      position: { x: snappedSource.x + stepX, y: snappedSource.y + stepY },
     };
 
     const planned = buildRelatedBattlefieldCard({
@@ -139,8 +146,8 @@ describe("gameContextMenu model", () => {
       createId: () => "new1",
     });
 
-    expect(planned?.position.x).toBeCloseTo(sourcePosition.x + 2 * GRID_STEP_X, 6);
-    expect(planned?.position.y).toBeCloseTo(sourcePosition.y + 2 * GRID_STEP_Y, 6);
+    expect(planned?.position.x).toBeCloseTo(snappedSource.x + stepX, 6);
+    expect(planned?.position.y).toBeCloseTo(snappedSource.y + 2 * stepY, 6);
   });
 
   it("returns null for non-battlefield zones", () => {

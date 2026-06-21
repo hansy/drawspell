@@ -3,6 +3,11 @@ import { Card as CardType } from "@/types";
 import { useDragStore } from "@/store/dragStore";
 import { useGameStore } from "@/store/gameStore";
 import { setCardPreviewLockHandler } from "@/lib/cardPreviewLock";
+import {
+  debugLog,
+  summarizeCardPreviewElement,
+  summarizeElement,
+} from "@/lib/debug";
 import { CardPreview } from "./CardPreview";
 
 type PreviewState = {
@@ -31,6 +36,10 @@ export const CardPreviewProvider: React.FC<{ children: React.ReactNode }> = ({
   const activeCardId = useDragStore((state) => state.activeCardId);
 
   const showPreview = React.useCallback((card: CardType, anchorEl: HTMLElement) => {
+    debugLog("battlefieldDnd", "card-preview-show-request", {
+      cardId: card.id,
+      anchorElement: summarizeElement(anchorEl),
+    });
     setPreview((prev) => {
       if (prev?.locked) return prev;
       return { card, anchorEl, locked: false };
@@ -41,11 +50,23 @@ export const CardPreviewProvider: React.FC<{ children: React.ReactNode }> = ({
     setPreview((prev) => {
       if (prev?.locked) return prev;
       if (cardId && prev?.card.id !== cardId) return prev;
+      if (prev) {
+        debugLog("battlefieldDnd", "card-preview-hide", {
+          cardId: prev.card.id,
+          requestedCardId: cardId ?? null,
+          locked: prev.locked,
+          previewElement: summarizeCardPreviewElement(prev.card.id),
+        });
+      }
       return null;
     });
   }, []);
 
   const lockPreview = React.useCallback((card: CardType, anchorEl: HTMLElement) => {
+    debugLog("battlefieldDnd", "card-preview-lock", {
+      cardId: card.id,
+      anchorElement: summarizeElement(anchorEl),
+    });
     setPreview({ card, anchorEl, locked: true });
   }, []);
 
@@ -53,20 +74,50 @@ export const CardPreviewProvider: React.FC<{ children: React.ReactNode }> = ({
     setPreview((prev) => {
       // If already locked on this card, unlock it
       if (prev?.locked && prev.card.id === card.id) {
+        debugLog("battlefieldDnd", "card-preview-unlock-toggle", {
+          cardId: card.id,
+          previewElement: summarizeCardPreviewElement(card.id),
+        });
         return null;
       }
       // Otherwise lock on this card
+      debugLog("battlefieldDnd", "card-preview-lock-toggle", {
+        cardId: card.id,
+        anchorElement: summarizeElement(anchorEl),
+        previousCardId: prev?.card.id ?? null,
+        previousLocked: prev?.locked ?? null,
+      });
       return { card, anchorEl, locked: true };
     });
   }, []);
 
   const unlockPreview = React.useCallback(() => {
-    setPreview(null);
+    setPreview((prev) => {
+      if (prev) {
+        debugLog("battlefieldDnd", "card-preview-unlock", {
+          cardId: prev.card.id,
+          locked: prev.locked,
+          previewElement: summarizeCardPreviewElement(prev.card.id),
+        });
+      }
+      return null;
+    });
   }, []);
 
   React.useEffect(() => {
     if (activeCardId) {
-      setPreview(null);
+      setPreview((prev) => {
+        if (prev) {
+          debugLog("battlefieldDnd", "card-preview-cleared-for-drag", {
+            activeCardId,
+            previewCardId: prev.card.id,
+            locked: prev.locked,
+            previewElement: summarizeCardPreviewElement(prev.card.id),
+            anchorElement: summarizeElement(prev.anchorEl),
+          });
+        }
+        return null;
+      });
     }
   }, [activeCardId]);
 

@@ -19,7 +19,7 @@ import {
   resolveCardMovementPosition,
   type CardMovementLogFacts,
 } from "@mtg/shared/movement";
-import { getCanonicalBattlefieldGridSteps } from "@mtg/shared/positions";
+import { getCanonicalBattlefieldPlacementGridSteps } from "@mtg/shared/positions";
 import { readCard, readZone, writeCard, writeZone } from "./yjsStore";
 import { placeCardId, removeFromArray } from "./lists";
 import { syncLibraryRevealsToAllForPlayer, updatePlayerCounts } from "./hiddenState";
@@ -75,10 +75,7 @@ const resolveMoveApplicationPosition = (params: {
     position: params.position,
     opts: params.opts,
     getPosition: (id) => cardsById[id]?.position,
-    getStepY: (id) =>
-      getCanonicalBattlefieldGridSteps({
-        isTapped: (id === params.cardId ? params.card : cardsById[id])?.tapped,
-      }).stepY,
+    getStepY: () => getCanonicalBattlefieldPlacementGridSteps().stepY,
   });
 };
 

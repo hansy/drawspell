@@ -23,7 +23,7 @@ import {
 import type { SharedMaps } from '../legacyMutations';
 import { ZONE } from '@/constants/zones';
 import { Card, Player, Zone } from '@/types';
-import { GRID_STEP_Y, getCanonicalBattlefieldGridSteps } from '@/lib/positions';
+import { getCanonicalBattlefieldPlacementGridSteps } from '@/lib/positions';
 import { SNAP_GRID_SIZE } from '@/lib/snapping';
 
 const createSharedMaps = (): SharedMaps => {
@@ -149,7 +149,7 @@ describe('moveCard', () => {
     expect(snapshot.zones[toZone.id]?.cardIds).toEqual(['c1']);
   });
 
-  it('shifts overlapping battlefield cards instead of stacking', () => {
+  it('bumps exact occupied battlefield centers down by one visible row', () => {
     const maps = createSharedMaps();
 
     const zone: Zone = {
@@ -191,7 +191,10 @@ describe('moveCard', () => {
     expect(snapshot.cards.c2?.position.x).toBeCloseTo(0.1, 6);
     expect(snapshot.cards.c2?.position.y).toBeCloseTo(0.1, 6);
     expect(snapshot.cards.c1?.position.x).toBeCloseTo(0.1, 6);
-    expect(snapshot.cards.c1?.position.y).toBeCloseTo(0.1 + GRID_STEP_Y, 6);
+    expect(snapshot.cards.c1?.position.y).toBeCloseTo(
+      0.1 + getCanonicalBattlefieldPlacementGridSteps().stepY,
+      6
+    );
   });
 
   it('ignores explicit gridStepY overrides when resolving collisions', () => {
@@ -234,7 +237,7 @@ describe('moveCard', () => {
 
     const snapshot = sharedSnapshot(maps);
     expect(snapshot.cards.c1?.position.y).toBeCloseTo(
-      0.1 + getCanonicalBattlefieldGridSteps().stepY,
+      0.1 + getCanonicalBattlefieldPlacementGridSteps().stepY,
       6
     );
   });
@@ -665,7 +668,7 @@ describe('Yjs update size regression', () => {
       }
     });
 
-    // Force a single collision to exercise the overlap-shift logic.
+    // Force a single occupied-center retry while keeping the update scoped.
     const bytes = measureTransactionUpdateBytes(doc, () => {
       moveCard(maps, 'c0', zone.id, { x: 0.1, y: 0.1 });
     });

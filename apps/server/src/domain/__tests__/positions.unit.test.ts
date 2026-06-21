@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  GRID_STEP_X,
-  GRID_STEP_Y,
   LEGACY_BATTLEFIELD_HEIGHT,
   LEGACY_BATTLEFIELD_WIDTH,
 } from "../constants";
 import {
   findAvailablePositionNormalized,
+  getCanonicalBattlefieldPlacementGridSteps,
   normalizeMovePosition,
   resolveBattlefieldCollisionPosition,
   resolveBattlefieldGroupCollisionPositions,
@@ -55,8 +54,9 @@ describe("server positions", () => {
 
     const resolved = resolvePositionAgainstOccupied({ targetPosition: target, occupied, maxAttempts: 3 });
 
+    const { stepY } = getCanonicalBattlefieldPlacementGridSteps();
     expect(resolved.x).toBeCloseTo(target.x, 6);
-    expect(resolved.y).toBeCloseTo(target.y + GRID_STEP_Y, 6);
+    expect(resolved.y).toBeCloseTo(target.y + stepY, 6);
   });
 
   it("should ignore the moving card when resolving battlefield collisions", () => {
@@ -81,7 +81,10 @@ describe("server positions", () => {
     });
 
     expect(resolved.x).toBeCloseTo(target.x, 6);
-    expect(resolved.y).toBeCloseTo(target.y + GRID_STEP_Y, 6);
+    expect(resolved.y).toBeCloseTo(
+      target.y + getCanonicalBattlefieldPlacementGridSteps().stepY,
+      6
+    );
   });
 
   it("should resolve group collisions without overlapping outputs", () => {
@@ -113,7 +116,10 @@ describe("server positions", () => {
       cards
     );
 
-    expect(result.x).toBeCloseTo(0.5 + GRID_STEP_X, 6);
-    expect(result.y).toBeCloseTo(0.5 + GRID_STEP_Y, 6);
+    expect(result.x).toBeCloseTo(0.5, 6);
+    expect(result.y).toBeCloseTo(
+      0.5 + getCanonicalBattlefieldPlacementGridSteps().stepY,
+      6
+    );
   });
 });

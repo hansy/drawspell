@@ -10,11 +10,10 @@ import type {
 import { enforceZoneCounterRules } from "@/lib/counters";
 import { MAX_CARDS, MAX_CARDS_PER_ZONE } from "@/lib/limits";
 import {
-  getCanonicalBattlefieldGridSteps,
+  getCanonicalBattlefieldPlacementGridSteps,
   normalizedPositionKey,
   positionsRoughlyEqual,
   resolvePositionAgainstOccupied,
-  snapNormalizedToCanonicalBattlefieldGrid,
 } from "@/lib/positions";
 import { MAX_PLAYERS, MAX_ZONES } from "../sanitizeLimits";
 
@@ -148,14 +147,11 @@ export function sanitizeSharedSnapshot(snapshot: SharedSnapshotLike) {
       const card = safeCards[cardId];
       if (!card) return;
 
-      const snapped = snapNormalizedToCanonicalBattlefieldGrid(card.position, {
-        isTapped: card.tapped,
-      });
       const resolved = resolvePositionAgainstOccupied({
-        targetPosition: snapped,
+        targetPosition: card.position,
         occupied,
         maxAttempts: MAX_CARDS_PER_ZONE,
-        stepY: getCanonicalBattlefieldGridSteps({ isTapped: card.tapped }).stepY,
+        stepY: getCanonicalBattlefieldPlacementGridSteps().stepY,
       });
 
       occupied.add(normalizedPositionKey(resolved));

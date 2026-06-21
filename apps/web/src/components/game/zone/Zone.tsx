@@ -7,6 +7,13 @@ import { useDragStore } from '@/store/dragStore';
 
 import { useGameStore } from '@/store/gameStore';
 import { canMoveCard } from '@/rules/permissions';
+import {
+    debugLog,
+    isDebugEnabled,
+    summarizeGhostElement,
+    summarizeZoneElement,
+    type DebugFlagKey,
+} from '@/lib/debug';
 
 interface ZoneProps {
     zone: ZoneType;
@@ -29,6 +36,8 @@ interface ZoneProps {
     innerRef?: (node: HTMLDivElement | null) => void;
     disabled?: boolean;
 }
+
+const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
 const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, cardScale = 1, cardBaseHeight, cardBaseWidth, mirrorY = false, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onPointerLeave, onMouseEnter, onMouseLeave, innerRef, disabled = false }) => {
     const myPlayerId = useGameStore((state) => state.myPlayerId);
@@ -64,6 +73,33 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 's
     }, [innerRef, setNodeRef]);
 
     const { active } = useDndContext();
+
+    React.useEffect(() => {
+        if (!ghostCard) return;
+        if (!isDebugEnabled(BATTLEFIELD_DND_DEBUG_KEY)) return;
+        if (typeof requestAnimationFrame === "undefined") return;
+        const frame = requestAnimationFrame(() => {
+            debugLog(BATTLEFIELD_DND_DEBUG_KEY, "single-ghost-rendered", {
+                zoneId: zone.id,
+                zoneType: zone.type,
+                cardId: ghostCard.cardId,
+                ghostState: ghostCard,
+                cardScale,
+                cardBaseHeight,
+                cardBaseWidth,
+                ghostElement: summarizeGhostElement(ghostCard.cardId),
+                zoneElement: summarizeZoneElement(zone.id),
+            });
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [
+        cardBaseHeight,
+        cardBaseWidth,
+        cardScale,
+        ghostCard,
+        zone.id,
+        zone.type,
+    ]);
 
     // Optimized: only check validity when dragging over this zone
     const isValidDrop = React.useMemo(() => {
@@ -122,6 +158,8 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 's
                 return (
                     <div
                         className="absolute pointer-events-none z-20"
+                        data-dnd-ghost-card-id={ghostCard.cardId}
+                        data-dnd-ghost-kind="single"
                         style={{
                             width: ghostWidth,
                             height: ghostHeight,

@@ -2,6 +2,7 @@ import type { StoreApi } from "zustand";
 
 import type { BattlefieldGridSizing, GameState } from "@/types";
 import type { DispatchIntent } from "@/store/gameStore/dispatchIntent";
+import { debugLog, type DebugFlagKey } from "@/lib/debug";
 
 
 type SetState = StoreApi<GameState>["setState"];
@@ -10,6 +11,8 @@ type GetState = StoreApi<GameState>["getState"];
 type Deps = {
   dispatchIntent: DispatchIntent;
 };
+
+const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
 const areSizingEqual = (a: BattlefieldGridSizing | undefined, b: BattlefieldGridSizing) =>
   Boolean(
@@ -34,6 +37,13 @@ export const createUiActions = (
     const current = get().battlefieldViewScale[playerId];
     if (current === clamped) return;
 
+    debugLog(BATTLEFIELD_DND_DEBUG_KEY, "battlefield-scale-set", {
+      playerId,
+      requestedScale: scale,
+      previousScale: current ?? 1,
+      nextScale: clamped,
+    });
+
     dispatchIntent({
       type: "ui.battlefieldScale.set",
       payload: { playerId, scale: clamped },
@@ -50,6 +60,10 @@ export const createUiActions = (
     set((state) => {
       if (!sizing) {
         if (!state.battlefieldGridSizing[playerId]) return {};
+        debugLog(BATTLEFIELD_DND_DEBUG_KEY, "battlefield-grid-sizing-clear", {
+          playerId,
+          previousSizing: state.battlefieldGridSizing[playerId],
+        });
         const next = { ...state.battlefieldGridSizing };
         Reflect.deleteProperty(next, playerId);
         return { battlefieldGridSizing: next };
@@ -57,6 +71,11 @@ export const createUiActions = (
       if (areSizingEqual(state.battlefieldGridSizing[playerId], sizing)) {
         return {};
       }
+      debugLog(BATTLEFIELD_DND_DEBUG_KEY, "battlefield-grid-sizing-set", {
+        playerId,
+        previousSizing: state.battlefieldGridSizing[playerId],
+        nextSizing: sizing,
+      });
       return {
         battlefieldGridSizing: {
           ...state.battlefieldGridSizing,

@@ -2,7 +2,18 @@ import type { Card, CardId, PlayerId, ViewerRole, Zone, ZoneId, ZoneType } from 
 
 import { ZONE } from "@/constants/zones";
 import { canMoveCard } from "@/rules/permissions";
-import { computeBattlefieldPlacement, type RectLike } from "@/lib/dndBattlefield";
+import {
+  computeBattlefieldPlacement,
+  getEffectiveCardSize,
+  type RectLike,
+} from "@/lib/dndBattlefield";
+import {
+  clampCanonicalBattlefieldGroupDelta,
+  clampNormalizedToCanonicalBattlefieldBounds,
+  fromNormalizedPosition,
+  mirrorNormalizedY,
+  toNormalizedPosition,
+} from "@/lib/positions";
 
 export type GhostCardState = {
   zoneId: ZoneId;
@@ -11,9 +22,29 @@ export type GhostCardState = {
   size?: { width: number; height: number };
 };
 
+export type GroupGhostCardState = {
+  cardId: CardId;
+  zoneId: ZoneId;
+  position: { x: number; y: number };
+  tapped: boolean;
+  size: { width: number; height: number };
+};
+
 export type DragMoveUiState = {
   ghostCard: GhostCardState | null;
   overCardScale: number;
+  debug?: {
+    activeRect?: RectLike | null;
+    centerScreen: { x: number; y: number };
+    pointerScreen?: { x: number; y: number } | null;
+    movementScreen?: { x: number; y: number } | null;
+    dragAnchor?: { x: number; y: number } | null;
+    isTapped: boolean;
+    zoneScale: number;
+    viewScale: number;
+    overRect: RectLike;
+    placement: ReturnType<typeof computeBattlefieldPlacement>;
+  };
 };
 
 export const computeDragMoveUiState = (params: {
@@ -24,6 +55,7 @@ export const computeDragMoveUiState = (params: {
   activeCardId?: CardId;
   activeRect?: RectLike | null;
   pointerScreen?: { x: number; y: number } | null;
+  movementScreen?: { x: number; y: number } | null;
   dragAnchor?: { x: number; y: number } | null;
   activeTapped?: boolean;
   over:
@@ -85,6 +117,7 @@ export const computeDragMoveUiState = (params: {
   const placement = computeBattlefieldPlacement({
     centerScreen,
     pointerScreen: params.pointerScreen ?? undefined,
+    movementScreen: params.movementScreen ?? undefined,
     dragAnchor: params.dragAnchor ?? undefined,
     isTapped,
     mirrorY,
@@ -103,7 +136,95 @@ export const computeDragMoveUiState = (params: {
       size: { width: placement.cardWidth, height: placement.cardHeight },
     },
     overCardScale,
+    debug: {
+      activeRect: params.activeRect,
+      centerScreen,
+      pointerScreen: params.pointerScreen ?? null,
+      movementScreen: params.movementScreen ?? null,
+      dragAnchor: params.dragAnchor ?? null,
+      isTapped,
+      zoneScale,
+      viewScale,
+      overRect: params.over.rect,
+      placement,
+    },
   };
+};
+
+export const computeBattlefieldGroupGhostCards = (params: {
+  groupCardIds: CardId[];
+  activeCardId: CardId;
+  startPositions: Record<CardId, { x: number; y: number } | undefined>;
+  cards: Record<CardId, Pick<Card, "id" | "tapped"> | undefined>;
+  targetZoneId: ZoneId;
+  activeGhostPosition: { x: number; y: number };
+  zoneWidth: number;
+  zoneHeight: number;
+  mirrorY: boolean;
+  viewScale: number;
+  baseCardHeight?: number;
+  baseCardWidth?: number;
+}): GroupGhostCardState[] => {
+  if (!params.zoneWidth || !params.zoneHeight) return [];
+
+  const activeStart = params.startPositions[params.activeCardId];
+  if (!activeStart) return [];
+
+  const activeGhostView = toNormalizedPosition(
+    params.activeGhostPosition,
+    params.zoneWidth,
+    params.zoneHeight
+  );
+  const activeGhostCanonical = params.mirrorY
+    ? mirrorNormalizedY(activeGhostView)
+    : activeGhostView;
+
+  const delta = {
+    x: activeGhostCanonical.x - activeStart.x,
+    y: activeGhostCanonical.y - activeStart.y,
+  };
+  const clampedDelta = clampCanonicalBattlefieldGroupDelta({
+    movingIds: params.groupCardIds,
+    startPositions: params.startPositions,
+    delta,
+    isTapped: (id) => params.cards[id]?.tapped,
+  });
+
+  return params.groupCardIds
+    .map((id) => {
+      const card = params.cards[id];
+      const startPos = params.startPositions[id];
+      if (!card || !startPos) return null;
+
+      const candidate = {
+        x: startPos.x + clampedDelta.x,
+        y: startPos.y + clampedDelta.y,
+      };
+      const visualSize = getEffectiveCardSize({
+        viewScale: params.viewScale,
+        isTapped: card.tapped,
+        baseCardHeight: params.baseCardHeight,
+        baseCardWidth: params.baseCardWidth,
+      });
+      const target = clampNormalizedToCanonicalBattlefieldBounds(candidate, {
+        isTapped: card.tapped,
+      });
+      const viewNormalized = params.mirrorY ? mirrorNormalizedY(target) : target;
+      const position = fromNormalizedPosition(
+        viewNormalized,
+        params.zoneWidth,
+        params.zoneHeight
+      );
+
+      return {
+        cardId: card.id,
+        zoneId: params.targetZoneId,
+        position,
+        tapped: card.tapped,
+        size: { width: visualSize.cardWidth, height: visualSize.cardHeight },
+      };
+    })
+    .filter((value): value is GroupGhostCardState => Boolean(value));
 };
 
 export type DragEndPlan =
@@ -126,12 +247,14 @@ export const computeDragEndPlan = (params: {
   overCardId?: CardId;
   activeRect?: RectLike | null;
   pointerScreen?: { x: number; y: number } | null;
+  movementScreen?: { x: number; y: number } | null;
   dragAnchor?: { x: number; y: number } | null;
   overRect?: RectLike | null;
   overScale?: number;
   overCardScale?: number;
   overCardBaseHeight?: number;
   overCardBaseWidth?: number;
+  releasePreviewPosition?: { x: number; y: number } | null;
   mirrorY?: boolean;
   activeTapped?: boolean;
 }): DragEndPlan => {
@@ -172,6 +295,15 @@ export const computeDragEndPlan = (params: {
 
   if (!params.activeRect || !params.overRect) return { kind: "none" };
 
+  if (params.releasePreviewPosition) {
+    return {
+      kind: "moveCard",
+      cardId: params.cardId,
+      toZoneId: targetZone.id,
+      position: params.releasePreviewPosition,
+    };
+  }
+
   const centerScreen = {
     x: params.activeRect.left + params.activeRect.width / 2,
     y: params.activeRect.top + params.activeRect.height / 2,
@@ -185,6 +317,7 @@ export const computeDragEndPlan = (params: {
   const placement = computeBattlefieldPlacement({
     centerScreen,
     pointerScreen: params.pointerScreen ?? undefined,
+    movementScreen: params.movementScreen ?? undefined,
     dragAnchor: params.dragAnchor ?? undefined,
     isTapped,
     mirrorY,
