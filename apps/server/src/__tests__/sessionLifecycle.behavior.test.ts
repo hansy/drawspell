@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as Y from "yjs";
-import { HIDDEN_STATE_META_KEY } from "../domain/constants";
+import {
+  EMPTY_ROOM_STARTED_AT_KEY,
+  HIDDEN_STATE_META_KEY,
+  ROOM_TOKENS_KEY,
+} from "../domain/constants";
 
 const superOnConnect = vi.fn();
 
@@ -54,6 +58,10 @@ beforeEach(() => {
 
 const LIBRARY_VIEW_PING_TIMEOUT_MS = 45_000;
 const HIDDEN_STATE_PERSIST_IDLE_MS = 5_000;
+const EMPTY_ROOM_IDLE_GRACE_MS = 120_000;
+const EMPTY_ROOM_HARD_RESET_MS = 30 * 60_000;
+const EMPTY_ROOM_TOTAL_RESET_MS =
+  EMPTY_ROOM_IDLE_GRACE_MS + EMPTY_ROOM_HARD_RESET_MS;
 const INTENT_LOG_META_KEY = "intent-log:meta";
 const INTENT_LOG_PREFIX = "intent-log:";
 
@@ -69,6 +77,7 @@ const createDeferred = <T>() => {
 
 const createState = () => {
   const store = new Map<string, unknown>();
+  let alarm: number | null = null;
   const storage = {
     get: vi.fn(async (key: string) => store.get(key)),
     put: vi.fn(async (key: string, value: unknown) => {
@@ -78,6 +87,13 @@ const createState = () => {
       store.delete(key);
     }),
     list: vi.fn(async () => store.entries()),
+    setAlarm: vi.fn(async (scheduledTimeMs: number) => {
+      alarm = scheduledTimeMs;
+    }),
+    getAlarm: vi.fn(async () => alarm),
+    deleteAlarm: vi.fn(async () => {
+      alarm = null;
+    }),
   };
   return {
     id: { name: "room-test" },
@@ -1249,6 +1265,7 @@ describe("server lifecycle guards", () => {
   it("keeps empty rooms dormant before hard-resetting them", async () => {
     vi.useFakeTimers();
     try {
+      vi.setSystemTime(1_000);
       const state = createState();
       const server = new Room(state, createEnv());
       const clearRoomStorage = vi
@@ -1260,8 +1277,17 @@ describe("server lifecycle guards", () => {
       };
 
       (server as any).scheduleEmptyRoomTeardown();
+      await Promise.resolve();
 
-      await vi.advanceTimersByTimeAsync(120_000);
+      expect(state.storage.put).toHaveBeenCalledWith(
+        EMPTY_ROOM_STARTED_AT_KEY,
+        1_000,
+      );
+      expect(state.storage.setAlarm).toHaveBeenCalledWith(
+        1_000 + EMPTY_ROOM_TOTAL_RESET_MS,
+      );
+
+      await vi.advanceTimersByTimeAsync(EMPTY_ROOM_IDLE_GRACE_MS);
       expect(clearRoomStorage).not.toHaveBeenCalled();
       expect((server as any).emptyRoomDormantAt).not.toBeNull();
       expect((server as any).roomTokens).toEqual({
@@ -1269,9 +1295,92 @@ describe("server lifecycle guards", () => {
         spectatorToken: "spectator-token",
       });
 
-      await vi.advanceTimersByTimeAsync(30 * 60_000);
+      await vi.advanceTimersByTimeAsync(EMPTY_ROOM_HARD_RESET_MS);
       expect(clearRoomStorage).toHaveBeenCalled();
       expect((server as any).roomTokens).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears the durable empty-room alarm when a player reconnects", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(5_000);
+      const state = createState();
+      const server = new Room(state, createEnv());
+
+      (server as any).scheduleEmptyRoomTeardown();
+      await Promise.resolve();
+
+      const conn = new TestConnection();
+      (server as any).registerConnection(conn, "player", {
+        playerId: "p1",
+        viewerRole: "player",
+      });
+      await Promise.resolve();
+
+      expect(state.storage.delete).toHaveBeenCalledWith(
+        EMPTY_ROOM_STARTED_AT_KEY,
+      );
+      expect(state.storage.deleteAlarm).toHaveBeenCalled();
+      expect(await state.storage.getAlarm()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("uses the Durable Object alarm to tear down empty rooms after eviction", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(0);
+      const state = createState();
+      await state.storage.put(EMPTY_ROOM_STARTED_AT_KEY, 1_000);
+      await state.storage.put(ROOM_TOKENS_KEY, {
+        playerToken: "player-token",
+        spectatorToken: "spectator-token",
+      });
+
+      vi.setSystemTime(1_000 + EMPTY_ROOM_TOTAL_RESET_MS + 1);
+      const server = new Room(state, createEnv());
+      await (server as any).alarm();
+
+      expect(state.storage.delete).toHaveBeenCalledWith(ROOM_TOKENS_KEY);
+      expect(state.storage.delete).toHaveBeenCalledWith(
+        EMPTY_ROOM_STARTED_AT_KEY,
+      );
+      expect(state.storage.deleteAlarm).toHaveBeenCalled();
+      expect((server as any).roomTokens).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not reset the empty-room clock for failed pending auth", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(10_000);
+      const state = createState();
+      const server = new Room(state, createEnv());
+
+      (server as any).scheduleEmptyRoomTeardown();
+      await Promise.resolve();
+
+      const startedAtBeforePending = await state.storage.get(
+        EMPTY_ROOM_STARTED_AT_KEY,
+      );
+      const releasePending = (server as any).beginPendingPlayerConnection();
+      await Promise.resolve();
+      releasePending();
+      (server as any).scheduleEmptyRoomTeardown();
+      await Promise.resolve();
+
+      expect(await state.storage.get(EMPTY_ROOM_STARTED_AT_KEY)).toBe(
+        startedAtBeforePending,
+      );
+      expect(state.storage.setAlarm).toHaveBeenLastCalledWith(
+        10_000 + EMPTY_ROOM_TOTAL_RESET_MS,
+      );
     } finally {
       vi.useRealTimers();
     }

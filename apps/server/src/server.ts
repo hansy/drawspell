@@ -17,6 +17,7 @@ import {
 
 import {
   DISCORD_INVITE_METADATA_KEY,
+  EMPTY_ROOM_STARTED_AT_KEY,
   HIDDEN_STATE_CARDS_PREFIX,
   HIDDEN_STATE_KEY,
   HIDDEN_STATE_META_KEY,
@@ -77,6 +78,9 @@ import { normalizeNonEmptyString } from "./strings";
 const INTENT_ROLE = "intent";
 const EMPTY_ROOM_IDLE_GRACE_MS = 120_000;
 const EMPTY_ROOM_HARD_RESET_MS = 30 * 60_000;
+const EMPTY_ROOM_TOTAL_RESET_MS =
+  EMPTY_ROOM_IDLE_GRACE_MS + EMPTY_ROOM_HARD_RESET_MS;
+const EMPTY_ROOM_PENDING_AUTH_RETRY_MS = 30_000;
 const ROOM_TEARDOWN_CLOSE_CODE = 1013;
 const PLAYER_TAKEOVER_CLOSE_CODE = 1008;
 const PLAYER_TAKEOVER_CLOSE_REASON = "session moved to another device";
@@ -415,6 +419,7 @@ export class Room extends YServer<Env> {
   private pendingPlayerConnections = 0;
   private emptyRoomIdleTimer: number | null = null;
   private emptyRoomHardResetTimer: number | null = null;
+  private emptyRoomStartedAt: number | null = null;
   private emptyRoomDormantAt: number | null = null;
   private teardownGeneration = 0;
   private resetGeneration = 0;
@@ -485,6 +490,9 @@ export class Room extends YServer<Env> {
 
   async onLoad() {
     this.ensureYjsMetricsListener();
+    if (await this.restoreEmptyRoomLifecycle()) {
+      return;
+    }
     await this.restoreGameLog();
     await this.restoreFromSnapshotAndLog();
   }
@@ -794,6 +802,10 @@ export class Room extends YServer<Env> {
       }
     }
     await this.flushGameLogPersist();
+  }
+
+  async alarm() {
+    await this.handleEmptyRoomAlarm();
   }
 
   private async restoreGameLog() {
@@ -1294,10 +1306,153 @@ export class Room extends YServer<Env> {
 
   private hasPlayerConnections(): boolean {
     if (this.pendingPlayerConnections > 0) return true;
+    return this.hasAuthenticatedPlayerConnections();
+  }
+
+  private hasAuthenticatedPlayerConnections(): boolean {
     for (const role of this.connectionRoles.values()) {
       if (role === "player") return true;
     }
     return false;
+  }
+
+  private normalizeEmptyRoomStartedAt(value: unknown): number | null {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+      return null;
+    }
+    return value;
+  }
+
+  private getEmptyRoomTeardownAt(startedAt: number): number {
+    return startedAt + EMPTY_ROOM_TOTAL_RESET_MS;
+  }
+
+  private async setEmptyRoomAlarm(teardownAt: number) {
+    const storage = this.ctx.storage as DurableObjectStorage & {
+      setAlarm?: (scheduledTimeMs: number) => Promise<void>;
+    };
+    if (typeof storage.setAlarm !== "function") return;
+    await storage.setAlarm(teardownAt);
+  }
+
+  private async deleteEmptyRoomAlarm() {
+    const storage = this.ctx.storage as DurableObjectStorage & {
+      deleteAlarm?: () => Promise<void>;
+    };
+    if (typeof storage.deleteAlarm !== "function") return;
+    await storage.deleteAlarm();
+  }
+
+  private persistEmptyRoomLifecycle(startedAt: number, generation: number) {
+    void (async () => {
+      if (this.teardownGeneration !== generation) return;
+      if (this.hasPlayerConnections()) return;
+      try {
+        await this.ctx.storage.put(EMPTY_ROOM_STARTED_AT_KEY, startedAt);
+        await this.setEmptyRoomAlarm(this.getEmptyRoomTeardownAt(startedAt));
+      } catch (error) {
+        console.error("[party] failed to schedule empty room alarm", {
+          room: this.name,
+          message: resolveErrorMessage(error),
+        });
+        return;
+      }
+      if (
+        this.teardownGeneration !== generation ||
+        this.hasAuthenticatedPlayerConnections() ||
+        this.emptyRoomStartedAt !== startedAt
+      ) {
+        try {
+          await this.ctx.storage.delete(EMPTY_ROOM_STARTED_AT_KEY);
+          await this.deleteEmptyRoomAlarm();
+        } catch (_err) {}
+      }
+    })();
+  }
+
+  private ensureEmptyRoomStartedAt(): number {
+    if (this.emptyRoomStartedAt !== null) return this.emptyRoomStartedAt;
+    const startedAt = Date.now();
+    this.emptyRoomStartedAt = startedAt;
+    this.persistEmptyRoomLifecycle(startedAt, this.teardownGeneration);
+    return startedAt;
+  }
+
+  private clearEmptyRoomLifecycle() {
+    this.emptyRoomStartedAt = null;
+    void (async () => {
+      try {
+        await this.ctx.storage.delete(EMPTY_ROOM_STARTED_AT_KEY);
+        await this.deleteEmptyRoomAlarm();
+      } catch (_err) {}
+    })();
+  }
+
+  private async restoreEmptyRoomLifecycle(): Promise<boolean> {
+    const stored = await this.ctx.storage.get<unknown>(EMPTY_ROOM_STARTED_AT_KEY);
+    const startedAt = this.normalizeEmptyRoomStartedAt(stored);
+    if (startedAt === null) {
+      if (stored !== undefined) {
+        try {
+          await this.ctx.storage.delete(EMPTY_ROOM_STARTED_AT_KEY);
+          await this.deleteEmptyRoomAlarm();
+        } catch (_err) {}
+      }
+      return false;
+    }
+
+    this.emptyRoomStartedAt = startedAt;
+    const now = Date.now();
+    const elapsed = now - startedAt;
+    if (elapsed >= EMPTY_ROOM_TOTAL_RESET_MS) {
+      await this.teardownRoomIfEmpty(this.teardownGeneration);
+      return true;
+    }
+
+    if (elapsed >= EMPTY_ROOM_IDLE_GRACE_MS) {
+      this.emptyRoomDormantAt = startedAt + EMPTY_ROOM_IDLE_GRACE_MS;
+    }
+
+    try {
+      await this.setEmptyRoomAlarm(this.getEmptyRoomTeardownAt(startedAt));
+    } catch (error) {
+      console.error("[party] failed to restore empty room alarm", {
+        room: this.name,
+        message: resolveErrorMessage(error),
+      });
+    }
+    this.scheduleEmptyRoomTeardown();
+    return false;
+  }
+
+  private async handleEmptyRoomAlarm() {
+    if (this.teardownInProgress) return;
+    if (this.hasAuthenticatedPlayerConnections()) {
+      this.markRoomActive();
+      return;
+    }
+
+    const stored = await this.ctx.storage.get<unknown>(EMPTY_ROOM_STARTED_AT_KEY);
+    const startedAt =
+      this.normalizeEmptyRoomStartedAt(stored) ?? this.emptyRoomStartedAt;
+    if (startedAt === null) {
+      await this.deleteEmptyRoomAlarm();
+      return;
+    }
+
+    const teardownAt = this.getEmptyRoomTeardownAt(startedAt);
+    if (this.pendingPlayerConnections > 0) {
+      await this.setEmptyRoomAlarm(
+        Math.max(Date.now() + EMPTY_ROOM_PENDING_AUTH_RETRY_MS, teardownAt),
+      );
+      return;
+    }
+    if (Date.now() < teardownAt) {
+      await this.setEmptyRoomAlarm(teardownAt);
+      return;
+    }
+
+    await this.teardownRoomIfEmpty(this.teardownGeneration);
   }
 
   private clearEmptyRoomIdleTimer() {
@@ -1314,7 +1469,13 @@ export class Room extends YServer<Env> {
     }
   }
 
+  private pauseEmptyRoomTimersForPendingConnection() {
+    this.clearEmptyRoomIdleTimer();
+    this.clearEmptyRoomHardResetTimer();
+  }
+
   private markRoomActive() {
+    this.clearEmptyRoomLifecycle();
     this.emptyRoomDormantAt = null;
     this.clearEmptyRoomIdleTimer();
     this.clearEmptyRoomHardResetTimer();
@@ -1895,7 +2056,7 @@ export class Room extends YServer<Env> {
 
   private beginPendingPlayerConnection() {
     this.pendingPlayerConnections += 1;
-    this.markRoomActive();
+    this.pauseEmptyRoomTimersForPendingConnection();
     let released = false;
     return () => {
       if (released) return;
@@ -1910,10 +2071,15 @@ export class Room extends YServer<Env> {
 
   private scheduleEmptyRoomTeardown() {
     if (this.teardownInProgress) return;
-    if (this.hasPlayerConnections()) {
+    if (this.hasAuthenticatedPlayerConnections()) {
       this.markRoomActive();
       return;
     }
+    if (this.pendingPlayerConnections > 0) {
+      this.pauseEmptyRoomTimersForPendingConnection();
+      return;
+    }
+    const emptyStartedAt = this.ensureEmptyRoomStartedAt();
     if (this.emptyRoomDormantAt !== null) {
       if (this.emptyRoomHardResetTimer !== null) return;
       const generation = this.teardownGeneration;
@@ -1927,10 +2093,12 @@ export class Room extends YServer<Env> {
     }
     if (this.emptyRoomIdleTimer !== null) return;
     const generation = this.teardownGeneration;
+    const elapsed = Date.now() - emptyStartedAt;
+    const delay = Math.max(0, EMPTY_ROOM_IDLE_GRACE_MS - elapsed);
     this.emptyRoomIdleTimer = setTimeout(() => {
       this.emptyRoomIdleTimer = null;
       void this.markRoomDormantIfEmpty(generation);
-    }, EMPTY_ROOM_IDLE_GRACE_MS) as unknown as number;
+    }, delay) as unknown as number;
   }
 
   private async markRoomDormantIfEmpty(expectedGeneration: number) {
@@ -2141,6 +2309,7 @@ export class Room extends YServer<Env> {
     if (this.hasPlayerConnections()) return;
 
     this.teardownInProgress = true;
+    this.emptyRoomStartedAt = null;
     this.emptyRoomDormantAt = null;
     this.clearEmptyRoomIdleTimer();
     this.clearEmptyRoomHardResetTimer();
@@ -2179,6 +2348,8 @@ export class Room extends YServer<Env> {
       } catch (_err) {}
 
       try {
+        await this.ctx.storage.delete(EMPTY_ROOM_STARTED_AT_KEY);
+        await this.deleteEmptyRoomAlarm();
         await this.clearRoomStorage();
       } catch (_err) {}
     } finally {
