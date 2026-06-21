@@ -7,6 +7,8 @@
     "build": "wrangler build",
     "deploy": "wrangler deploy --env production",
     "deploy:staging": "wrangler deploy --env staging",
+    "rooms:probe": "bun scripts/room-admin.ts --mode probe",
+    "rooms:repair": "bun scripts/room-admin.ts --mode repair",
     "test": "vitest run",
     "cf:typegen": "wrangler types",
     "typecheck": "tsc -p tsconfig.json --noEmit"

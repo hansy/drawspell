@@ -21,6 +21,7 @@ import {
   HIDDEN_STATE_CARDS_PREFIX,
   HIDDEN_STATE_KEY,
   HIDDEN_STATE_META_KEY,
+  ROOM_TOKENS_KEY,
 } from "./domain/constants";
 import type {
   DiscordRoomInviteMetadata,
@@ -105,6 +106,11 @@ const PERF_METRICS_MAX_INTERVAL_MS = 300_000;
 const PERF_METRICS_SAMPLE_LIMIT = 5000;
 const LIBRARY_VIEW_PING_TIMEOUT_MS = 45_000;
 const LIBRARY_VIEW_CLEANUP_INTERVAL_MS = 15_000;
+const ROOM_ADMIN_PROBE_PATH = "/admin/rooms/probe";
+const ROOM_ADMIN_REPAIR_PATH = "/admin/rooms/repair";
+const ROOM_ADMIN_INTERNAL_PROBE_PATH = "/__admin/rooms/probe";
+const ROOM_ADMIN_INTERNAL_REPAIR_PATH = "/__admin/rooms/repair";
+const ROOM_ADMIN_AUTH_HEADER = "x-drawspell-room-admin-auth";
 const OVERLAY_DIFF_CAPABILITY = "overlay-diff-v1";
 const PERF_METRICS_ENABLED = false;
 const PERF_METRICS_ALLOW_PARAM = false;
@@ -135,6 +141,53 @@ type ShareLinksPayload = {
   resumeInviteUrl?: string;
 };
 
+type RoomAdminEnv = Env & {
+  ROOM_ADMIN_TOKEN?: string;
+};
+
+type RoomAdminRequestPayload = {
+  objectId: string;
+};
+
+type RoomAdminClassification =
+  | "active"
+  | "scheduled-empty"
+  | "legacy-empty-candidate"
+  | "empty";
+
+type RoomAdminStorageSummary = {
+  totalKeys: number;
+  keyPrefixes: Record<string, number>;
+  hasRoomTokens: boolean;
+  hasYDoc: boolean;
+  hasSnapshot: boolean;
+  hasHiddenState: boolean;
+  hasGameLog: boolean;
+  hasIntentLog: boolean;
+};
+
+type RoomAdminProbeResult = {
+  roomId: string;
+  classification: RoomAdminClassification;
+  activePlayerConnections: number;
+  activeSpectatorConnections: number;
+  pendingPlayerConnections: number;
+  emptyRoomStartedAt: number | null;
+  alarm: number | null;
+  storage: RoomAdminStorageSummary;
+};
+
+type RoomAdminRepairResult = {
+  repaired: boolean;
+  reason:
+    | "scheduled"
+    | "room-active"
+    | "already-scheduled"
+    | "empty-room";
+  before: RoomAdminProbeResult;
+  after: RoomAdminProbeResult;
+};
+
 const nowMs = () =>
   typeof performance !== "undefined" && typeof performance.now === "function"
     ? performance.now()
@@ -146,6 +199,18 @@ const sampleMetric = (target: number[], value: number) => {
     target.shift();
   }
   target.push(value);
+};
+
+const resolveRoomAdminToken = (env: Env): string | null =>
+  normalizeNonEmptyString((env as RoomAdminEnv).ROOM_ADMIN_TOKEN);
+
+const parseRoomAdminPayload = (value: unknown): RoomAdminRequestPayload | null => {
+  if (!value || typeof value !== "object") return null;
+  const objectId = normalizeNonEmptyString(
+    (value as { objectId?: unknown }).objectId,
+  );
+  if (!objectId) return null;
+  return { objectId };
 };
 
 const computeMetricStats = (samples: number[]) => {
@@ -345,10 +410,87 @@ const handleDiscordRoomProvisioningRequest = async (
   });
 };
 
+const handleRoomAdminProxyRequest = async (
+  request: Request,
+  env: Env,
+  internalPath: typeof ROOM_ADMIN_INTERNAL_PROBE_PATH | typeof ROOM_ADMIN_INTERNAL_REPAIR_PATH,
+): Promise<Response> => {
+  const adminToken = resolveRoomAdminToken(env);
+  if (!adminToken) {
+    return new Response("Room admin is not configured", { status: 500 });
+  }
+  const authHeader = parseBearerToken(request.headers.get("authorization"));
+  if (!authHeader || authHeader !== adminToken) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  if (!env.rooms) {
+    return new Response("Room namespace unavailable", { status: 500 });
+  }
+
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch (_err) {
+    return new Response("Invalid JSON body", { status: 400 });
+  }
+  const payload = parseRoomAdminPayload(rawBody);
+  if (!payload) {
+    return new Response("Invalid request body", { status: 400 });
+  }
+
+  let roomId: DurableObjectId;
+  try {
+    roomId = env.rooms.idFromString(payload.objectId);
+  } catch (_err) {
+    return new Response("Invalid room object id", { status: 400 });
+  }
+
+  const roomRequest = new Request(`https://internal${internalPath}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-partykit-namespace": "rooms",
+      "x-partykit-room": payload.objectId,
+      [ROOM_ADMIN_AUTH_HEADER]: adminToken,
+    },
+  });
+
+  try {
+    return await env.rooms.get(roomId).fetch(roomRequest);
+  } catch (error) {
+    console.error("[room-admin] room request failed", {
+      objectId: payload.objectId,
+      path: internalPath,
+      message: resolveErrorMessage(error),
+    });
+    return new Response("Room admin request failed", { status: 502 });
+  }
+};
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
       const url = new URL(request.url);
+      if (url.pathname === ROOM_ADMIN_PROBE_PATH) {
+        if (request.method !== "POST") {
+          return new Response("Method not allowed", { status: 405 });
+        }
+        return handleRoomAdminProxyRequest(
+          request,
+          env,
+          ROOM_ADMIN_INTERNAL_PROBE_PATH,
+        );
+      }
+      if (url.pathname === ROOM_ADMIN_REPAIR_PATH) {
+        if (request.method !== "POST") {
+          return new Response("Method not allowed", { status: 405 });
+        }
+        return handleRoomAdminProxyRequest(
+          request,
+          env,
+          ROOM_ADMIN_INTERNAL_REPAIR_PATH,
+        );
+      }
       if (url.pathname === DISCORD_ROOM_PROVISION_PATH) {
         if (request.method !== "POST") {
           return new Response("Method not allowed", { status: 405 });
@@ -499,6 +641,12 @@ export class Room extends YServer<Env> {
 
   async onRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === ROOM_ADMIN_INTERNAL_PROBE_PATH) {
+      return this.handleRoomAdminRequest(request, "probe");
+    }
+    if (url.pathname === ROOM_ADMIN_INTERNAL_REPAIR_PATH) {
+      return this.handleRoomAdminRequest(request, "repair");
+    }
     if (url.pathname !== DISCORD_ROOM_PROVISION_PATH) {
       return new Response("Not Found", { status: 404 });
     }
@@ -590,6 +738,170 @@ export class Room extends YServer<Env> {
         : payload.inviteExpiresAt,
       alreadyProvisioned,
     } satisfies DiscordRoomInternalProvisionResponse);
+  }
+
+  private async handleRoomAdminRequest(
+    request: Request,
+    action: "probe" | "repair",
+  ): Promise<Response> {
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+    const adminToken = resolveRoomAdminToken(this.env);
+    if (!adminToken) {
+      return new Response("Room admin is not configured", { status: 500 });
+    }
+    const providedToken = normalizeNonEmptyString(
+      request.headers.get(ROOM_ADMIN_AUTH_HEADER),
+    );
+    if (!providedToken || providedToken !== adminToken) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    if (action === "probe") {
+      return Response.json(await this.buildRoomAdminProbe());
+    }
+    return Response.json(await this.repairLegacyEmptyRoom());
+  }
+
+  private async repairLegacyEmptyRoom(): Promise<RoomAdminRepairResult> {
+    const before = await this.buildRoomAdminProbe();
+    if (before.classification === "active") {
+      return {
+        repaired: false,
+        reason: "room-active",
+        before,
+        after: before,
+      };
+    }
+    if (before.classification === "scheduled-empty") {
+      return {
+        repaired: false,
+        reason: "already-scheduled",
+        before,
+        after: before,
+      };
+    }
+    if (before.classification === "empty") {
+      return {
+        repaired: false,
+        reason: "empty-room",
+        before,
+        after: before,
+      };
+    }
+
+    const startedAt = Date.now();
+    this.emptyRoomStartedAt = startedAt;
+    this.emptyRoomDormantAt = null;
+    await this.ctx.storage.put(EMPTY_ROOM_STARTED_AT_KEY, startedAt);
+    await this.setEmptyRoomAlarm(this.getEmptyRoomTeardownAt(startedAt));
+    this.scheduleEmptyRoomTeardown();
+
+    return {
+      repaired: true,
+      reason: "scheduled",
+      before,
+      after: await this.buildRoomAdminProbe(),
+    };
+  }
+
+  private async buildRoomAdminProbe(): Promise<RoomAdminProbeResult> {
+    const storage = await this.buildRoomAdminStorageSummary();
+    const storedStartedAt = this.normalizeEmptyRoomStartedAt(
+      await this.ctx.storage.get<unknown>(EMPTY_ROOM_STARTED_AT_KEY),
+    );
+    const emptyRoomStartedAt = storedStartedAt ?? this.emptyRoomStartedAt;
+    const activePlayerConnections = this.countConnectionsByRole("player");
+    const activeSpectatorConnections = this.countConnectionsByRole("spectator");
+    const hasMeaningfulStorage =
+      storage.hasRoomTokens ||
+      storage.hasYDoc ||
+      storage.hasSnapshot ||
+      storage.hasHiddenState ||
+      storage.hasGameLog ||
+      storage.hasIntentLog;
+    const classification: RoomAdminClassification =
+      activePlayerConnections > 0 || this.pendingPlayerConnections > 0
+        ? "active"
+        : emptyRoomStartedAt !== null
+          ? "scheduled-empty"
+          : hasMeaningfulStorage
+            ? "legacy-empty-candidate"
+            : "empty";
+
+    return {
+      roomId: this.name,
+      classification,
+      activePlayerConnections,
+      activeSpectatorConnections,
+      pendingPlayerConnections: this.pendingPlayerConnections,
+      emptyRoomStartedAt,
+      alarm: await this.getEmptyRoomAlarm(),
+      storage,
+    };
+  }
+
+  private countConnectionsByRole(role: "player" | "spectator") {
+    let count = 0;
+    for (const connectionRole of this.connectionRoles.values()) {
+      if (connectionRole === role) count += 1;
+    }
+    return count;
+  }
+
+  private async buildRoomAdminStorageSummary(): Promise<RoomAdminStorageSummary> {
+    const keys = await this.listRoomStorageKeys();
+    const keyPrefixes: Record<string, number> = {};
+    for (const key of keys) {
+      const separatorIndex = key.indexOf(":");
+      const prefix =
+        separatorIndex === -1 ? key : `${key.slice(0, separatorIndex)}:`;
+      keyPrefixes[prefix] = (keyPrefixes[prefix] ?? 0) + 1;
+    }
+
+    return {
+      totalKeys: keys.length,
+      keyPrefixes,
+      hasRoomTokens: keys.includes(ROOM_TOKENS_KEY),
+      hasYDoc: keys.includes(Y_DOC_STORAGE_KEY),
+      hasSnapshot:
+        keys.includes(SNAPSHOT_META_KEY) ||
+        keys.some((key) => key.startsWith(SNAPSHOT_HIDDEN_PREFIX)),
+      hasHiddenState:
+        keys.includes(HIDDEN_STATE_KEY) ||
+        keys.includes(HIDDEN_STATE_META_KEY) ||
+        keys.some((key) => key.startsWith(HIDDEN_STATE_CARDS_PREFIX)),
+      hasGameLog: keys.includes(GAME_LOG_STORAGE_KEY),
+      hasIntentLog:
+        keys.includes(INTENT_LOG_META_KEY) ||
+        keys.some((key) => key.startsWith(INTENT_LOG_PREFIX)),
+    };
+  }
+
+  private async listRoomStorageKeys(): Promise<string[]> {
+    const storage = this.ctx.storage as unknown as {
+      list?: () => Promise<
+        Map<string, unknown> | Iterable<[string, unknown]> | string[]
+      >;
+    };
+    if (typeof storage.list !== "function") return [];
+
+    const listed = await storage.list();
+    const keys: string[] = [];
+    const recordKey = (key: unknown) => {
+      if (typeof key === "string") keys.push(key);
+    };
+    if (Array.isArray(listed)) {
+      listed.forEach(recordKey);
+    } else if (listed instanceof Map) {
+      listed.forEach((_value, key) => recordKey(key));
+    } else if (Symbol.iterator in Object(listed)) {
+      for (const entry of listed as Iterable<[string, unknown]>) {
+        recordKey(entry?.[0]);
+      }
+    }
+    return keys;
   }
 
   private ensureYjsMetricsListener() {
@@ -1341,6 +1653,14 @@ export class Room extends YServer<Env> {
     };
     if (typeof storage.deleteAlarm !== "function") return;
     await storage.deleteAlarm();
+  }
+
+  private async getEmptyRoomAlarm(): Promise<number | null> {
+    const storage = this.ctx.storage as DurableObjectStorage & {
+      getAlarm?: () => Promise<number | null>;
+    };
+    if (typeof storage.getAlarm !== "function") return null;
+    return storage.getAlarm();
   }
 
   private persistEmptyRoomLifecycle(startedAt: number, generation: number) {

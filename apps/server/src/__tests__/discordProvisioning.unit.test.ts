@@ -38,11 +38,16 @@ vi.mock("../domain/intents/applyIntentToDoc", () => ({
   applyIntentToDoc: vi.fn(() => ({ ok: true, hiddenChanged: true, logEvents: [] })),
 }));
 
-import { DISCORD_INVITE_METADATA_KEY, ROOM_TOKENS_KEY } from "../domain/constants";
+import {
+  DISCORD_INVITE_METADATA_KEY,
+  EMPTY_ROOM_STARTED_AT_KEY,
+  ROOM_TOKENS_KEY,
+} from "../domain/constants";
 import server, { Room } from "../server";
 
 const createTestStorage = () => {
   const store = new Map<string, unknown>();
+  let alarm: number | null = null;
   const storage = {
     get: vi.fn(async (key: string) => store.get(key)),
     put: vi.fn(async (key: string, value: unknown) => {
@@ -52,9 +57,16 @@ const createTestStorage = () => {
       store.delete(key);
     }),
     list: vi.fn(async () => store.entries()),
+    setAlarm: vi.fn(async (scheduledTimeMs: number) => {
+      alarm = scheduledTimeMs;
+    }),
+    getAlarm: vi.fn(async () => alarm),
+    deleteAlarm: vi.fn(async () => {
+      alarm = null;
+    }),
   };
 
-  return { store, storage };
+  return { store, storage, getAlarm: () => alarm };
 };
 
 beforeAll(() => {
@@ -200,6 +212,77 @@ describe("discord provisioning endpoint", () => {
     );
   });
 
+  it("requires room admin auth before probing a room object", async () => {
+    const roomFetch = vi.fn(async () => Response.json({ ok: true }));
+    const rooms = {
+      idFromString: vi.fn((id: string) => ({ id })),
+      get: vi.fn(() => ({ fetch: roomFetch })),
+    };
+
+    const env = {
+      ROOM_ADMIN_TOKEN: "admin-secret",
+      rooms,
+    } as any;
+
+    const response = await server.fetch(
+      new Request("https://drawspell-server/admin/rooms/probe", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer wrong-secret",
+        },
+        body: JSON.stringify({ objectId: "object-1" }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(401);
+    expect(rooms.idFromString).not.toHaveBeenCalled();
+    expect(roomFetch).not.toHaveBeenCalled();
+  });
+
+  it("proxies authenticated room admin probes by Durable Object id", async () => {
+    const roomFetch = vi.fn(async (request: Request) =>
+      Response.json({
+        internalAuth: request.headers.get("x-drawspell-room-admin-auth"),
+        namespace: request.headers.get("x-partykit-namespace"),
+        path: new URL(request.url).pathname,
+        room: request.headers.get("x-partykit-room"),
+      }),
+    );
+    const rooms = {
+      idFromString: vi.fn((id: string) => ({ id })),
+      get: vi.fn(() => ({ fetch: roomFetch })),
+    };
+
+    const env = {
+      ROOM_ADMIN_TOKEN: "admin-secret",
+      rooms,
+    } as any;
+
+    const response = await server.fetch(
+      new Request("https://drawspell-server/admin/rooms/probe", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer admin-secret",
+        },
+        body: JSON.stringify({ objectId: "object-1" }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      internalAuth: "admin-secret",
+      namespace: "rooms",
+      path: "/__admin/rooms/probe",
+      room: "object-1",
+    });
+    expect(rooms.idFromString).toHaveBeenCalledWith("object-1");
+    expect(rooms.get).toHaveBeenCalledWith({ id: "object-1" });
+  });
+
   it("stores pending discord invite metadata in room storage", async () => {
     vi.useFakeTimers();
     try {
@@ -301,6 +384,84 @@ describe("discord provisioning endpoint", () => {
         alreadyProvisioned: true,
         expiresAt: inviteExpiresAt,
       });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("classifies a stored room without lifecycle state as a legacy empty candidate", async () => {
+    const { store, storage } = createTestStorage();
+    store.set(ROOM_TOKENS_KEY, {
+      playerToken: "player-token",
+      spectatorToken: "spectator-token",
+    });
+    const room = new Room(
+      { id: { name: "room-test" }, storage } as any,
+      { ROOM_ADMIN_TOKEN: "admin-secret" } as any,
+    );
+
+    const response = await room.onRequest(
+      new Request("https://internal/__admin/rooms/probe", {
+        method: "POST",
+        headers: {
+          "x-drawspell-room-admin-auth": "admin-secret",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      roomId: "room-test",
+      classification: "legacy-empty-candidate",
+      activePlayerConnections: 0,
+      pendingPlayerConnections: 0,
+      emptyRoomStartedAt: null,
+      alarm: null,
+      storage: {
+        totalKeys: 1,
+        hasRoomTokens: true,
+      },
+    });
+  });
+
+  it("repairs a legacy empty candidate by scheduling its teardown alarm", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-02-25T00:00:00.000Z"));
+      const { store, storage, getAlarm } = createTestStorage();
+      store.set(ROOM_TOKENS_KEY, {
+        playerToken: "player-token",
+        spectatorToken: "spectator-token",
+      });
+      const room = new Room(
+        { id: { name: "room-test" }, storage } as any,
+        { ROOM_ADMIN_TOKEN: "admin-secret" } as any,
+      );
+
+      const response = await room.onRequest(
+        new Request("https://internal/__admin/rooms/repair", {
+          method: "POST",
+          headers: {
+            "x-drawspell-room-admin-auth": "admin-secret",
+          },
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        repaired: true,
+        reason: "scheduled",
+        before: {
+          classification: "legacy-empty-candidate",
+        },
+        after: {
+          classification: "scheduled-empty",
+          emptyRoomStartedAt: Date.now(),
+          alarm: Date.now() + 32 * 60_000,
+        },
+      });
+      expect(store.get(EMPTY_ROOM_STARTED_AT_KEY)).toBe(Date.now());
+      expect(getAlarm()).toBe(Date.now() + 32 * 60_000);
     } finally {
       vi.useRealTimers();
     }
