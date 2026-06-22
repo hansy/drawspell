@@ -88,6 +88,12 @@ export const readZone = (maps: Maps, zoneId: string): Zone | null =>
 export const readCard = (maps: Maps, cardId: string): Card | null =>
   readEntity<Card>(maps.cards.get(cardId), cardId);
 
+export const readLiveZoneCardIds = (maps: Maps, zoneId: string, cardIds: string[]): string[] =>
+  cardIds.filter((cardId) => {
+    const existing = readCard(maps, cardId);
+    return Boolean(existing && existing.zoneId === zoneId);
+  });
+
 export const readPlayer = (maps: Maps, playerId: string): Player | null =>
   readEntity<Player>(maps.players.get(playerId), playerId);
 

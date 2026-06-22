@@ -20,15 +20,9 @@ import {
   type CardMovementLogFacts,
 } from "@mtg/shared/movement";
 import { getCanonicalBattlefieldPlacementGridSteps } from "@mtg/shared/positions";
-import { readCard, readZone, writeCard, writeZone } from "./yjsStore";
+import { readCard, readLiveZoneCardIds, readZone, writeCard, writeZone } from "./yjsStore";
 import { placeCardId, removeFromArray } from "./lists";
 import { syncLibraryRevealsToAllForPlayer, updatePlayerCounts } from "./hiddenState";
-
-const getLiveCommanderZoneCardIds = (maps: Maps, zoneId: string, cardIds: string[]): string[] =>
-  cardIds.filter((cardId) => {
-    const existing = readCard(maps, cardId);
-    return Boolean(existing && existing.zoneId === zoneId);
-  });
 
 const updateCountsForZoneMove = (maps: Maps, hidden: HiddenState, fromOwnerId: string, toOwnerId: string) => {
   updatePlayerCounts(maps, hidden, fromOwnerId);
@@ -149,10 +143,10 @@ export const applyCardMove = (
   const fromZone = readZone(maps, card.zoneId);
   if (!fromZone) return { ok: false, error: "zone not found" };
   const fromZoneCardIds = isCommanderZoneType(fromZone.type)
-    ? getLiveCommanderZoneCardIds(maps, fromZone.id, fromZone.cardIds)
+    ? readLiveZoneCardIds(maps, fromZone.id, fromZone.cardIds)
     : fromZone.cardIds;
   const toZoneCardIds = isCommanderZoneType(toZone.type)
-    ? getLiveCommanderZoneCardIds(maps, toZone.id, toZone.cardIds)
+    ? readLiveZoneCardIds(maps, toZone.id, toZone.cardIds)
     : toZone.cardIds;
 
   const priorReveal =

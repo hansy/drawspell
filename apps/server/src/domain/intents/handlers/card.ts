@@ -33,6 +33,7 @@ import { canAddCard, canModifyCardState, canMoveCard, canRemoveToken, canTapCard
 import {
   isRecord,
   readCard,
+  readLiveZoneCardIds,
   readRecord,
   readZone,
   writeCard,
@@ -64,12 +65,6 @@ const getNormalizedCounterTotal = (counters: Counter[], counterType: string) =>
       : sum;
   }, 0);
 
-const getLiveCommanderZoneCardIds = (maps: Maps, zoneId: string, cardIds: string[]): string[] =>
-  cardIds.filter((cardId) => {
-    const existing = readCard(maps, cardId);
-    return Boolean(existing && existing.zoneId === zoneId);
-  });
-
 const prepareCardAdd = (
   actorId: string,
   maps: Maps,
@@ -85,7 +80,7 @@ const prepareCardAdd = (
   const commanderZone = isCommanderZoneType(zone.type);
   let zoneForPermission = zone;
   if (commanderZone) {
-    const liveCardIds = getLiveCommanderZoneCardIds(maps, zone.id, zone.cardIds);
+    const liveCardIds = readLiveZoneCardIds(maps, zone.id, zone.cardIds);
     const pendingAdds = opts?.pendingCommanderAddsByZone?.get(zone.id) ?? 0;
     const pendingIds = Array.from(
       { length: pendingAdds },
@@ -153,7 +148,7 @@ const applyPreparedCardAdd = (
   writeCard(maps, publicCard);
   if (zone) {
     const zoneCardIds = prepared.isCommanderZone
-      ? getLiveCommanderZoneCardIds(maps, zone.id, zone.cardIds)
+      ? readLiveZoneCardIds(maps, zone.id, zone.cardIds)
       : zone.cardIds;
     const nextIds = placeCardId(zoneCardIds, nextCard.id, "top");
     writeZone(maps, { ...zone, cardIds: nextIds });
@@ -765,7 +760,7 @@ const handleCardMove: IntentHandler = ({ actorId, maps, hidden, payload, pushLog
   const toZoneForPermission = isCommanderZoneType(toZone.type)
     ? {
         ...toZone,
-        cardIds: getLiveCommanderZoneCardIds(maps, toZone.id, toZone.cardIds),
+        cardIds: readLiveZoneCardIds(maps, toZone.id, toZone.cardIds),
       }
     : toZone;
   const permission = canMoveCard(actorId, card, fromZone, toZoneForPermission);
