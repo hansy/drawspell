@@ -22,15 +22,10 @@ const measuredCardSizing = {
   baseCardHeight: 135,
   baseCardWidth: 90,
 };
-const EXPECTED_GHOST_LEAD_PX = 24;
 
 type Point = { x: number; y: number };
 
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
-
-const dot = (a: Point, b: Point) => a.x * b.x + a.y * b.y;
-
-const cross = (a: Point, b: Point) => a.x * b.y - a.y * b.x;
 
 const liveDraggedCenter = (params: {
   pointerScreen: Point;
@@ -239,10 +234,9 @@ describe("battlefield placement contracts", () => {
     expect(distance(placement.ghostPosition, liveCenter)).toBeLessThanOrEqual(2);
   });
 
-  it("keeps a moving drop preview about 24px ahead when approaching the next grid step", () => {
+  it("keeps a moving drop preview snapped from the live dragged center without lead bias", () => {
     const grid = placementGridPixels();
     const dragAnchor = { x: 0.5, y: 0.5 };
-    const movementUnit = { x: 1, y: 0 };
     const cardSize = getEffectiveCardSize({
       viewScale: 1,
       isTapped: true,
@@ -268,32 +262,15 @@ describe("battlefield placement contracts", () => {
       ...measuredCardSizing,
     });
 
-    const liveCenter = liveDraggedCenter({
-      pointerScreen,
-      dragAnchor,
-      cardSize,
-    });
-    const leadVector = {
-      x: placement.ghostPosition.x - liveCenter.x,
-      y: placement.ghostPosition.y - liveCenter.y,
-    };
-
-    expect(dot(leadVector, movementUnit)).toBeGreaterThanOrEqual(
-      EXPECTED_GHOST_LEAD_PX - 2
-    );
-    expect(dot(leadVector, movementUnit)).toBeLessThanOrEqual(
-      EXPECTED_GHOST_LEAD_PX + 2
-    );
-    expect(Math.abs(cross(leadVector, movementUnit))).toBeLessThanOrEqual(2);
-    expect(distance(placement.ghostPosition, liveCenter)).toBeLessThanOrEqual(
-      EXPECTED_GHOST_LEAD_PX + 2
-    );
+    expect(placement.leadScreen).toEqual({ x: 0, y: 0 });
+    expect(placement.ghostPosition).toEqual(placement.snappedPosition);
+    expect(placement.snappedPosition).toEqual(nextGridCenter);
+    expectEdgesAlignedToGrid({ placement, viewScale: 1 });
   });
 
-  it("does not let the dragged card lead the ghost while moving across a coarse grid", () => {
+  it("keeps snap displacement separate from artificial ghost lead while moving", () => {
     const grid = placementGridPixels();
     const dragAnchor = { x: 0.5, y: 0.5 };
-    const movementUnit = { x: 1, y: 0 };
     const cardSize = getEffectiveCardSize({
       viewScale: 1,
       isTapped: true,
@@ -322,26 +299,10 @@ describe("battlefield placement contracts", () => {
       ...measuredCardSizing,
     });
 
-    const liveCenter = liveDraggedCenter({
-      pointerScreen,
-      dragAnchor,
-      cardSize,
-    });
-    const leadVector = {
-      x: placement.ghostPosition.x - liveCenter.x,
-      y: placement.ghostPosition.y - liveCenter.y,
-    };
-
-    expect(dot(leadVector, movementUnit)).toBeGreaterThanOrEqual(
-      EXPECTED_GHOST_LEAD_PX - 2
-    );
-    expect(dot(leadVector, movementUnit)).toBeLessThanOrEqual(
-      EXPECTED_GHOST_LEAD_PX + 2
-    );
-    expect(Math.abs(cross(leadVector, movementUnit))).toBeLessThanOrEqual(2);
-    expect(distance(placement.ghostPosition, liveCenter)).toBeLessThanOrEqual(
-      EXPECTED_GHOST_LEAD_PX + 2
-    );
+    expect(placement.leadScreen).toEqual({ x: 0, y: 0 });
+    expect(placement.ghostPosition).toEqual(placement.snappedPosition);
+    expect(placement.snappedPosition).toEqual(justPastGridCenter);
+    expectEdgesAlignedToGrid({ placement, viewScale: 1 });
   });
 
   it("uses tapped card dimensions for the final placed preview", () => {
@@ -494,20 +455,7 @@ describe("battlefield placement contracts", () => {
       isTapped: true,
       ...measuredCardSizing,
     });
-    const liveCenter = liveDraggedCenter({
-      pointerScreen: { x: 503, y: 297 },
-      dragAnchor: { x: 0.5, y: 0.5 },
-      cardSize: {
-        cardWidth: placement.cardWidth,
-        cardHeight: placement.cardHeight,
-      },
-    });
-
-    expect(placement.ghostPosition.x).toBeCloseTo(
-      liveCenter.x + EXPECTED_GHOST_LEAD_PX,
-      6
-    );
-    expect(placement.ghostPosition.y).toBeCloseTo(liveCenter.y, 6);
+    expect(placement.ghostPosition).toEqual(placement.snappedPosition);
     expect(placement.snappedCanonical.y).toBeCloseTo(
       1 - placement.snappedPosition.y / zoneRect.height,
       6

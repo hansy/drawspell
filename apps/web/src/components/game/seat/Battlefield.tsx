@@ -71,6 +71,7 @@ const BattlefieldCard = React.memo<{
     baseCardWidth?: number;
     onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
     playerColors: Record<string, string>;
+    renderedZoneId: string;
     zoneOwnerId: string;
     overrideIsDragging?: boolean;
     disableInteractions?: boolean;
@@ -87,6 +88,7 @@ const BattlefieldCard = React.memo<{
         baseCardWidth,
         onCardContextMenu,
         playerColors,
+        renderedZoneId,
         zoneOwnerId,
         overrideIsDragging,
         disableInteractions,
@@ -106,6 +108,15 @@ const BattlefieldCard = React.memo<{
         const isSelected = useSelectionStore((state) =>
             state.selectionZoneId === card.zoneId && state.selectedCardIds.includes(card.id)
         );
+        const isPendingDropSource = useDragStore((state) =>
+            state.pendingDropVisualClaims.some(
+                (claim) =>
+                    claim.cardId === card.id &&
+                    claim.sourceZoneId === renderedZoneId
+            )
+        );
+        const isSourceVisualSuppressed =
+            Boolean(overrideIsDragging) || isPendingDropSource;
 
         const style = React.useMemo(() => ({
             position: 'absolute' as const,
@@ -127,9 +138,10 @@ const BattlefieldCard = React.memo<{
                 faceDown={card.faceDown}
                 highlightColor={highlightColor}
                 isSelected={isSelected}
-                isDragging={overrideIsDragging}
+                isDragging={isSourceVisualSuppressed ? true : undefined}
+                className={isPendingDropSource ? "opacity-0" : undefined}
                 disableDrag={disableDrag || spectatorDragDisabled}
-                disableInteractions={disableInteractions}
+                disableInteractions={disableInteractions || isPendingDropSource}
             />
         );
     }
@@ -502,6 +514,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                         baseCardWidth={baseCardWidth}
                         onCardContextMenu={onCardContextMenu}
                         playerColors={playerColors}
+                        renderedZoneId={zone.id}
                         zoneOwnerId={zone.ownerId}
                         overrideIsDragging={
                             hideSelectedForGroupDrag && selectedCardIds.includes(card.id)

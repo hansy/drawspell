@@ -7,6 +7,7 @@ import { ZONE_LABEL } from "@/constants/zones";
 import { shouldRenderFaceDown } from "@/lib/reveal";
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from "@/lib/constants";
 import { debugLog, isDebugEnabled, summarizeDndCardGeometry } from "@/lib/debug";
+import { useDragStore } from "@/store/dragStore";
 import { useTwoFingerScroll } from "@/hooks/shared/useTwoFingerScroll";
 import {
   HAND_BASE_CARD_SCALE,
@@ -61,6 +62,7 @@ const SortableCard = React.memo(
     cardScale,
     baseCardHeight,
     useFullSlotWidth,
+    renderedZoneId,
   }: {
     card: CardType;
     isMe: boolean;
@@ -70,6 +72,7 @@ const SortableCard = React.memo(
     cardScale: number;
     baseCardHeight?: number;
     useFullSlotWidth: boolean;
+    renderedZoneId: string;
   }) => {
     const {
       attributes,
@@ -89,6 +92,13 @@ const SortableCard = React.memo(
       },
       disabled: !isMe,
     });
+    const isPendingDrop = useDragStore((state) =>
+      state.pendingDropVisualClaims.some(
+        (claim) =>
+          claim.cardId === card.id && claim.sourceZoneId === renderedZoneId,
+      ),
+    );
+    const isSourceVisualSuppressed = isDragging || isPendingDrop;
 
     const resolvedBaseHeight = baseCardHeight ?? BASE_CARD_HEIGHT;
     const cardWidth = resolvedBaseHeight * CARD_ASPECT_RATIO * cardScale;
@@ -109,7 +119,10 @@ const SortableCard = React.memo(
       debugLog("battlefieldDnd", "hand-card-layout", {
         cardId: card.id,
         zoneId: card.zoneId,
+        renderedZoneId,
         isDragging,
+        isPendingDrop,
+        isSourceVisualSuppressed,
         cardScale,
         baseCardHeight,
         resolvedBaseHeight,
@@ -127,7 +140,10 @@ const SortableCard = React.memo(
       cardScale,
       cardWidth,
       isDragging,
+      isPendingDrop,
+      isSourceVisualSuppressed,
       overlapWidth,
+      renderedZoneId,
       resolvedBaseHeight,
       transform,
       transition,
@@ -151,7 +167,7 @@ const SortableCard = React.memo(
         className={cn(
           "relative shrink-0 h-full w-auto max-w-[var(--hand-card-max-width)] transition-all duration-200 ease-out group",
           "hover:max-w-[20rem] hover:z-50 hover:scale-110",
-          isDragging && "z-50 opacity-0",
+          isSourceVisualSuppressed && "z-50 opacity-0",
         )}
         {...attributes}
         {...listeners}
@@ -173,7 +189,7 @@ const SortableCard = React.memo(
             )}
             onContextMenu={handleContextMenu}
             disableDrag // We use Sortable's drag handle
-            isDragging={isDragging}
+            isDragging={isSourceVisualSuppressed}
             scale={cardScale}
           />
         </div>
@@ -369,6 +385,7 @@ const HandInner: React.FC<HandProps> = ({
                 cardScale={cardScale}
                 baseCardHeight={baseCardHeight}
                 useFullSlotWidth={cards.length === 1}
+                renderedZoneId={zone.id}
               />
             ))}
           </div>

@@ -206,6 +206,15 @@ export const summarizeElement = (
   return {
     rect: rectSummary,
     pointerRelation: summarizeRectPointerRelation(rectSummary, pointer, anchor),
+    dataAttributes: {
+      cardId: element.getAttribute("data-card-id"),
+      dndGhostCardId: element.getAttribute("data-dnd-ghost-card-id"),
+      dndGhostKind: element.getAttribute("data-dnd-ghost-kind"),
+      dragOverlayCardId: element.getAttribute("data-dnd-drag-overlay-card-id"),
+      dragOverlayCardViewId: element.getAttribute(
+        "data-dnd-drag-overlay-card-view-id"
+      ),
+    },
     transform: style.transform,
     transformOrigin: style.transformOrigin,
     transition: style.transition,

@@ -20,7 +20,6 @@ const measuredCardSizing = {
   baseCardHeight: 135,
   baseCardWidth: 90,
 };
-const EXPECTED_GHOST_LEAD_PX = 24;
 
 const rect = (params: {
   left: number;
@@ -243,10 +242,8 @@ describe("game DnD movement contracts", () => {
       expectedLiveCenter.y - 1,
       6
     );
-    expect(distance(state.ghostCard!.position, state.debug!.placement.livePosition)).toBeCloseTo(
-      EXPECTED_GHOST_LEAD_PX,
-      6
-    );
+    expect(state.ghostCard!.position).toEqual(state.debug!.placement.snappedPosition);
+    expect(state.debug!.placement.leadScreen).toEqual({ x: 0, y: 0 });
   });
 
   it("keeps tapped preview dimensions tied to zoomed battlefield card dimensions", () => {
@@ -282,7 +279,7 @@ describe("game DnD movement contracts", () => {
     expect(state.ghostCard!.size!.width).toBeGreaterThan(state.ghostCard!.size!.height);
   });
 
-  it("plans the snapped final battlefield position while the ghost remains cursor anchored", () => {
+  it("plans the snapped final battlefield position shown by the ghost", () => {
     const zones: Record<string, Zone> = {
       "p1-battlefield": createBattlefield("p1"),
     };
@@ -344,7 +341,7 @@ describe("game DnD movement contracts", () => {
     );
 
     expect(distance(plannedCenter, preview.debug!.placement.snappedPosition)).toBeLessThanOrEqual(1);
-    expect(distance(preview.ghostCard!.position, preview.debug!.placement.livePosition)).toBeLessThanOrEqual(1);
+    expect(preview.ghostCard!.position).toEqual(preview.debug!.placement.snappedPosition);
   });
 
   it("uses the last rendered snapped drop position when drag-end geometry has moved farther", () => {

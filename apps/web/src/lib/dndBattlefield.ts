@@ -12,9 +12,6 @@ export type RectLike = Pick<
   'left' | 'top' | 'right' | 'bottom' | 'width' | 'height'
 >;
 
-const GHOST_LEAD_PX = 24;
-const GHOST_LEAD_MOVEMENT_THRESHOLD_PX = 2;
-
 const snapCardEdgeToGrid = (params: {
   center: number;
   size: number;
@@ -151,16 +148,7 @@ export const computeBattlefieldPlacement = (params: {
             (0.5 - params.dragAnchor.y) * cardHeight * safeScale,
         }
       : params.centerScreen ?? { x: 0, y: 0 };
-  const movementLength = params.movementScreen
-    ? Math.hypot(params.movementScreen.x, params.movementScreen.y)
-    : 0;
-  const leadScreen =
-    params.movementScreen && movementLength > GHOST_LEAD_MOVEMENT_THRESHOLD_PX
-      ? {
-          x: (params.movementScreen.x / movementLength) * GHOST_LEAD_PX,
-          y: (params.movementScreen.y / movementLength) * GHOST_LEAD_PX,
-        }
-      : { x: 0, y: 0 };
+  const leadScreen = { x: 0, y: 0 };
   const previewCenterScreen = {
     x: centerScreen.x + leadScreen.x,
     y: centerScreen.y + leadScreen.y,
@@ -228,10 +216,6 @@ export const computeBattlefieldPlacement = (params: {
     { isTapped: params.isTapped }
   );
 
-  const ghostNormalized = params.mirrorY
-    ? mirrorNormalizedY(previewCanonical)
-    : previewCanonical;
-  const ghostPosition = fromNormalizedPosition(ghostNormalized, zoneWidth, zoneHeight);
   const snappedNormalized = params.mirrorY
     ? mirrorNormalizedY(snappedCanonical)
     : snappedCanonical;
@@ -240,6 +224,7 @@ export const computeBattlefieldPlacement = (params: {
     zoneWidth,
     zoneHeight
   );
+  const ghostPosition = snappedPosition;
 
   return {
     cardWidth,

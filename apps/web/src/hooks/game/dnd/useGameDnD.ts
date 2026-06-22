@@ -19,12 +19,18 @@ import {
   computeDragEndPlan,
   computeDragMoveUiState,
 } from "./model";
+import { commitDragFrameStoreUpdate } from "./commit";
 import {
   clampCanonicalBattlefieldGroupDelta,
   clampNormalizedToCanonicalBattlefieldBounds,
 } from "@/lib/positions";
 import { ZONE } from "@/constants/zones";
 import { resolveSelectedCardIds } from "@/models/game/selection/selectionModel";
+import {
+  filterPendingDropVisualClaims,
+  shouldRetainPendingDropVisualClaim,
+  type PendingDropVisualClaim,
+} from "@/lib/dndVisualOwnership";
 import {
   debugLog,
   isDebugEnabled,
@@ -104,6 +110,96 @@ const getCurrentPointerScreen = (params: {
 
 const escapeSelectorValue = (value: string) =>
   value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+
+const pendingDropClaimKey = (claim: PendingDropVisualClaim) =>
+  `${claim.cardId}:${claim.sourceZoneId}:${claim.targetZoneId}`;
+const PENDING_DROP_SOURCE_STYLE_ID = "__drawspell-pending-drop-source-style";
+
+const isPendingDropSourceStillRendered = (claim: PendingDropVisualClaim) => {
+  if (typeof document === "undefined") return false;
+  return Boolean(
+    document.querySelector(
+      `[data-zone-id="${escapeSelectorValue(claim.sourceZoneId)}"] [data-card-id="${escapeSelectorValue(claim.cardId)}"]`
+    )
+  );
+};
+
+const isPendingDropTargetRendered = (claim: PendingDropVisualClaim) => {
+  if (typeof document === "undefined") return false;
+  return Boolean(
+    document.querySelector(
+      `[data-zone-id="${escapeSelectorValue(claim.targetZoneId)}"] [data-card-id="${escapeSelectorValue(claim.cardId)}"]`
+    )
+  );
+};
+
+const getPendingDropSourceElements = (claim: PendingDropVisualClaim) => {
+  if (typeof document === "undefined") return [];
+  return Array.from(
+    document.querySelectorAll(
+      `[data-zone-id="${escapeSelectorValue(claim.sourceZoneId)}"] [data-card-id="${escapeSelectorValue(claim.cardId)}"]`
+    )
+  ).filter((node): node is HTMLElement => node instanceof HTMLElement);
+};
+
+const suppressPendingDropSourceElements = (
+  claims: PendingDropVisualClaim[]
+) => {
+  if (typeof document !== "undefined") {
+    let styleNode = document.getElementById(PENDING_DROP_SOURCE_STYLE_ID);
+    if (!styleNode) {
+      styleNode = document.createElement("style");
+      styleNode.id = PENDING_DROP_SOURCE_STYLE_ID;
+      document.head.appendChild(styleNode);
+    }
+    styleNode.textContent = claims
+      .map(
+        (claim) =>
+          `[data-zone-id="${escapeSelectorValue(claim.sourceZoneId)}"] [data-card-id="${escapeSelectorValue(claim.cardId)}"]{opacity:0!important;}`
+      )
+      .join("\n");
+  }
+  claims.forEach((claim) => {
+    getPendingDropSourceElements(claim).forEach((node) => {
+      node.dataset.dndSourceSuppressed = "true";
+      node.classList.add("opacity-0");
+    });
+  });
+};
+
+const releasePendingDropSourceElements = (
+  claims: PendingDropVisualClaim[]
+) => {
+  claims.forEach((claim) => {
+    getPendingDropSourceElements(claim).forEach((node) => {
+      delete node.dataset.dndSourceSuppressed;
+      node.classList.remove("opacity-0");
+    });
+  });
+  if (typeof document !== "undefined") {
+    const retainedClaims = useDragStore
+      .getState()
+      .pendingDropVisualClaims.filter(
+        (claim) =>
+          !claims.some(
+            (released) =>
+              pendingDropClaimKey(released) === pendingDropClaimKey(claim)
+          )
+      );
+    const styleNode = document.getElementById(PENDING_DROP_SOURCE_STYLE_ID);
+    if (styleNode) {
+      styleNode.textContent = retainedClaims
+        .map(
+          (claim) =>
+            `[data-zone-id="${escapeSelectorValue(claim.sourceZoneId)}"] [data-card-id="${escapeSelectorValue(claim.cardId)}"]{opacity:0!important;}`
+        )
+        .join("\n");
+      if (!styleNode.textContent) {
+        styleNode.remove();
+      }
+    }
+  }
+};
 
 const getCardElementRect = (cardId: string) => {
   if (typeof document === "undefined") return null;
@@ -232,6 +328,12 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
   const setActiveCardSourceSize = useDragStore(
     (state) => state.setActiveCardSourceSize
   );
+  const setPendingDropVisualClaims = useDragStore(
+    (state) => state.setPendingDropVisualClaims
+  );
+  const clearPendingDropVisualClaims = useDragStore(
+    (state) => state.clearPendingDropVisualClaims
+  );
   const setIsGroupDragging = useDragStore((state) => state.setIsGroupDragging);
   const setOverCardScale = useDragStore((state) => state.setOverCardScale);
   const myPlayerId = useGameStore((state) => state.myPlayerId);
@@ -275,7 +377,11 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     lastSingleBattlefieldPreviewRef.current = null;
     loggedMissingGhostRef.current = false;
 
+    releasePendingDropSourceElements(
+      useDragStore.getState().pendingDropVisualClaims
+    );
     setGhostCards(null);
+    clearPendingDropVisualClaims();
     setActiveCardTransformOrigin(DEFAULT_DRAG_TRANSFORM_ORIGIN);
     setActiveCardDragAnchor(null);
     setActiveCardSourceSize(null);
@@ -393,6 +499,13 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         minCount: 2,
         fallbackToSeed: true,
       });
+      const sourceVisualClaims = groupIds.map((id) => ({
+          cardId: id,
+          sourceZoneId: activeCard.zoneId,
+          targetZoneId: activeCard.zoneId,
+      }));
+      setPendingDropVisualClaims(sourceVisualClaims);
+      suppressPendingDropSourceElements(sourceVisualClaims);
 
       if (groupIds.length > 1) {
         setIsGroupDragging(true);
@@ -622,22 +735,25 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
 
     if (!isGroupDragging) {
       if (result.ghostCard && activeCardId) {
+        const ghostCard = result.ghostCard;
         lastSingleBattlefieldPreviewRef.current = result.debug
           ? {
               cardId: activeCardId,
-              toZoneId: result.ghostCard.zoneId,
+              toZoneId: ghostCard.zoneId,
               position: result.debug.placement.snappedCanonical,
             }
           : null;
-        setGhostCards([
-          {
-            cardId: activeCardId,
-            zoneId: result.ghostCard.zoneId,
-            position: result.ghostCard.position,
-            tapped: result.ghostCard.tapped,
-            size: result.ghostCard.size,
-          },
-        ]);
+        commitDragFrameStoreUpdate(() => {
+          setGhostCards([
+            {
+              cardId: activeCardId,
+              zoneId: ghostCard.zoneId,
+              position: ghostCard.position,
+              tapped: ghostCard.tapped,
+              size: ghostCard.size,
+            },
+          ]);
+        });
         queueDebugFrame("drag-move-ghost-rendered", () => ({
           seq: currentDragSeq.current,
           cardId: activeCardId,
@@ -655,7 +771,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         }));
       } else {
         lastSingleBattlefieldPreviewRef.current = null;
-        setGhostCards(null);
+        commitDragFrameStoreUpdate(() => setGhostCards(null));
       }
       return;
     }
@@ -666,13 +782,13 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       !over ||
       over.data.current?.type !== ZONE.BATTLEFIELD
     ) {
-      setGhostCards(null);
+      commitDragFrameStoreUpdate(() => setGhostCards(null));
       return;
     }
 
     const targetZone = state.zones[over.id as ZoneId];
     if (!targetZone) {
-      setGhostCards(null);
+      commitDragFrameStoreUpdate(() => setGhostCards(null));
       return;
     }
 
@@ -704,7 +820,9 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       baseCardWidth,
     });
 
-    setGhostCards(ghostCards.length > 0 ? ghostCards : null);
+    commitDragFrameStoreUpdate(() =>
+      setGhostCards(ghostCards.length > 0 ? ghostCards : null)
+    );
     queueDebugFrame("drag-move-group-ghost-rendered", () => ({
       seq: currentDragSeq.current,
       ghostCards: useDragStore.getState().ghostCards,
@@ -744,6 +862,98 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     setIsGroupDragging,
     setOverCardScale,
   ]);
+
+  const claimPendingDropVisualOwnership = React.useCallback(
+    (claims: Array<{ cardId: CardId; sourceZoneId: ZoneId; targetZoneId: ZoneId }>) => {
+      const uniqueClaims = Array.from(
+        new Map(
+          claims
+            .filter((claim) => claim.sourceZoneId !== claim.targetZoneId)
+            .map((claim) => [claim.cardId, claim])
+        ).values()
+      );
+      if (uniqueClaims.length === 0) {
+        releasePendingDropSourceElements(
+          useDragStore.getState().pendingDropVisualClaims
+        );
+        clearPendingDropVisualClaims();
+        return;
+      }
+      const dragSeqAtClaim = currentDragSeq.current;
+
+      setPendingDropVisualClaims(uniqueClaims);
+      suppressPendingDropSourceElements(uniqueClaims);
+      debugLog(BATTLEFIELD_DND_DEBUG_KEY, "drop-visual-ownership-pending", {
+        seq: dragSeqAtClaim,
+        claims: uniqueClaims,
+      });
+
+      const claimedKeys = new Set(uniqueClaims.map(pendingDropClaimKey));
+      const maxFrames = 30;
+      const minFrames = 4;
+      let frameCount = 0;
+
+      const releaseWhenSourceUnmounts = () => {
+        const currentClaims = useDragStore.getState().pendingDropVisualClaims;
+        const ownedClaims = currentClaims.filter((claim) =>
+          claimedKeys.has(pendingDropClaimKey(claim))
+        );
+        if (ownedClaims.length === 0) {
+          return;
+        }
+        const otherClaims = currentClaims.filter(
+          (claim) => !claimedKeys.has(pendingDropClaimKey(claim))
+        );
+        const retainedOwnedClaims =
+          frameCount < maxFrames
+            ? filterPendingDropVisualClaims(
+                ownedClaims,
+                (claim) =>
+                  shouldRetainPendingDropVisualClaim({
+                    sourceRendered: isPendingDropSourceStillRendered(claim),
+                    targetRendered: isPendingDropTargetRendered(claim),
+                    frameCount,
+                    minFrames,
+                  })
+              )
+            : [];
+        useDragStore
+          .getState()
+          .setPendingDropVisualClaims([...otherClaims, ...retainedOwnedClaims]);
+        releasePendingDropSourceElements(
+          ownedClaims.filter(
+            (claim) =>
+              !retainedOwnedClaims.some(
+                (retained) =>
+                  pendingDropClaimKey(retained) === pendingDropClaimKey(claim)
+              )
+          )
+        );
+        suppressPendingDropSourceElements(retainedOwnedClaims);
+        if (retainedOwnedClaims.length > 0) {
+          frameCount += 1;
+          if (typeof requestAnimationFrame === "function") {
+            requestAnimationFrame(releaseWhenSourceUnmounts);
+          } else {
+            setTimeout(releaseWhenSourceUnmounts, 16);
+          }
+          return;
+        }
+        debugLog(BATTLEFIELD_DND_DEBUG_KEY, "drop-visual-ownership-released", {
+          seq: dragSeqAtClaim,
+          claims: uniqueClaims,
+          releaseFrameCount: frameCount,
+        });
+      };
+
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(releaseWhenSourceUnmounts);
+      } else {
+        setTimeout(releaseWhenSourceUnmounts, 16);
+      }
+    },
+    [clearPendingDropVisualClaims, setPendingDropVisualClaims]
+  );
 
   const handleDragEnd = React.useCallback(
     (event: DragEndEvent) => {
@@ -904,6 +1114,13 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
                 movingCardIds: movingIds,
                 targetPositions,
               };
+              claimPendingDropVisualOwnership(
+                movingIds.map((id) => ({
+                  cardId: id,
+                  sourceZoneId: group.startZoneId,
+                  targetZoneId: plan.toZoneId,
+                }))
+              );
               movingIds.forEach((id) => {
                 const target = targetPositions[id];
                 if (!target) return;
@@ -937,10 +1154,20 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
               return;
             }
 
-          group.groupCardIds.forEach((id) => {
+          const movingIds = group.groupCardIds.filter((id) => {
+            const card = state.cards[id];
+            return card && card.zoneId === group.startZoneId;
+          });
+          claimPendingDropVisualOwnership(
+            movingIds.map((id) => ({
+              cardId: id,
+              sourceZoneId: group.startZoneId,
+              targetZoneId: plan.toZoneId,
+            }))
+          );
+          movingIds.forEach((id) => {
             const card = state.cards[id];
             if (!card) return;
-            if (card.zoneId !== group.startZoneId) return;
             moveCard(id, plan.toZoneId, plan.position, myPlayerId, undefined, {
               suppressLog: id !== group.activeCardId,
               skipCollision: true,
@@ -977,6 +1204,15 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         const targetZone = state.zones[plan.toZoneId];
         const activeCard = state.cards[plan.cardId];
 
+        if (activeCard) {
+          claimPendingDropVisualOwnership([
+            {
+              cardId: plan.cardId,
+              sourceZoneId: activeCard.zoneId,
+              targetZoneId: plan.toZoneId,
+            },
+          ]);
+        }
         moveCard(
           plan.cardId,
           plan.toZoneId,
@@ -1042,6 +1278,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       }
     },
     [
+      claimPendingDropVisualOwnership,
       cleanupDragState,
       clearSelection,
       isSpectator,

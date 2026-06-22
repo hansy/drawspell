@@ -169,8 +169,8 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 's
                             transformOrigin: 'center center'
                         }}
                     >
-                        <div className="h-full w-full rounded-lg border border-indigo-300/80 bg-indigo-500/40 shadow-[0_0_0_1px_rgba(129,140,248,0.35),0_0_20px_rgba(99,102,241,0.28)]" />
-                        <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-300/85 shadow-[0_0_10px_rgba(129,140,248,0.9)]" />
+                        <div className="h-full w-full rounded-lg border-2 border-cyan-200 bg-cyan-300/25 shadow-[0_0_0_1px_rgba(103,232,249,0.75),0_0_24px_rgba(34,211,238,0.45)]" />
+                        <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-100 shadow-[0_0_12px_rgba(103,232,249,0.95)]" />
                     </div>
                 );
             })()}

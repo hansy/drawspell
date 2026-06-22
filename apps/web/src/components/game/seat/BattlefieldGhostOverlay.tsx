@@ -43,7 +43,7 @@ export const BattlefieldGhostOverlay = React.memo(
       if (!isDebugEnabled(BATTLEFIELD_DND_DEBUG_KEY)) return;
       if (typeof requestAnimationFrame === "undefined") return;
       const frame = requestAnimationFrame(() => {
-        debugLog(BATTLEFIELD_DND_DEBUG_KEY, "group-ghost-overlay-rendered", {
+        debugLog(BATTLEFIELD_DND_DEBUG_KEY, "battlefield-ghost-overlay-rendered", {
           viewScale,
           baseCardHeight,
           baseCardWidth,
@@ -59,6 +59,8 @@ export const BattlefieldGhostOverlay = React.memo(
     }, [baseCardHeight, baseCardWidth, ghostCards, viewScale]);
 
     if (ghostCards.length === 0) return null;
+    const ghostKind =
+      ghostCards.length > 1 ? "battlefield-group" : "battlefield-single";
     const { cardWidth: baseWidth, cardHeight: baseHeight } = getCardPixelSize({
       viewScale: 1,
       isTapped: false,
@@ -88,7 +90,7 @@ export const BattlefieldGhostOverlay = React.memo(
                 transformOrigin: "center center",
               }}
               data-dnd-ghost-card-id={card.id}
-              data-dnd-ghost-kind="group"
+              data-dnd-ghost-kind={ghostKind}
               className="pointer-events-none opacity-80 z-10"
               faceDown={card.faceDown}
               imageTransform={
