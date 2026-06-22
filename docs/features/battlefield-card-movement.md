@@ -25,7 +25,7 @@ lead, free-flowing previews, and quarter-card stacking.
 
 ### Grid And Snap
 
-- Battlefield grid lines are always visible.
+- Battlefield grid lines are visible only while a drag/drop interaction is active.
 - The grid is intentionally tied to card geometry: one card footprint is two
   columns by three rows.
 - The placement indicator snaps one grid step at a time. It should not drift

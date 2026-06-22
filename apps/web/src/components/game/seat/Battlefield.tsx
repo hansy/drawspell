@@ -171,7 +171,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     const activeCardId = useDragStore((state) => state.activeCardId);
     const ghostCards = useDragStore((state) => state.ghostCards);
     const isGroupDragging = useDragStore((state) => state.isGroupDragging);
-    const showGrid = true;
+    const showGrid = Boolean(activeCardId);
     const cardsById = useGameStore((state) => state.cards);
     const activeCard = activeCardId ? cardsById[activeCardId] : undefined;
     const { ref: zoneSizeRef, size: zoneSize } = useElementSize<HTMLDivElement>();

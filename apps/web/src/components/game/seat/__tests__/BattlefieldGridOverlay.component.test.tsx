@@ -4,6 +4,20 @@ import { describe, expect, it } from "vitest";
 import { BattlefieldGridOverlay } from "../BattlefieldGridOverlay";
 
 describe("BattlefieldGridOverlay", () => {
+  it("does not render when grid visibility is disabled", () => {
+    const { container } = render(
+      <BattlefieldGridOverlay
+        visible={false}
+        gridStepX={120}
+        gridStepY={20}
+        originOffsetX={0}
+        originOffsetY={0}
+      />
+    );
+
+    expect(container.querySelector("[data-battlefield-grid-overlay]")).toBeNull();
+  });
+
   it("renders a thin line grid instead of dot markers", () => {
     const { container } = render(
       <BattlefieldGridOverlay
