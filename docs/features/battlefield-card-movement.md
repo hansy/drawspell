@@ -8,7 +8,7 @@ This work started as a diagnostic-only investigation. The first implementation s
 
 - tap center stability
 - tapped drag overlay orientation
-- ghost/drop truthfulness with a small lead
+- ghost/drop truthfulness with a clear lead
 - always-visible thin-line grid
 - visible grid aligned to the placement/snap grid
 
@@ -244,7 +244,7 @@ Root cause:
 - The pointer/anchor math computes a reasonable live center.
 - The ghost then discards that live center and renders at the nearest canonical snap.
 - With current grid spacing, the snap can be about `40px` from the live center in a simple tapped-card case.
-- This makes a stationary drag sample fail the `<= 2px` no-lead benchmark and a moving drag sample fail the `8-12px` lead benchmark.
+- This made a stationary drag sample fail the `<= 2px` no-lead benchmark and a moving drag sample fail the then-current `8-12px` lead benchmark.
 
 Design mistake:
 
@@ -852,7 +852,7 @@ Files changed or added:
 - `apps/web/src/lib/__tests__/dndBattlefield.unit.test.ts`
   - Rewritten around battlefield placement contracts:
     - stationary ghost stays on dragged center
-    - moving ghost leads by 8-12px
+    - moving ghost leads by about 24px
     - tapped preview dimensions match zoomed final placement
     - final snapped card edges align to visible grid lines for tapped and untapped cards
     - tapped and untapped snapped edges align at `viewScale` 1.0, 0.9, 0.75, and 0.5
@@ -914,7 +914,7 @@ Canonical battlefield position is the source of truth. Visual interactions shoul
 
 - Tap changes card orientation around its canonical center.
 - Drag overlay follows the pointer and preserves the grab point.
-- Ghost previews the final drop target and barely leads the dragged card.
+- Ghost previews the final drop target and clearly leads the dragged card.
 - Drop writes the exact position represented by the final preview.
 - Zoom changes screen projection, not canonical card centers.
 
@@ -987,16 +987,16 @@ During drag, the overlay is the real card under the user's control.
 
 ### Ghost Benchmarks
 
-The ghost is the truthful drop preview and should barely lead the dragged card.
+The ghost is the truthful drop preview and should clearly lead the dragged card.
 
 When pointer movement is above the movement threshold and the card is not constrained by bounds:
 
 - Directional lead:
-  - `dot(leadVector, movementUnit)` should be between `8px` and `12px`.
+  - `dot(leadVector, movementUnit)` should be between `22px` and `26px`.
 - Perpendicular drift:
   - `abs(cross(leadVector, movementUnit)) <= 2px`.
 - Total ghost distance:
-  - `distance(ghostCenterScreen, liveDraggedCenterScreen) <= 12.5px`.
+  - `distance(ghostCenterScreen, liveDraggedCenterScreen) <= 26px`.
 - Ghost is ahead, not behind:
   - `dot(leadVector, movementUnit) > 0`.
 
@@ -1107,7 +1107,7 @@ Required assertions:
 
 - tap layout preserves center for tapped and untapped dimensions
 - pointer + anchor computes live dragged center exactly
-- ghost lead vector is `8-12px` in movement direction
+- ghost lead vector is `22-26px` in movement direction
 - stationary ghost does not lead
 - edge clamping reduces lead without violating bounds
 - final drop canonical equals ghost canonical
@@ -1179,7 +1179,7 @@ Good:
 
 - `keeps the rendered card center stable when tapping`
 - `keeps the grabbed point under the pointer while dragging`
-- `keeps the ghost 8-12px ahead of the dragged card while moving`
+- `keeps the ghost about 24px ahead of the dragged card while moving`
 - `lands the card at the final ghost target`
 
 Bad:
@@ -1225,11 +1225,11 @@ The ghost is the drop-target preview, not the dragged real card.
 - Ghost dimensions and orientation should match the final placed card.
 - Ghost should be based on the same placement math as final drop resolution.
 - Ghost should never disagree with final landed position.
-- Ghost should barely lead the dragged card in the current movement direction.
+- Ghost should clearly lead the dragged card in the current movement direction.
 
 Preferred lead rule:
 
-- Lead amount is screen-space, around 8-12px.
+- Lead amount is screen-space, around 24px.
 - Lead direction comes from recent pointer velocity or current drag delta.
 - Lead is zero when movement is below a small threshold.
 - Lead is capped and should not accumulate.
@@ -1327,7 +1327,7 @@ Tasks:
 Acceptance criteria:
 
 - Drag overlay is smooth and attached to pointer.
-- Ghost leads by roughly 8-12px when moving.
+- Ghost leads by roughly 24px when moving.
 - Ghost does not lead while stationary.
 - Final landed position matches the snapped final drop geometry.
 - The live ghost remains cursor anchored; final snap distance is separately logged and bounded by the grid.
@@ -1459,12 +1459,12 @@ bun run --cwd apps/web test
    - Fix: `CardDragOverlayView` applies tapped/rotation transforms, keeps overlay opacity visible, and centers tapped content inside a landscape frame.
    - Browser verification: tapped overlay card rendered with `rotate(90deg)`, rect `121.5 x 81`, and opacity `1`.
    - Follow-up browser verification: active tapped drag at `viewScale = 1` measured source, overlay wrapper, tapped overlay card, and frame all at `135 x 90`, with overlay/card/frame centers matching exactly.
-   - Follow-up browser verification also showed the sampled ghost ahead of the overlay by roughly `2.4px` during one live frame. This is directionally correct but below the ideal `8-12px` benchmark, likely because the overlay transform was sampled one frame ahead of the React-rendered ghost state.
+   - Follow-up browser verification also showed the sampled ghost ahead of the overlay by roughly `2.4px` during one live frame. This was directionally correct but below the then-current `8-12px` benchmark, likely because the overlay transform was sampled one frame ahead of the React-rendered ghost state.
 
 3. Ghost/drop model.
    - Root cause: placement collapsed live drag center, ghost preview, and final drop target into snapped canonical placement.
    - Fix: placement now exposes `livePosition`, `liveCanonical`, `leadScreen`, `previewCanonical`, `ghostPosition`, `snappedCanonical`, and `snappedPosition`.
-   - Live ghost lead is an explicit 10px screen-space vector in the movement direction, with no lead for stationary samples.
+   - Live ghost lead started as an explicit 10px screen-space vector in the movement direction, with no lead for stationary samples.
    - `ghostPosition` is cursor anchored; `snappedPosition` is the final drop target.
 
 4. Drop truthfulness.
@@ -1534,6 +1534,30 @@ bun run --cwd apps/web test
      - if a blocker and one reserved moving card occupy the target sequence, the next moving card lands at `{ x: target.x, y: target.y + 2 * placementStepY }`.
      - duplicate initial placement remains one visible grid cell down/right from the source, but if that center is occupied, retries keep that duplicate column and move downward.
 
+11. Ghost/overlay center consistency.
+   - Root cause from the focused diagnostic trace: `handleDragMove` mixed two clocks. `pointerScreen` came from the current event delta, while `active.rect.current.translated` could already describe a newer dnd-kit overlay position. The throttled drag-move handler also delayed `setGhostCards`, so rendered ghost state could trail the rendered overlay by a full sampled frame.
+   - RED benchmark added from the measured mismatch:
+     - pointer `778, 364`
+     - stale translated overlay center `818.3125, 392.4609375`
+     - drag anchor `0.4965277777777778, 0.49658564814814815`
+     - expected live dragged center `778.3125, 364.4609375`
+   - Fix: `computeDragMoveUiState().debug.centerScreen` now reports the placement-derived live center, not the mutable translated rect center.
+   - Fix: battlefield drag-move state updates are no longer throttled; every dnd-kit drag-move event gets a fresh ghost update.
+   - Browser verification after the fix:
+     - first rendered `overlayToGhost`: `8.9609375, 4.4296875`, distance `9.996px`
+     - final rendered `overlayToGhost`: `8.5234375, -1.40625`, distance `8.639px`
+     - the previous failure mode measured rendered overlay leading ghost by about `76 x 58px`, distance `95.37px`.
+
+12. Larger ghost lead.
+   - Product direction changed from a barely-leading ghost to a much more visible lead.
+   - Benchmark changed from `8-12px` to `22-26px`, centered on a `24px` screen-space lead.
+   - RED benchmark confirmed the old implementation still produced exactly `10px`.
+   - Fix: `GHOST_LEAD_PX` is now `24`.
+   - Browser verification after the fix:
+     - computed `ghostRelativeToLiveDragged`: `21.516641167861508, 10.631752106472732`, distance `24px`
+     - later computed `ghostRelativeToLiveDragged`: `20.71912305885803, 12.112718095947741`, distance `24px`
+     - rendered `overlayToGhost`: `20.71875, 12.109375`, distance `23.997990842008523px`
+
 ### Current Focused Test Set
 
 ```bash
@@ -1543,7 +1567,7 @@ bun run --cwd apps/server test -- src/domain/__tests__/positions.unit.test.ts sr
 bun run --cwd apps/server typecheck
 ```
 
-Latest focused result: web movement suite 11 files / 90 tests passing, server movement suite 2 files / 13 tests passing, web typecheck passing, server typecheck passing, and `git diff --check` passing.
+Latest focused result: web movement suite 11 files / 91 tests passing, server movement suite 2 files / 13 tests passing, web typecheck passing, server typecheck passing, and `git diff --check` passing.
 
 ## Recent Commits Relevant To The Regression
 
@@ -1561,4 +1585,4 @@ Latest focused result: web movement suite 11 files / 90 tests passing, server mo
 3. Should tapped cards near edges ever be clamped on tap, or should center stability always win?
 4. Should the lead amount be fixed pixels, proportional to card size, or a hybrid with min/max caps?
 5. Should snap target selection use pointer velocity, current delta from drag start, or a short moving average?
-6. Should the single-card ghost be rendered from the same immediate transform path as the drag overlay, so live DOM samples consistently show the full 8-12px lead instead of a smaller lead when React state is one frame behind?
+6. Should the single-card ghost be rendered from the same immediate transform path as the drag overlay, so live DOM samples consistently show the full `22-26px` lead instead of a smaller lead when React state is one frame behind?

@@ -127,6 +127,10 @@ export const computeDragMoveUiState = (params: {
     baseCardHeight: params.over.cardBaseHeight,
     baseCardWidth: params.over.cardBaseWidth,
   });
+  const liveCenterScreen = {
+    x: params.over.rect.left + placement.livePosition.x * zoneScale,
+    y: params.over.rect.top + placement.livePosition.y * zoneScale,
+  };
 
   return {
     ghostCard: {
@@ -138,7 +142,7 @@ export const computeDragMoveUiState = (params: {
     overCardScale,
     debug: {
       activeRect: params.activeRect,
-      centerScreen,
+      centerScreen: liveCenterScreen,
       pointerScreen: params.pointerScreen ?? null,
       movementScreen: params.movementScreen ?? null,
       dragAnchor: params.dragAnchor ?? null,

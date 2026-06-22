@@ -20,6 +20,7 @@ const measuredCardSizing = {
   baseCardHeight: 135,
   baseCardWidth: 90,
 };
+const EXPECTED_GHOST_LEAD_PX = 24;
 
 const rect = (params: {
   left: number;
@@ -184,6 +185,68 @@ describe("game DnD movement contracts", () => {
     });
 
     expect(distance(state.ghostCard!.position, liveCenter)).toBeLessThanOrEqual(2);
+  });
+
+  it("uses pointer and drag anchor as the live dragged center when dnd translated rect is stale", () => {
+    const zones: Record<string, Zone> = {
+      "p1-battlefield": createBattlefield("p1"),
+    };
+    const cards = {
+      c1: createCard("c1"),
+    };
+    const pointerScreen = { x: 778, y: 364 };
+    const dragAnchor = {
+      x: 0.4965277777777778,
+      y: 0.49658564814814815,
+    };
+    const staleActiveRect = rect({
+      left: 773.3125,
+      top: 324.9609375,
+      width: 90,
+      height: 135,
+    });
+
+    const state = computeDragMoveUiState({
+      myPlayerId: "p1",
+      cards,
+      zones,
+      activeCardId: "c1",
+      activeRect: staleActiveRect,
+      pointerScreen,
+      movementScreen: { x: 130, y: 76 },
+      dragAnchor,
+      activeTapped: false,
+      over: {
+        id: "p1-battlefield",
+        type: ZONE.BATTLEFIELD,
+        rect: rect({ left: 213.59375, top: 1, width: 836.0078125, height: 539 }),
+        scale: 1,
+        cardScale: 1,
+        cardBaseHeight: measuredCardSizing.baseCardHeight,
+        cardBaseWidth: measuredCardSizing.baseCardWidth,
+        mirrorY: false,
+      },
+    });
+
+    const expectedLiveCenter = liveDraggedCenter({
+      pointerScreen,
+      dragAnchor,
+      cardSize: state.ghostCard?.size ?? { width: 0, height: 0 },
+    });
+
+    expect(state.debug?.centerScreen).toEqual(expectedLiveCenter);
+    expect(state.debug?.placement.livePosition.x).toBeCloseTo(
+      expectedLiveCenter.x - 213.59375,
+      6
+    );
+    expect(state.debug?.placement.livePosition.y).toBeCloseTo(
+      expectedLiveCenter.y - 1,
+      6
+    );
+    expect(distance(state.ghostCard!.position, state.debug!.placement.livePosition)).toBeCloseTo(
+      EXPECTED_GHOST_LEAD_PX,
+      6
+    );
   });
 
   it("keeps tapped preview dimensions tied to zoomed battlefield card dimensions", () => {

@@ -39,8 +39,6 @@ import {
   type DebugFlagKey,
 } from "@/lib/debug";
 
-// Throttle helper for drag move events
-const DRAG_MOVE_THROTTLE_MS = 16; // ~60fps
 const FACE_DOWN_DEBUG_KEY: DebugFlagKey = "faceDownDrag";
 const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
@@ -423,27 +421,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     }
   };
 
-  const lastMoveTime = React.useRef(0);
-  const pendingMoveFrame = React.useRef<number | null>(null);
-  const latestMoveEvent = React.useRef<DragMoveEvent | null>(null);
-
   const handleDragMove = React.useCallback(
     (event: DragMoveEvent) => {
-      const now = performance.now();
-      if (now - lastMoveTime.current < DRAG_MOVE_THROTTLE_MS) {
-        latestMoveEvent.current = event;
-        if (!pendingMoveFrame.current) {
-          pendingMoveFrame.current = requestAnimationFrame(() => {
-            pendingMoveFrame.current = null;
-            const latest = latestMoveEvent.current;
-            latestMoveEvent.current = null;
-            lastMoveTime.current = performance.now();
-            if (latest) handleDragMoveImpl(latest);
-          });
-        }
-        return;
-      }
-      lastMoveTime.current = now;
       handleDragMoveImpl(event);
     },
     [
@@ -769,10 +748,6 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
   const handleDragEnd = React.useCallback(
     (event: DragEndEvent) => {
       if (isSpectator) return;
-      if (pendingMoveFrame.current) {
-        cancelAnimationFrame(pendingMoveFrame.current);
-        pendingMoveFrame.current = null;
-      }
 
       const { active, over } = event;
       const finishedDragSeq = currentDragSeq.current;

@@ -12,7 +12,7 @@ export type RectLike = Pick<
   'left' | 'top' | 'right' | 'bottom' | 'width' | 'height'
 >;
 
-const GHOST_LEAD_PX = 10;
+const GHOST_LEAD_PX = 24;
 const GHOST_LEAD_MOVEMENT_THRESHOLD_PX = 2;
 
 const snapCardEdgeToGrid = (params: {

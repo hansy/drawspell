@@ -22,6 +22,7 @@ const measuredCardSizing = {
   baseCardHeight: 135,
   baseCardWidth: 90,
 };
+const EXPECTED_GHOST_LEAD_PX = 24;
 
 type Point = { x: number; y: number };
 
@@ -238,7 +239,7 @@ describe("battlefield placement contracts", () => {
     expect(distance(placement.ghostPosition, liveCenter)).toBeLessThanOrEqual(2);
   });
 
-  it("keeps a moving drop preview 8-12px ahead when approaching the next grid step", () => {
+  it("keeps a moving drop preview about 24px ahead when approaching the next grid step", () => {
     const grid = placementGridPixels();
     const dragAnchor = { x: 0.5, y: 0.5 };
     const movementUnit = { x: 1, y: 0 };
@@ -277,10 +278,16 @@ describe("battlefield placement contracts", () => {
       y: placement.ghostPosition.y - liveCenter.y,
     };
 
-    expect(dot(leadVector, movementUnit)).toBeGreaterThanOrEqual(8);
-    expect(dot(leadVector, movementUnit)).toBeLessThanOrEqual(12);
+    expect(dot(leadVector, movementUnit)).toBeGreaterThanOrEqual(
+      EXPECTED_GHOST_LEAD_PX - 2
+    );
+    expect(dot(leadVector, movementUnit)).toBeLessThanOrEqual(
+      EXPECTED_GHOST_LEAD_PX + 2
+    );
     expect(Math.abs(cross(leadVector, movementUnit))).toBeLessThanOrEqual(2);
-    expect(distance(placement.ghostPosition, liveCenter)).toBeLessThanOrEqual(12.5);
+    expect(distance(placement.ghostPosition, liveCenter)).toBeLessThanOrEqual(
+      EXPECTED_GHOST_LEAD_PX + 2
+    );
   });
 
   it("does not let the dragged card lead the ghost while moving across a coarse grid", () => {
@@ -325,10 +332,16 @@ describe("battlefield placement contracts", () => {
       y: placement.ghostPosition.y - liveCenter.y,
     };
 
-    expect(dot(leadVector, movementUnit)).toBeGreaterThanOrEqual(8);
-    expect(dot(leadVector, movementUnit)).toBeLessThanOrEqual(12);
+    expect(dot(leadVector, movementUnit)).toBeGreaterThanOrEqual(
+      EXPECTED_GHOST_LEAD_PX - 2
+    );
+    expect(dot(leadVector, movementUnit)).toBeLessThanOrEqual(
+      EXPECTED_GHOST_LEAD_PX + 2
+    );
     expect(Math.abs(cross(leadVector, movementUnit))).toBeLessThanOrEqual(2);
-    expect(distance(placement.ghostPosition, liveCenter)).toBeLessThanOrEqual(12.5);
+    expect(distance(placement.ghostPosition, liveCenter)).toBeLessThanOrEqual(
+      EXPECTED_GHOST_LEAD_PX + 2
+    );
   });
 
   it("uses tapped card dimensions for the final placed preview", () => {
@@ -490,7 +503,10 @@ describe("battlefield placement contracts", () => {
       },
     });
 
-    expect(placement.ghostPosition.x).toBeCloseTo(liveCenter.x + 10, 6);
+    expect(placement.ghostPosition.x).toBeCloseTo(
+      liveCenter.x + EXPECTED_GHOST_LEAD_PX,
+      6
+    );
     expect(placement.ghostPosition.y).toBeCloseTo(liveCenter.y, 6);
     expect(placement.snappedCanonical.y).toBeCloseTo(
       1 - placement.snappedPosition.y / zoneRect.height,
