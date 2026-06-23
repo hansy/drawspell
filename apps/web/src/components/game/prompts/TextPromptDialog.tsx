@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { Button } from "../../ui/button";
 import { Textarea } from "../../ui/textarea";
+import { GameDialogActionButton } from "@/components/game/dialog/GameDialogActionButton";
 
 interface TextPromptDialogProps {
     open: boolean;
@@ -49,12 +49,12 @@ export const TextPromptDialog: React.FC<TextPromptDialogProps> = ({
                     />
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={onClose} className="bg-transparent border-zinc-700 hover:bg-zinc-800 text-zinc-300">
+                    <GameDialogActionButton intent="secondary" onClick={onClose}>
                         Cancel
-                    </Button>
-                    <Button onClick={handleSubmit} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                    </GameDialogActionButton>
+                    <GameDialogActionButton onClick={handleSubmit}>
                         Save
-                    </Button>
+                    </GameDialogActionButton>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

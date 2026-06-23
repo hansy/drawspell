@@ -3,6 +3,7 @@ import { Copy, Loader2, Lock, Unlock } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { GameDialogActionButton } from "@/components/game/dialog/GameDialogActionButton";
 import {
   Dialog,
   DialogContent,
@@ -238,13 +239,12 @@ export const ShareRoomDialog: React.FC<ShareRoomDialogProps> = ({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
+          <GameDialogActionButton
+            intent="secondary"
             onClick={onClose}
-            className="bg-transparent border-zinc-700 hover:bg-zinc-800 text-zinc-300"
           >
             Close
-          </Button>
+          </GameDialogActionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

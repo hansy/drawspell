@@ -3,6 +3,7 @@ import React from "react";
 import { Button } from "../../ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Input } from "../../ui/input";
+import { GameDialogActionButton } from "@/components/game/dialog/GameDialogActionButton";
 import { cn } from "@/lib/utils";
 
 import type { AddCounterController } from "@/hooks/game/add-counter/useAddCounterController";
@@ -87,20 +88,18 @@ export const AddCounterModalView: React.FC<AddCounterController> = ({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
+          <GameDialogActionButton
+            intent="secondary"
             onClick={handleClose}
-            className="bg-transparent border-zinc-700 hover:bg-zinc-800 text-zinc-300"
           >
             Cancel
-          </Button>
-          <Button
+          </GameDialogActionButton>
+          <GameDialogActionButton
             onClick={handleAdd}
             disabled={!canSubmit}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white"
           >
             Add Counter
-          </Button>
+          </GameDialogActionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

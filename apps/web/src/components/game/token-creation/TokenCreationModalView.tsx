@@ -4,6 +4,7 @@ import { Search, Plus, Minus, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
+import { GameDialogActionButton } from "@/components/game/dialog/GameDialogActionButton";
 
 import type { TokenCreationController } from "@/hooks/game/token-creation/useTokenCreationController";
 import { getPreviewDimensions } from "@/hooks/game/seat/useSeatSizing";
@@ -145,20 +146,19 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-2 xs:flex xs:gap-2">
-              <Button
-                variant="outline"
+              <GameDialogActionButton
+                intent="secondary"
                 onClick={handleClose}
-                className="border-zinc-700 hover:bg-zinc-800 text-zinc-300"
               >
                 Cancel
-              </Button>
-              <Button
+              </GameDialogActionButton>
+              <GameDialogActionButton
                 onClick={handleCreate}
                 disabled={!selectedToken}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white min-w-[100px]"
+                className="min-w-[100px]"
               >
                 Create
-              </Button>
+              </GameDialogActionButton>
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
+import { GameDialogActionButton } from "@/components/game/dialog/GameDialogActionButton";
 
 export type CoinFlipDialogProps = {
   open: boolean;
@@ -76,20 +76,18 @@ export const CoinFlipDialog: React.FC<CoinFlipDialogProps> = ({ open, onClose, o
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
+          <GameDialogActionButton
+            intent="secondary"
             onClick={onClose}
-            className="bg-transparent border-zinc-700 hover:bg-zinc-800 text-zinc-300"
           >
             Cancel
-          </Button>
-          <Button
+          </GameDialogActionButton>
+          <GameDialogActionButton
             onClick={handleSubmit}
             disabled={!isValid}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white"
           >
             Flip
-          </Button>
+          </GameDialogActionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

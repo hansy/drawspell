@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../ui/dialog";
-import { Button } from "../../ui/button";
+import { GameDialogActionButton } from "@/components/game/dialog/GameDialogActionButton";
 import { cn } from "@/lib/utils";
 
 import type { LoadDeckController } from "@/hooks/game/load-deck/useLoadDeckController";
@@ -77,21 +77,19 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
+          <GameDialogActionButton
+            intent="secondary"
             onClick={handleClose}
             disabled={isImporting}
-            className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
           >
             Cancel
-          </Button>
-          <Button
+          </GameDialogActionButton>
+          <GameDialogActionButton
             onClick={handleImport}
             disabled={isImporting || !importText.trim()}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white"
           >
             {isImporting ? "Loading..." : "Load Deck"}
-          </Button>
+          </GameDialogActionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>
