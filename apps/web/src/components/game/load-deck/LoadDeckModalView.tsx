@@ -24,6 +24,14 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
   isImporting,
   handleImport,
 }) => {
+  const prefilledHintId = React.useId();
+  const errorMessageId = React.useId();
+  const textareaDescriptionId = error
+    ? errorMessageId
+    : prefilledFromLastImport
+      ? prefilledHintId
+      : undefined;
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="ds-dialog-size-lg bg-zinc-950 border-zinc-800 text-zinc-100">
@@ -40,21 +48,29 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
             value={importText}
             onChange={(e) => handleImportTextChange(e.target.value)}
             placeholder={"4 Lightning Bolt\n20 Mountain..."}
+            aria-describedby={textareaDescriptionId}
+            aria-invalid={Boolean(error)}
             className={cn(
               "w-full h-[min(18rem,42dvh)] sm:h-64 bg-zinc-900 border border-zinc-800 rounded-md p-3 text-base lg:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none placeholder:text-zinc-600",
-              prefilledFromLastImport &&
-                "ring-2 ring-amber-500/30 border-amber-500/50",
+              error && "border-red-500/60 focus:ring-red-500/70",
             )}
           />
 
           {prefilledFromLastImport && (
-            <div className="text-amber-200/80 text-xs bg-amber-950/30 p-2 rounded border border-amber-900/50">
-              Loaded your last imported deck — paste to replace.
+            <div
+              id={prefilledHintId}
+              className="w-fit rounded-full border border-zinc-700 bg-zinc-900/70 px-2.5 py-1 text-xs text-zinc-300"
+            >
+              Last import loaded. Edit or paste a new decklist.
             </div>
           )}
 
           {error && (
-            <div className="text-red-400 text-sm bg-red-950/30 p-2 rounded border border-red-900/50">
+            <div
+              id={errorMessageId}
+              role="alert"
+              className="rounded border border-red-800/70 bg-red-950/40 p-2 text-sm text-red-200"
+            >
               {error}
             </div>
           )}
@@ -65,7 +81,7 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
             variant="outline"
             onClick={handleClose}
             disabled={isImporting}
-            className="border-zinc-700 hover:bg-zinc-800 text-zinc-300"
+            className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
           >
             Cancel
           </Button>
