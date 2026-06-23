@@ -13,6 +13,7 @@ const DEFAULT_COUNT = 1;
 
 export const CoinFlipDialog: React.FC<CoinFlipDialogProps> = ({ open, onClose, onFlip }) => {
   const countRef = React.useRef<HTMLInputElement | null>(null);
+  const countId = React.useId();
   const [count, setCount] = React.useState<string>(String(DEFAULT_COUNT));
 
   React.useEffect(() => {
@@ -53,10 +54,14 @@ export const CoinFlipDialog: React.FC<CoinFlipDialogProps> = ({ open, onClose, o
 
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
-            <label className="text-xs font-medium text-zinc-400 uppercase tracking-wide">
+            <label
+              htmlFor={countId}
+              className="block text-sm font-medium text-zinc-300"
+            >
               Number of coins
             </label>
             <Input
+              id={countId}
               ref={countRef}
               inputMode="numeric"
               pattern="[0-9]*"

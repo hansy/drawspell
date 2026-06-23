@@ -14,6 +14,8 @@ const DEFAULT_COUNT = 1;
 
 export const DiceRollDialog: React.FC<DiceRollDialogProps> = ({ open, onClose, onRoll }) => {
   const sidesRef = React.useRef<HTMLInputElement | null>(null);
+  const sidesId = React.useId();
+  const countId = React.useId();
   const [sides, setSides] = React.useState<string>(String(DEFAULT_SIDES));
   const [count, setCount] = React.useState<string>(String(DEFAULT_COUNT));
 
@@ -62,10 +64,14 @@ export const DiceRollDialog: React.FC<DiceRollDialogProps> = ({ open, onClose, o
         <div className="grid gap-4 py-1 sm:py-4">
           <div className="grid grid-cols-1 gap-4 items-end sm:grid-cols-[1fr_auto]">
             <div className="space-y-2">
-              <label className="text-xs font-medium text-zinc-400 uppercase tracking-wide">
+              <label
+                htmlFor={sidesId}
+                className="block text-sm font-medium text-zinc-300"
+              >
                 Number of sides
               </label>
               <Input
+                id={sidesId}
                 ref={sidesRef}
                 inputMode="numeric"
                 pattern="[0-9]*"
@@ -84,10 +90,14 @@ export const DiceRollDialog: React.FC<DiceRollDialogProps> = ({ open, onClose, o
             </div>
 
             <div className="space-y-2 w-full sm:w-32">
-              <label className="text-xs font-medium text-zinc-400 uppercase tracking-wide">
+              <label
+                htmlFor={countId}
+                className="block text-sm font-medium text-zinc-300"
+              >
                 Dice count
               </label>
               <Input
+                id={countId}
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={count}
