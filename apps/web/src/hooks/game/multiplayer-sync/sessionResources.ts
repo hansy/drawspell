@@ -94,7 +94,7 @@ export function setupSessionResources({
   onGameLogSync,
   joinToken,
 }: SessionSetupDeps): SessionSetupResult | null {
-  const partyHost = resolvePartyKitHost(origins.server) ?? "localhost:8787";
+  const partyHost = resolvePartyKitHost(origins.server) ?? "server.ds.localhost";
 
   cleanupStaleSessions();
   const handles = acquireSession(sessionId);

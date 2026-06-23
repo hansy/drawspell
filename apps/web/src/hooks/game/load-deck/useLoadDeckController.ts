@@ -8,10 +8,17 @@ import {
   validateDeckListLimits,
   validateImportResult,
 } from "@/services/deck-import/deckImport";
+import { featureFlags } from "@/lib/featureFlags";
 import { useGameStore } from "@/store/gameStore";
 import { getYDocHandles, getYProvider } from "@/yjs/docManager";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
-import { isMultiplayerProviderReady, planDeckImport } from "@/models/game/load-deck/loadDeckModel";
+import {
+  isMultiplayerProviderReady,
+  planDeckImport,
+  shouldConfirmCuratedDeckReplacement,
+} from "@/models/game/load-deck/loadDeckModel";
+
+import type { CuratedDeck } from "@/data/curatedDecks";
 
 export type LoadDeckControllerInput = {
   isOpen: boolean;
@@ -28,6 +35,8 @@ export const useLoadDeckController = ({
   const [isImporting, setIsImporting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [prefilledFromLastImport, setPrefilledFromLastImport] = React.useState(false);
+  const [selectedCuratedDeckId, setSelectedCuratedDeckId] = React.useState<string | null>(null);
+  const [curatedDecks, setCuratedDecks] = React.useState<CuratedDeck[]>([]);
 
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const wasOpenRef = React.useRef(false);
@@ -38,10 +47,27 @@ export const useLoadDeckController = ({
   const shuffleLibrary = useGameStore((state) => state.shuffleLibrary);
   const zones = useGameStore((state) => state.zones);
   const cards = useGameStore((state) => state.cards);
+  const players = useGameStore((state) => state.players);
   const viewerRole = useGameStore((state) => state.viewerRole);
 
   const lastImportedDeckText = useClientPrefsStore((state) => state.lastImportedDeckText);
   const setLastImportedDeckText = useClientPrefsStore((state) => state.setLastImportedDeckText);
+
+  React.useEffect(() => {
+    if (!featureFlags.curatedDecks || !isOpen) {
+      setCuratedDecks([]);
+      return;
+    }
+
+    let cancelled = false;
+    void import("@/data/curatedDecks").then((module) => {
+      if (!cancelled) setCuratedDecks(module.curatedDecks);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   React.useEffect(() => {
     const justOpened = isOpen && !wasOpenRef.current;
@@ -72,9 +98,9 @@ export const useLoadDeckController = ({
     [prefilledFromLastImport]
   );
 
-  const handleImport = React.useCallback(async () => {
+  const importDeckText = React.useCallback(async (deckText: string) => {
     if (viewerRole === "spectator") return;
-    if (!importText.trim()) return;
+    if (!deckText.trim()) return;
 
     const handles = getYDocHandles();
     const provider = getYProvider();
@@ -88,8 +114,9 @@ export const useLoadDeckController = ({
 
     try {
       const planned = await planDeckImport({
-        importText,
+        importText: deckText,
         playerId,
+        targetDeckLoaded: Boolean(players[playerId]?.deckLoaded),
         zones,
         cards,
         parseDeckList,
@@ -130,7 +157,7 @@ export const useLoadDeckController = ({
       shuffleLibrary(playerId, playerId);
 
       toast.success("Deck successfully loaded");
-      setLastImportedDeckText(importText);
+      setLastImportedDeckText(deckText);
       setImportText("");
       onClose();
     } catch (err: any) {
@@ -141,9 +168,9 @@ export const useLoadDeckController = ({
     }
   }, [
     addCards,
-    importText,
     onClose,
     playerId,
+    players,
     setDeckLoaded,
     setLastImportedDeckText,
     shuffleLibrary,
@@ -151,6 +178,33 @@ export const useLoadDeckController = ({
     cards,
     zones,
   ]);
+
+  const handleImport = React.useCallback(async () => {
+    await importDeckText(importText);
+  }, [importDeckText, importText]);
+
+  const handleCuratedDeckImport = React.useCallback(
+    (deck: CuratedDeck) => {
+      if (!featureFlags.curatedDecks || isImporting) return;
+
+      if (
+        shouldConfirmCuratedDeckReplacement(importText) &&
+        !window.confirm(`Replace the current deck list with ${deck.name}?`)
+      ) {
+        return;
+      }
+
+      setPrefilledFromLastImport(false);
+      setError(null);
+      setImportText(deck.decklist);
+      setSelectedCuratedDeckId(deck.id);
+      setTimeout(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.setSelectionRange(0, 0);
+      }, 0);
+    },
+    [importText, isImporting]
+  );
 
   return {
     isOpen,
@@ -162,6 +216,10 @@ export const useLoadDeckController = ({
     error,
     isImporting,
     handleImport,
+    curatedDecksEnabled: featureFlags.curatedDecks,
+    curatedDecks,
+    activeCuratedDeckId: selectedCuratedDeckId,
+    handleCuratedDeckImport,
   };
 };
 

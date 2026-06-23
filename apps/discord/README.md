@@ -43,7 +43,7 @@ bun run build
 ### Service binding configuration
 - The Worker expects a `SERVER` service binding in [`wrangler.jsonc`](wrangler.jsonc) that targets the matching server worker name.
 - Default/prod binding targets `drawspell-server`.
-- `env.development` binding targets `drawspell-server-development`, matching local `bun run dev` in `apps/server` (which runs `wrangler dev --env development`).
+- `env.development` binding targets `drawspell-server-development`, matching local `bun run dev` in `apps/server` (which runs the server through Portless at `https://server.ds.localhost`).
 
 ### Secrets setup with Wrangler
 Set secrets per environment before deploy:
@@ -101,7 +101,7 @@ Guild registration propagates quickly for operator testing; global registration 
 After deployment and command registration:
 
 1. Run `bun run test:smoke` from `apps/discord`.
-2. In Discord, run `/drawspell create` without tags and confirm the invoker receives a DM with the expected environment-specific web origin (`http://localhost:5173`, `https://drawspell-staging.service-fff.workers.dev`, or `https://drawspell.space`) in `/rooms/<roomId>?gt=<playerToken>`.
+2. In Discord, run `/drawspell create` without tags and confirm the invoker receives a DM with the expected environment-specific web origin (`https://ds.localhost`, `https://drawspell-staging.service-fff.workers.dev`, or `https://drawspell.space`) in `/rooms/<roomId>?gt=<playerToken>`.
 
 ## Key files
 - [src/worker.ts](src/worker.ts)

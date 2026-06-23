@@ -57,6 +57,8 @@ const normalizeHostFromOrigin = (value: string | undefined): string | null => {
   }
 };
 
+const isDevelopmentEnv = (envName: string | undefined) => envName === "development";
+
 const getPartyRequestInfo = (url: URL) => {
   const parts = url.pathname.split("/").filter(Boolean);
   if (parts.length < 3) return null;
@@ -79,16 +81,18 @@ export const validatePartyHandshake = async (
     });
   }
 
-  const origin = request.headers.get("Origin");
-  const allowedOrigin = normalizeOrigin(origins.web);
-  if (!isOriginAllowed(origin, allowedOrigin)) {
-    return new Response("Origin not allowed", { status: 403 });
-  }
+  if (!isDevelopmentEnv(env.NODE_ENV)) {
+    const origin = request.headers.get("Origin");
+    const allowedOrigin = normalizeOrigin(origins.web);
+    if (!isOriginAllowed(origin, allowedOrigin)) {
+      return new Response("Origin not allowed", { status: 403 });
+    }
 
-  const host = request.headers.get("Host") ?? url.host;
-  const allowedHost = normalizeHostFromOrigin(origins.server);
-  if (!isHostAllowed(host, url, allowedHost)) {
-    return new Response("Host not allowed", { status: 403 });
+    const host = request.headers.get("Host") ?? url.host;
+    const allowedHost = normalizeHostFromOrigin(origins.server);
+    if (!isHostAllowed(host, url, allowedHost)) {
+      return new Response("Host not allowed", { status: 403 });
+    }
   }
 
   const joinToken = url.searchParams.get("jt");

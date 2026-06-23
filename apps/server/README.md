@@ -34,12 +34,17 @@ Run these from `apps/server` (or prefix with `bun run --cwd apps/server` from th
 
 ```bash
 bun run dev
+bun run dev:app
 bun run build
 bun run deploy
 bun run deploy:staging
 bun run test
 bun run typecheck
 ```
+
+`bun run dev` runs through Portless at `https://server.ds.localhost`. The
+underlying Wrangler command is `bun run dev:app`; Portless assigns an ephemeral
+port through `PORT`, and the script passes that port to Wrangler.
 
 ## Configuration
 - Durable Object binding `rooms` is defined in `wrangler.jsonc` and is required for local/dev/prod.
@@ -50,6 +55,9 @@ bun run typecheck
   - `DISCORD_SERVICE_AUTH_SECRET` (required for Discord provisioning): shared secret used to authenticate internal `/rooms` calls.
 
 For local dev, set secrets in `apps/server/.dev.vars` or via `wrangler secret put JOIN_TOKEN_SECRET`.
+Development accepts websocket requests from any `Origin` and `Host` so multiple
+agents can run separate Portless instances without editing allowlists. Staging
+and production remain restricted to configured Drawspell origins.
 
 ## Key files
 - [src/server.ts](src/server.ts)

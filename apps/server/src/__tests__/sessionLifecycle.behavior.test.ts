@@ -992,13 +992,13 @@ describe("server lifecycle guards", () => {
     expect(shareLinksMessage?.ok).toBe(true);
     expect(shareLinksMessage?.requestId).toBe("share-request-1");
     expect(String(shareLinksMessage?.payload?.playerInviteUrl)).toContain(
-      "http://localhost:5173/rooms/room-test?gt="
+      "https://ds.localhost/rooms/room-test?gt="
     );
     expect(String(shareLinksMessage?.payload?.spectatorInviteUrl)).toContain(
-      "http://localhost:5173/rooms/room-test?st="
+      "https://ds.localhost/rooms/room-test?st="
     );
     expect(String(shareLinksMessage?.payload?.resumeInviteUrl)).toContain(
-      "http://localhost:5173/rooms/room-test?rt="
+      "https://ds.localhost/rooms/room-test?rt="
     );
     expect(String(shareLinksMessage?.payload?.resumeInviteUrl)).toContain(
       "playerId=p1"

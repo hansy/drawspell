@@ -44,6 +44,9 @@ export const chunkArray = <T,>(items: T[], chunkSize: number): T[][] => {
   return chunks;
 };
 
+export const shouldConfirmCuratedDeckReplacement = (importText: string): boolean =>
+  importText.trim().length > 0;
+
 export type DeckImportCardData = Partial<Card> & {
   deckSection?: "main" | "commander" | "sideboard";
   section?: string;
@@ -70,6 +73,7 @@ const countLiveZoneCards = (params: {
 export const planDeckImport = async (params: {
   importText: string;
   playerId: PlayerId;
+  targetDeckLoaded?: boolean;
   zones: Record<ZoneId, Zone>;
   cards?: Record<string, Card>;
   parseDeckList: (text: string) => ParsedCard[];
@@ -81,6 +85,10 @@ export const planDeckImport = async (params: {
   ) => { ok: true; warnings: string[] } | { ok: false; error: string };
   chunkSize?: number;
 }): Promise<{ chunks: DeckImportCardPlan[][]; warnings: string[] }> => {
+  if (params.targetDeckLoaded) {
+    throw new Error("Unload your current deck before importing another.");
+  }
+
   const parsedDeck = params.parseDeckList(params.importText);
   if (parsedDeck.length === 0) {
     throw new Error("No valid cards found in the list.");

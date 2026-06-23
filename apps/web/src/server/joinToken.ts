@@ -36,6 +36,8 @@ const isOriginAllowed = (
   return normalized === allowedOrigin;
 };
 
+const isDevelopmentEnv = (envName: string | undefined) => envName === "development";
+
 export const getJoinToken = createServerFn({ method: "POST" })
   .inputValidator(joinTokenValidator)
   .handler(async (ctx): Promise<JoinTokenResponse> => {
@@ -51,7 +53,7 @@ export const getJoinToken = createServerFn({ method: "POST" })
       const request = (ctx as { request?: Request }).request;
       const origin = request?.headers?.get("Origin") ?? null;
       const allowedOrigin = normalizeOrigin(origins.web);
-      if (!isOriginAllowed(origin, allowedOrigin)) {
+      if (!isDevelopmentEnv(import.meta.env.VITE_ENV) && !isOriginAllowed(origin, allowedOrigin)) {
         console.error("[joinToken] origin not allowed", { origin, roomId });
         throw new Error("origin not allowed");
       }
