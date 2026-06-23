@@ -43,7 +43,7 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="ds-dialog-size-lg bg-zinc-950 border-zinc-800 text-zinc-100">
+      <DialogContent className="ds-dialog-size-lg grid h-[100dvh] grid-rows-[auto_minmax(0,1fr)_auto] bg-zinc-950 border-zinc-800 text-zinc-100 lg:h-auto">
         <DialogHeader>
           <DialogTitle>Load Deck</DialogTitle>
           <DialogDescription className="text-zinc-400">
@@ -67,7 +67,7 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
                 aria-describedby={textareaDescriptionId}
                 aria-invalid={Boolean(error)}
                 className={cn(
-                  "w-full h-[min(18rem,42dvh)] sm:h-64 bg-zinc-900 border border-zinc-800 rounded-md p-3 text-base lg:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 focus:border-transparent resize-none placeholder:text-zinc-600",
+                  "w-full h-[min(14rem,34dvh)] sm:h-56 bg-zinc-900 border border-zinc-800 rounded-md p-3 text-base lg:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 focus:border-transparent resize-none placeholder:text-zinc-600",
                   error && "border-red-500/60 focus:ring-red-500/70",
                 )}
               />
@@ -105,7 +105,7 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t border-zinc-800 bg-zinc-950 pt-3 pb-[env(safe-area-inset-bottom)] sm:pb-0">
           <GameDialogActionButton
             intent="secondary"
             onClick={handleClose}
