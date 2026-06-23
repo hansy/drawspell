@@ -13,6 +13,12 @@ import { cn } from "@/lib/utils";
 
 import type { LoadDeckController } from "@/hooks/game/load-deck/useLoadDeckController";
 
+const CuratedDeckPicker = React.lazy(() =>
+  import("./CuratedDeckPicker").then((module) => ({
+    default: module.CuratedDeckPicker,
+  }))
+);
+
 export const LoadDeckModalView: React.FC<LoadDeckController> = ({
   isOpen,
   handleClose,
@@ -23,6 +29,10 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
   error,
   isImporting,
   handleImport,
+  curatedDecksEnabled,
+  curatedDecks,
+  activeCuratedDeckId,
+  handleCuratedDeckImport,
 }) => {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
@@ -35,23 +45,43 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
         </DialogHeader>
 
         <div className="ds-dialog-scroll grid gap-4 py-1 sm:py-4">
-          <textarea
-            ref={textareaRef}
-            value={importText}
-            onChange={(e) => handleImportTextChange(e.target.value)}
-            placeholder={"4 Lightning Bolt\n20 Mountain..."}
+          <div
             className={cn(
-              "w-full h-[min(18rem,42dvh)] sm:h-64 bg-zinc-900 border border-zinc-800 rounded-md p-3 text-base lg:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none placeholder:text-zinc-600",
-              prefilledFromLastImport &&
-                "ring-2 ring-amber-500/30 border-amber-500/50",
+              "grid gap-4",
+              curatedDecksEnabled && "lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start"
             )}
-          />
+          >
+            <div className="grid gap-3">
+              <textarea
+                ref={textareaRef}
+                value={importText}
+                onChange={(e) => handleImportTextChange(e.target.value)}
+                placeholder={"4 Lightning Bolt\n20 Mountain..."}
+                className={cn(
+                  "w-full h-[min(18rem,42dvh)] sm:h-64 bg-zinc-900 border border-zinc-800 rounded-md p-3 text-base lg:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 focus:border-transparent resize-none placeholder:text-zinc-600",
+                  prefilledFromLastImport &&
+                    "ring-2 ring-amber-500/30 border-amber-500/50",
+                )}
+              />
 
-          {prefilledFromLastImport && (
-            <div className="text-amber-200/80 text-xs bg-amber-950/30 p-2 rounded border border-amber-900/50">
-              Loaded your last imported deck — paste to replace.
+              {prefilledFromLastImport && (
+                <div className="text-amber-200/80 text-xs bg-amber-950/30 p-2 rounded border border-amber-900/50">
+                  Loaded your last imported deck — paste to replace.
+                </div>
+              )}
             </div>
-          )}
+
+            {curatedDecksEnabled && curatedDecks.length > 0 && (
+              <React.Suspense fallback={null}>
+                <CuratedDeckPicker
+                  decks={curatedDecks}
+                  activeDeckId={activeCuratedDeckId}
+                  disabled={isImporting}
+                  onSelectDeck={handleCuratedDeckImport}
+                />
+              </React.Suspense>
+            )}
+          </div>
 
           {error && (
             <div className="text-red-400 text-sm bg-red-950/30 p-2 rounded border border-red-900/50">

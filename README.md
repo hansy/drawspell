@@ -34,6 +34,7 @@ flowchart LR
 ### Prereqs
 
 - Bun `1.2.21` (see `package.json#packageManager`).
+- Node.js 24+ for Portless local dev URLs.
 
 ### Install
 
@@ -45,8 +46,8 @@ bun install
 
 | Task | Command | Notes |
 | --- | --- | --- |
-| Dev: web app | `bun run dev` | Runs Vite dev server in `apps/web`. |
-| Dev: server | `bun run dev:server` | Runs `wrangler dev --env development` in `apps/server`. |
+| Dev: web app | `bun run dev` | Runs the web app through Portless at `https://ds.localhost`. |
+| Dev: server | `bun run dev:server` | Runs the realtime server through Portless at `https://server.ds.localhost`. |
 | Dev: Discord worker | `bun run dev:discord` | Runs `wrangler dev --env development` in `apps/discord`. |
 | Build | `bun run build` | Builds the web app. |
 | Preview | `bun run preview` | Builds + previews the web app. |
@@ -100,7 +101,10 @@ bun install
 
 1. In one terminal: `bun run dev:server`
 2. In another terminal: `bun run dev`
-3. Open the URL printed by Vite and create a game.
+3. Open `https://ds.localhost` and create a game.
+
+Portless runs the proxy for stable `.localhost` names and may prompt to trust
+its local certificate authority on first run.
 
 ### Run a single app/package
 

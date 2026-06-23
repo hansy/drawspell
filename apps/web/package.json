@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "portless ds bun run dev:app",
+    "dev:app": "sh -c 'vite dev --mode localhost --host \"$HOST\" --port \"$PORT\"'",
     "deploy": "bun run build:production && wrangler deploy --config dist/server/wrangler.json",
     "deploy:staging": "bun run build:staging && wrangler deploy --config dist/server/wrangler.json",
     "preview": "bun run build:production && vite preview",
@@ -31,6 +32,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.554.0",
+    "mana-font": "^1.18.0",
     "partysocket": "^1.1.5",
     "posthog-js": "^1.336.1",
     "react": "^19.2.0",

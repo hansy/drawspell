@@ -1,11 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MAX_COMMANDER_ZONE_CARDS } from "@mtg/shared/constants/limits";
 
 import type { Card, Zone } from "@/types";
 import type { FetchScryfallResult, ParsedCard } from "@/services/deck-import/deckImport";
 import { ZONE } from "@/constants/zones";
 
-import { isMultiplayerProviderReady, planDeckImport, resolveDeckZoneIds } from "../loadDeckModel";
+import {
+  isMultiplayerProviderReady,
+  planDeckImport,
+  resolveDeckZoneIds,
+  shouldConfirmCuratedDeckReplacement,
+} from "../loadDeckModel";
 
 describe("loadDeckModel", () => {
   it("isMultiplayerProviderReady requires handles + connected provider", () => {
@@ -38,6 +43,12 @@ describe("loadDeckModel", () => {
       commanderZoneId: "cmd",
       sideboardZoneId: "sb",
     });
+  });
+
+  it("shouldConfirmCuratedDeckReplacement only confirms for non-empty import text", () => {
+    expect(shouldConfirmCuratedDeckReplacement("")).toBe(false);
+    expect(shouldConfirmCuratedDeckReplacement("   \n\t")).toBe(false);
+    expect(shouldConfirmCuratedDeckReplacement("1 Lightning Bolt")).toBe(true);
   });
 
   it("planDeckImport chunks cards and sets library cards face-down", async () => {
@@ -101,6 +112,34 @@ describe("loadDeckModel", () => {
         validateImportResult: () => ({ ok: true, warnings: [] }),
       })
     ).rejects.toThrow("No valid cards found in the list.");
+  });
+
+  it("planDeckImport rejects when the target player already has a loaded deck", async () => {
+    const parseDeckList = vi.fn(() => [
+      { quantity: 1, name: "A", set: "set", collectorNumber: "1", section: "main" } as ParsedCard,
+    ]);
+    const fetchScryfallCards = vi.fn(async () => ({
+      cards: [],
+      missing: [],
+      warnings: [],
+      errors: [],
+    }));
+
+    await expect(
+      planDeckImport({
+        importText: "1 A",
+        playerId: "p1",
+        targetDeckLoaded: true,
+        zones: {},
+        parseDeckList,
+        validateDeckListLimits: () => ({ ok: true }),
+        fetchScryfallCards,
+        validateImportResult: () => ({ ok: true, warnings: [] }),
+      })
+    ).rejects.toThrow("Unload your current deck before importing another.");
+
+    expect(parseDeckList).not.toHaveBeenCalled();
+    expect(fetchScryfallCards).not.toHaveBeenCalled();
   });
 
   it("planDeckImport errors when size validation fails", async () => {

@@ -8,8 +8,8 @@ export type APPS = AppOrigins;
 
 export const ORIGINS: Record<"development" | "staging" | "production", AppOrigins> = {
   development: {
-    web: "http://localhost:5173",
-    server: "http://localhost:8787",
+    web: "https://ds.localhost",
+    server: "https://server.ds.localhost",
   },
   staging: {
     web: "https://staging.drawspell.space",

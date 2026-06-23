@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "portless server.ds bun run dev:app",
+    "dev:app": "sh -c 'wrangler dev --port \"$PORT\"'",
     "build": "wrangler build",
     "deploy": "wrangler deploy --env production",
     "deploy:staging": "wrangler deploy --env staging",

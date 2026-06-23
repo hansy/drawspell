@@ -33,8 +33,20 @@ The domain decision for how a card changes zone, controller, position, face-down
 _Avoid_: move helper, drag logic
 
 **Deck Import**:
-The process that turns an external deck list and Scryfall card data into Drawspell cards.
+The process that turns an external deck list and Scryfall card data into Drawspell cards for a player who does not already have an imported deck in the Room.
 _Avoid_: deck load, card import
+
+**Import Deck List**:
+The editable deck list text being prepared for Deck Import. It may be pasted by a player, restored from that player's last user-provided import, or populated from a Curated Deck.
+_Avoid_: draft deck list, deck text, pasted deck
+
+**Curated Deck**:
+A Drawspell-provided ready-to-import deck list with one or more format tags, such as commander or starter. A Curated Deck named after an official product represents that product's published deck list, not a simplified or modified variant. Choosing a Curated Deck fills the Import Deck List but does not start Deck Import; the player still presses Load Deck. If the Import Deck List is not empty after trimming whitespace, the player confirms before replacing it. Use standard only for decks intended to represent the official Standard format.
+_Avoid_: sample deck, starter deck, pre-con
+
+**Format Tag**:
+A label that helps players choose a Curated Deck by play style or Magic format. A Curated Deck may have multiple Format Tags; UI grouping may choose one primary tag for presentation. Official Magic format names retain their official meaning; onboarding categories use distinct labels such as starter.
+_Avoid_: legality marker, product type
 
 **Discord Room Invite**:
 A room invite provisioned from a Discord interaction and delivered to participants by DM.
@@ -51,7 +63,11 @@ _Avoid_: Discord game, slash-command room
 - The **Game Log** is not part of the **Yjs Document**.
 - A **Game Log Event** may describe visible gameplay that does not change the **Yjs Document**.
 - **Card Movement Resolution** determines how cards move between public zones and **Hidden State**.
+- **Deck Import** starts from an **Import Deck List**.
 - **Deck Import** creates cards that later participate in **Card Movement Resolution**.
+- **Deck Import** is rejected when the target player already has an imported deck in the **Room**.
+- A **Curated Deck** is imported through **Deck Import**.
+- A **Curated Deck** has one or more **Format Tags**.
 - A **Discord Room Invite** provisions access to one **Room**.
 
 ## Example Dialogue

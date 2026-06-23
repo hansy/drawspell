@@ -74,4 +74,32 @@ describe("party websocket handshake allowlist", () => {
     expect(mocks.routePartykitRequest).not.toHaveBeenCalled();
   });
 
+  it("allows arbitrary origins and hosts in development", async () => {
+    const joinToken = await createJoinToken(
+      { roomId: "room-dev", exp: Date.now() + 60_000 },
+      "join-secret",
+    );
+
+    const response = await server.fetch(
+      new Request(
+        `https://agent-specific-server.localhost/parties/rooms/room-dev?jt=${encodeURIComponent(joinToken)}`,
+        {
+          headers: {
+            Upgrade: "websocket",
+            Origin: "https://agent-specific-web.localhost",
+            Host: "agent-specific-server.localhost",
+          },
+        },
+      ),
+      {
+        JOIN_TOKEN_SECRET: "join-secret",
+        NODE_ENV: "development",
+      } as any,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe("upgraded");
+    expect(mocks.routePartykitRequest).toHaveBeenCalled();
+  });
+
 });

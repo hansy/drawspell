@@ -1,5 +1,5 @@
 const config = {
-  url: "ws://localhost:8787/parties/rooms/bench",
+  url: "wss://server.ds.localhost/parties/rooms/bench",
   connections: 20,
   messages: 5,
   timeoutMs: 15000,

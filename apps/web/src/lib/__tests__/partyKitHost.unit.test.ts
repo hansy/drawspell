@@ -12,16 +12,18 @@ describe("resolvePartyKitHost", () => {
   it("strips protocol and path segments", () => {
     expect(resolvePartyKitHost("https://example.com/parties/main"))
       .toBe("example.com");
-    expect(resolvePartyKitHost("http://localhost:8787")).toBe("localhost:8787");
+    expect(resolvePartyKitHost("https://server.ds.localhost/parties/main"))
+      .toBe("server.ds.localhost");
+    expect(resolvePartyKitHost("http://example.test:8787")).toBe("example.test:8787");
     expect(resolvePartyKitHost("wss://example.com/"))
       .toBe("example.com");
   });
 
   it("keeps host-only values and trims trailing slashes", () => {
-    expect(resolvePartyKitHost("localhost:8787"))
-      .toBe("localhost:8787");
-    expect(resolvePartyKitHost("localhost:8787/"))
-      .toBe("localhost:8787");
+    expect(resolvePartyKitHost("example.test:8787"))
+      .toBe("example.test:8787");
+    expect(resolvePartyKitHost("example.test:8787/"))
+      .toBe("example.test:8787");
     expect(resolvePartyKitHost("example.com/path"))
       .toBe("example.com");
   });

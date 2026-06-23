@@ -23,7 +23,8 @@
     "test:discord:smoke": "bun run --cwd apps/discord test:smoke"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "portless": "^0.14.0"
   },
   "workspaces": [
     "apps/*",
