@@ -1,5 +1,5 @@
 import React from "react";
-import { X } from "lucide-react";
+import { ScrollText, X } from "lucide-react";
 
 import type { LogMessage, LogMessagePart } from "@/logging/types";
 import type { Card, Player, Zone } from "@/types";
@@ -60,7 +60,15 @@ export const LogDrawerView: React.FC<LogDrawerViewProps> = ({
         className="flex-1 overflow-y-auto px-2 py-3 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent"
       >
         {entries.length === 0 ? (
-          <div className="text-zinc-500 text-xs text-center italic py-4">No events yet</div>
+          <div className="flex min-h-36 flex-col items-center justify-center gap-2 px-4 py-8 text-center">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-400">
+              <ScrollText size={17} />
+            </div>
+            <div className="text-sm font-medium text-zinc-300">No events yet</div>
+            <div className="max-w-40 text-xs leading-snug text-zinc-500">
+              Game actions will appear here.
+            </div>
+          </div>
         ) : (
           entries.map((entry) => (
             <LogEntryItem

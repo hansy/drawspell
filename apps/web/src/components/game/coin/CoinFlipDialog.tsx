@@ -1,7 +1,7 @@
 import React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
+import { GameDialogActionButton } from "@/components/game/dialog/GameDialogActionButton";
 
 export type CoinFlipDialogProps = {
   open: boolean;
@@ -13,6 +13,7 @@ const DEFAULT_COUNT = 1;
 
 export const CoinFlipDialog: React.FC<CoinFlipDialogProps> = ({ open, onClose, onFlip }) => {
   const countRef = React.useRef<HTMLInputElement | null>(null);
+  const countId = React.useId();
   const [count, setCount] = React.useState<string>(String(DEFAULT_COUNT));
 
   React.useEffect(() => {
@@ -53,10 +54,14 @@ export const CoinFlipDialog: React.FC<CoinFlipDialogProps> = ({ open, onClose, o
 
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
-            <label className="text-xs font-medium text-zinc-400 uppercase tracking-wide">
+            <label
+              htmlFor={countId}
+              className="block text-sm font-medium text-zinc-300"
+            >
               Number of coins
             </label>
             <Input
+              id={countId}
               ref={countRef}
               inputMode="numeric"
               pattern="[0-9]*"
@@ -76,20 +81,18 @@ export const CoinFlipDialog: React.FC<CoinFlipDialogProps> = ({ open, onClose, o
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
+          <GameDialogActionButton
+            intent="secondary"
             onClick={onClose}
-            className="bg-transparent border-zinc-700 hover:bg-zinc-800 text-zinc-300"
           >
             Cancel
-          </Button>
-          <Button
+          </GameDialogActionButton>
+          <GameDialogActionButton
             onClick={handleSubmit}
             disabled={!isValid}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white"
           >
             Flip
-          </Button>
+          </GameDialogActionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

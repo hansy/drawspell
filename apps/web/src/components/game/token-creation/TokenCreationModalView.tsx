@@ -4,6 +4,7 @@ import { Search, Plus, Minus, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
+import { GameDialogActionButton } from "@/components/game/dialog/GameDialogActionButton";
 
 import type { TokenCreationController } from "@/hooks/game/token-creation/useTokenCreationController";
 import { getPreviewDimensions } from "@/hooks/game/seat/useSeatSizing";
@@ -108,12 +109,28 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
                 })}
               </div>
             ) : hasSearched && query.length >= 3 ? (
-              <div className="flex items-center justify-center h-full text-zinc-500">
-                No tokens found.
+              <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-400">
+                  <Search size={17} />
+                </div>
+                <div className="text-sm font-medium text-zinc-300">
+                  No tokens found
+                </div>
+                <div className="max-w-52 text-xs leading-snug text-zinc-500">
+                  Check the spelling or try a different token name.
+                </div>
               </div>
             ) : (
-              <div className="flex items-center justify-center h-full text-zinc-600 text-sm">
-                Type at least 3 characters to search.
+              <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-400">
+                  <Search size={17} />
+                </div>
+                <div className="text-sm font-medium text-zinc-300">
+                  Type at least 3 characters
+                </div>
+                <div className="max-w-52 text-xs leading-snug text-zinc-500">
+                  Try Treasure, Goblin, or Soldier.
+                </div>
               </div>
             )}
           </div>
@@ -145,20 +162,19 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-2 xs:flex xs:gap-2">
-              <Button
-                variant="outline"
+              <GameDialogActionButton
+                intent="secondary"
                 onClick={handleClose}
-                className="border-zinc-700 hover:bg-zinc-800 text-zinc-300"
               >
                 Cancel
-              </Button>
-              <Button
+              </GameDialogActionButton>
+              <GameDialogActionButton
                 onClick={handleCreate}
                 disabled={!selectedToken}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white min-w-[100px]"
+                className="min-w-[100px]"
               >
                 Create
-              </Button>
+              </GameDialogActionButton>
             </div>
           </div>
         </div>

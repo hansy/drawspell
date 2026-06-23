@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
+import { GameDialogActionButton } from "@/components/game/dialog/GameDialogActionButton";
 import { cn } from "@/lib/utils";
 
 interface NumberPromptDialogProps {
@@ -111,12 +111,12 @@ export const NumberPromptDialog: React.FC<NumberPromptDialogProps> = ({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} className="bg-transparent border-zinc-700 hover:bg-zinc-800 text-zinc-300">
+          <GameDialogActionButton intent="secondary" onClick={onClose}>
             Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={!isValid} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+          </GameDialogActionButton>
+          <GameDialogActionButton onClick={handleSubmit} disabled={!isValid}>
             {confirmLabel ?? "Confirm"}
-          </Button>
+          </GameDialogActionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>
