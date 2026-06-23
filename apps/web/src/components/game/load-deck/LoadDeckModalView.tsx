@@ -67,7 +67,7 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
                 aria-describedby={textareaDescriptionId}
                 aria-invalid={Boolean(error)}
                 className={cn(
-                  "w-full h-[min(18rem,42dvh)] sm:h-64 bg-zinc-900 border border-zinc-800 rounded-md p-3 text-base lg:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none placeholder:text-zinc-600",
+                  "w-full h-[min(18rem,42dvh)] sm:h-64 bg-zinc-900 border border-zinc-800 rounded-md p-3 text-base lg:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 focus:border-transparent resize-none placeholder:text-zinc-600",
                   error && "border-red-500/60 focus:ring-red-500/70",
                 )}
               />
