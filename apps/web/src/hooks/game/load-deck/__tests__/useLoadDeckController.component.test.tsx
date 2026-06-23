@@ -11,10 +11,6 @@ const mocks = vi.hoisted(() => ({
   getYProvider: vi.fn(() => ({ wsconnected: true })),
 }));
 
-vi.mock("@/lib/featureFlags", () => ({
-  featureFlags: { curatedDecks: true },
-}));
-
 vi.mock("@/models/game/load-deck/loadDeckModel", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/models/game/load-deck/loadDeckModel")>();
   return {

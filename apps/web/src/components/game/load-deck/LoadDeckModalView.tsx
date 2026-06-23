@@ -29,7 +29,6 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
   error,
   isImporting,
   handleImport,
-  curatedDecksEnabled,
   curatedDecks,
   activeCuratedDeckId,
   handleCuratedDeckImport,
@@ -48,7 +47,7 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
           <div
             className={cn(
               "grid gap-4",
-              curatedDecksEnabled && "lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start"
+              curatedDecks.length > 0 && "lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start"
             )}
           >
             <div className="grid gap-3">
@@ -71,7 +70,7 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
               )}
             </div>
 
-            {curatedDecksEnabled && curatedDecks.length > 0 && (
+            {curatedDecks.length > 0 && (
               <React.Suspense fallback={null}>
                 <CuratedDeckPicker
                   decks={curatedDecks}

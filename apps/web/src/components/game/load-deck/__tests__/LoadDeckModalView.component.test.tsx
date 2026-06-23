@@ -18,7 +18,6 @@ const controller = (overrides: Partial<LoadDeckController> = {}) =>
     error: null,
     isImporting: false,
     handleImport: vi.fn(),
-    curatedDecksEnabled: false,
     curatedDecks,
     activeCuratedDeckId: null,
     handleCuratedDeckImport: vi.fn(),
@@ -26,15 +25,8 @@ const controller = (overrides: Partial<LoadDeckController> = {}) =>
   }) as LoadDeckController;
 
 describe("LoadDeckModalView", () => {
-  it("hides curated decks when the feature flag is disabled", () => {
-    render(<LoadDeckModalView {...controller({ curatedDecksEnabled: false })} />);
-
-    expect(screen.queryByText("Curated Decks")).toBeNull();
-    expect(screen.queryByRole("button", { name: /Avengers Assemble/ })).toBeNull();
-  });
-
-  it("renders curated decks grouped by format with mana symbols when enabled", async () => {
-    render(<LoadDeckModalView {...controller({ curatedDecksEnabled: true })} />);
+  it("renders curated decks grouped by format with mana symbols", async () => {
+    render(<LoadDeckModalView {...controller()} />);
 
     expect(await screen.findByText("Curated Decks")).not.toBeNull();
     expect(screen.queryByText("Pick one to fill the list and load it.")).toBeNull();

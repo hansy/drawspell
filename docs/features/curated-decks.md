@@ -1,8 +1,7 @@
 # Curated Decks
 
 Curated Decks are Drawspell-provided ready-to-import deck lists for players who
-want to enter a Room without preparing a list first. The feature is gated by the
-web build flag `VITE_ENABLE_CURATED_DECKS`.
+want to enter a Room without preparing a list first.
 
 ## Contract
 
@@ -27,8 +26,8 @@ web build flag `VITE_ENABLE_CURATED_DECKS`.
 - `starter` is used for onboarding decks such as 30-card Welcome Deck half-decks.
 - `standard` is reserved for decks intended to represent the official Standard
   format.
-- The picker shows card count and mana symbols from the deck's stored color
-  identity.
+- The picker shows each deck's format tag and mana symbols from the deck's
+  stored color identity.
 
 ## Data
 
@@ -39,14 +38,3 @@ Tags, color identity, card count, and sorting date.
 Commander Curated Decks include an explicit `Commander:` section so Drawspell can
 place the intended primary commander in the Commander Zone. Alternate commanders
 remain in the main deck unless a product explicitly uses co-commanders.
-
-## Feature Flag
-
-Set the web build variable to enable the feature:
-
-```sh
-bun run --cwd apps/web dev
-```
-
-Set `VITE_ENABLE_CURATED_DECKS=true` in `apps/web/.env.localhost`. Falsy or
-unset values hide the Curated Deck picker.

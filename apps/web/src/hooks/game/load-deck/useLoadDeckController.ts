@@ -8,7 +8,7 @@ import {
   validateDeckListLimits,
   validateImportResult,
 } from "@/services/deck-import/deckImport";
-import { featureFlags } from "@/lib/featureFlags";
+import { curatedDecks, type CuratedDeck } from "@/data/curatedDecks";
 import { useGameStore } from "@/store/gameStore";
 import { getYDocHandles, getYProvider } from "@/yjs/docManager";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
@@ -17,8 +17,6 @@ import {
   planDeckImport,
   shouldConfirmCuratedDeckReplacement,
 } from "@/models/game/load-deck/loadDeckModel";
-
-import type { CuratedDeck } from "@/data/curatedDecks";
 
 export type LoadDeckControllerInput = {
   isOpen: boolean;
@@ -36,7 +34,6 @@ export const useLoadDeckController = ({
   const [error, setError] = React.useState<string | null>(null);
   const [prefilledFromLastImport, setPrefilledFromLastImport] = React.useState(false);
   const [selectedCuratedDeckId, setSelectedCuratedDeckId] = React.useState<string | null>(null);
-  const [curatedDecks, setCuratedDecks] = React.useState<CuratedDeck[]>([]);
 
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const wasOpenRef = React.useRef(false);
@@ -52,22 +49,6 @@ export const useLoadDeckController = ({
 
   const lastImportedDeckText = useClientPrefsStore((state) => state.lastImportedDeckText);
   const setLastImportedDeckText = useClientPrefsStore((state) => state.setLastImportedDeckText);
-
-  React.useEffect(() => {
-    if (!featureFlags.curatedDecks || !isOpen) {
-      setCuratedDecks([]);
-      return;
-    }
-
-    let cancelled = false;
-    void import("@/data/curatedDecks").then((module) => {
-      if (!cancelled) setCuratedDecks(module.curatedDecks);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen]);
 
   React.useEffect(() => {
     const justOpened = isOpen && !wasOpenRef.current;
@@ -185,7 +166,7 @@ export const useLoadDeckController = ({
 
   const handleCuratedDeckImport = React.useCallback(
     (deck: CuratedDeck) => {
-      if (!featureFlags.curatedDecks || isImporting) return;
+      if (isImporting) return;
 
       if (
         shouldConfirmCuratedDeckReplacement(importText) &&
@@ -216,7 +197,6 @@ export const useLoadDeckController = ({
     error,
     isImporting,
     handleImport,
-    curatedDecksEnabled: featureFlags.curatedDecks,
     curatedDecks,
     activeCuratedDeckId: selectedCuratedDeckId,
     handleCuratedDeckImport,

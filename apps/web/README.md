@@ -36,7 +36,6 @@ Vite command is `bun run dev:app` and uses Vite mode `localhost`, which loads
 
 ## Configuration
 - Drawspell web/server origins are resolved from `@mtg/shared/constants/hosts` using `import.meta.env.VITE_ENV`.
-- `VITE_ENABLE_CURATED_DECKS`: enables the Curated Deck picker on the Load Deck screen when set to `true`, `1`, `yes`, or `on`.
 - `VITE_PUBLIC_POSTHOG_KEY` and `VITE_PUBLIC_POSTHOG_HOST`: public analytics build vars loaded from `apps/web/.env*`.
 - `JOIN_TOKEN_SECRET`: required runtime secret for issuing join tokens. Must match the secret used by `apps/server`. Set it with `wrangler secret put JOIN_TOKEN_SECRET` for production and `apps/web/.dev.vars` for local dev.
 - Worker runtime deploy config lives in `wrangler.jsonc`. `VITE_ENV` is injected from Vite mode for browser code and also set in Cloudflare worker vars.
