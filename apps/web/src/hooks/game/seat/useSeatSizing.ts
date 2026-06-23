@@ -14,6 +14,11 @@ export const SEAT_HAND_MAX_PCT = 0.4;
 export const PREVIEW_SCALE_K = 1.6;
 export const PREVIEW_MIN_WIDTH_PX = 80;
 export const PREVIEW_MIN_WIDTH_VIEWPORT_RATIO = 0.15;
+export const PREVIEW_LANDSCAPE_VIEWPORT_WIDTH_RATIO = 0.2;
+export const PREVIEW_PORTRAIT_VIEWPORT_WIDTH_RATIO = 0.6;
+export const PREVIEW_VIEWPORT_PADDING_PX = 16;
+export const PREVIEW_SIDE_CHROME_WIDTH_PX = 120;
+export const PREVIEW_TOP_CHROME_HEIGHT_PX = 64;
 export const PREVIEW_MAX_WIDTH_PX = 400;
 export const MIN_CARD_HEIGHT_PX = 80;
 export const SIDEBAR_MIN_WIDTH_PX = 120;
@@ -49,6 +54,7 @@ export interface SeatSizingOptions {
   handMaxPct?: number;
   previewScale?: number;
   viewportWidthPx?: number;
+  viewportHeightPx?: number;
   previewMinWidthPx?: number;
   previewMaxWidthPx?: number;
   modalPadPx?: number;
@@ -101,19 +107,30 @@ export const getPreviewDimensions = (
   options: {
     previewScale?: number;
     viewportWidthPx?: number;
+    viewportHeightPx?: number;
     previewMinWidthPx?: number;
     previewMaxWidthPx?: number;
+    viewportPaddingPx?: number;
+    sideChromeWidthPx?: number;
+    topChromeHeightPx?: number;
   } = {},
 ) => {
   const {
     previewScale = PREVIEW_SCALE_K,
     viewportWidthPx,
+    viewportHeightPx,
     previewMinWidthPx = PREVIEW_MIN_WIDTH_PX,
     previewMaxWidthPx = PREVIEW_MAX_WIDTH_PX,
+    viewportPaddingPx = PREVIEW_VIEWPORT_PADDING_PX,
+    sideChromeWidthPx = PREVIEW_SIDE_CHROME_WIDTH_PX,
+    topChromeHeightPx = PREVIEW_TOP_CHROME_HEIGHT_PX,
   } = options;
   const resolvedViewportWidthPx =
     resolvePositiveFiniteNumber(viewportWidthPx) ??
     (typeof window !== "undefined" ? window.innerWidth : undefined);
+  const resolvedViewportHeightPx =
+    resolvePositiveFiniteNumber(viewportHeightPx) ??
+    (typeof window !== "undefined" ? window.innerHeight : undefined);
   const resolvedPreviewMinWidthPx = getPreviewMinWidthPx(
     resolvedViewportWidthPx,
     previewMinWidthPx,
@@ -121,10 +138,48 @@ export const getPreviewDimensions = (
   const resolvedBaseWidth =
     resolvePositiveFiniteNumber(baseCardWidthPx) ??
     BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;
+  const viewportFitWidthPx =
+    resolvedViewportWidthPx !== undefined && resolvedViewportHeightPx !== undefined
+      ? Math.min(
+          Math.max(0, resolvedViewportWidthPx - viewportPaddingPx * 2 - sideChromeWidthPx),
+          Math.max(0, resolvedViewportHeightPx - viewportPaddingPx * 2 - topChromeHeightPx) *
+            CARD_ASPECT_RATIO,
+        )
+      : undefined;
+  const portraitViewportTargetWidthPx =
+    viewportFitWidthPx !== undefined &&
+    resolvedViewportWidthPx !== undefined &&
+    resolvedViewportHeightPx !== undefined &&
+    resolvedViewportWidthPx < resolvedViewportHeightPx
+      ? Math.min(
+          viewportFitWidthPx,
+          resolvedViewportWidthPx * PREVIEW_PORTRAIT_VIEWPORT_WIDTH_RATIO,
+        )
+      : undefined;
+  const landscapeViewportTargetWidthPx =
+    viewportFitWidthPx !== undefined &&
+    resolvedViewportWidthPx !== undefined &&
+    resolvedViewportHeightPx !== undefined &&
+    resolvedViewportWidthPx >= Number.parseFloat(DEFAULT_LG_BREAKPOINT) &&
+    resolvedViewportWidthPx >= resolvedViewportHeightPx
+      ? Math.min(
+          viewportFitWidthPx,
+          resolvedViewportWidthPx * PREVIEW_LANDSCAPE_VIEWPORT_WIDTH_RATIO,
+        )
+      : undefined;
+  const viewportTargetWidthPx =
+    portraitViewportTargetWidthPx ?? landscapeViewportTargetWidthPx;
+  const previewMaxAllowedWidthPx =
+    viewportTargetWidthPx !== undefined && viewportFitWidthPx !== undefined
+      ? Math.min(previewMaxWidthPx, viewportFitWidthPx)
+      : previewMaxWidthPx;
   const previewWidthPx = clamp(
-    resolvedBaseWidth * previewScale,
+    Math.max(
+      resolvedBaseWidth * previewScale,
+      viewportTargetWidthPx ?? 0,
+    ),
     resolvedPreviewMinWidthPx,
-    previewMaxWidthPx,
+    previewMaxAllowedWidthPx,
   );
   return {
     previewWidthPx,
@@ -147,6 +202,7 @@ export const computeSeatSizing = (
     handMaxPct = SEAT_HAND_MAX_PCT,
     previewScale = PREVIEW_SCALE_K,
     viewportWidthPx,
+    viewportHeightPx,
     previewMinWidthPx = PREVIEW_MIN_WIDTH_PX,
     previewMaxWidthPx = PREVIEW_MAX_WIDTH_PX,
     modalPadPx = MODAL_PAD_PX,
@@ -252,6 +308,7 @@ export const computeSeatSizing = (
     {
       previewScale,
       viewportWidthPx: viewportWidthPx ?? seatWidth,
+      viewportHeightPx: viewportHeightPx ?? seatHeight,
       previewMinWidthPx,
       previewMaxWidthPx,
     },
@@ -349,6 +406,7 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
     handMaxPct = SEAT_HAND_MAX_PCT,
     previewScale = PREVIEW_SCALE_K,
     viewportWidthPx,
+    viewportHeightPx,
     previewMinWidthPx = PREVIEW_MIN_WIDTH_PX,
     previewMaxWidthPx = PREVIEW_MAX_WIDTH_PX,
     modalPadPx = MODAL_PAD_PX,
@@ -377,6 +435,9 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
       viewportWidthPx:
         viewportWidthPx ??
         (typeof window !== "undefined" ? window.innerWidth : undefined),
+      viewportHeightPx:
+        viewportHeightPx ??
+        (typeof window !== "undefined" ? window.innerHeight : undefined),
       previewMinWidthPx,
       previewMaxWidthPx,
       modalPadPx,
@@ -391,6 +452,7 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
     handMaxPct,
     previewScale,
     viewportWidthPx,
+    viewportHeightPx,
     previewMinWidthPx,
     previewMaxWidthPx,
     modalPadPx,

@@ -32,6 +32,7 @@ import {
   isAbortedShareLinksRequest,
   requestShareLinks,
 } from "@/partykit/shareLinksClient";
+import { getPortraitViewportMatch } from "@/models/game/board/viewportModel";
 
 const IDLE_TIMEOUT_MS = 10 * 60_000;
 const IDLE_POLL_MS = 30_000;
@@ -52,10 +53,7 @@ const getGridClass = (layoutMode: LayoutMode) => {
 
 const getDefaultLogOpen = () => {
   if (typeof window === "undefined" || !window.matchMedia) return true;
-  const isPortraitTouch =
-    window.matchMedia("(pointer: coarse)").matches &&
-    window.matchMedia("(orientation: portrait)").matches;
-  return !isPortraitTouch;
+  return !getPortraitViewportMatch(window.matchMedia);
 };
 
 export const useMultiplayerBoardController = (sessionId: string) => {

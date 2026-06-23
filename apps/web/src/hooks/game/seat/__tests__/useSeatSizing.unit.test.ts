@@ -15,7 +15,10 @@ import {
   getPreviewMinWidthPx,
   PREVIEW_MAX_WIDTH_PX,
   PREVIEW_MIN_WIDTH_PX,
+  PREVIEW_SIDE_CHROME_WIDTH_PX,
   PREVIEW_SCALE_K,
+  PREVIEW_TOP_CHROME_HEIGHT_PX,
+  PREVIEW_VIEWPORT_PADDING_PX,
   SIDEBAR_MIN_WIDTH_PX,
   SIDEBAR_WIDTH_SCALE_K,
   BATTLEFIELD_MAX_WIDTH_SHARE,
@@ -92,16 +95,64 @@ describe("computeSeatSizing", () => {
     expect(result.previewWidthPx).toBe(PREVIEW_MIN_WIDTH_PX);
   });
 
-  it("uses 15vw when it exceeds the floor", () => {
+  it("uses 15vw when it exceeds the floor below the desktop viewport target", () => {
     const result = computeSeatSizing({
       seatWidth: 600,
       seatHeight: 400,
       previewScale: 1,
-      viewportWidthPx: 1200,
+      viewportWidthPx: 900,
     });
 
-    expect(getPreviewMinWidthPx(1200)).toBe(180);
-    expect(result.previewWidthPx).toBe(180);
+    expect(getPreviewMinWidthPx(900)).toBe(135);
+    expect(result.previewWidthPx).toBe(135);
+  });
+
+  it("uses viewport-fit sizing for portrait phone preview fallback with preview chrome", () => {
+    const result = computeSeatSizing({
+      seatWidth: 369,
+      seatHeight: 619,
+      viewportWidthPx: 369,
+      viewportHeightPx: 619,
+    });
+
+    expect(result.previewWidthPx).toBeGreaterThanOrEqual(210);
+    expect(result.previewWidthPx + PREVIEW_SIDE_CHROME_WIDTH_PX).toBeLessThanOrEqual(
+      369 - PREVIEW_VIEWPORT_PADDING_PX * 2,
+    );
+    expect(result.previewHeightPx + PREVIEW_TOP_CHROME_HEIGHT_PX).toBeLessThanOrEqual(
+      619 - PREVIEW_VIEWPORT_PADDING_PX * 2,
+    );
+    expect(result.previewHeightPx).toBeCloseTo(result.previewWidthPx * 1.5, 6);
+  });
+
+  it("caps portrait preview width when base scale would exceed chrome-safe viewport width", () => {
+    const result = computeSeatSizing({
+      seatWidth: 369,
+      seatHeight: 1400,
+      viewportWidthPx: 369,
+      viewportHeightPx: 1400,
+    });
+
+    expect(result.previewWidthPx + PREVIEW_SIDE_CHROME_WIDTH_PX).toBeLessThanOrEqual(
+      369 - PREVIEW_VIEWPORT_PADDING_PX * 2,
+    );
+  });
+
+  it("uses a landscape viewport target for desktop previews while preserving preview chrome", () => {
+    const result = computeSeatSizing({
+      seatWidth: 1280,
+      seatHeight: 720,
+      viewportWidthPx: 1280,
+      viewportHeightPx: 720,
+    });
+
+    expect(result.previewWidthPx).toBeCloseTo(256);
+    expect(result.previewWidthPx + PREVIEW_SIDE_CHROME_WIDTH_PX).toBeLessThanOrEqual(
+      1280 - PREVIEW_VIEWPORT_PADDING_PX * 2,
+    );
+    expect(result.previewHeightPx + PREVIEW_TOP_CHROME_HEIGHT_PX).toBeLessThanOrEqual(
+      720 - PREVIEW_VIEWPORT_PADDING_PX * 2,
+    );
   });
 
   it("keeps side zones aspect-locked while fitting vertically", () => {

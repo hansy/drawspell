@@ -210,6 +210,30 @@ describe("MultiplayerBoardView portrait seat indicator", () => {
     });
   });
 
+  it("uses portrait layout for narrow desktop browser viewports", () => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches:
+          query === "(orientation: portrait)" || query === "(max-width: 768px)",
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+
+    renderBoard([
+      { id: "p2", name: "Player Two", color: "violet", position: "top-left" },
+      { id: "p1", name: "Player One", color: "sky", position: "bottom-left" },
+    ]);
+
+    expect(screen.getByTestId("portrait-seat-indicator")).toBeTruthy();
+  });
+
   it("uses a vertical mini-map for two-player portrait games", () => {
     renderBoard([
       { id: "p2", name: "Player Two", color: "violet", position: "top-left" },

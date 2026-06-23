@@ -18,6 +18,8 @@ import {
   getPreviewDimensions,
   getPreviewMinWidthPx,
   PREVIEW_MAX_WIDTH_PX,
+  PREVIEW_SIDE_CHROME_WIDTH_PX,
+  PREVIEW_TOP_CHROME_HEIGHT_PX,
 } from "@/hooks/game/seat/useSeatSizing";
 import {
   getDisplayPower,
@@ -26,7 +28,7 @@ import {
   getMorphDisplayStat,
   isMorphFaceDown,
   FACE_DOWN_MORPH_STAT,
-  shouldShowPowerToughness,
+  shouldShowZonePowerToughness,
 } from "@/lib/cardDisplay";
 import { canViewerSeeCardIdentity } from "@/lib/reveal";
 import { CardPreviewView } from "./CardPreviewView";
@@ -46,6 +48,17 @@ const EDGE_PADDING_RATIO = 0.06;
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
+
+const getViewportSize = () => {
+  if (typeof window === "undefined") {
+    return { width: undefined, height: undefined };
+  }
+
+  return {
+    width: window.visualViewport?.width ?? window.innerWidth,
+    height: window.visualViewport?.height ?? window.innerHeight,
+  };
+};
 
 export const CardPreview: React.FC<CardPreviewProps> = ({
   card,
@@ -77,9 +90,9 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   );
   const maskFaceDown = faceDownOnBattlefield && !canPeek;
   const morphFaceDown = isMorphFaceDown(currentCard, maskFaceDown);
-  const showPT = maskFaceDown
-    ? morphFaceDown
-    : shouldShowPowerToughness(currentCard);
+  const showPT = shouldShowZonePowerToughness(currentCard, zoneType, {
+    faceDown: maskFaceDown,
+  });
   const displayPower = maskFaceDown
     ? morphFaceDown
       ? getMorphDisplayStat(currentCard, "power")
@@ -98,6 +111,10 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     maskFaceDown && morphFaceDown
       ? FACE_DOWN_MORPH_STAT
       : currentCard.baseToughness;
+  const isHand = zoneType === ZONE.HAND;
+
+  // If in hand, we hide ancillary things.
+  const showAncillary = !isHand;
 
   // Local face override for previewing DFCs
   const [overrideFaceIndex, setOverrideFaceIndex] = useState<number | null>(
@@ -107,14 +124,13 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   const [previewWidthFromAnchor, setPreviewWidthFromAnchor] = useState<
     number | null
   >(null);
-  const [viewportWidthPx, setViewportWidthPx] = useState<number | undefined>(
-    typeof window !== "undefined" ? window.innerWidth : undefined,
-  );
+  const [viewportSizePx, setViewportSizePx] = useState(getViewportSize);
   const { previewWidthPx: fallbackWidthPx } = getPreviewDimensions(undefined, {
-    viewportWidthPx,
+    viewportWidthPx: viewportSizePx.width,
+    viewportHeightPx: viewportSizePx.height,
   });
   const previewMinWidthPx = getPreviewMinWidthPx(
-    viewportWidthPx,
+    viewportSizePx.width,
   );
   const previewWidthPx = clamp(
     previewWidthFromAnchor ?? width ?? fallbackWidthPx,
@@ -127,6 +143,15 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     MAX_EDGE_PADDING,
     Math.max(gap, Math.round(previewHeightPx * EDGE_PADDING_RATIO)),
   );
+  const floatingPadding = React.useMemo(
+    () => ({
+      top: edgePadding + PREVIEW_TOP_CHROME_HEIGHT_PX,
+      right: edgePadding + PREVIEW_SIDE_CHROME_WIDTH_PX,
+      bottom: edgePadding,
+      left: edgePadding,
+    }),
+    [edgePadding],
+  );
 
   const fallbackPlacements = React.useMemo<Placement[]>(
     () => ["bottom", "left", "right"],
@@ -135,10 +160,10 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   const middleware = React.useMemo(
     () => [
       offset(gap),
-      flip({ fallbackPlacements, padding: edgePadding }),
-      shift({ padding: edgePadding }),
+      flip({ fallbackPlacements, padding: floatingPadding }),
+      shift({ padding: floatingPadding }),
     ],
-    [edgePadding, fallbackPlacements, gap],
+    [floatingPadding, fallbackPlacements, gap],
   );
   const { refs, floatingStyles, update, x, y } = useFloating({
     placement: "top",
@@ -163,11 +188,11 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
       typeof window === "undefined" ||
       typeof getComputedStyle === "undefined"
     ) {
-      setViewportWidthPx(undefined);
+      setViewportSizePx({ width: undefined, height: undefined });
       setPreviewWidthFromAnchor(null);
       return;
     }
-    setViewportWidthPx(window.innerWidth);
+    setViewportSizePx(getViewportSize());
     const resolvedAnchor = resolveAnchor();
     if (!resolvedAnchor) {
       setPreviewWidthFromAnchor(null);
@@ -208,7 +233,11 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
       updatePreviewWidth();
     };
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    window.visualViewport?.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.visualViewport?.removeEventListener("resize", handleResize);
+    };
   }, [updatePreviewWidth]);
 
   useEffect(() => {
@@ -235,13 +264,13 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   };
 
   const isPositioned = x != null && y != null;
-  const previewStyle: React.CSSProperties = {
+  const previewStyle = {
     ...floatingStyles,
     width: previewWidthPx,
     height: previewHeightPx,
     opacity: isPositioned ? 1 : 0,
     visibility: isPositioned ? "visible" : "hidden",
-  };
+  } as React.CSSProperties;
 
   const effectiveFaceIndex =
     overrideFaceIndex ?? currentCard.currentFaceIndex ?? 0;
@@ -259,10 +288,6 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   };
 
   const isController = currentCard.controllerId === myPlayerId;
-  const isHand = zoneType === ZONE.HAND;
-
-  // If in hand, we hide ancillary things
-  const showAncillary = !isHand;
 
   const showControllerRevealIcon = Boolean(
     locked &&

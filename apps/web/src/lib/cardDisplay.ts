@@ -1,4 +1,5 @@
-import { Card } from "@/types";
+import type { Card, ZoneType } from "@/types";
+import { ZONE } from "@/constants/zones";
 import { parsePTCounterType } from "@mtg/shared/counters";
 import {
   ScryfallCardFaceLite,
@@ -141,6 +142,16 @@ export const shouldShowPowerToughness = (card: Card): boolean => {
     return currentFace.power !== undefined && currentFace.toughness !== undefined;
   }
   return false;
+};
+
+export const shouldShowZonePowerToughness = (
+  card: Card,
+  zoneType: ZoneType | undefined,
+  options: { faceDown?: boolean; hidePT?: boolean } = {},
+): boolean => {
+  if (zoneType !== ZONE.BATTLEFIELD || options.hidePT) return false;
+  if (options.faceDown) return isMorphFaceDown(card, true);
+  return shouldShowPowerToughness(card);
 };
 
 export const getDisplayPower = (card: Card): string | undefined => {

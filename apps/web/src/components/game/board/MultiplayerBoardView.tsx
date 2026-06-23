@@ -34,6 +34,12 @@ import { TokenCreationModal } from "../token-creation/TokenCreationModal";
 import { ZoneViewerModal } from "../zone-viewer/ZoneViewerModal";
 import { EditUsernameDialog } from "@/components/username/EditUsernameDialog";
 import { ShareRoomDialog } from "@/components/game/share/ShareRoomDialog";
+import {
+  COARSE_POINTER_QUERY,
+  getPortraitViewportMatch,
+  NARROW_VIEWPORT_QUERY,
+  PORTRAIT_ORIENTATION_QUERY,
+} from "@/models/game/board/viewportModel";
 
 import type { MultiplayerBoardController } from "@/hooks/game/board/useMultiplayerBoardController";
 
@@ -156,27 +162,28 @@ const resolveSwipeTargetSeat = (
 const usePortraitViewport = () => {
   const getMatches = React.useCallback(() => {
     if (typeof window === "undefined" || !window.matchMedia) return false;
-    return (
-      window.matchMedia("(orientation: portrait)").matches &&
-      window.matchMedia("(pointer: coarse)").matches
-    );
+    return getPortraitViewportMatch(window.matchMedia);
   }, []);
 
   const [matches, setMatches] = React.useState(getMatches);
 
   React.useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
-    const orientationMedia = window.matchMedia("(orientation: portrait)");
-    const pointerMedia = window.matchMedia("(pointer: coarse)");
-    const sync = () => setMatches(orientationMedia.matches && pointerMedia.matches);
+    const orientationMedia = window.matchMedia(PORTRAIT_ORIENTATION_QUERY);
+    const pointerMedia = window.matchMedia(COARSE_POINTER_QUERY);
+    const narrowMedia = window.matchMedia(NARROW_VIEWPORT_QUERY);
+    const sync = () =>
+      setMatches(getPortraitViewportMatch(window.matchMedia));
 
     sync();
     orientationMedia.addEventListener?.("change", sync);
     pointerMedia.addEventListener?.("change", sync);
+    narrowMedia.addEventListener?.("change", sync);
 
     return () => {
       orientationMedia.removeEventListener?.("change", sync);
       pointerMedia.removeEventListener?.("change", sync);
+      narrowMedia.removeEventListener?.("change", sync);
     };
   }, []);
 

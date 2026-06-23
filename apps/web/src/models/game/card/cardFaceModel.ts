@@ -7,7 +7,7 @@ import {
   getDisplayToughness,
   getMorphDisplayStat,
   isMorphFaceDown,
-  shouldShowPowerToughness,
+  shouldShowZonePowerToughness,
   FACE_DOWN_MORPH_STAT,
 } from "@/lib/cardDisplay";
 import { resolveCounterColor } from "@/lib/counters";
@@ -68,10 +68,10 @@ export const createCardFaceModel = (params: {
   const isFaceDown = Boolean(params.faceDown && isBattlefield);
   const morphFaceDown = isMorphFaceDown(params.card, isFaceDown);
 
-  const showPT =
-    isBattlefield &&
-    !(params.hidePT ?? false) &&
-    (isFaceDown ? morphFaceDown : shouldShowPowerToughness(params.card));
+  const showPT = shouldShowZonePowerToughness(params.card, params.zoneType, {
+    faceDown: isFaceDown,
+    hidePT: params.hidePT,
+  });
 
   const displayPower = isFaceDown
     ? morphFaceDown
