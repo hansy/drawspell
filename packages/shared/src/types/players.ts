@@ -17,6 +17,11 @@ const isLegacyLibraryTopRevealMode = (
 ): value is LegacyLibraryTopRevealMode =>
   value === "self" || value === "others" || value === "all";
 
+const isLibraryTopRevealObject = (
+  value: unknown,
+): value is LibraryTopReveal =>
+  Boolean(value) && typeof value === "object";
+
 const uniquePlayerIds = (value: unknown): PlayerId[] => {
   if (!Array.isArray(value)) return [];
   return Array.from(
@@ -29,11 +34,10 @@ const uniquePlayerIds = (value: unknown): PlayerId[] => {
 const normalizeLibraryTopRevealObject = (
   value: unknown,
 ): LibraryTopReveal | undefined => {
-  if (!value || typeof value !== "object") return undefined;
+  if (!isLibraryTopRevealObject(value)) return undefined;
 
-  const record = value as Record<string, unknown>;
-  const toAll = record.toAll === true;
-  const to = uniquePlayerIds(record.to);
+  const toAll = value.toAll === true;
+  const to = uniquePlayerIds(value.to);
 
   if (!toAll && to.length === 0) return undefined;
   return {
@@ -120,7 +124,7 @@ export const libraryTopRevealIsSelfOnly = (
 ) => {
   if (!reveal) return false;
   if (reveal === "self") return true;
-  if (typeof reveal === "string") return false;
+  if (!isLibraryTopRevealObject(reveal)) return false;
   if (reveal.toAll) return false;
   const selectedIds = uniquePlayerIds(reveal.to ?? []);
   return selectedIds.length === 1 && selectedIds[0] === ownerId;
@@ -131,7 +135,7 @@ export const libraryTopRevealIsAllPlayers = (
 ) => {
   if (!reveal) return false;
   if (reveal === "all") return true;
-  return typeof reveal === "object" && reveal.toAll === true;
+  return isLibraryTopRevealObject(reveal) && reveal.toAll === true;
 };
 
 export interface Player {
