@@ -2,6 +2,7 @@ import React from "react";
 
 import { cn } from "@/lib/utils";
 import type { Zone as ZoneType, Card as CardType, ZoneId } from "@/types";
+import { Tooltip } from "@/components/ui/tooltip";
 import { Card } from "../card/Card";
 import { Zone } from "../zone/Zone";
 
@@ -216,59 +217,66 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
                       card={card}
                       className="w-full h-full lg:!w-full lg:!h-full"
                     />
-                    <div className="absolute right-0 top-2 translate-x-1/2 z-40 pointer-events-auto">
-                      <div className="relative flex items-center justify-center w-[112px] h-8">
-                        {isOwner && (
-                          <button
-                            type="button"
-                            aria-label={`Decrease commander tax for ${card.name}`}
-                            className={cn(
-                              "absolute left-0 w-8 h-8 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-full text-white text-xs border border-zinc-600 transition-all",
-                              taxControlsVisible
-                                ? "opacity-100 scale-100 pointer-events-auto"
-                                : "opacity-0 scale-90 pointer-events-none group-hover/commander-card:opacity-100 group-hover/commander-card:scale-100 group-hover/commander-card:pointer-events-auto",
-                              !canDecrement && "opacity-0 cursor-not-allowed pointer-events-none"
-                            )}
-                            disabled={!canDecrement}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleTaxDelta(card, -2);
-                            }}
-                          >
-                            -2
-                          </button>
+                    <div className="absolute right-1 top-1 z-40 pointer-events-auto">
+                      <div
+                        className={cn(
+                          "grid h-7 grid-cols-[0fr_auto_0fr] items-center rounded-full border border-zinc-700 bg-zinc-950/90 px-1 shadow-lg ring-1 ring-black/50 transition-[grid-template-columns,border-color] duration-150 ease-out group-hover/commander-card:grid-cols-[1fr_auto_1fr]",
+                          taxControlsVisible && "grid-cols-[1fr_auto_1fr] border-indigo-300"
                         )}
-                        <div
-                          className={cn(
-                            "bg-zinc-950 border-2 border-zinc-500 rounded-full w-8 h-8 flex items-center justify-center text-xs font-bold text-white shadow-lg ring-1 ring-black/50 pointer-events-auto",
-                            taxControlsVisible && "border-indigo-300 ring-indigo-300/70"
+                      >
+                        <div className="min-w-0 overflow-hidden">
+                          {isOwner && (
+                            <Tooltip content="Subtract commander tax" placement="top">
+                              <button
+                                type="button"
+                                aria-label={`Decrease commander tax for ${card.name}`}
+                                className={cn(
+                                  "flex h-5 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white",
+                                  !canDecrement && "cursor-not-allowed opacity-40"
+                                )}
+                                disabled={!canDecrement}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleTaxDelta(card, -2);
+                                }}
+                              >
+                                -2
+                              </button>
+                            </Tooltip>
                           )}
-                          onPointerDown={(e) => {
-                            if (e.pointerType !== "touch") return;
-                            e.stopPropagation();
-                            setActiveTaxCardId(card.id);
-                          }}
-                        >
-                          {taxValue}
                         </div>
-                        {isOwner && (
-                          <button
-                            type="button"
-                            aria-label={`Increase commander tax for ${card.name}`}
+                        <Tooltip content="Commander tax" placement="top">
+                          <div
                             className={cn(
-                              "absolute right-0 w-8 h-8 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-full text-white text-xs border border-zinc-600 transition-all",
-                              taxControlsVisible
-                                ? "opacity-100 scale-100 pointer-events-auto"
-                                : "opacity-0 scale-90 pointer-events-none group-hover/commander-card:opacity-100 group-hover/commander-card:scale-100 group-hover/commander-card:pointer-events-auto"
+                              "flex h-5 min-w-5 items-center justify-center rounded-full border border-zinc-500 bg-zinc-900 px-1 text-[11px] font-bold text-white pointer-events-auto transition-colors",
+                              taxControlsVisible && "border-indigo-300 ring-indigo-300/70"
                             )}
-                            onClick={(e) => {
+                            onPointerDown={(e) => {
+                              if (e.pointerType !== "touch") return;
                               e.stopPropagation();
-                              handleTaxDelta(card, 2);
+                              setActiveTaxCardId(card.id);
                             }}
                           >
-                            +2
-                          </button>
-                        )}
+                            {taxValue}
+                          </div>
+                        </Tooltip>
+                        <div className="min-w-0 overflow-hidden">
+                          {isOwner && (
+                            <Tooltip content="Add commander tax" placement="top">
+                              <button
+                                type="button"
+                                aria-label={`Increase commander tax for ${card.name}`}
+                                className="flex h-5 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleTaxDelta(card, 2);
+                                }}
+                              >
+                                +2
+                              </button>
+                            </Tooltip>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
