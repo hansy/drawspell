@@ -3,6 +3,7 @@ import {
   useSensor,
   useSensors,
   MouseSensor,
+  TouchSensor,
   DragEndEvent,
   DragMoveEvent,
   DragStartEvent,
@@ -17,6 +18,7 @@ import {
   computeBattlefieldGroupGhostCards,
   computeDragEndPlan,
   computeDragMoveUiState,
+  getHandEdgeInset,
   computeSameHandEdgePreviewIndex,
   shouldUseSameHandDropFallback,
 } from "./model";
@@ -40,21 +42,18 @@ import {
   summarizeCardElement,
   summarizeDragOverlayElement,
   summarizeGhostElement,
+  summarizeHandScrollElement,
   summarizeRect,
   summarizeRectPointerRelation,
   summarizeZoneElement,
   type DebugFlagKey,
 } from "@/lib/debug";
-import {
-  PrimedTouchSensor,
-  TOUCH_CONTEXT_MENU_LONG_PRESS_MS,
-  TOUCH_DRAG_PRIME_DELAY_MS,
-} from "./primedTouchSensor";
 
 const FACE_DOWN_DEBUG_KEY: DebugFlagKey = "faceDownDrag";
 const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
 const DEFAULT_DRAG_TRANSFORM_ORIGIN = "50% 50%";
+const TOUCH_DRAG_MOVE_DISTANCE_PX = 32;
 
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
@@ -362,9 +361,10 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         distance: 8,
       },
     }),
-    useSensor(PrimedTouchSensor, {
-      primeDelayMs: TOUCH_DRAG_PRIME_DELAY_MS,
-      contextMenuDelayMs: TOUCH_CONTEXT_MENU_LONG_PRESS_MS,
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        distance: TOUCH_DRAG_MOVE_DISTANCE_PX,
+      },
     })
   );
 
@@ -383,6 +383,12 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     toZoneId: ZoneId;
     position: { x: number; y: number };
   } | null>(null);
+  const lastHandEdgeDebugRef = React.useRef<{
+    zoneId: ZoneId;
+    targetIndex: number | null;
+    scrollLeft: number | null;
+    pointerBucket: number | null;
+  } | null>(null);
 
   const handleDragStart = (event: DragStartEvent) => {
     if (isSpectator) return;
@@ -390,6 +396,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     dragSelectionRef.current = null;
     dragAnchorRef.current = null;
     lastSingleBattlefieldPreviewRef.current = null;
+    lastHandEdgeDebugRef.current = null;
     loggedMissingGhostRef.current = false;
 
     releasePendingDropSourceElements(
@@ -577,12 +584,13 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       delta: event.delta,
     });
     const activeSourceZone = activeCard ? state.zones[activeCard.zoneId] : null;
+    const sourceHandRect =
+      activeSourceZone?.type === ZONE.HAND
+        ? getZoneElementRect(activeSourceZone.id)
+        : null;
     const handPreviewTargetIndex = computeSameHandEdgePreviewIndex({
       sourceZone: activeSourceZone,
-      sourceHandRect:
-        activeSourceZone?.type === ZONE.HAND
-          ? getZoneElementRect(activeSourceZone.id)
-          : null,
+      sourceHandRect,
       pointerScreen,
       cardCount: activeSourceZone?.cardIds.length ?? 0,
     });
@@ -595,6 +603,65 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
           }
         : null
     );
+    if (activeCardId && activeSourceZone?.type === ZONE.HAND) {
+      const scrollElement = summarizeHandScrollElement(activeSourceZone.id);
+      const edgeInset = sourceHandRect ? getHandEdgeInset(sourceHandRect) : null;
+      const pointerLocalX =
+        pointerScreen && sourceHandRect ? pointerScreen.x - sourceHandRect.left : null;
+      const pointerBucket =
+        typeof pointerLocalX === "number" ? Math.round(pointerLocalX / 8) : null;
+      const scrollLeft =
+        scrollElement && typeof scrollElement.scrollLeft === "number"
+          ? Math.round(scrollElement.scrollLeft)
+          : null;
+      const previous = lastHandEdgeDebugRef.current;
+      const shouldLog =
+        !previous ||
+        previous.zoneId !== activeSourceZone.id ||
+        previous.targetIndex !== handPreviewTargetIndex ||
+        previous.scrollLeft !== scrollLeft ||
+        previous.pointerBucket !== pointerBucket;
+      if (shouldLog) {
+        lastHandEdgeDebugRef.current = {
+          zoneId: activeSourceZone.id,
+          targetIndex: handPreviewTargetIndex,
+          scrollLeft,
+          pointerBucket,
+        };
+        debugLog(BATTLEFIELD_DND_DEBUG_KEY, "hand-drag-edge", {
+          seq: currentDragSeq.current,
+          cardId: activeCardId,
+          zoneId: activeSourceZone.id,
+          cardCount: activeSourceZone.cardIds.length,
+          pointerScreen,
+          pointerLocalX,
+          edgeInset,
+          leftEdge:
+            sourceHandRect && edgeInset !== null
+              ? sourceHandRect.left + edgeInset
+              : null,
+          rightEdge:
+            sourceHandRect && edgeInset !== null
+              ? sourceHandRect.right - edgeInset
+              : null,
+          targetIndex: handPreviewTargetIndex,
+          over: over
+            ? {
+                id: over.id,
+                type: over.data.current?.type,
+                rect: summarizeRectLike(over.rect),
+              }
+            : null,
+          sourceHandRect: summarizeRectLike(sourceHandRect),
+          scrollElement,
+          activeRectTranslated: summarizeRectLike(active.rect.current?.translated),
+          dndGeometry: summarizeDndCardGeometry(activeCardId, {
+            pointer: pointerScreen,
+            dragAnchor: dragAnchorRef.current,
+          }),
+        });
+      }
+    }
 
     const result = computeDragMoveUiState({
       myPlayerId,

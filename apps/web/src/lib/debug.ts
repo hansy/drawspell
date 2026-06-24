@@ -1,6 +1,6 @@
 export const DEBUG_FLAGS = {
   faceDownDrag: false,
-  battlefieldDnd: false,
+  battlefieldDnd: import.meta.env.DEV && import.meta.env.MODE !== "test",
 } as const;
 
 export type DebugFlagKey = keyof typeof DEBUG_FLAGS;
@@ -10,6 +10,7 @@ const DEBUG_QUERY_PREFIX = "debug";
 const DEBUG_LOG_PREFIX = "[DEBUG-drawspell]";
 const DEBUG_EVENT_DOM_ID = "__drawspell-debug-events";
 const DEBUG_EVENT_DOM_LIMIT = 300;
+const DEBUG_EVENT_STORAGE_KEY = "drawspell:debug-events";
 
 declare global {
   interface Window {
@@ -73,6 +74,21 @@ const publishDebugEventsToDom = () => {
   );
 };
 
+const publishDebugEventsToStorage = () => {
+  if (typeof window === "undefined") return;
+  const events = window.__drawspellDebugEvents;
+  if (!events) return;
+
+  try {
+    window.localStorage.setItem(
+      DEBUG_EVENT_STORAGE_KEY,
+      JSON.stringify(events.slice(-DEBUG_EVENT_DOM_LIMIT))
+    );
+  } catch (_err) {
+    // Debug logging must never affect gameplay.
+  }
+};
+
 export const debugLog = (key: DebugFlagKey, ...args: unknown[]) => {
   if (!isDebugEnabled(key)) return;
   if (typeof window !== "undefined") {
@@ -89,6 +105,7 @@ export const debugLog = (key: DebugFlagKey, ...args: unknown[]) => {
       );
     }
     publishDebugEventsToDom();
+    publishDebugEventsToStorage();
   }
   try {
     console.info(`${DEBUG_LOG_PREFIX}:${key}`, JSON.stringify(args));
@@ -389,6 +406,25 @@ export const summarizeDndCardGeometry = (
 export const summarizeZoneElement = (zoneId: string) => {
   if (typeof document === "undefined") return null;
   return summarizeElement(
+    document.querySelector(`[data-zone-id="${escapeSelectorValue(zoneId)}"]`)
+  );
+};
+
+export const summarizeScrollContainerElement = (element: Element | null | undefined) => {
+  if (!(element instanceof HTMLElement)) return null;
+  const rect = summarizeRect(element.getBoundingClientRect());
+  return {
+    rect,
+    scrollLeft: element.scrollLeft,
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+    maxScrollLeft: Math.max(0, element.scrollWidth - element.clientWidth),
+  };
+};
+
+export const summarizeHandScrollElement = (zoneId: string) => {
+  if (typeof document === "undefined") return null;
+  return summarizeScrollContainerElement(
     document.querySelector(`[data-zone-id="${escapeSelectorValue(zoneId)}"]`)
   );
 };

@@ -28,11 +28,11 @@ import {
   summarizeZoneElement,
   type DebugFlagKey,
 } from "@/lib/debug";
-import { TOUCH_CONTEXT_MENU_LONG_PRESS_MS } from "@/hooks/game/dnd/primedTouchSensor";
 
 import type { CardProps, CardViewProps } from "@/components/game/card/types";
 
 const DESKTOP_PREVIEW_LOCK_MOVE_TOLERANCE_PX = 8;
+const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
 const TOUCH_PREVIEW_TAP_TOLERANCE_PX = 6;
 const SUPPRESS_MOUSE_HOVER_AFTER_TOUCH_MS = 700;

@@ -31,6 +31,7 @@ interface ZoneProps {
     onPointerUp?: (e: React.PointerEvent<HTMLDivElement>) => void;
     onPointerCancel?: (e: React.PointerEvent<HTMLDivElement>) => void;
     onPointerLeave?: (e: React.PointerEvent<HTMLDivElement>) => void;
+    onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
     onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void;
     onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>) => void;
     innerRef?: (node: HTMLDivElement | null) => void;
@@ -39,7 +40,7 @@ interface ZoneProps {
 
 const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
-const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, cardScale = 1, cardBaseHeight, cardBaseWidth, mirrorY = false, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onPointerLeave, onMouseEnter, onMouseLeave, innerRef, disabled = false }) => {
+const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, cardScale = 1, cardBaseHeight, cardBaseWidth, mirrorY = false, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onPointerLeave, onScroll, onMouseEnter, onMouseLeave, innerRef, disabled = false }) => {
     const myPlayerId = useGameStore((state) => state.myPlayerId);
     const viewerRole = useGameStore((state) => state.viewerRole);
 
@@ -143,6 +144,7 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 's
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerCancel}
             onPointerLeave={onPointerLeave}
+            onScroll={onScroll}
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
         >

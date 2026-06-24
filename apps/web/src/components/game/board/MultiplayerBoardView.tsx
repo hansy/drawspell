@@ -889,6 +889,9 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           draggable: { measure: getClientRect },
           dragOverlay: { measure: getClientRect },
         }}
+        autoScroll={{
+          layoutShiftCompensation: { x: false, y: true },
+        }}
         collisionDetection={pointerWithin}
       >
         <div

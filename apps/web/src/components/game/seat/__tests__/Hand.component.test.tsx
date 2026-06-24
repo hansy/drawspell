@@ -1,6 +1,6 @@
 import { DndContext } from "@dnd-kit/core";
-import { render } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { fireEvent, render } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ZONE } from "@/constants/zones";
 import { useDragStore } from "@/store/dragStore";
@@ -255,6 +255,118 @@ describe("Hand visual ownership", () => {
     expect((strip as HTMLElement).style.paddingRight).toBe(
       `${HAND_CARD_SCROLL_EDGE_PADDING_PX}px`
     );
+  });
+
+  it("hides the dedicated scrollbar when the hand does not overflow", () => {
+    const card = buildCard("c1", "p1-hand");
+    const zone = buildHandZone("p1-hand", "p1", [card.id]);
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Hand
+            zone={zone}
+            cards={[card]}
+            isTop={false}
+            isRight={false}
+            isMe
+            viewerPlayerId="p1"
+            viewerRole="player"
+            showLabel={false}
+          />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+
+    expect(container.querySelector("[data-dnd-hand-scrollbar]")).toBeNull();
+  });
+
+  it("hides the dedicated scrollbar when only the drag edge gutters overflow", () => {
+    const clientWidth = vi
+      .spyOn(HTMLElement.prototype, "clientWidth", "get")
+      .mockReturnValue(200);
+    const scrollWidth = vi
+      .spyOn(HTMLElement.prototype, "scrollWidth", "get")
+      .mockReturnValue(200 + HAND_CARD_SCROLL_EDGE_PADDING_PX * 2);
+    const zone = buildHandZone("p1-hand", "p1", []);
+
+    try {
+      const { container } = render(
+        <DndContext>
+          <CardPreviewProvider>
+            <Hand
+              zone={zone}
+              cards={[]}
+              isTop={false}
+              isRight={false}
+              isMe
+              viewerPlayerId="p1"
+              viewerRole="player"
+              showLabel={false}
+            />
+          </CardPreviewProvider>
+        </DndContext>
+      );
+
+      expect(container.querySelector("[data-dnd-hand-scrollbar]")).toBeNull();
+    } finally {
+      clientWidth.mockRestore();
+      scrollWidth.mockRestore();
+    }
+  });
+
+  it("shows a dedicated scrollbar for overflowing hands and uses it to scroll", () => {
+    const clientWidth = vi
+      .spyOn(HTMLElement.prototype, "clientWidth", "get")
+      .mockReturnValue(200);
+    const scrollWidth = vi
+      .spyOn(HTMLElement.prototype, "scrollWidth", "get")
+      .mockReturnValue(500);
+    const cards = [
+      buildCard("c1", "p1-hand"),
+      buildCard("c2", "p1-hand"),
+      buildCard("c3", "p1-hand"),
+    ];
+    const zone = buildHandZone("p1-hand", "p1", cards.map((card) => card.id));
+
+    try {
+      const { container } = render(
+        <DndContext>
+          <CardPreviewProvider>
+            <Hand
+              zone={zone}
+              cards={cards}
+              isTop={false}
+              isRight={false}
+              isMe
+              viewerPlayerId="p1"
+              viewerRole="player"
+              showLabel={false}
+            />
+          </CardPreviewProvider>
+        </DndContext>
+      );
+
+      const handZone = container.querySelector(
+        '[data-zone-id="p1-hand"]'
+      ) as HTMLDivElement | null;
+      const scrollbar = container.querySelector(
+        "[data-dnd-hand-scrollbar]"
+      ) as HTMLInputElement | null;
+
+      expect(handZone).not.toBeNull();
+      expect(scrollbar).not.toBeNull();
+      expect(scrollbar?.getAttribute("max")).toBe("300");
+
+      fireEvent.change(scrollbar as HTMLInputElement, {
+        target: { value: "120" },
+      });
+
+      expect(handZone?.scrollLeft).toBe(120);
+    } finally {
+      clientWidth.mockRestore();
+      scrollWidth.mockRestore();
+    }
   });
 
   it("does not expand or scale hand card slots on hover", () => {
