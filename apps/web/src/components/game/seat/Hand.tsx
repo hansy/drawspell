@@ -8,6 +8,7 @@ import { shouldRenderFaceDown } from "@/lib/reveal";
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from "@/lib/constants";
 import { debugLog, isDebugEnabled, summarizeDndCardGeometry } from "@/lib/debug";
 import { useDragStore } from "@/store/dragStore";
+import { TOUCH_CONTEXT_MENU_LONG_PRESS_MS } from "@/hooks/game/dnd/primedTouchSensor";
 import {
   HAND_BASE_CARD_SCALE,
   HAND_CARD_OVERLAP_RATIO,
@@ -40,7 +41,6 @@ interface HandProps {
   dropDisabled?: boolean;
 }
 
-const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
 
 type TouchPressState = {

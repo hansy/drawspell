@@ -18,6 +18,7 @@ import {
 import { Card } from "../Card";
 import { CardPreview } from "../CardPreview";
 import { CardPreviewProvider } from "../CardPreviewProvider";
+import { TOUCH_CONTEXT_MENU_LONG_PRESS_MS } from "@/hooks/game/dnd/primedTouchSensor";
 
 const buildZone = (id: string, type: keyof typeof ZONE, ownerId: string, cardIds: string[] = []) =>
   ({
@@ -1292,7 +1293,7 @@ describe("CardPreview", () => {
           clientY: 20,
         })
       );
-      vi.advanceTimersByTime(500);
+      vi.advanceTimersByTime(TOUCH_CONTEXT_MENU_LONG_PRESS_MS);
       fireEvent(
         cardElement,
         createPointerEvent("pointerup", {

@@ -3,7 +3,6 @@ import {
   useSensor,
   useSensors,
   MouseSensor,
-  TouchSensor,
   DragEndEvent,
   DragMoveEvent,
   DragStartEvent,
@@ -46,12 +45,16 @@ import {
   summarizeZoneElement,
   type DebugFlagKey,
 } from "@/lib/debug";
+import {
+  PrimedTouchSensor,
+  TOUCH_CONTEXT_MENU_LONG_PRESS_MS,
+  TOUCH_DRAG_PRIME_DELAY_MS,
+} from "./primedTouchSensor";
 
 const FACE_DOWN_DEBUG_KEY: DebugFlagKey = "faceDownDrag";
 const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
 const DEFAULT_DRAG_TRANSFORM_ORIGIN = "50% 50%";
-const TOUCH_DRAG_MOVE_DISTANCE_PX = 32;
 
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
@@ -359,10 +362,9 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         distance: 8,
       },
     }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        distance: TOUCH_DRAG_MOVE_DISTANCE_PX,
-      },
+    useSensor(PrimedTouchSensor, {
+      primeDelayMs: TOUCH_DRAG_PRIME_DELAY_MS,
+      contextMenuDelayMs: TOUCH_CONTEXT_MENU_LONG_PRESS_MS,
     })
   );
 
