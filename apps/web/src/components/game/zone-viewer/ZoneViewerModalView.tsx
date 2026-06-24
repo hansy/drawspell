@@ -1,4 +1,5 @@
 import React from "react";
+import { Loader2, Search } from "lucide-react";
 import { Dialog, DialogContent } from "../../ui/dialog";
 import { ContextMenu } from "../context-menu/ContextMenu";
 
@@ -103,8 +104,22 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
             )}
           >
             {displayCards.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-zinc-500">
-                {isLoading ? "Loading cards..." : "No cards found matching your filter."}
+              <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-400">
+                  {isLoading ? (
+                    <Loader2 size={17} className="animate-spin" />
+                  ) : (
+                    <Search size={17} />
+                  )}
+                </div>
+                <div className="text-sm font-medium text-zinc-300">
+                  {isLoading ? "Loading cards" : "No cards found"}
+                </div>
+                <div className="max-w-56 text-xs leading-snug text-zinc-500">
+                  {isLoading
+                    ? "Fetching the current zone contents."
+                    : "Try a different card name, type, or rules text."}
+                </div>
               </div>
             ) : viewMode === "grouped" ? (
               <ZoneViewerGroupedView
