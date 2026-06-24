@@ -536,11 +536,10 @@ app.post("/interactions", async (c) => {
     return interactionResponse("This command must be run in a server channel.");
   }
 
-  const recipients = resolveRoomRecipients(invoker, interaction);
-  const recipientIds = recipients.recipients.map((recipient) => recipient.userId);
-  const recipientNames = recipients.recipients.map(
-    (recipient) => recipient.displayName,
-  );
+  const recipientResolution = resolveRoomRecipients(invoker, interaction);
+  const roomRecipients = recipientResolution.recipients;
+  const recipientIds = roomRecipients.map((recipient) => recipient.userId);
+  const recipientNames = roomRecipients.map((recipient) => recipient.displayName);
   const provisioningPayload = createProvisionRequest(
     interaction,
     invoker,
@@ -593,7 +592,7 @@ app.post("/interactions", async (c) => {
   const failures = await fanOutDmMessage({
     apiBaseUrl,
     botToken: discordBotToken,
-    recipients: recipients.recipients,
+    recipients: roomRecipients,
     content: dmContent,
   });
   const successCount = recipientIds.length - failures.length;
@@ -608,7 +607,7 @@ app.post("/interactions", async (c) => {
     successCount,
     recipientNames,
     failures,
-    truncatedTaggedUsers: recipients.truncatedTaggedUsers,
+    truncatedTaggedUsers: recipientResolution.truncatedTaggedUsers,
   });
 
   return interactionResponse(confirmation);
