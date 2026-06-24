@@ -49,13 +49,11 @@ export const OpponentLibraryRevealsModalView: React.FC<OpponentLibraryRevealsCon
               const isActualTop = Boolean(actualTopCardId && card.id === actualTopCardId);
               return (
                 <div key={card.id} className="relative shrink-0">
-                  {index === 0 && (
-                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shadow-md z-10">
-                      {isActualTop ? "Top" : "Topmost revealed"}
-                    </div>
-                  )}
                   <div
-                    className={cn("rounded-lg shadow-lg")}
+                    className={cn(
+                      "relative rounded-lg shadow-lg",
+                      isActualTop && "ring-2 ring-indigo-400/70"
+                    )}
                     style={{ width: previewWidthPx, height: previewHeightPx }}
                   >
                     <CardView
@@ -64,6 +62,11 @@ export const OpponentLibraryRevealsModalView: React.FC<OpponentLibraryRevealsCon
                       style={{ width: previewWidthPx, height: previewHeightPx }}
                       className="w-full h-full"
                     />
+                    {index === 0 && (
+                      <div className="pointer-events-none absolute left-1/2 top-1.5 z-30 -translate-x-1/2 rounded-full border border-indigo-300/60 bg-indigo-500/95 px-2 py-0.5 text-[10px] font-bold text-white shadow-md">
+                        {isActualTop ? "Top" : "Topmost revealed"}
+                      </div>
+                    )}
                   </div>
                 </div>
               );

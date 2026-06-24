@@ -457,11 +457,6 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
               )}
               style={{ width: effectiveCardWidthPx, height: effectiveCardHeightPx }}
             >
-              {index === 0 && (
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shadow-md z-[101]">
-                  Top card
-                </div>
-              )}
               <CardView
                 card={card}
                 faceDown={false}
@@ -472,6 +467,11 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
                 disableHoverAnimation
                 onContextMenu={(e) => onCardContextMenu(e, card)}
               />
+              {index === 0 && (
+                <div className="pointer-events-none absolute left-1/2 top-1.5 z-[101] -translate-x-1/2 rounded-full border border-indigo-300/60 bg-indigo-500/95 px-2 py-0.5 text-[10px] font-bold text-white shadow-md">
+                  Top card
+                </div>
+              )}
             </div>
           </div>
         );
