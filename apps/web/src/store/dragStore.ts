@@ -13,6 +13,11 @@ interface GhostCardState {
 interface DragStore {
     ghostCards: GhostCardState[] | null;
     activeCardId: string | null;
+    handDragPreview: {
+        cardId: string;
+        zoneId: string;
+        targetIndex: number;
+    } | null;
     activeCardScale: number;
     activeCardTransformOrigin: string;
     activeCardDragAnchor: { x: number; y: number } | null;
@@ -27,6 +32,13 @@ interface DragStore {
     overCardScale: number;
     setGhostCards: (ghostCards: GhostCardState[] | null) => void;
     setActiveCardId: (activeCardId: string | null) => void;
+    setHandDragPreview: (
+        preview: {
+            cardId: string;
+            zoneId: string;
+            targetIndex: number;
+        } | null
+    ) => void;
     setActiveCardScale: (scale: number) => void;
     setActiveCardTransformOrigin: (origin: string) => void;
     setActiveCardDragAnchor: (anchor: { x: number; y: number } | null) => void;
@@ -47,6 +59,7 @@ interface DragStore {
 export const useDragStore = create<DragStore>((set) => ({
     ghostCards: null,
     activeCardId: null,
+    handDragPreview: null,
     activeCardScale: 1,
     activeCardTransformOrigin: "50% 50%",
     activeCardDragAnchor: null,
@@ -56,6 +69,7 @@ export const useDragStore = create<DragStore>((set) => ({
     overCardScale: 1,
     setGhostCards: (ghostCards) => set({ ghostCards }),
     setActiveCardId: (activeCardId) => set({ activeCardId }),
+    setHandDragPreview: (handDragPreview) => set({ handDragPreview }),
     setActiveCardScale: (activeCardScale) => set({ activeCardScale }),
     setActiveCardTransformOrigin: (activeCardTransformOrigin) =>
         set({ activeCardTransformOrigin }),

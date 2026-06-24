@@ -160,10 +160,10 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   const middleware = React.useMemo(
     () => [
       offset(gap),
-      flip({ fallbackPlacements, padding: floatingPadding }),
+      ...(!isHand ? [flip({ fallbackPlacements, padding: floatingPadding })] : []),
       shift({ padding: floatingPadding }),
     ],
-    [floatingPadding, fallbackPlacements, gap],
+    [floatingPadding, fallbackPlacements, gap, isHand],
   );
   const { refs, floatingStyles, update, x, y } = useFloating({
     placement: "top",

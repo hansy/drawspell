@@ -20,6 +20,7 @@ export const computeCardContainerStyle = (params: {
   const {
     transform: propTransform,
     transformOrigin: propTransformOrigin,
+    transition: propTransition,
     ...restPropStyle
   } = params.propStyle || {};
   const transformParts: string[] = [];
@@ -33,7 +34,9 @@ export const computeCardContainerStyle = (params: {
     ...restPropStyle,
     transform: transformParts.length ? transformParts.join(" ") : undefined,
     ...(propTransformOrigin ? { transformOrigin: propTransformOrigin } : {}),
-    transition: params.isDragging ? "none" : "transform 200ms ease-out",
+    transition: params.isDragging
+      ? "none"
+      : propTransition ?? "transform 200ms ease-out",
     opacity: params.isDragging ? 0 : 1,
   };
 };

@@ -18,6 +18,8 @@ import {
   computeBattlefieldGroupGhostCards,
   computeDragEndPlan,
   computeDragMoveUiState,
+  computeSameHandEdgePreviewIndex,
+  shouldUseSameHandDropFallback,
 } from "./model";
 import { commitDragFrameStoreUpdate } from "./commit";
 import {
@@ -49,6 +51,7 @@ const FACE_DOWN_DEBUG_KEY: DebugFlagKey = "faceDownDrag";
 const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
 const DEFAULT_DRAG_TRANSFORM_ORIGIN = "50% 50%";
+const TOUCH_DRAG_MOVE_DISTANCE_PX = 32;
 
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
@@ -221,6 +224,15 @@ const getDraggableSourceElementRect = (cardId: string) => {
   return getCardElementRect(cardId);
 };
 
+const getZoneElementRect = (zoneId: string) => {
+  if (typeof document === "undefined") return null;
+  const node = document.querySelector(
+    `[data-zone-id="${escapeSelectorValue(zoneId)}"]`
+  );
+  if (!(node instanceof HTMLElement)) return null;
+  return node.getBoundingClientRect();
+};
+
 const summarizeRectLike = (
   rect:
     | { left: number; top: number; right: number; bottom: number; width: number; height: number }
@@ -318,6 +330,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
   const reorderZoneCards = useGameStore((state) => state.reorderZoneCards);
   const setGhostCards = useDragStore((state) => state.setGhostCards);
   const setActiveCardId = useDragStore((state) => state.setActiveCardId);
+  const setHandDragPreview = useDragStore((state) => state.setHandDragPreview);
   const setActiveCardScale = useDragStore((state) => state.setActiveCardScale);
   const setActiveCardTransformOrigin = useDragStore(
     (state) => state.setActiveCardTransformOrigin
@@ -348,7 +361,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        distance: 1,
+        distance: TOUCH_DRAG_MOVE_DISTANCE_PX,
       },
     })
   );
@@ -381,6 +394,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       useDragStore.getState().pendingDropVisualClaims
     );
     setGhostCards(null);
+    setHandDragPreview(null);
     clearPendingDropVisualClaims();
     setActiveCardTransformOrigin(DEFAULT_DRAG_TRANSFORM_ORIGIN);
     setActiveCardDragAnchor(null);
@@ -499,13 +513,6 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         minCount: 2,
         fallbackToSeed: true,
       });
-      const sourceVisualClaims = groupIds.map((id) => ({
-          cardId: id,
-          sourceZoneId: activeCard.zoneId,
-          targetZoneId: activeCard.zoneId,
-      }));
-      setPendingDropVisualClaims(sourceVisualClaims);
-      suppressPendingDropSourceElements(sourceVisualClaims);
 
       if (groupIds.length > 1) {
         setIsGroupDragging(true);
@@ -543,6 +550,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       myPlayerId,
       params.viewerRole,
       setGhostCards,
+      setHandDragPreview,
       setOverCardScale,
     ]
   );
@@ -566,6 +574,25 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       activatorEvent: event.activatorEvent,
       delta: event.delta,
     });
+    const activeSourceZone = activeCard ? state.zones[activeCard.zoneId] : null;
+    const handPreviewTargetIndex = computeSameHandEdgePreviewIndex({
+      sourceZone: activeSourceZone,
+      sourceHandRect:
+        activeSourceZone?.type === ZONE.HAND
+          ? getZoneElementRect(activeSourceZone.id)
+          : null,
+      pointerScreen,
+      cardCount: activeSourceZone?.cardIds.length ?? 0,
+    });
+    setHandDragPreview(
+      activeCardId && activeSourceZone?.type === ZONE.HAND && handPreviewTargetIndex !== null
+        ? {
+            cardId: activeCardId,
+            zoneId: activeSourceZone.id,
+            targetIndex: handPreviewTargetIndex,
+          }
+        : null
+    );
 
     const result = computeDragMoveUiState({
       myPlayerId,
@@ -846,6 +873,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     setActiveCardTransformOrigin(DEFAULT_DRAG_TRANSFORM_ORIGIN);
     setActiveCardDragAnchor(null);
     setActiveCardSourceSize(null);
+    setHandDragPreview(null);
     setIsGroupDragging(false);
     setOverCardScale(1);
     currentDragSeq.current = null;
@@ -859,6 +887,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     setActiveCardSourceSize,
     setActiveCardTransformOrigin,
     setGhostCards,
+    setHandDragPreview,
     setIsGroupDragging,
     setOverCardScale,
   ]);
@@ -962,18 +991,42 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       const { active, over } = event;
       const finishedDragSeq = currentDragSeq.current;
       try {
-        if (!over || active.id === over.id) return;
-
         const cardId = active.data.current?.cardId as CardId | undefined;
-        const toZoneId = over.data.current?.zoneId as ZoneId | undefined;
-        if (!cardId || !toZoneId) return;
-
+        if (!cardId) return;
         const state = useGameStore.getState();
+        const activeCard = state.cards[cardId];
+        if (!activeCard) return;
+
         const pointerScreen = getCurrentPointerScreen({
           activatorEvent: event.activatorEvent,
           delta: event.delta,
         });
+        const sourceZone = state.zones[activeCard.zoneId];
+        const sourceHandRect =
+          sourceZone?.type === ZONE.HAND ? getZoneElementRect(sourceZone.id) : null;
+        const useSameHandFallback = shouldUseSameHandDropFallback({
+          activeId: String(active.id),
+          sourceZone,
+          sourceHandRect,
+          pointerScreen,
+          over: over
+            ? {
+                id: String(over.id),
+                zoneId: over.data.current?.zoneId as ZoneId | undefined,
+              }
+            : null,
+        });
+        if (!over && !useSameHandFallback) return;
+        if (over && active.id === over.id && !useSameHandFallback) return;
+
+        const toZoneId =
+          (over?.data.current?.zoneId as ZoneId | undefined) ??
+          (useSameHandFallback ? activeCard.zoneId : undefined);
+        if (!toZoneId) return;
+
         const releasePreview = lastSingleBattlefieldPreviewRef.current;
+        const targetHandRect =
+          toZoneId === sourceZone?.id ? sourceHandRect : getZoneElementRect(toZoneId);
         const plan = computeDragEndPlan({
           myPlayerId,
           viewerRole: params.viewerRole,
@@ -981,26 +1034,26 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
           zones: state.zones,
           cardId,
           toZoneId,
-          overCardId: over.data.current?.cardId as CardId | undefined,
+          overCardId: over?.data.current?.cardId as CardId | undefined,
           activeRect: active.rect.current?.translated,
           pointerScreen,
           movementScreen: event.delta,
           dragAnchor: dragAnchorRef.current,
-          overRect: over.rect,
-          overScale: over.data.current?.scale,
-          overCardScale: over.data.current?.cardScale,
-          overCardBaseHeight: over.data.current?.cardBaseHeight,
-          overCardBaseWidth: over.data.current?.cardBaseWidth,
+          overRect: over?.rect ?? targetHandRect,
+          handZoneRect: targetHandRect,
+          overScale: over?.data.current?.scale,
+          overCardScale: over?.data.current?.cardScale,
+          overCardBaseHeight: over?.data.current?.cardBaseHeight,
+          overCardBaseWidth: over?.data.current?.cardBaseWidth,
           releasePreviewPosition:
             releasePreview &&
             releasePreview.cardId === cardId &&
             releasePreview.toZoneId === toZoneId
               ? releasePreview.position
               : null,
-          mirrorY: Boolean(over.data.current?.mirrorY),
+          mirrorY: Boolean(over?.data.current?.mirrorY),
           activeTapped: Boolean(active.data.current?.tapped),
         });
-        const activeCard = state.cards[cardId];
         debugLog(BATTLEFIELD_DND_DEBUG_KEY, "drag-end-plan", {
           seq: finishedDragSeq,
           cardId,
@@ -1018,6 +1071,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
                 mirrorY: Boolean(over.data.current?.mirrorY),
               }
             : null,
+          useSameHandFallback,
           activeRectTranslated: summarizeRectLike(active.rect.current?.translated),
           activeTranslatedPointerRelation: summarizeRectPointerRelation(
             summarizeRectLike(active.rect.current?.translated),

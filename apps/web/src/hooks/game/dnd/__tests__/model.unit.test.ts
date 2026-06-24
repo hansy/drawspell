@@ -12,6 +12,8 @@ import {
   computeBattlefieldGroupGhostCards,
   computeDragEndPlan,
   computeDragMoveUiState,
+  computeSameHandEdgePreviewIndex,
+  shouldUseSameHandDropFallback,
 } from "../model";
 
 type Point = { x: number; y: number };
@@ -54,6 +56,13 @@ const createBattlefield = (ownerId = "p1"): Zone => ({
   type: ZONE.BATTLEFIELD,
   ownerId,
   cardIds: ["c1"],
+});
+
+const createHand = (cardIds: string[]): Zone => ({
+  id: "p1-hand",
+  type: ZONE.HAND,
+  ownerId: "p1",
+  cardIds,
 });
 
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -379,6 +388,186 @@ describe("game DnD movement contracts", () => {
       toZoneId: "p1-battlefield",
       position: releasePreviewPosition,
     });
+  });
+
+  it("reorders a same-hand drop to first position when released on the left edge", () => {
+    const zones: Record<string, Zone> = {
+      "p1-hand": createHand(["c1", "c2", "c3"]),
+    };
+    const cards = {
+      c1: createCard("c1", { zoneId: "p1-hand" }),
+      c2: createCard("c2", { zoneId: "p1-hand" }),
+      c3: createCard("c3", { zoneId: "p1-hand" }),
+    };
+
+    const plan = computeDragEndPlan({
+      myPlayerId: "p1",
+      cards,
+      zones,
+      cardId: "c3",
+      toZoneId: "p1-hand",
+      pointerScreen: { x: 110, y: 500 },
+      overRect: rect({ left: 100, top: 420, width: 600, height: 180 }),
+    });
+
+    expect(plan).toEqual({
+      kind: "reorderHand",
+      zoneId: "p1-hand",
+      oldIndex: 2,
+      newIndex: 0,
+    });
+  });
+
+  it("lets the hand edge override an interior over-card target", () => {
+    const zones: Record<string, Zone> = {
+      "p1-hand": createHand(["c1", "c2", "c3", "c4"]),
+    };
+    const cards = {
+      c1: createCard("c1", { zoneId: "p1-hand" }),
+      c2: createCard("c2", { zoneId: "p1-hand" }),
+      c3: createCard("c3", { zoneId: "p1-hand" }),
+      c4: createCard("c4", { zoneId: "p1-hand" }),
+    };
+
+    const plan = computeDragEndPlan({
+      myPlayerId: "p1",
+      cards,
+      zones,
+      cardId: "c4",
+      toZoneId: "p1-hand",
+      overCardId: "c2",
+      pointerScreen: { x: 110, y: 500 },
+      overRect: rect({ left: 320, top: 440, width: 90, height: 170 }),
+      handZoneRect: rect({ left: 100, top: 420, width: 600, height: 180 }),
+    });
+
+    expect(plan).toEqual({
+      kind: "reorderHand",
+      zoneId: "p1-hand",
+      oldIndex: 3,
+      newIndex: 0,
+    });
+  });
+
+  it("reorders a same-hand drop to last position when released on the right edge", () => {
+    const zones: Record<string, Zone> = {
+      "p1-hand": createHand(["c1", "c2", "c3"]),
+    };
+    const cards = {
+      c1: createCard("c1", { zoneId: "p1-hand" }),
+      c2: createCard("c2", { zoneId: "p1-hand" }),
+      c3: createCard("c3", { zoneId: "p1-hand" }),
+    };
+
+    const plan = computeDragEndPlan({
+      myPlayerId: "p1",
+      cards,
+      zones,
+      cardId: "c1",
+      toZoneId: "p1-hand",
+      pointerScreen: { x: 690, y: 500 },
+      overRect: rect({ left: 100, top: 420, width: 600, height: 180 }),
+    });
+
+    expect(plan).toEqual({
+      kind: "reorderHand",
+      zoneId: "p1-hand",
+      oldIndex: 0,
+      newIndex: 2,
+    });
+  });
+
+  it("does not reorder a same-hand zone drop away from the edges", () => {
+    const zones: Record<string, Zone> = {
+      "p1-hand": createHand(["c1", "c2", "c3"]),
+    };
+    const cards = {
+      c1: createCard("c1", { zoneId: "p1-hand" }),
+      c2: createCard("c2", { zoneId: "p1-hand" }),
+      c3: createCard("c3", { zoneId: "p1-hand" }),
+    };
+
+    const plan = computeDragEndPlan({
+      myPlayerId: "p1",
+      cards,
+      zones,
+      cardId: "c2",
+      toZoneId: "p1-hand",
+      pointerScreen: { x: 400, y: 500 },
+      overRect: rect({ left: 100, top: 420, width: 600, height: 180 }),
+    });
+
+    expect(plan).toEqual({ kind: "none" });
+  });
+
+  it("uses the same-hand drop fallback when the pointer is inside hand padding with no over target", () => {
+    expect(
+      shouldUseSameHandDropFallback({
+        activeId: "c3",
+        sourceZone: createHand(["c1", "c2", "c3"]),
+        sourceHandRect: rect({ left: 100, top: 420, width: 600, height: 180 }),
+        pointerScreen: { x: 110, y: 500 },
+        over: null,
+      })
+    ).toBe(true);
+  });
+
+  it("uses the same-hand drop fallback when the pointer is horizontally beyond the hand edge", () => {
+    expect(
+      shouldUseSameHandDropFallback({
+        activeId: "c3",
+        sourceZone: createHand(["c1", "c2", "c3"]),
+        sourceHandRect: rect({ left: 100, top: 420, width: 600, height: 180 }),
+        pointerScreen: { x: 40, y: 500 },
+        over: null,
+      })
+    ).toBe(true);
+  });
+
+  it("does not use the same-hand drop fallback when the pointer is vertically outside the hand", () => {
+    expect(
+      shouldUseSameHandDropFallback({
+        activeId: "c3",
+        sourceZone: createHand(["c1", "c2", "c3"]),
+        sourceHandRect: rect({ left: 100, top: 420, width: 600, height: 180 }),
+        pointerScreen: { x: 110, y: 390 },
+        over: null,
+      })
+    ).toBe(false);
+  });
+
+  it("previews a same-hand drag at index 0 when the pointer is beyond the left edge", () => {
+    expect(
+      computeSameHandEdgePreviewIndex({
+        sourceZone: createHand(["c1", "c2", "c3"]),
+        sourceHandRect: rect({ left: 100, top: 420, width: 600, height: 180 }),
+        pointerScreen: { x: 40, y: 500 },
+        cardCount: 3,
+      })
+    ).toBe(0);
+  });
+
+  it("does not preview a same-hand edge drag when the pointer is vertically outside the hand", () => {
+    expect(
+      computeSameHandEdgePreviewIndex({
+        sourceZone: createHand(["c1", "c2", "c3"]),
+        sourceHandRect: rect({ left: 100, top: 420, width: 600, height: 180 }),
+        pointerScreen: { x: 40, y: 390 },
+        cardCount: 3,
+      })
+    ).toBeNull();
+  });
+
+  it("does not use the same-hand drop fallback over another zone", () => {
+    expect(
+      shouldUseSameHandDropFallback({
+        activeId: "c3",
+        sourceZone: createHand(["c1", "c2", "c3"]),
+        sourceHandRect: rect({ left: 100, top: 420, width: 600, height: 180 }),
+        pointerScreen: { x: 110, y: 500 },
+        over: { id: "p1-battlefield", zoneId: "p1-battlefield" },
+      })
+    ).toBe(false);
   });
 
   it("preserves selected group offsets and per-card dimensions in ghost geometry", () => {

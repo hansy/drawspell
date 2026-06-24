@@ -8,13 +8,14 @@ import { shouldRenderFaceDown } from "@/lib/reveal";
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from "@/lib/constants";
 import { debugLog, isDebugEnabled, summarizeDndCardGeometry } from "@/lib/debug";
 import { useDragStore } from "@/store/dragStore";
-import { useTwoFingerScroll } from "@/hooks/shared/useTwoFingerScroll";
 import {
   HAND_BASE_CARD_SCALE,
   HAND_CARD_OVERLAP_RATIO,
+  HAND_CARD_SCROLL_EDGE_PADDING_PX,
   HAND_CARD_TOP_GAP_PX,
 } from "./handSizing";
 import {
+  arrayMove,
   SortableContext,
   useSortable,
   horizontalListSortingStrategy,
@@ -98,7 +99,10 @@ const SortableCard = React.memo(
           claim.cardId === card.id && claim.sourceZoneId === renderedZoneId,
       ),
     );
-    const isSourceVisualSuppressed = isDragging || isPendingDrop;
+    const isActiveDragSource = useDragStore(
+      (state) => state.activeCardId === card.id
+    );
+    const isCardFaceSuppressed = isActiveDragSource || isPendingDrop;
 
     const resolvedBaseHeight = baseCardHeight ?? BASE_CARD_HEIGHT;
     const cardWidth = resolvedBaseHeight * CARD_ASPECT_RATIO * cardScale;
@@ -120,9 +124,10 @@ const SortableCard = React.memo(
         cardId: card.id,
         zoneId: card.zoneId,
         renderedZoneId,
+        isActiveDragSource,
         isDragging,
         isPendingDrop,
-        isSourceVisualSuppressed,
+        isCardFaceSuppressed,
         cardScale,
         baseCardHeight,
         resolvedBaseHeight,
@@ -140,8 +145,9 @@ const SortableCard = React.memo(
       cardScale,
       cardWidth,
       isDragging,
+      isActiveDragSource,
       isPendingDrop,
-      isSourceVisualSuppressed,
+      isCardFaceSuppressed,
       overlapWidth,
       renderedZoneId,
       resolvedBaseHeight,
@@ -165,22 +171,41 @@ const SortableCard = React.memo(
         data-dnd-hand-sortable-card-id={card.id}
         data-dnd-hand-card-scale={cardScale}
         className={cn(
-          "relative shrink-0 h-full w-auto max-w-[var(--hand-card-max-width)] transition-all duration-200 ease-out group",
-          "hover:max-w-[20rem] hover:z-50 hover:scale-110",
-          isSourceVisualSuppressed && "z-50 opacity-0",
+          "relative shrink-0 h-full w-auto max-w-[var(--hand-card-max-width)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group",
+          "hover:-translate-y-3",
+          isActiveDragSource && "z-50",
+          isPendingDrop && "z-50 opacity-0",
         )}
         {...attributes}
         {...listeners}
       >
         <div
+          data-dnd-hand-drop-preview-card-id={
+            isActiveDragSource ? card.id : undefined
+          }
           data-dnd-hand-card-frame-id={card.id}
           className={cn(
             "w-auto aspect-[11/15] transition-transform duration-200",
           )}
+          style={{
+            opacity: isActiveDragSource ? 0.45 : undefined,
+            transition: "opacity 160ms ease-out",
+          }}
         >
           <Card
             card={card}
-            className="shadow-xl origin-top"
+            className={cn(
+              "origin-top shadow-xl transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              "group-hover:ring-2 group-hover:ring-cyan-200/90 group-hover:ring-offset-2 group-hover:ring-offset-zinc-950",
+              "hover:ring-2 hover:ring-cyan-200/90 hover:ring-offset-2 hover:ring-offset-zinc-950",
+              "group-hover:shadow-[0_16px_36px_rgba(103,232,249,0.3)]",
+              isActiveDragSource &&
+                "ring-2 ring-cyan-200/90 ring-offset-2 ring-offset-zinc-950 shadow-[0_16px_36px_rgba(103,232,249,0.25)]",
+            )}
+            style={{
+              transition:
+                "transform 300ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 300ms cubic-bezier(0.22, 1, 0.36, 1), border-color 300ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms ease-out",
+            }}
             faceDown={shouldRenderFaceDown(
               card,
               "hand",
@@ -189,7 +214,7 @@ const SortableCard = React.memo(
             )}
             onContextMenu={handleContextMenu}
             disableDrag // We use Sortable's drag handle
-            isDragging={isSourceVisualSuppressed}
+            isDragging={isPendingDrop}
             scale={cardScale}
           />
         </div>
@@ -215,11 +240,24 @@ const HandInner: React.FC<HandProps> = ({
   showLabel = true,
   dropDisabled = false,
 }) => {
+  const handDragPreview = useDragStore((state) => state.handDragPreview);
+  const displayCards = React.useMemo(() => {
+    if (!handDragPreview || handDragPreview.zoneId !== zone.id) return cards;
+    const oldIndex = cards.findIndex((card) => card.id === handDragPreview.cardId);
+    if (oldIndex === -1) return cards;
+    const targetIndex = Math.max(
+      0,
+      Math.min(cards.length - 1, handDragPreview.targetIndex)
+    );
+    if (oldIndex === targetIndex) return cards;
+    return arrayMove(cards, oldIndex, targetIndex);
+  }, [cards, handDragPreview, zone.id]);
   // Memoize card IDs array for SortableContext
-  const cardIds = React.useMemo(() => cards.map((c) => c.id), [cards]);
-  const [handScrollNode, setHandScrollNode] =
-    React.useState<HTMLDivElement | null>(null);
-  useTwoFingerScroll({ target: handScrollNode, axis: "x" });
+  const cardIds = React.useMemo(
+    () => displayCards.map((card) => card.id),
+    [displayCards]
+  );
+  const isSingleCardHand = cards.length === 1;
   const touchPressTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchPressRef = React.useRef<TouchPressState | null>(null);
 
@@ -349,7 +387,6 @@ const HandInner: React.FC<HandProps> = ({
         disabled={dropDisabled}
         scale={scale}
         cardScale={cardScale}
-        innerRef={setHandScrollNode}
         onContextMenu={handleHandContextMenu}
         onPointerDown={handleTouchContextMenuStart}
         onPointerMove={handleTouchContextMenuMove}
@@ -357,7 +394,7 @@ const HandInner: React.FC<HandProps> = ({
         onPointerCancel={handleTouchContextMenuEnd}
         onPointerLeave={handleTouchContextMenuEnd}
         className={cn(
-          "w-full h-full flex overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent overscroll-x-none touch-none",
+          "w-full h-full flex overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent overscroll-x-none touch-pan-x",
         )}
       >
         <SortableContext
@@ -365,16 +402,24 @@ const HandInner: React.FC<HandProps> = ({
           strategy={horizontalListSortingStrategy}
         >
           <div
+            data-dnd-hand-card-strip
             className={cn(
-              "flex w-full h-full gap-0 items-start justify-center",
+              "flex h-full gap-0 items-start",
+              isSingleCardHand
+                ? "w-full justify-center"
+                : "box-content w-max min-w-full shrink-0 justify-start",
             )}
-            style={{ paddingTop: HAND_CARD_TOP_GAP_PX }}
+            style={{
+              paddingTop: HAND_CARD_TOP_GAP_PX,
+              paddingLeft: HAND_CARD_SCROLL_EDGE_PADDING_PX,
+              paddingRight: HAND_CARD_SCROLL_EDGE_PADDING_PX,
+            }}
           >
             {/*
               Keep single-card hands visually centered by using a full-width slot.
               Overlap slot widths remain for multi-card hands.
             */}
-            {cards.map((card) => (
+            {displayCards.map((card) => (
               <SortableCard
                 key={card.id}
                 card={card}
@@ -384,7 +429,7 @@ const HandInner: React.FC<HandProps> = ({
                 onCardContextMenu={onCardContextMenu}
                 cardScale={cardScale}
                 baseCardHeight={baseCardHeight}
-                useFullSlotWidth={cards.length === 1}
+                useFullSlotWidth={isSingleCardHand}
                 renderedZoneId={zone.id}
               />
             ))}

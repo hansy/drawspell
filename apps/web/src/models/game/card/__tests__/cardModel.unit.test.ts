@@ -60,6 +60,17 @@ describe("cardModel", () => {
 
       expect(style.transformOrigin).toBe("top center");
     });
+
+    it("respects a custom transition when provided", () => {
+      const style = computeCardContainerStyle({
+        propStyle: { transition: "transform 300ms ease-out" },
+        scale: 1,
+        tapped: false,
+        isDragging: false,
+      });
+
+      expect(style.transition).toBe("transform 300ms ease-out");
+    });
   });
 
   describe("getCardHoverPreviewPolicy", () => {

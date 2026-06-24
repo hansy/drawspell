@@ -241,6 +241,69 @@ export type DragEndPlan =
       position: { x: number; y: number } | undefined;
     };
 
+export const isPointInsideRect = (
+  point: { x: number; y: number },
+  rect: RectLike
+) =>
+  point.x >= rect.left &&
+  point.x <= rect.right &&
+  point.y >= rect.top &&
+  point.y <= rect.bottom;
+
+export const isPointInsideRectVerticalBand = (
+  point: { x: number; y: number },
+  rect: Pick<RectLike, "top" | "bottom">
+) => point.y >= rect.top && point.y <= rect.bottom;
+
+export const getHandEdgeInset = (rect: Pick<RectLike, "width" | "height">) =>
+  Math.max(24, Math.min(rect.width / 4, rect.height / 2));
+
+export const computeSameHandEdgePreviewIndex = (params: {
+  sourceZone: Pick<Zone, "type"> | null | undefined;
+  sourceHandRect: RectLike | null | undefined;
+  pointerScreen: { x: number; y: number } | null | undefined;
+  cardCount: number;
+}) => {
+  if (params.sourceZone?.type !== ZONE.HAND) return null;
+  if (!params.pointerScreen || !params.sourceHandRect) return null;
+  if (params.cardCount <= 1) return null;
+  if (!isPointInsideRectVerticalBand(params.pointerScreen, params.sourceHandRect)) {
+    return null;
+  }
+
+  const edgeInset = getHandEdgeInset(params.sourceHandRect);
+  if (params.pointerScreen.x <= params.sourceHandRect.left + edgeInset) {
+    return 0;
+  }
+  if (params.pointerScreen.x >= params.sourceHandRect.right - edgeInset) {
+    return params.cardCount - 1;
+  }
+  return null;
+};
+
+export const shouldUseSameHandDropFallback = (params: {
+  activeId: string;
+  sourceZone: Pick<Zone, "id" | "type"> | null | undefined;
+  sourceHandRect: RectLike | null | undefined;
+  pointerScreen: { x: number; y: number } | null | undefined;
+  over:
+    | null
+    | undefined
+    | {
+        id: string;
+        zoneId?: ZoneId;
+      };
+}) => {
+  if (params.sourceZone?.type !== ZONE.HAND) return false;
+  if (!params.pointerScreen || !params.sourceHandRect) return false;
+  if (!isPointInsideRectVerticalBand(params.pointerScreen, params.sourceHandRect)) {
+    return false;
+  }
+  if (!params.over) return true;
+  if (params.over.id === params.activeId) return true;
+  return params.over.zoneId === params.sourceZone.id;
+};
+
 export const computeDragEndPlan = (params: {
   myPlayerId: PlayerId;
   viewerRole?: ViewerRole;
@@ -254,6 +317,7 @@ export const computeDragEndPlan = (params: {
   movementScreen?: { x: number; y: number } | null;
   dragAnchor?: { x: number; y: number } | null;
   overRect?: RectLike | null;
+  handZoneRect?: RectLike | null;
   overScale?: number;
   overCardScale?: number;
   overCardBaseHeight?: number;
@@ -270,12 +334,31 @@ export const computeDragEndPlan = (params: {
   if (!targetZone || !fromZone) return { kind: "none" };
 
   if (fromZone.id === targetZone.id && targetZone.type === ZONE.HAND) {
+    const oldIndex = targetZone.cardIds.indexOf(params.cardId);
+    if (oldIndex === -1) return { kind: "none" };
+
+    const handEdgeRect = params.handZoneRect ?? params.overRect;
+    if (params.pointerScreen && handEdgeRect) {
+      const edgeInset = getHandEdgeInset(handEdgeRect);
+      const leftEdge = handEdgeRect.left + edgeInset;
+      const rightEdge = handEdgeRect.right - edgeInset;
+      const newIndex =
+        params.pointerScreen.x <= leftEdge
+          ? 0
+          : params.pointerScreen.x >= rightEdge
+            ? targetZone.cardIds.length - 1
+            : null;
+      if (newIndex !== null) {
+        if (newIndex === oldIndex) return { kind: "none" };
+        return { kind: "reorderHand", zoneId: targetZone.id, oldIndex, newIndex };
+      }
+    }
+
     if (!params.overCardId || params.cardId === params.overCardId) {
       return { kind: "none" };
     }
-    const oldIndex = targetZone.cardIds.indexOf(params.cardId);
     const newIndex = targetZone.cardIds.indexOf(params.overCardId);
-    if (oldIndex === -1 || newIndex === -1) return { kind: "none" };
+    if (newIndex === -1) return { kind: "none" };
     return { kind: "reorderHand", zoneId: targetZone.id, oldIndex, newIndex };
   }
 
