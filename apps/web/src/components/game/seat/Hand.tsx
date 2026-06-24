@@ -477,7 +477,7 @@ const HandInner: React.FC<HandProps> = ({
         onPointerLeave={handleTouchContextMenuEnd}
         onScroll={syncScrollbarState}
         className={cn(
-          "w-full h-full flex overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent overscroll-x-none touch-pan-x",
+          "w-full h-full flex overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent overscroll-x-none touch-none",
         )}
       >
         <SortableContext

@@ -194,7 +194,7 @@ describe("Hand visual ownership", () => {
     );
   });
 
-  it("allows native horizontal touch panning in the hand scroll area", () => {
+  it("prevents native horizontal touch panning in the hand scroll area", () => {
     const card = buildCard("c1", "p1-hand");
     const zone = buildHandZone("p1-hand", "p1", [card.id]);
 
@@ -218,8 +218,8 @@ describe("Hand visual ownership", () => {
     const handZone = container.querySelector('[data-zone-id="p1-hand"]');
 
     expect(handZone).not.toBeNull();
-    expect(handZone?.classList.contains("touch-pan-x")).toBe(true);
-    expect(handZone?.classList.contains("touch-none")).toBe(false);
+    expect(handZone?.classList.contains("touch-none")).toBe(true);
+    expect(handZone?.classList.contains("touch-pan-x")).toBe(false);
   });
 
   it("adds scroll-edge gutter around the card strip", () => {
