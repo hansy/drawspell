@@ -10,7 +10,6 @@ import {
   debugLog,
   isDebugEnabled,
   summarizeDndCardGeometry,
-  summarizeHandScrollElement,
 } from "@/lib/debug";
 import { useDragStore } from "@/store/dragStore";
 import {
@@ -47,8 +46,6 @@ interface HandProps {
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
-const HAND_SCROLLBAR_MIN_OVERFLOW_PX = 1;
-const HAND_SCROLL_DEBUG_MIN_DELTA_PX = 4;
 
 type TouchPressState = {
   pointerId: number;
@@ -178,7 +175,7 @@ const SortableCard = React.memo(
         data-dnd-hand-sortable-card-id={card.id}
         data-dnd-hand-card-scale={cardScale}
         className={cn(
-          "relative shrink-0 h-full w-auto max-w-[var(--hand-card-max-width)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group",
+          "relative flex shrink-0 h-full w-auto max-w-[var(--hand-card-max-width)] items-center lg:items-start touch-none transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group",
           "hover:-translate-y-3",
           isActiveDragSource && "z-50",
           isPendingDrop && "z-50 opacity-0",
@@ -267,13 +264,6 @@ const HandInner: React.FC<HandProps> = ({
   const isSingleCardHand = cards.length === 1;
   const touchPressTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchPressRef = React.useRef<TouchPressState | null>(null);
-  const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
-  const lastLoggedScrollLeftRef = React.useRef<number | null>(null);
-  const [scrollbarState, setScrollbarState] = React.useState({
-    left: 0,
-    max: 0,
-    visible: false,
-  });
 
   const clearTouchPressTimeout = React.useCallback(() => {
     if (touchPressTimeoutRef.current) {
@@ -293,73 +283,6 @@ const HandInner: React.FC<HandProps> = ({
     },
     [onHandContextMenu, zone.id],
   );
-
-  const syncScrollbarState = React.useCallback(() => {
-    const node = scrollContainerRef.current;
-    if (!node) {
-      setScrollbarState({ left: 0, max: 0, visible: false });
-      return;
-    }
-
-    const max = Math.max(0, node.scrollWidth - node.clientWidth);
-    const left = Math.min(max, Math.max(0, node.scrollLeft));
-    const overflowBeyondDragGutters = Math.max(
-      0,
-      max - HAND_CARD_SCROLL_EDGE_PADDING_PX * 2,
-    );
-    const visible =
-      displayCards.length > 1 &&
-      overflowBeyondDragGutters > HAND_SCROLLBAR_MIN_OVERFLOW_PX;
-    setScrollbarState((current) =>
-      current.left === left && current.max === max && current.visible === visible
-        ? current
-        : { left, max, visible },
-    );
-
-    if (isDebugEnabled("battlefieldDnd")) {
-      const previousLeft = lastLoggedScrollLeftRef.current;
-      const leftDelta = previousLeft === null ? 0 : left - previousLeft;
-      const shouldLog =
-        previousLeft === null || Math.abs(leftDelta) >= HAND_SCROLL_DEBUG_MIN_DELTA_PX;
-      if (shouldLog) {
-        lastLoggedScrollLeftRef.current = left;
-        debugLog("battlefieldDnd", "hand-scroll-sync", {
-          zoneId: zone.id,
-          cardCount: displayCards.length,
-          left,
-          leftDelta,
-          max,
-          overflowBeyondDragGutters,
-          visible,
-          scrollElement: summarizeHandScrollElement(zone.id),
-        });
-      }
-    }
-  }, [displayCards.length, zone.id]);
-
-  const setScrollContainerNode = React.useCallback(
-    (node: HTMLDivElement | null) => {
-      scrollContainerRef.current = node;
-      syncScrollbarState();
-    },
-    [syncScrollbarState],
-  );
-
-  React.useLayoutEffect(() => {
-    syncScrollbarState();
-    const node = scrollContainerRef.current;
-    if (!node) return;
-
-    if (typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const observer = new ResizeObserver(syncScrollbarState);
-    observer.observe(node);
-    const strip = node.querySelector("[data-dnd-hand-card-strip]");
-    if (strip instanceof Element) observer.observe(strip);
-    return () => observer.disconnect();
-  }, [displayCards.length, syncScrollbarState]);
 
   const handleTouchContextMenuStart = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
@@ -468,16 +391,14 @@ const HandInner: React.FC<HandProps> = ({
         disabled={dropDisabled}
         scale={scale}
         cardScale={cardScale}
-        innerRef={setScrollContainerNode}
         onContextMenu={handleHandContextMenu}
         onPointerDown={handleTouchContextMenuStart}
         onPointerMove={handleTouchContextMenuMove}
         onPointerUp={handleTouchContextMenuEnd}
         onPointerCancel={handleTouchContextMenuEnd}
         onPointerLeave={handleTouchContextMenuEnd}
-        onScroll={syncScrollbarState}
         className={cn(
-          "w-full h-full flex overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent overscroll-x-none touch-none",
+          "w-full h-full flex overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent overscroll-x-none touch-pan-x",
         )}
       >
         <SortableContext
@@ -487,13 +408,13 @@ const HandInner: React.FC<HandProps> = ({
           <div
             data-dnd-hand-card-strip
             className={cn(
-              "flex h-full gap-0 items-start",
+              "flex h-full gap-0 items-center lg:items-start pt-0 lg:pt-[var(--hand-card-top-gap)]",
               isSingleCardHand
                 ? "w-full justify-center"
-                : "box-content w-max min-w-full shrink-0 justify-start",
+                : "w-max min-w-full shrink-0 justify-center",
             )}
             style={{
-              paddingTop: HAND_CARD_TOP_GAP_PX,
+              ["--hand-card-top-gap" as string]: `${HAND_CARD_TOP_GAP_PX}px`,
               paddingLeft: HAND_CARD_SCROLL_EDGE_PADDING_PX,
               paddingRight: HAND_CARD_SCROLL_EDGE_PADDING_PX,
             }}
@@ -519,27 +440,6 @@ const HandInner: React.FC<HandProps> = ({
           </div>
         </SortableContext>
       </Zone>
-      {scrollbarState.visible && (
-        <input
-          aria-label={`${ZONE_LABEL.hand} scroll`}
-          data-dnd-hand-scrollbar
-          type="range"
-          min={0}
-          max={scrollbarState.max}
-          value={Math.min(scrollbarState.left, scrollbarState.max)}
-          onChange={(event) => {
-            const node = scrollContainerRef.current;
-            if (!node) return;
-            node.scrollLeft = Number(event.currentTarget.value);
-            syncScrollbarState();
-          }}
-          onPointerDown={(event) => event.stopPropagation()}
-          onPointerMove={(event) => event.stopPropagation()}
-          onPointerUp={(event) => event.stopPropagation()}
-          onTouchStart={(event) => event.stopPropagation()}
-          className="absolute inset-x-6 bottom-1 z-50 h-5 cursor-ew-resize appearance-none bg-transparent accent-cyan-300 [touch-action:none] [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-zinc-700/90 [&::-webkit-slider-thumb]:mt-[-5px] [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-cyan-100/80 [&::-webkit-slider-thumb]:bg-cyan-300 [&::-webkit-slider-thumb]:shadow-[0_0_12px_rgba(103,232,249,0.35)] [&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-zinc-700/90 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-10 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-cyan-100/80 [&::-moz-range-thumb]:bg-cyan-300"
-        />
-      )}
     </div>
   );
 };

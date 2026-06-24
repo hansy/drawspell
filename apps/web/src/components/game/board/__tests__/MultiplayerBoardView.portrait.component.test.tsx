@@ -97,11 +97,15 @@ const buildSlots = (players: PlayerSlot[]) =>
     position: player.position,
   }));
 
-const renderBoard = (players: PlayerSlot[]) => {
+const renderBoard = (
+  players: PlayerSlot[],
+  options?: { livePlayerCount?: number },
+) => {
   const slots = buildSlots(players);
   const playersById = Object.fromEntries(
     slots.map((slot) => [slot.player.id, slot.player]),
   );
+  const livePlayerCount = options?.livePlayerCount ?? players.length;
 
   return render(
     <MultiplayerBoardView
@@ -133,8 +137,8 @@ const renderBoard = (players: PlayerSlot[]) => {
         handleDragEnd: vi.fn(),
         syncStatus: "connected",
         peerCounts: {
-          total: players.length,
-          players: players.length,
+          total: livePlayerCount,
+          players: livePlayerCount,
           spectators: 0,
         },
         isHost: true,
@@ -259,6 +263,18 @@ describe("MultiplayerBoardView portrait seat indicator", () => {
     expect(within(options[0]).getByTestId("portrait-seat-option-color")).toBeTruthy();
     expect(screen.queryByLabelText("Switch to your seat")).toBeNull();
     expect(screen.queryByText("You")).toBeNull();
+  });
+
+  it("hides the portrait seat indicator when only one player is connected", () => {
+    renderBoard(
+      [
+        { id: "p2", name: "Player Two", color: "violet", position: "top-left" },
+        { id: "p1", name: "Player One", color: "sky", position: "bottom-left" },
+      ],
+      { livePlayerCount: 1 },
+    );
+
+    expect(screen.queryByTestId("portrait-seat-indicator")).toBeNull();
   });
 
   it("shows the other seats in shared layout order when expanded", () => {

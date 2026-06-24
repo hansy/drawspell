@@ -841,12 +841,14 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
       isPortraitCommanderDrawerOpen ||
       isPortraitSidenavMenuOpen,
   );
+  const shouldShowPortraitSeatSwitcher =
+    indicatorSeats.length > 1 && peerCounts.players > 1;
 
   React.useEffect(() => {
-    if (!isPortraitViewport || indicatorSeats.length <= 1 || hasActiveOverlayUi) {
+    if (!isPortraitViewport || !shouldShowPortraitSeatSwitcher || hasActiveOverlayUi) {
       setIsPortraitSeatPickerExpanded(false);
     }
-  }, [hasActiveOverlayUi, indicatorSeats.length, isPortraitViewport]);
+  }, [hasActiveOverlayUi, isPortraitViewport, shouldShowPortraitSeatSwitcher]);
 
   React.useEffect(() => {
     if (!isPortraitViewport) {
@@ -966,7 +968,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                     onMenuOpenChange={setIsPortraitSidenavMenuOpen}
                   />
                 </div>
-                {indicatorSeats.length > 1 && !hasActiveOverlayUi && (
+                {shouldShowPortraitSeatSwitcher && !hasActiveOverlayUi && (
                   <>
                     {isPortraitSeatPickerExpanded && (
                       <button
