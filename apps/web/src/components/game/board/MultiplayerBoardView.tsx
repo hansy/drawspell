@@ -346,10 +346,6 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   handleDragEnd,
   syncStatus,
   peerCounts,
-  isHost,
-  roomLockedByHost,
-  roomIsFull,
-  onToggleRoomLock,
   handleViewZone,
   contextMenu,
   handleCardContextMenu,
@@ -985,7 +981,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                       className={`absolute inset-x-0 z-[62] flex justify-center ${
                         isPortraitCommanderDrawerOpen
                           ? "bottom-[0.4rem]"
-                          : "bottom-[calc(var(--mobile-sidenav-h)+0.5rem)]"
+                          : "bottom-[calc(var(--mobile-sidenav-h)+2.75rem)]"
                       }`}
                     >
                       <PortraitSeatIndicator
@@ -1124,10 +1120,6 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           linksReady={shareLinksReady}
           errorMessage={shareDialogError}
           players={players}
-          isHost={isHost}
-          roomLockedByHost={roomLockedByHost}
-          roomIsFull={roomIsFull}
-          onToggleRoomLock={onToggleRoomLock}
         />
         <DragOverlay dropAnimation={null}>
           {showGroupDragOverlay

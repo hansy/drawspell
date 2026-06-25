@@ -1,6 +1,6 @@
 import { DndContext } from "@dnd-kit/core";
-import { render } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { fireEvent, render } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ZONE } from "@/constants/zones";
 import { useDragStore } from "@/store/dragStore";
@@ -197,7 +197,7 @@ describe("Hand visual ownership", () => {
     );
   });
 
-  it("allows native horizontal touch panning in the hand scroll area", () => {
+  it("allows native horizontal touch panning when the custom scrollbar is disabled", () => {
     const card = buildCard("c1", "p1-hand");
     const zone = buildHandZone("p1-hand", "p1", [card.id]);
 
@@ -263,6 +263,16 @@ describe("Hand visual ownership", () => {
     expect(sourceCard).not.toBeNull();
     expect(sourceCard?.classList.contains("items-center")).toBe(true);
     expect(sourceCard?.classList.contains("lg:items-start")).toBe(true);
+    expect(
+      container
+        .querySelector('[data-card-id="c1"]')
+        ?.classList.contains("origin-center")
+    ).toBe(true);
+    expect(
+      container
+        .querySelector('[data-card-id="c1"]')
+        ?.classList.contains("lg:origin-top")
+    ).toBe(true);
     expect((strip as HTMLElement).style.getPropertyValue("--hand-card-top-gap")).toBe(
       `${HAND_CARD_TOP_GAP_PX}px`
     );
@@ -271,6 +281,40 @@ describe("Hand visual ownership", () => {
     );
     expect((strip as HTMLElement).style.paddingRight).toBe(
       `${HAND_CARD_SCROLL_EDGE_PADDING_PX}px`
+    );
+  });
+
+  it("supports a low-overlap mobile hand layout", () => {
+    const cards = [buildCard("c1", "p1-hand"), buildCard("c2", "p1-hand")];
+    const zone = buildHandZone("p1-hand", "p1", cards.map((card) => card.id));
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Hand
+            zone={zone}
+            cards={cards}
+            isTop={false}
+            isRight={false}
+            isMe
+            viewerPlayerId="p1"
+            viewerRole="player"
+            showLabel={false}
+            baseCardHeight={120}
+            cardScale={2}
+            cardOverlapRatio={0.9}
+          />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+
+    const sourceCard = container.querySelector(
+      '[data-dnd-hand-sortable-card-id="c1"]'
+    ) as HTMLElement | null;
+
+    expect(sourceCard).not.toBeNull();
+    expect(sourceCard?.style.getPropertyValue("--hand-card-max-width")).toBe(
+      "144px"
     );
   });
 
@@ -304,10 +348,9 @@ describe("Hand visual ownership", () => {
     expect(handZone).not.toBeNull();
     expect(handZone?.classList.contains("overflow-x-auto")).toBe(true);
     expect(handZone?.classList.contains("overflow-y-hidden")).toBe(true);
-    expect(container.querySelector("[data-dnd-hand-scrollbar]")).toBeNull();
   });
 
-  it("keeps cards touch-locked for drag while gutters can pan", () => {
+  it("keeps cards touch-locked for drag", () => {
     const card = buildCard("c1", "p1-hand");
     const zone = buildHandZone("p1-hand", "p1", [card.id]);
 
@@ -334,6 +377,112 @@ describe("Hand visual ownership", () => {
 
     expect(sourceCard).not.toBeNull();
     expect(sourceCard?.classList.contains("touch-none")).toBe(true);
+  });
+
+  it("does not show the custom scrollbar by default even when the hand overflows", () => {
+    const clientWidth = vi
+      .spyOn(HTMLElement.prototype, "clientWidth", "get")
+      .mockReturnValue(200);
+    const scrollWidth = vi
+      .spyOn(HTMLElement.prototype, "scrollWidth", "get")
+      .mockReturnValue(500);
+    const cards = [
+      buildCard("c1", "p1-hand"),
+      buildCard("c2", "p1-hand"),
+      buildCard("c3", "p1-hand"),
+    ];
+    const zone = buildHandZone("p1-hand", "p1", cards.map((card) => card.id));
+
+    try {
+      const { container } = render(
+        <DndContext>
+          <CardPreviewProvider>
+            <Hand
+              zone={zone}
+              cards={cards}
+              isTop={false}
+              isRight={false}
+              isMe
+              viewerPlayerId="p1"
+              viewerRole="player"
+              showLabel={false}
+            />
+          </CardPreviewProvider>
+        </DndContext>
+      );
+
+      const strip = container.querySelector(
+        "[data-dnd-hand-card-strip]"
+      ) as HTMLElement | null;
+
+      expect(container.querySelector("[data-dnd-hand-scrollbar]")).toBeNull();
+      expect(strip?.style.paddingBottom).toBe("0px");
+    } finally {
+      clientWidth.mockRestore();
+      scrollWidth.mockRestore();
+    }
+  });
+
+  it("shows a persistent custom scrollbar when enabled and uses it to scroll", () => {
+    const clientWidth = vi
+      .spyOn(HTMLElement.prototype, "clientWidth", "get")
+      .mockReturnValue(200);
+    const scrollWidth = vi
+      .spyOn(HTMLElement.prototype, "scrollWidth", "get")
+      .mockReturnValue(500);
+    const cards = [
+      buildCard("c1", "p1-hand"),
+      buildCard("c2", "p1-hand"),
+      buildCard("c3", "p1-hand"),
+    ];
+    const zone = buildHandZone("p1-hand", "p1", cards.map((card) => card.id));
+
+    try {
+      const { container } = render(
+        <DndContext>
+          <CardPreviewProvider>
+            <Hand
+              zone={zone}
+              cards={cards}
+              isTop={false}
+              isRight={false}
+              isMe
+              viewerPlayerId="p1"
+              viewerRole="player"
+              showLabel={false}
+              showCustomScrollbar
+            />
+          </CardPreviewProvider>
+        </DndContext>
+      );
+
+      const handZone = container.querySelector(
+        '[data-zone-id="p1-hand"]'
+      ) as HTMLDivElement | null;
+      const strip = container.querySelector(
+        "[data-dnd-hand-card-strip]"
+      ) as HTMLElement | null;
+      const scrollbar = container.querySelector(
+        "[data-dnd-hand-scrollbar]"
+      ) as HTMLInputElement | null;
+
+      expect(handZone).not.toBeNull();
+      expect(handZone?.classList.contains("touch-none")).toBe(true);
+      expect(handZone?.classList.contains("touch-pan-x")).toBe(false);
+      expect(strip).not.toBeNull();
+      expect(scrollbar).not.toBeNull();
+      expect(scrollbar?.getAttribute("max")).toBe("300");
+      expect(strip?.style.paddingBottom).toBe("24px");
+
+      fireEvent.change(scrollbar as HTMLInputElement, {
+        target: { value: "120" },
+      });
+
+      expect(handZone?.scrollLeft).toBe(120);
+    } finally {
+      clientWidth.mockRestore();
+      scrollWidth.mockRestore();
+    }
   });
 
   it("does not expand or scale hand card slots on hover", () => {

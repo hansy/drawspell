@@ -25,7 +25,6 @@ import { areShortcutsBlockedByUi } from "../shortcuts/model";
 import { useMultiplayerSync } from "../multiplayer-sync/useMultiplayerSync";
 import { usePlayerLayout, type LayoutMode } from "../player/usePlayerLayout";
 import { resolveSelectedCardIds } from "@/models/game/selection/selectionModel";
-import { MAX_PLAYERS } from "@/lib/room";
 import { useIdleTimeout } from "@/hooks/shared/useIdleTimeout";
 import { handoffDebugLog } from "@/lib/debug";
 import {
@@ -82,12 +81,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   );
   const viewerRole = useGameStore((state) => state.viewerRole);
   const setViewerRole = useGameStore((state) => state.setViewerRole);
-  const roomHostId = useGameStore((state) => state.roomHostId);
-  const roomLockedByHost = useGameStore((state) => state.roomLockedByHost);
   const roomOverCapacity = useGameStore((state) => state.roomOverCapacity);
-  const setRoomLockedByHost = useGameStore(
-    (state) => state.setRoomLockedByHost,
-  );
   const activeModal = useGameStore((state) => state.activeModal);
   const setActiveModal = useGameStore((state) => state.setActiveModal);
   const overCardScale = useDragStore((state) => state.overCardScale);
@@ -461,16 +455,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     setIsDiceRollerOpen(true);
   }, [isSpectator]);
 
-  const playerCount = Object.keys(players).length;
-  const roomIsFull = playerCount >= MAX_PLAYERS;
-  const roomLocked = roomLockedByHost || roomIsFull;
-  const isHost = roomHostId === myPlayerId;
   const isJoinBlocked = !isSpectator && joinBlocked && !players[myPlayerId];
-
-  const handleToggleRoomLock = React.useCallback(() => {
-    if (!isHost || roomIsFull) return;
-    setRoomLockedByHost(!roomLockedByHost);
-  }, [isHost, roomIsFull, roomLockedByHost, setRoomLockedByHost]);
 
   const zoomControlsBlocked = areShortcutsBlockedByUi({
     contextMenuOpen: Boolean(contextMenu),
@@ -628,11 +613,6 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     shareLinksReady,
     shareDialogError,
     canShareRoom,
-    isHost,
-    roomLockedByHost,
-    roomLocked,
-    roomIsFull,
-    onToggleRoomLock: handleToggleRoomLock,
     joinBlocked: isJoinBlocked,
     joinBlockedReason,
     roomOverCapacity,

@@ -37,7 +37,6 @@ const mockGameState = vi.hoisted(() => ({
   zones: {},
   cards: {},
   battlefieldGridSizing: {},
-  roomLockedByHost: false,
   roomOverCapacity: false,
   roomTokens: null as any,
   setRoomTokens: vi.fn((tokens: any) => {
@@ -345,7 +344,6 @@ describe("useMultiplayerSync", () => {
           players: expect.any(Object),
           playerOrder: expect.any(Array),
           zones: expect.any(Object),
-          roomLockedByHost: expect.any(Boolean),
           roomOverCapacity: expect.any(Boolean),
         }),
         actions: expect.objectContaining({

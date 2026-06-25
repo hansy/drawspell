@@ -21,12 +21,11 @@ const createZonesForPlayer = (playerId: string): Zone[] => [
 
 const baseState = (): Pick<
   GameState,
-  "players" | "playerOrder" | "zones" | "roomLockedByHost" | "roomOverCapacity"
+  "players" | "playerOrder" | "zones" | "roomOverCapacity"
 > => ({
   players: {},
   playerOrder: [],
   zones: {},
-  roomLockedByHost: false,
   roomOverCapacity: false,
 });
 
@@ -83,25 +82,12 @@ describe("ensureLocalPlayerInitialized", () => {
     expect(addZone).not.toHaveBeenCalled();
   });
 
-  it("blocks new players when the room is locked or full", () => {
-    const lockedState = baseState();
-    lockedState.roomLockedByHost = true;
-
+  it("blocks new players when the room is full", () => {
     const addPlayer = vi.fn();
     const updatePlayer = vi.fn();
     const addZone = vi.fn();
-
-    const result = ensureLocalPlayerInitialized({
-      state: lockedState,
-      actions: { addPlayer, updatePlayer, addZone },
-      playerId: "p1",
-      preferredUsername: "Alice",
-    });
-
-    expect(result?.status).toBe("blocked");
-    expect(addPlayer).not.toHaveBeenCalled();
-
     const fullState = baseState();
+
     for (let i = 0; i < MAX_PLAYERS; i += 1) {
       fullState.players[`p${i}`] = {
         id: `p${i}`,
@@ -124,6 +110,7 @@ describe("ensureLocalPlayerInitialized", () => {
     });
 
     expect(fullResult?.status).toBe("blocked");
+    expect(fullResult?.reason).toBe("full");
     expect(addPlayer).not.toHaveBeenCalled();
   });
 });

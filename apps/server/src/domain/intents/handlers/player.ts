@@ -70,8 +70,6 @@ const handlePlayerJoin: IntentHandler = ({ actorId, maps, hidden, payload, markH
 
   const existing = readPlayer(maps, player.id);
   if (!existing) {
-    const locked = Boolean(maps.meta.get("locked"));
-    if (locked) return { ok: false, error: "room locked" };
     if (maps.players.size >= MAX_PLAYERS) {
       return { ok: false, error: "room full" };
     }

@@ -12,13 +12,13 @@ export const resolveDesiredPlayerName = (username: string | null | undefined, de
   normalizeUsernameInput(username) ?? defaultName;
 
 export type LocalPlayerInitResult =
-  | { status: "blocked"; reason: "full" | "locked" | "overCapacity" }
+  | { status: "blocked"; reason: "full" | "overCapacity" }
   | null;
 
 export const ensureLocalPlayerInitialized = (params: {
   state: Pick<
     GameState,
-    "players" | "playerOrder" | "zones" | "roomLockedByHost" | "roomOverCapacity"
+    "players" | "playerOrder" | "zones" | "roomOverCapacity"
   >;
   actions: LocalPlayerInitActions;
   playerId: string;
@@ -31,14 +31,12 @@ export const ensureLocalPlayerInitialized = (params: {
   const playerCount = Object.keys(params.state.players).length;
   const roomIsFull = playerCount >= MAX_PLAYERS;
   const roomOverCapacity = params.state.roomOverCapacity || playerCount > MAX_PLAYERS;
-  const roomLockedByHost = params.state.roomLockedByHost;
-  const roomIsLocked = roomLockedByHost || roomIsFull;
 
-  if (!playerExists && roomIsLocked) {
+  if (!playerExists && roomIsFull) {
     if (roomOverCapacity) {
       return { status: "blocked", reason: "overCapacity" };
     }
-    return { status: "blocked", reason: roomIsFull ? "full" : "locked" };
+    return { status: "blocked", reason: "full" };
   }
 
   const plan = computeLocalPlayerInitPlan({

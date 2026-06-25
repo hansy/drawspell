@@ -12,6 +12,7 @@ import { requestCardPreviewLock } from "@/lib/cardPreviewLock";
 import { cn } from "@/lib/utils";
 import type { Card as CardType, Player, ViewerRole, ZoneId } from "@/types";
 import { useCardPreview } from "@/components/game/card/CardPreviewProvider";
+import { useElementSize } from "@/hooks/shared/useElementSize";
 
 import { LifeBox } from "../player/LifeBox";
 import { Battlefield } from "./Battlefield";
@@ -35,6 +36,12 @@ import {
   SEAT_HAND_MIN_PCT,
   useSeatSizing,
 } from "@/hooks/game/seat/useSeatSizing";
+
+const MOBILE_HAND_CARD_BASE_HEIGHT_PX = 120;
+const MOBILE_HAND_SCROLLBAR_RESERVED_PX = 32;
+const MOBILE_HAND_VERTICAL_PADDING_PX = 16;
+const MOBILE_HAND_CARD_HEIGHT_RATIO = 0.72;
+const MOBILE_HAND_CARD_OVERLAP_RATIO = 0.9;
 
 interface SeatViewProps {
   player: Player;
@@ -126,13 +133,11 @@ export const SeatView: React.FC<SeatViewProps> = ({
     [clamp, handMaxHeightPx, handMinHeightPx, isLg, seatHeightPx],
   );
   const effectiveHandHeight = isLg && sizing ? sizing.handHeightPx : handHeight;
+  const { ref: portraitHandRef, size: portraitHandSize } =
+    useElementSize<HTMLDivElement>();
+  const portraitHandHeight = portraitHandSize.height;
   const baseCardHeightPx = sizing?.baseCardHeightPx;
   const baseCardWidthPx = sizing?.baseCardWidthPx;
-  const handCardScale = React.useMemo(() => {
-    const resolvedBaseHeight = baseCardHeightPx ?? BASE_CARD_HEIGHT;
-    if (!resolvedBaseHeight) return 1;
-    return (effectiveHandHeight * HAND_CARD_HEIGHT_RATIO) / resolvedBaseHeight;
-  }, [baseCardHeightPx, effectiveHandHeight]);
   const handleHandHeightChange = React.useCallback((height: number) => {
     setHasHandOverride(true);
     setHandHeight(height);
@@ -158,6 +163,30 @@ export const SeatView: React.FC<SeatViewProps> = ({
     commander: commandCards,
     hand: handCards,
   } = model.cards;
+  const handCardScale = React.useMemo(() => {
+    if (layoutVariant === "portrait-viewport" && portraitHandHeight > 0) {
+      const reservedScrollbarSpace =
+        handCards.length > 1 ? MOBILE_HAND_SCROLLBAR_RESERVED_PX : 0;
+      const availableCardHeight = Math.max(
+        MOBILE_HAND_CARD_BASE_HEIGHT_PX,
+        (portraitHandHeight -
+          reservedScrollbarSpace -
+          MOBILE_HAND_VERTICAL_PADDING_PX) *
+          MOBILE_HAND_CARD_HEIGHT_RATIO,
+      );
+      return availableCardHeight / MOBILE_HAND_CARD_BASE_HEIGHT_PX;
+    }
+
+    const resolvedBaseHeight = baseCardHeightPx ?? BASE_CARD_HEIGHT;
+    if (!resolvedBaseHeight) return 1;
+    return (effectiveHandHeight * HAND_CARD_HEIGHT_RATIO) / resolvedBaseHeight;
+  }, [
+    baseCardHeightPx,
+    effectiveHandHeight,
+    handCards.length,
+    layoutVariant,
+    portraitHandHeight,
+  ]);
   const libraryCount = player.libraryCount ?? library?.cardIds.length ?? 0;
   const libraryPlaceholder = React.useMemo(
     () =>
@@ -484,7 +513,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 HAND - {handCards.length}
               </span>
             </div>
-            <div className="min-h-0 flex-1 flex">
+            <div ref={portraitHandRef} className="min-h-0 flex-1 flex">
               {hand && (
                 <Hand
                   zone={hand}
@@ -498,7 +527,9 @@ export const SeatView: React.FC<SeatViewProps> = ({
                   onHandContextMenu={onHandContextMenu}
                   scale={scale}
                   cardScale={handCardScale}
+                  cardOverlapRatio={MOBILE_HAND_CARD_OVERLAP_RATIO}
                   baseCardHeight={baseCardHeightPx}
+                  showCustomScrollbar
                   showLabel={false}
                   dropDisabled={isCommanderDrawerOpen}
                   className="!w-full !flex-none !border-0 !bg-transparent"

@@ -79,10 +79,8 @@ const mockGameState = vi.hoisted(() => ({
   viewerRole: "player" as "player" | "spectator",
   setViewerRole: vi.fn(),
   roomHostId: "player-1",
-  roomLockedByHost: false,
   roomOverCapacity: false,
   roomTokens: null as any,
-  setRoomLockedByHost: vi.fn(),
   activeModal: null as any,
   setActiveModal: vi.fn(),
   myPlayerId: "player-1",
@@ -302,7 +300,6 @@ describe("useMultiplayerBoardController", () => {
       lastResumeTokenBySession: {},
       viewerRole: "player",
       roomTokens: null,
-      roomLockedByHost: false,
       roomOverCapacity: false,
       activeModal: null,
     });

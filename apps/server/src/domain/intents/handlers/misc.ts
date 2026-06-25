@@ -3,16 +3,6 @@ import { clampNumber } from "../../positions";
 import { ensureActorMatches, readNumber, requireNonEmptyStringProp } from "../validation";
 import type { IntentHandler } from "./types";
 
-const handleRoomLock: IntentHandler = ({ actorId, maps, payload }) => {
-  const locked = Boolean(payload.locked);
-  const hostId = maps.meta.get("hostId");
-  if (typeof hostId === "string" && hostId !== actorId) {
-    return { ok: false, error: "Only host may lock the room" };
-  }
-  maps.meta.set("locked", locked);
-  return { ok: true };
-};
-
 const handleBattlefieldScale: IntentHandler = ({ actorId, maps, payload }) => {
   const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid scale");
   if (!playerIdResult.ok) return playerIdResult;
@@ -74,7 +64,6 @@ const handleDiceRoll: IntentHandler = ({ actorId, payload, pushLogEvent }) => {
 };
 
 export const miscIntentHandlers: Record<string, IntentHandler> = {
-  "room.lock": handleRoomLock,
   "ui.battlefieldScale.set": handleBattlefieldScale,
   "counter.global.add": handleGlobalCounterAdd,
   "coin.flip": handleCoinFlip,

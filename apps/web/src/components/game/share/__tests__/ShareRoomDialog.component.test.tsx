@@ -35,10 +35,6 @@ const renderDialog = (overrides: Partial<ShareRoomDialogProps> = {}) => {
       p1: buildPlayer("p1", "Alice"),
       p2: buildPlayer("p2", "Bob"),
     },
-    isHost: true,
-    roomLockedByHost: false,
-    roomIsFull: false,
-    onToggleRoomLock: vi.fn(),
     ...overrides,
   };
 
@@ -59,7 +55,7 @@ describe("ShareRoomDialog", () => {
     });
   });
 
-  it("copies the active player link when the room is unlocked", async () => {
+  it("copies the active player link", async () => {
     renderDialog();
 
     const playerLabel = screen.getByText("Player invite link");
@@ -83,8 +79,8 @@ describe("ShareRoomDialog", () => {
     );
   });
 
-  it("shows the spectator link when the room is locked", () => {
-    renderDialog({ roomLockedByHost: true });
+  it("shows the spectator link", () => {
+    renderDialog();
 
     expect(screen.getByText("Spectator invite link")).toBeTruthy();
     expect(
@@ -123,7 +119,10 @@ describe("ShareRoomDialog", () => {
   it("shows a loading state before links are ready", () => {
     renderDialog({ linksReady: false });
 
-    expect(screen.getByText("Generating invite links...")).toBeTruthy();
+    expect(screen.getByText("Generating invite links")).toBeTruthy();
+    expect(
+      screen.getByText("Player and spectator links will appear here.")
+    ).toBeTruthy();
     expect(screen.queryByText("Player invite link")).toBeNull();
     expect(screen.queryByText("Spectator invite link")).toBeNull();
     expect(screen.queryByDisplayValue("https://example.com/room")).toBeNull();
@@ -137,25 +136,7 @@ describe("ShareRoomDialog", () => {
 
     expect(screen.getByText("Unable to load invite links.")).toBeTruthy();
     expect(screen.getByText("Network unavailable.")).toBeTruthy();
-    expect(screen.queryByText("Generating invite links...")).toBeNull();
-  });
-
-  it("disables lock controls for non-hosts", () => {
-    renderDialog({ isHost: false });
-
-    const lockButton = screen.getByRole("button", {
-      name: "Lock room",
-    }) as HTMLButtonElement;
-
-    expect(lockButton.disabled).toBe(true);
-  });
-
-  it("allows hosts to toggle the room lock", () => {
-    const onToggleRoomLock = vi.fn();
-    renderDialog({ onToggleRoomLock });
-
-    fireEvent.click(screen.getByRole("button", { name: "Lock room" }));
-    expect(onToggleRoomLock).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Generating invite links")).toBeNull();
   });
 
   it("ignores transient undefined players when sorting", () => {

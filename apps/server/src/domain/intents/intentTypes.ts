@@ -28,7 +28,6 @@ export const INTENT_TYPES = [
   "player.join",
   "player.leave",
   "player.update",
-  "room.lock",
   "ui.battlefieldScale.set",
   "zone.add",
   "zone.reorder",

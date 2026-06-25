@@ -257,7 +257,6 @@ describe("sanitizeSharedSnapshot", () => {
     });
 
     expect(safe.roomHostId).toBeNull();
-    expect(safe.roomLockedByHost).toBe(false);
   });
 
   it("hydrates room metadata from snapshot", () => {
@@ -271,7 +270,7 @@ describe("sanitizeSharedSnapshot", () => {
     });
 
     expect(safe.roomHostId).toBe("p1");
-    expect(safe.roomLockedByHost).toBe(true);
+    expect("roomLockedByHost" in safe).toBe(false);
   });
 
   it("flags rooms that exceed the player cap", () => {

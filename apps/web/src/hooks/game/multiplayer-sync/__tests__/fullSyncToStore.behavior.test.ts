@@ -59,7 +59,6 @@ describe("createFullSyncToStore", () => {
       globalCounters: {},
       battlefieldViewScale: {},
       roomHostId: null,
-      roomLockedByHost: false,
       roomOverCapacity: false,
     } as any;
     const next = typeof updater === "function" ? updater(baseState) : updater;
@@ -116,7 +115,6 @@ describe("createFullSyncToStore", () => {
       globalCounters: {},
       battlefieldViewScale: {},
       roomHostId: null,
-      roomLockedByHost: false,
       roomOverCapacity: false,
       privateOverlay: overlay,
     } as any;

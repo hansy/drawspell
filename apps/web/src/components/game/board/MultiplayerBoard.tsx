@@ -21,8 +21,7 @@ export const MultiplayerBoard: FC<MultiplayerBoardProps> = ({ sessionId }) => {
   } = controller;
   const { handleCreateNewGame } = controller;
   const isSpectator = viewerRole === "spectator";
-  const canSpectate =
-    joinBlockedReason === "full" || joinBlockedReason === "locked";
+  const canSpectate = joinBlockedReason === "full";
   if (joinBlockedReason === "room-unavailable") {
     return (
       <RoomFullScreen

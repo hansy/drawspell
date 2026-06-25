@@ -14,7 +14,7 @@ export const RoomFullScreen: React.FC<RoomFullScreenProps> = ({
   onLeave,
   onSpectate,
   title = "Room is full",
-  description = "This room is locked or already has the maximum number of players.",
+  description = "This room already has the maximum number of players.",
   leaveLabel = "Back to home",
 }) => {
   return (

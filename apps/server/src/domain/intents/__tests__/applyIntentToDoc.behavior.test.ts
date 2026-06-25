@@ -60,7 +60,7 @@ const makeCard = (
 });
 
 describe("applyIntentToDoc", () => {
-  it("should reject player joins when the room is locked", () => {
+  it("should ignore legacy room lock metadata when joining", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
     maps.meta.set("locked", true);
@@ -72,12 +72,9 @@ describe("applyIntentToDoc", () => {
       payload: { actorId: "p1", player: makePlayer("p1") },
     }, hidden);
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toBe("room locked");
-    }
-    expect(maps.players.size).toBe(0);
-    expect(hidden.handOrder.p1).toBeUndefined();
+    expect(result.ok).toBe(true);
+    expect(maps.players.size).toBe(1);
+    expect(hidden.handOrder.p1).toEqual([]);
   });
 
   it("should set the host and initialize hidden orders for a new player", () => {

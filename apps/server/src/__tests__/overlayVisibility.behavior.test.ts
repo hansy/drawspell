@@ -718,10 +718,10 @@ describe("server migration behavior", () => {
       expect(mismatch.error).toBe("actor mismatch");
     }
 
-    const lockedDoc = createDoc();
-    lockedDoc.getMap("meta").set("locked", true);
-    const locked = applyIntentToDoc(
-      lockedDoc,
+    const legacyLockedDoc = createDoc();
+    legacyLockedDoc.getMap("meta").set("locked", true);
+    const legacyLocked = applyIntentToDoc(
+      legacyLockedDoc,
       {
         id: "intent-16",
         type: "player.join",
@@ -732,10 +732,7 @@ describe("server migration behavior", () => {
       },
       createEmptyHiddenState()
     );
-    expect(locked.ok).toBe(false);
-    if (!locked.ok) {
-      expect(locked.error).toBe("room locked");
-    }
+    expect(legacyLocked.ok).toBe(true);
 
     const fullDoc = createDoc();
     seedPlayers(fullDoc, [
@@ -1038,44 +1035,6 @@ describe("server migration behavior", () => {
     if (!denied.ok) {
       expect(denied.error).toBe("Only zone owner may reorder cards");
     }
-  });
-
-  it("locks rooms only when issued by the host", () => {
-    const doc = createDoc();
-    seedPlayers(doc, [createPlayer("p1"), createPlayer("p2")]);
-    doc.getMap("meta").set("hostId", "p1");
-
-    const denied = applyIntentToDoc(
-      doc,
-      {
-        id: "intent-29",
-        type: "room.lock",
-        payload: {
-          actorId: "p2",
-          locked: true,
-        },
-      },
-      createEmptyHiddenState()
-    );
-    expect(denied.ok).toBe(false);
-    if (!denied.ok) {
-      expect(denied.error).toBe("Only host may lock the room");
-    }
-
-    const allowed = applyIntentToDoc(
-      doc,
-      {
-        id: "intent-30",
-        type: "room.lock",
-        payload: {
-          actorId: "p1",
-          locked: true,
-        },
-      },
-      createEmptyHiddenState()
-    );
-    expect(allowed.ok).toBe(true);
-    expect(doc.getMap("meta").get("locked")).toBe(true);
   });
 
   it("sets battlefield scale for the requesting player only", () => {

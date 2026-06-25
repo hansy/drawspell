@@ -27,7 +27,6 @@ export function createAttemptJoin({
         players: store.players,
         playerOrder: store.playerOrder,
         zones: store.zones,
-        roomLockedByHost: store.roomLockedByHost,
         roomOverCapacity: store.roomOverCapacity,
       },
       actions: {

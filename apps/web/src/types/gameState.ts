@@ -26,7 +26,6 @@ export interface GameState {
   battlefieldViewScale: Record<PlayerId, number>;
   battlefieldGridSizing: Record<PlayerId, BattlefieldGridSizing>;
   roomHostId: PlayerId | null;
-  roomLockedByHost: boolean;
   roomOverCapacity: boolean;
   privateOverlay: PrivateOverlayPayload | null;
   overlayCapabilities: string[];
@@ -152,8 +151,6 @@ export interface GameState {
     loaded: boolean,
     isRemote?: boolean
   ) => void;
-  setRoomLockedByHost: (locked: boolean) => void;
-
   // Counter Actions
   addGlobalCounter: (name: string, color?: string, isRemote?: boolean) => void;
   addCounterToCard: (

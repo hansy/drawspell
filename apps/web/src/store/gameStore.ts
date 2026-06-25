@@ -11,7 +11,6 @@ import { createDeckActions } from './gameStore/actions/deck';
 import { createMovementActions } from './gameStore/actions/movement';
 import { createPrivateOverlayActions } from './gameStore/actions/privateOverlay';
 import { createPlayerActions } from './gameStore/actions/players';
-import { createRoomActions } from './gameStore/actions/room';
 import { createSessionActions } from './gameStore/actions/session';
 import { createUiActions } from './gameStore/actions/ui';
 import { createZoneActions } from './gameStore/actions/zones';
@@ -59,7 +58,6 @@ export const useGameStore = create<GameStore>()(
                 battlefieldViewScale: {},
                 battlefieldGridSizing: {},
                 roomHostId: null,
-                roomLockedByHost: false,
                 roomOverCapacity: false,
                 positionFormat: 'normalized',
                 globalCounters: {},
@@ -73,7 +71,6 @@ export const useGameStore = create<GameStore>()(
                 ...createMovementActions(set, get, { dispatchIntent }),
                 ...createDeckActions(set, get, { dispatchIntent }),
                 ...createCounterActions(set, get, { dispatchIntent }),
-                ...createRoomActions(set, get, { dispatchIntent }),
                 ...createUiActions(set, get, { dispatchIntent }),
             });
         },

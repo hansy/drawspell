@@ -22,13 +22,12 @@ const createSharedMaps = (): SharedMaps => {
 };
 
 describe("patchRoomMeta", () => {
-  it("sets host and lock fields", () => {
+  it("sets host fields", () => {
     const maps = createSharedMaps();
 
-    patchRoomMeta(maps, { hostId: "p1", locked: true });
+    patchRoomMeta(maps, { hostId: "p1" });
 
     expect(maps.meta.get("hostId")).toBe("p1");
-    expect(maps.meta.get("locked")).toBe(true);
   });
 
   it("clears host when null is provided", () => {

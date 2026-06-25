@@ -2,7 +2,6 @@ import type { SharedMaps } from './shared';
 
 export type RoomMetaPatch = {
   hostId?: string | null;
-  locked?: boolean;
 };
 
 export const patchRoomMeta = (maps: SharedMaps, patch: RoomMetaPatch) => {
@@ -12,9 +11,5 @@ export const patchRoomMeta = (maps: SharedMaps, patch: RoomMetaPatch) => {
     } else {
       maps.meta.set('hostId', patch.hostId);
     }
-  }
-
-  if (patch.locked !== undefined) {
-    maps.meta.set('locked', patch.locked);
   }
 };
