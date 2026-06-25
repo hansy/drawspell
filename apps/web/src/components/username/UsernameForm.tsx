@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from '../ui/button';
+import { GameDialogActionButton } from '@/components/game/dialog/GameDialogActionButton';
 import { Input } from '../ui/input';
 import { cn } from '@/lib/utils';
 import { normalizeUsernameInput, USERNAME_MAX_LENGTH } from '@/store/clientPrefsStore';
@@ -88,34 +88,31 @@ export function UsernameForm({
 
       <div className={cn('flex items-center gap-3', showCancel ? 'justify-between' : 'justify-end')}>
         {showRandomize && (
-          <Button
+          <GameDialogActionButton
             type="button"
-            variant="outline"
+            intent="secondary"
             onClick={handleRandomize}
-            className="border-zinc-700 hover:bg-zinc-800 text-zinc-300"
           >
             {randomizeLabel}
-          </Button>
+          </GameDialogActionButton>
         )}
 
         <div className="flex items-center gap-3">
           {showCancel && (
-            <Button
+            <GameDialogActionButton
               type="button"
-              variant="outline"
+              intent="secondary"
               onClick={onCancel}
-              className="border-zinc-700 hover:bg-zinc-800 text-zinc-300"
             >
               {cancelLabel}
-            </Button>
+            </GameDialogActionButton>
           )}
-          <Button
+          <GameDialogActionButton
             type="submit"
             disabled={!normalized}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white"
           >
             {submitLabel}
-          </Button>
+          </GameDialogActionButton>
         </div>
       </div>
     </form>
