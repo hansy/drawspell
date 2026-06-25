@@ -2,7 +2,6 @@ import React from "react";
 import { Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
 import { GameDialogActionButton } from "@/components/game/dialog/GameDialogActionButton";
 import {
   Dialog,
@@ -52,17 +51,16 @@ const ShareLinkField: React.FC<ShareLinkFieldProps> = ({
           onFocus={(e) => e.currentTarget.select()}
           className="bg-zinc-950 border-zinc-800 text-zinc-100"
         />
-        <Button
+        <GameDialogActionButton
           type="button"
-          variant="outline"
+          intent="secondary"
           size="sm"
           disabled={!value}
           onClick={() => onCopy(label, value)}
-          className="border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
         >
           <Copy size={16} />
           Copy
-        </Button>
+        </GameDialogActionButton>
       </div>
     </div>
   );
