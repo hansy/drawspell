@@ -117,6 +117,15 @@ export type CardMovementPlan = {
   logFacts: CardMovementLogFacts;
 };
 
+const resolveBattlefieldEntryFallbackPosition = (
+  position: Position | undefined,
+  fromZone: Pick<Zone, "type">,
+  toZone: Pick<Zone, "type">
+): Position | undefined =>
+  !position && toZone.type === ZONE.BATTLEFIELD && fromZone.type !== ZONE.BATTLEFIELD
+    ? { x: 0.5, y: 0.5 }
+    : position;
+
 export const resolveCardMovementPosition = ({
   card,
   cardId = card.id,
@@ -138,10 +147,11 @@ export const resolveCardMovementPosition = ({
   getPosition: (id: string) => Position | undefined;
   getStepY?: (id: string) => number | undefined;
 }): Position => {
-  const fallbackPosition =
-    !position && toZone.type === ZONE.BATTLEFIELD && fromZone.type !== ZONE.BATTLEFIELD
-      ? { x: 0.5, y: 0.5 }
-      : position;
+  const fallbackPosition = resolveBattlefieldEntryFallbackPosition(
+    position,
+    fromZone,
+    toZone
+  );
   const resolvedPosition = normalizeMovePosition(fallbackPosition, card.position);
 
   if (
@@ -448,10 +458,11 @@ export const planCardMovement = ({
     requestedFaceDown: opts?.faceDown,
     requestedFaceDownMode: opts?.faceDownMode,
   });
-  const fallbackPosition =
-    !position && toZone.type === ZONE.BATTLEFIELD && fromZone.type !== ZONE.BATTLEFIELD
-      ? { x: 0.5, y: 0.5 }
-      : position;
+  const fallbackPosition = resolveBattlefieldEntryFallbackPosition(
+    position,
+    fromZone,
+    toZone
+  );
   const resolvedPosition = normalizeMovePosition(fallbackPosition, card.position);
   const revealPatch = computeRevealPatchAfterMove({
     fromZoneType: fromZone.type,
