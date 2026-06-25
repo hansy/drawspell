@@ -1,5 +1,5 @@
 export const createSafeStorage = (): Storage => {
-  if (typeof window === "undefined" || !window?.localStorage) {
+  const createMemoryStorage = (): Storage => {
     const store = new Map<string, string>();
     return {
       getItem: (key: string) => store.get(key) ?? null,
@@ -15,7 +15,16 @@ export const createSafeStorage = (): Storage => {
         return store.size;
       },
     } as Storage;
+  };
+
+  if (typeof window === "undefined") {
+    return createMemoryStorage();
   }
 
-  return window.localStorage;
+  try {
+    if (!window.localStorage) return createMemoryStorage();
+    return window.localStorage;
+  } catch {
+    return createMemoryStorage();
+  }
 };

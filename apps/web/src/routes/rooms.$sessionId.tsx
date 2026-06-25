@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
@@ -34,7 +35,7 @@ function GameRoute() {
   const hasHydrated = useClientPrefsStore((state) => state.hasHydrated);
   const username = useClientPrefsStore((state) => state.username);
 
-  if (!hasHydrated) return null;
+  if (!hasHydrated) return <RoomRouteLoadingScreen />;
 
   if (!username) {
     return (
@@ -48,5 +49,16 @@ function GameRoute() {
     <Suspense fallback={null}>
       <MultiplayerBoard sessionId={sessionId} />
     </Suspense>
+  );
+}
+
+function RoomRouteLoadingScreen() {
+  return (
+    <div className="min-h-dvh flex flex-col items-center justify-center bg-zinc-950 text-zinc-100">
+      <div className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-300">
+        <Loader2 size={16} className="animate-spin text-zinc-400" />
+        <span>Loading game</span>
+      </div>
+    </div>
   );
 }
