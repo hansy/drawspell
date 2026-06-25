@@ -125,7 +125,7 @@ const SortableCard = React.memo(
       return {
         transform: CSS.Transform.toString(transform),
         transition,
-        ["--hand-card-max-width" as string]: `${overlapWidth}px`,
+        ["--hand-card-slot-width" as string]: `${overlapWidth}px`,
       } as React.CSSProperties;
     }, [transform, transition, overlapWidth]);
 
@@ -184,7 +184,7 @@ const SortableCard = React.memo(
         data-dnd-hand-sortable-card-id={card.id}
         data-dnd-hand-card-scale={cardScale}
         className={cn(
-          "relative flex shrink-0 h-full w-auto max-w-[var(--hand-card-max-width)] items-center lg:items-start touch-none transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group",
+          "relative flex shrink-0 h-full w-[var(--hand-card-slot-width)] items-center lg:items-start touch-none transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group",
           "hover:-translate-y-3",
           isActiveDragSource && "z-50",
           isPendingDrop && "z-50 opacity-0",
@@ -444,6 +444,7 @@ const HandInner: React.FC<HandProps> = ({
 
   React.useEffect(() => clearTouchPress, [clearTouchPress]);
   const customScrollbarVisible = showCustomScrollbar && scrollbarState.visible;
+  const reserveCustomScrollbarSpace = showCustomScrollbar && displayCards.length > 1;
 
   return (
     <div
@@ -507,7 +508,7 @@ const HandInner: React.FC<HandProps> = ({
               ["--hand-card-top-gap" as string]: `${HAND_CARD_TOP_GAP_PX}px`,
               paddingLeft: HAND_CARD_SCROLL_EDGE_PADDING_PX,
               paddingRight: HAND_CARD_SCROLL_EDGE_PADDING_PX,
-              paddingBottom: customScrollbarVisible ? 24 : 0,
+              paddingBottom: reserveCustomScrollbarSpace ? 12 : 0,
             }}
           >
             {/*

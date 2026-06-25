@@ -313,7 +313,7 @@ describe("Hand visual ownership", () => {
     ) as HTMLElement | null;
 
     expect(sourceCard).not.toBeNull();
-    expect(sourceCard?.style.getPropertyValue("--hand-card-max-width")).toBe(
+    expect(sourceCard?.style.getPropertyValue("--hand-card-slot-width")).toBe(
       "144px"
     );
   });
@@ -472,13 +472,54 @@ describe("Hand visual ownership", () => {
       expect(strip).not.toBeNull();
       expect(scrollbar).not.toBeNull();
       expect(scrollbar?.getAttribute("max")).toBe("300");
-      expect(strip?.style.paddingBottom).toBe("24px");
+      expect(strip?.style.paddingBottom).toBe("12px");
 
       fireEvent.change(scrollbar as HTMLInputElement, {
         target: { value: "120" },
       });
 
       expect(handZone?.scrollLeft).toBe(120);
+    } finally {
+      clientWidth.mockRestore();
+      scrollWidth.mockRestore();
+    }
+  });
+
+  it("reserves custom scrollbar space before the scrollbar becomes visible", () => {
+    const clientWidth = vi
+      .spyOn(HTMLElement.prototype, "clientWidth", "get")
+      .mockReturnValue(500);
+    const scrollWidth = vi
+      .spyOn(HTMLElement.prototype, "scrollWidth", "get")
+      .mockReturnValue(500);
+    const cards = [buildCard("c1", "p1-hand"), buildCard("c2", "p1-hand")];
+    const zone = buildHandZone("p1-hand", "p1", cards.map((card) => card.id));
+
+    try {
+      const { container } = render(
+        <DndContext>
+          <CardPreviewProvider>
+            <Hand
+              zone={zone}
+              cards={cards}
+              isTop={false}
+              isRight={false}
+              isMe
+              viewerPlayerId="p1"
+              viewerRole="player"
+              showLabel={false}
+              showCustomScrollbar
+            />
+          </CardPreviewProvider>
+        </DndContext>
+      );
+
+      const strip = container.querySelector(
+        "[data-dnd-hand-card-strip]"
+      ) as HTMLElement | null;
+
+      expect(container.querySelector("[data-dnd-hand-scrollbar]")).toBeNull();
+      expect(strip?.style.paddingBottom).toBe("12px");
     } finally {
       clientWidth.mockRestore();
       scrollWidth.mockRestore();
