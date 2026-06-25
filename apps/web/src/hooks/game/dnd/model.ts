@@ -39,6 +39,13 @@ export type DragMoveUiState = {
     pointerScreen?: { x: number; y: number } | null;
     movementScreen?: { x: number; y: number } | null;
     dragAnchor?: { x: number; y: number } | null;
+    pointerProjection:
+      | {
+          accepted: boolean;
+          distance: number;
+          tolerance: number;
+        }
+      | null;
     isTapped: boolean;
     zoneScale: number;
     viewScale: number;
@@ -113,12 +120,17 @@ export const computeDragMoveUiState = (params: {
     x: params.activeRect.left + params.activeRect.width / 2,
     y: params.activeRect.top + params.activeRect.height / 2,
   };
+  const pointerProjection = resolvePointerProjection({
+    activeRect: params.activeRect,
+    pointerScreen: params.pointerScreen,
+    dragAnchor: params.dragAnchor,
+  });
 
   const placement = computeBattlefieldPlacement({
     centerScreen,
-    pointerScreen: params.pointerScreen ?? undefined,
+    pointerScreen: pointerProjection.pointerScreen,
     movementScreen: params.movementScreen ?? undefined,
-    dragAnchor: params.dragAnchor ?? undefined,
+    dragAnchor: pointerProjection.dragAnchor,
     isTapped,
     mirrorY,
     overRect: params.over.rect,
@@ -143,15 +155,57 @@ export const computeDragMoveUiState = (params: {
     debug: {
       activeRect: params.activeRect,
       centerScreen: liveCenterScreen,
-      pointerScreen: params.pointerScreen ?? null,
+      pointerScreen: pointerProjection.pointerScreen ?? null,
       movementScreen: params.movementScreen ?? null,
-      dragAnchor: params.dragAnchor ?? null,
+      dragAnchor: pointerProjection.dragAnchor ?? null,
+      pointerProjection: pointerProjection.reliability,
       isTapped,
       zoneScale,
       viewScale,
       overRect: params.over.rect,
       placement,
     },
+  };
+};
+
+const resolvePointerProjection = (params: {
+  activeRect: RectLike;
+  pointerScreen?: { x: number; y: number } | null;
+  dragAnchor?: { x: number; y: number } | null;
+}): {
+  pointerScreen?: { x: number; y: number };
+  dragAnchor?: { x: number; y: number };
+  reliability:
+    | {
+        accepted: boolean;
+        distance: number;
+        tolerance: number;
+      }
+    | null;
+} => {
+  if (!params.pointerScreen || !params.dragAnchor) {
+    return { reliability: null };
+  }
+
+  const projectedAnchor = {
+    x: params.activeRect.left + params.activeRect.width * params.dragAnchor.x,
+    y: params.activeRect.top + params.activeRect.height * params.dragAnchor.y,
+  };
+  const distance = Math.hypot(
+    projectedAnchor.x - params.pointerScreen.x,
+    projectedAnchor.y - params.pointerScreen.y
+  );
+  const tolerance = Math.max(
+    240,
+    params.activeRect.width * 2,
+    params.activeRect.height * 2
+  );
+  const accepted = distance <= tolerance;
+
+  return {
+    pointerScreen: accepted ? params.pointerScreen : undefined,
+    dragAnchor: accepted ? params.dragAnchor : undefined,
+    reliability: { accepted, distance, tolerance },
   };
 };
 
@@ -400,12 +454,17 @@ export const computeDragEndPlan = (params: {
   const viewScale = params.overCardScale || 1;
   const isTapped = Boolean(params.activeTapped ?? activeCard.tapped);
   const mirrorY = Boolean(params.mirrorY);
+  const pointerProjection = resolvePointerProjection({
+    activeRect: params.activeRect,
+    pointerScreen: params.pointerScreen,
+    dragAnchor: params.dragAnchor,
+  });
 
   const placement = computeBattlefieldPlacement({
     centerScreen,
-    pointerScreen: params.pointerScreen ?? undefined,
+    pointerScreen: pointerProjection.pointerScreen,
     movementScreen: params.movementScreen ?? undefined,
-    dragAnchor: params.dragAnchor ?? undefined,
+    dragAnchor: pointerProjection.dragAnchor,
     isTapped,
     mirrorY,
     overRect: params.overRect,

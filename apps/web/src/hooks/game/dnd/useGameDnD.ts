@@ -57,6 +57,23 @@ const TOUCH_DRAG_MOVE_DISTANCE_PX = 32;
 
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
+const getTouchCoordinates = (event: Event, preferChangedTouches = false) => {
+  const touchEvent = event as Event & {
+    touches?: ArrayLike<{ clientX?: unknown; clientY?: unknown }>;
+    changedTouches?: ArrayLike<{ clientX?: unknown; clientY?: unknown }>;
+  };
+  const primaryTouch = preferChangedTouches
+    ? touchEvent.changedTouches?.[0] ?? touchEvent.touches?.[0]
+    : touchEvent.touches?.[0] ?? touchEvent.changedTouches?.[0];
+  if (
+    typeof primaryTouch?.clientX === "number" &&
+    typeof primaryTouch.clientY === "number"
+  ) {
+    return { x: primaryTouch.clientX, y: primaryTouch.clientY };
+  }
+  return null;
+};
+
 const getEventCoordinates = (event: Event) => {
   const eventLike = event as Event & {
     clientX?: unknown;
@@ -71,12 +88,12 @@ const getEventCoordinates = (event: Event) => {
   if (typeof MouseEvent !== "undefined" && event instanceof MouseEvent) {
     return { x: event.clientX, y: event.clientY };
   }
-  if (typeof TouchEvent !== "undefined" && event instanceof TouchEvent) {
-    const touch = event.touches[0] ?? event.changedTouches[0];
-    return touch ? { x: touch.clientX, y: touch.clientY } : null;
-  }
-  return null;
+  return getTouchCoordinates(event);
 };
+
+export const getLivePointerCoordinates = (
+  event: PointerEvent | TouchEvent | MouseEvent
+) => getTouchCoordinates(event, event.type === "touchend") ?? getEventCoordinates(event);
 
 const computeDragTransformOrigin = (
   event: Event,
@@ -101,15 +118,29 @@ const computeDragAnchor = (
   };
 };
 
-const getCurrentPointerScreen = (params: {
+type PointerScreenSource = "live" | "delta" | "none";
+
+type PointerScreenResult = {
+  point: { x: number; y: number } | null;
+  source: PointerScreenSource;
+};
+
+export const getCurrentPointerScreen = (params: {
   activatorEvent: Event;
   delta: { x: number; y: number };
-}) => {
+  livePointerScreen?: { x: number; y: number } | null;
+}): PointerScreenResult => {
+  if (params.livePointerScreen) {
+    return { point: params.livePointerScreen, source: "live" };
+  }
   const start = getEventCoordinates(params.activatorEvent);
-  if (!start) return null;
+  if (!start) return { point: null, source: "none" };
   return {
-    x: start.x + params.delta.x,
-    y: start.y + params.delta.y,
+    point: {
+      x: start.x + params.delta.x,
+      y: start.y + params.delta.y,
+    },
+    source: "delta",
   };
 };
 
@@ -389,6 +420,47 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     scrollLeft: number | null;
     pointerBucket: number | null;
   } | null>(null);
+  const livePointerScreenRef = React.useRef<{ x: number; y: number } | null>(null);
+
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const updateLivePointer = (event: PointerEvent | TouchEvent | MouseEvent) => {
+      livePointerScreenRef.current = getLivePointerCoordinates(event);
+    };
+    const clearLivePointer = () => {
+      livePointerScreenRef.current = null;
+    };
+
+    document.addEventListener("pointermove", updateLivePointer, { capture: true });
+    document.addEventListener("pointerup", updateLivePointer, { capture: true });
+    document.addEventListener("pointercancel", clearLivePointer, { capture: true });
+    document.addEventListener("touchmove", updateLivePointer, {
+      capture: true,
+      passive: true,
+    });
+    document.addEventListener("touchend", updateLivePointer, {
+      capture: true,
+      passive: true,
+    });
+    document.addEventListener("touchcancel", clearLivePointer, {
+      capture: true,
+      passive: true,
+    });
+    document.addEventListener("mousemove", updateLivePointer, { capture: true });
+    document.addEventListener("mouseup", updateLivePointer, { capture: true });
+
+    return () => {
+      document.removeEventListener("pointermove", updateLivePointer, { capture: true });
+      document.removeEventListener("pointerup", updateLivePointer, { capture: true });
+      document.removeEventListener("pointercancel", clearLivePointer, { capture: true });
+      document.removeEventListener("touchmove", updateLivePointer, { capture: true });
+      document.removeEventListener("touchend", updateLivePointer, { capture: true });
+      document.removeEventListener("touchcancel", clearLivePointer, { capture: true });
+      document.removeEventListener("mousemove", updateLivePointer, { capture: true });
+      document.removeEventListener("mouseup", updateLivePointer, { capture: true });
+    };
+  }, []);
 
   const handleDragStart = (event: DragStartEvent) => {
     if (isSpectator) return;
@@ -398,6 +470,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     lastSingleBattlefieldPreviewRef.current = null;
     lastHandEdgeDebugRef.current = null;
     loggedMissingGhostRef.current = false;
+    livePointerScreenRef.current = getEventCoordinates(event.activatorEvent);
 
     releasePendingDropSourceElements(
       useDragStore.getState().pendingDropVisualClaims
@@ -579,10 +652,12 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
 
     const activeCardId = active.data.current?.cardId as CardId | undefined;
     const activeCard = activeCardId ? state.cards[activeCardId] : undefined;
-    const pointerScreen = getCurrentPointerScreen({
+    const pointerScreenResult = getCurrentPointerScreen({
       activatorEvent: event.activatorEvent,
       delta: event.delta,
+      livePointerScreen: livePointerScreenRef.current,
     });
+    const pointerScreen = pointerScreenResult.point;
     const activeSourceZone = activeCard ? state.zones[activeCard.zoneId] : null;
     const sourceHandRect =
       activeSourceZone?.type === ZONE.HAND
@@ -634,6 +709,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
           zoneId: activeSourceZone.id,
           cardCount: activeSourceZone.cardIds.length,
           pointerScreen,
+          pointerSource: pointerScreenResult.source,
+          livePointerScreen: livePointerScreenRef.current,
           pointerLocalX,
           edgeInset,
           leftEdge:
@@ -735,6 +812,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       seq: currentDragSeq.current,
       cardId: activeCardId,
       pointerScreen,
+      pointerSource: pointerScreenResult.source,
+      livePointerScreen: livePointerScreenRef.current,
       delta: event.delta,
       activeRectTranslated: summarizeRectLike(active.rect.current?.translated),
       activeTranslatedPointerRelation: summarizeRectPointerRelation(
@@ -791,6 +870,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
             pointerScreen: result.debug.pointerScreen,
             movementScreen: result.debug.movementScreen,
             dragAnchor: result.debug.dragAnchor,
+            pointerProjection: result.debug.pointerProjection,
             isTapped: result.debug.isTapped,
             zoneScale: result.debug.zoneScale,
             viewScale: result.debug.viewScale,
@@ -860,9 +940,9 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
           dragOverlayElement: summarizeDragOverlayElement(activeCardId),
           dragOverlayCardElement: summarizeDragOverlayCardElement(activeCardId),
           cardElement: summarizeCardElement(activeCardId),
-          dndGeometry: summarizeDndCardGeometry(activeCardId, {
-            pointer: pointerScreen,
-            dragAnchor: dragAnchorRef.current,
+        dndGeometry: summarizeDndCardGeometry(activeCardId, {
+          pointer: pointerScreen,
+          dragAnchor: dragAnchorRef.current,
           }),
         }));
       } else {
@@ -949,6 +1029,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     dragSelectionRef.current = null;
     dragAnchorRef.current = null;
     lastSingleBattlefieldPreviewRef.current = null;
+    livePointerScreenRef.current = null;
   }, [
     setActiveCardDragAnchor,
     setActiveCardId,
@@ -1066,10 +1147,12 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         const activeCard = state.cards[cardId];
         if (!activeCard) return;
 
-        const pointerScreen = getCurrentPointerScreen({
+        const pointerScreenResult = getCurrentPointerScreen({
           activatorEvent: event.activatorEvent,
           delta: event.delta,
+          livePointerScreen: livePointerScreenRef.current,
         });
+        const pointerScreen = pointerScreenResult.point;
         const sourceZone = state.zones[activeCard.zoneId];
         const sourceHandRect =
           sourceZone?.type === ZONE.HAND ? getZoneElementRect(sourceZone.id) : null;
@@ -1127,6 +1210,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
           seq: finishedDragSeq,
           cardId,
           pointerScreen,
+          pointerSource: pointerScreenResult.source,
+          livePointerScreen: livePointerScreenRef.current,
           delta: event.delta,
           over: over
             ? {

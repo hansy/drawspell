@@ -255,6 +255,56 @@ describe("game DnD movement contracts", () => {
     expect(state.debug!.placement.leadScreen).toEqual({ x: 0, y: 0 });
   });
 
+  it("falls back to translated rect center when hand scroll corrupts pointer projection", () => {
+    const zones: Record<string, Zone> = {
+      "p1-battlefield": createBattlefield("p1"),
+      "p1-hand": createHand(["c1"]),
+    };
+    const cards = {
+      c1: createCard("c1", { zoneId: "p1-hand" }),
+    };
+    const activeRect = rect({
+      left: 191.82455444335938,
+      top: 164.4481201171875,
+      width: 198.28128051757812,
+      height: 120,
+    });
+    const corruptedPointerScreen = { x: -965, y: 220 };
+    const dragAnchor = {
+      x: 0.5396931204011065,
+      y: 0.46293245469522243,
+    };
+    const overRect = rect({ left: 0, top: -8, width: 430, height: 434.5 });
+
+    const state = computeDragMoveUiState({
+      myPlayerId: "p1",
+      cards,
+      zones,
+      activeCardId: "c1",
+      activeRect,
+      pointerScreen: corruptedPointerScreen,
+      movementScreen: { x: -1265, y: -300 },
+      dragAnchor,
+      activeTapped: false,
+      over: {
+        id: "p1-battlefield",
+        type: ZONE.BATTLEFIELD,
+        rect: overRect,
+        scale: 1,
+        cardScale: 1,
+        mirrorY: false,
+      },
+    });
+
+    expect(state.debug?.pointerProjection?.accepted).toBe(false);
+    expect(state.debug?.pointerScreen).toBeNull();
+    expect(state.debug?.dragAnchor).toBeNull();
+    expect(state.debug?.centerScreen.x).toBeCloseTo(290.96519470214844, 6);
+    expect(state.debug?.centerScreen.y).toBeCloseTo(224.4481201171875, 6);
+    expect(state.ghostCard?.position.x).toBeGreaterThan(200);
+    expect(state.ghostCard?.position.x).not.toBeCloseTo(17.2, 1);
+  });
+
   it("keeps tapped preview dimensions tied to zoomed battlefield card dimensions", () => {
     const zones: Record<string, Zone> = {
       "p1-battlefield": createBattlefield("p1"),
@@ -351,6 +401,47 @@ describe("game DnD movement contracts", () => {
 
     expect(distance(plannedCenter, preview.debug!.placement.snappedPosition)).toBeLessThanOrEqual(1);
     expect(preview.ghostCard!.position).toEqual(preview.debug!.placement.snappedPosition);
+  });
+
+  it("does not commit a left-edge battlefield drop from a scroll-corrupted pointer", () => {
+    const zones: Record<string, Zone> = {
+      "p1-battlefield": createBattlefield("p1"),
+      "p1-hand": createHand(["c1"]),
+    };
+    const cards = {
+      c1: createCard("c1", { zoneId: "p1-hand" }),
+    };
+    const overRect = rect({ left: 0, top: -8, width: 430, height: 434.5 });
+
+    const plan = computeDragEndPlan({
+      myPlayerId: "p1",
+      cards,
+      zones,
+      cardId: "c1",
+      toZoneId: "p1-battlefield",
+      activeRect: rect({
+        left: 191.82455444335938,
+        top: 164.4481201171875,
+        width: 198.28128051757812,
+        height: 120,
+      }),
+      pointerScreen: { x: -965, y: 220 },
+      movementScreen: { x: -1265, y: -300 },
+      dragAnchor: {
+        x: 0.5396931204011065,
+        y: 0.46293245469522243,
+      },
+      overRect,
+      overScale: 1,
+      overCardScale: 1,
+      mirrorY: false,
+      activeTapped: false,
+    });
+
+    expect(plan.kind).toBe("moveCard");
+    if (plan.kind !== "moveCard") return;
+    expect(plan.position?.x).toBeGreaterThan(0.5);
+    expect(plan.position?.x).not.toBeCloseTo(0.04, 2);
   });
 
   it("uses the last rendered snapped drop position when drag-end geometry has moved farther", () => {
