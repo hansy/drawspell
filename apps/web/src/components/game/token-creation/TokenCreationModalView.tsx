@@ -144,7 +144,8 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 rounded-sm hover:bg-zinc-800"
+                  aria-label="Decrease quantity"
+                  className="h-6 w-6 rounded-sm border border-zinc-700 bg-zinc-950/60 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
                   onClick={decrementQuantity}
                 >
                   <Minus className="h-3 w-3" />
@@ -153,7 +154,8 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 rounded-sm hover:bg-zinc-800"
+                  aria-label="Increase quantity"
+                  className="h-6 w-6 rounded-sm border border-zinc-700 bg-zinc-950/60 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
                   onClick={incrementQuantity}
                 >
                   <Plus className="h-3 w-3" />
