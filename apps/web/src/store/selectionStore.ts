@@ -9,8 +9,13 @@ type SelectionState = {
   toggleCard: (cardId: string, zoneId: string) => void;
 };
 
+type SelectionSnapshot = Pick<SelectionState, "selectedCardIds" | "selectionZoneId">;
+
 const uniqueIds = (ids: string[]) => Array.from(new Set(ids));
-const createSelectionState = (ids: string[], zoneId: string | null) => {
+const normalizeSelectionSnapshot = (
+  ids: string[],
+  zoneId: string | null
+): SelectionSnapshot => {
   const selectedCardIds = uniqueIds(ids);
   return {
     selectedCardIds,
@@ -21,13 +26,13 @@ const createSelectionState = (ids: string[], zoneId: string | null) => {
 export const useSelectionStore = create<SelectionState>((set) => ({
   selectedCardIds: [],
   selectionZoneId: null,
-  setSelection: (ids, zoneId) => set(createSelectionState(ids, zoneId)),
-  clearSelection: () => set(createSelectionState([], null)),
-  selectOnly: (cardId, zoneId) => set(createSelectionState([cardId], zoneId)),
+  setSelection: (ids, zoneId) => set(normalizeSelectionSnapshot(ids, zoneId)),
+  clearSelection: () => set(normalizeSelectionSnapshot([], null)),
+  selectOnly: (cardId, zoneId) => set(normalizeSelectionSnapshot([cardId], zoneId)),
   toggleCard: (cardId, zoneId) =>
     set((state) => {
       if (state.selectionZoneId && state.selectionZoneId !== zoneId) {
-        return createSelectionState([cardId], zoneId);
+        return normalizeSelectionSnapshot([cardId], zoneId);
       }
       const selected = new Set(state.selectedCardIds);
       if (selected.has(cardId)) {
@@ -35,6 +40,6 @@ export const useSelectionStore = create<SelectionState>((set) => ({
       } else {
         selected.add(cardId);
       }
-      return createSelectionState(Array.from(selected), zoneId);
+      return normalizeSelectionSnapshot(Array.from(selected), zoneId);
     }),
 }));
