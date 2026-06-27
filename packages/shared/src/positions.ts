@@ -23,6 +23,23 @@ type CardDimensionOptions = {
   baseCardWidth?: number;
 };
 
+type CardOrientationOptions = {
+  isTapped?: boolean;
+};
+
+type ZoneDimensionOptions = {
+  zoneWidth?: number;
+  zoneHeight?: number;
+};
+
+type ViewScaleOptions = {
+  viewScale?: number;
+};
+
+type BattlefieldPlacementGridOptions = ZoneDimensionOptions &
+  ViewScaleOptions &
+  CardDimensionOptions;
+
 export const resolveBaseCardDimensions = (params?: CardDimensionOptions) => {
   const baseCardHeight = params?.baseCardHeight ?? BASE_CARD_HEIGHT;
   const baseCardWidth = params?.baseCardWidth ?? baseCardHeight * CARD_ASPECT_RATIO;
@@ -56,10 +73,9 @@ export const normalizeMovePosition = (
   return clampNormalizedPosition(normalizedInput ?? fallback);
 };
 
-export const getCardPixelSize = (params?: {
-  viewScale?: number;
-  isTapped?: boolean;
-} & CardDimensionOptions) => {
+export const getCardPixelSize = (
+  params?: CardOrientationOptions & ViewScaleOptions & CardDimensionOptions
+) => {
   const viewScale = params?.viewScale ?? 1;
   const isTapped = params?.isTapped ?? false;
   const { baseCardHeight, baseCardWidth } = resolveBaseCardDimensions({
@@ -71,9 +87,9 @@ export const getCardPixelSize = (params?: {
   return { cardWidth, cardHeight };
 };
 
-export const getCanonicalCardPixelSize = (params?: {
-  isTapped?: boolean;
-} & CardDimensionOptions) =>
+export const getCanonicalCardPixelSize = (
+  params?: CardOrientationOptions & CardDimensionOptions
+) =>
   getCardPixelSize({
     isTapped: params?.isTapped,
     baseCardHeight: params?.baseCardHeight,
@@ -81,12 +97,12 @@ export const getCanonicalCardPixelSize = (params?: {
     viewScale: 1,
   });
 
-export const getNormalizedGridSteps = (params?: {
-  isTapped?: boolean;
-  zoneWidth?: number;
-  zoneHeight?: number;
-  viewScale?: number;
-} & CardDimensionOptions) => {
+export const getNormalizedGridSteps = (
+  params?: CardOrientationOptions &
+    ZoneDimensionOptions &
+    ViewScaleOptions &
+    CardDimensionOptions
+) => {
   const { cardWidth, cardHeight } = getCardPixelSize({
     isTapped: params?.isTapped,
     viewScale: params?.viewScale,
@@ -101,11 +117,9 @@ export const getNormalizedGridSteps = (params?: {
   };
 };
 
-export const getCanonicalGridSteps = (params?: {
-  isTapped?: boolean;
-  zoneWidth?: number;
-  zoneHeight?: number;
-} & CardDimensionOptions) =>
+export const getCanonicalGridSteps = (
+  params?: CardOrientationOptions & ZoneDimensionOptions & CardDimensionOptions
+) =>
   getNormalizedGridSteps({
     isTapped: params?.isTapped,
     zoneWidth: params?.zoneWidth,
@@ -115,9 +129,7 @@ export const getCanonicalGridSteps = (params?: {
     viewScale: 1,
   });
 
-export const getCanonicalBattlefieldGridSteps = (params?: {
-  isTapped?: boolean;
-}) =>
+export const getCanonicalBattlefieldGridSteps = (params?: CardOrientationOptions) =>
   getCanonicalGridSteps({
     isTapped: params?.isTapped,
     zoneWidth: LEGACY_BATTLEFIELD_WIDTH,
@@ -132,11 +144,9 @@ export const BATTLEFIELD_PLACEMENT_GRID_SHORT_SIDE_FRACTION = 1 / 2;
 const snapNormalizedValueToStep = (value: number, step: number) =>
   step > 0 ? Math.round(value / step) * step : value;
 
-export const getCanonicalBattlefieldPlacementGridSteps = (params?: {
-  zoneWidth?: number;
-  zoneHeight?: number;
-  viewScale?: number;
-} & CardDimensionOptions) => {
+export const getCanonicalBattlefieldPlacementGridSteps = (
+  params?: BattlefieldPlacementGridOptions
+) => {
   const { baseCardWidth } = resolveBaseCardDimensions({
     baseCardHeight: params?.baseCardHeight,
     baseCardWidth: params?.baseCardWidth,
@@ -266,7 +276,7 @@ export const snapNormalizedWithZone = (
 
 export const snapNormalizedToCanonicalBattlefieldGrid = (
   position: Position,
-  params?: { isTapped?: boolean }
+  params?: CardOrientationOptions
 ) => {
   const { cardWidth, cardHeight } = getCanonicalCardPixelSize({
     isTapped: params?.isTapped,
@@ -282,9 +292,9 @@ export const snapNormalizedToCanonicalBattlefieldGrid = (
   );
 };
 
-export const getCanonicalBattlefieldCardBounds = (params?: {
-  isTapped?: boolean;
-}) => {
+export const getCanonicalBattlefieldCardBounds = (
+  params?: CardOrientationOptions
+) => {
   const { cardWidth, cardHeight } = getCanonicalCardPixelSize({
     isTapped: params?.isTapped,
     baseCardHeight: BASE_CARD_HEIGHT,
@@ -302,7 +312,7 @@ export const getCanonicalBattlefieldCardBounds = (params?: {
 
 export const clampNormalizedToCanonicalBattlefieldBounds = (
   position: Position,
-  params?: { isTapped?: boolean }
+  params?: CardOrientationOptions
 ) => {
   const bounds = getCanonicalBattlefieldCardBounds({
     isTapped: params?.isTapped,
@@ -466,12 +476,9 @@ export const offsetNormalizedByGrid = (params: {
   position: Position;
   stepsX?: number;
   stepsY?: number;
-  isTapped?: boolean;
-  zoneWidth?: number;
-  zoneHeight?: number;
-  baseCardHeight?: number;
-  baseCardWidth?: number;
-}) => {
+} & CardOrientationOptions &
+  ZoneDimensionOptions &
+  CardDimensionOptions) => {
   const { stepX, stepY } = getCanonicalBattlefieldPlacementGridSteps({
     zoneWidth: params.zoneWidth,
     zoneHeight: params.zoneHeight,
