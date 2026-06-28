@@ -21,7 +21,19 @@ type Metrics = {
   overlayBytesSent?: { snapshot?: number; diff?: number; total?: number };
   overlayMessagesSent?: { snapshot?: number; diff?: number; total?: number };
   overlayResyncCount?: number;
-  yjs?: Record<string, number>;
+  yjs?: {
+    players?: number;
+    zones?: number;
+    cards?: number;
+    zoneCardOrders?: number;
+    handRevealsToAll?: number;
+    libraryRevealsToAll?: number;
+    faceDownRevealsToAll?: number;
+    playerOrder?: number;
+    bytesSent?: number;
+    updateCount?: number;
+    updatesPerSec?: number;
+  };
   hidden?: Record<string, number> | null;
 };
 
@@ -179,9 +191,9 @@ const flatten = (metrics: Metrics) => {
     yjs_libraryRevealsToAll: yjs.libraryRevealsToAll ?? 0,
     yjs_faceDownRevealsToAll: yjs.faceDownRevealsToAll ?? 0,
     yjs_playerOrder: yjs.playerOrder ?? 0,
-    yjs_bytes_sent: (yjs as any).bytesSent ?? 0,
-    yjs_update_count: (yjs as any).updateCount ?? 0,
-    yjs_updates_per_sec: (yjs as any).updatesPerSec ?? 0,
+    yjs_bytes_sent: yjs.bytesSent ?? 0,
+    yjs_update_count: yjs.updateCount ?? 0,
+    yjs_updates_per_sec: yjs.updatesPerSec ?? 0,
     hidden_cards: hidden.cards ?? 0,
     hidden_handPlayers: hidden.handPlayers ?? 0,
     hidden_handCards: hidden.handCards ?? 0,
