@@ -97,6 +97,13 @@ export const getCanonicalCardPixelSize = (
     viewScale: 1,
   });
 
+const getCanonicalBattlefieldCardPixelSize = (params?: CardOrientationOptions) =>
+  getCanonicalCardPixelSize({
+    isTapped: params?.isTapped,
+    baseCardHeight: BASE_CARD_HEIGHT,
+    baseCardWidth: BASE_CARD_HEIGHT * CARD_ASPECT_RATIO,
+  });
+
 export const getNormalizedGridSteps = (
   params?: CardOrientationOptions &
     ZoneDimensionOptions &
@@ -278,11 +285,7 @@ export const snapNormalizedToCanonicalBattlefieldGrid = (
   position: Position,
   params?: CardOrientationOptions
 ) => {
-  const { cardWidth, cardHeight } = getCanonicalCardPixelSize({
-    isTapped: params?.isTapped,
-    baseCardHeight: BASE_CARD_HEIGHT,
-    baseCardWidth: BASE_CARD_HEIGHT * CARD_ASPECT_RATIO,
-  });
+  const { cardWidth, cardHeight } = getCanonicalBattlefieldCardPixelSize(params);
   return snapNormalizedWithZone(
     position,
     LEGACY_BATTLEFIELD_WIDTH,
@@ -295,11 +298,7 @@ export const snapNormalizedToCanonicalBattlefieldGrid = (
 export const getCanonicalBattlefieldCardBounds = (
   params?: CardOrientationOptions
 ) => {
-  const { cardWidth, cardHeight } = getCanonicalCardPixelSize({
-    isTapped: params?.isTapped,
-    baseCardHeight: BASE_CARD_HEIGHT,
-    baseCardWidth: BASE_CARD_HEIGHT * CARD_ASPECT_RATIO,
-  });
+  const { cardWidth, cardHeight } = getCanonicalBattlefieldCardPixelSize(params);
   const halfW = cardWidth / 2 / LEGACY_BATTLEFIELD_WIDTH;
   const halfH = cardHeight / 2 / LEGACY_BATTLEFIELD_HEIGHT;
   return {
