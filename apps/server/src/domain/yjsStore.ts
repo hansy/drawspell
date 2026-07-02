@@ -82,6 +82,15 @@ const setSnapshotEntity = <T extends { id: string }>(
   }
 };
 
+const copySnapshotEntities = <T extends { id: string }>(
+  source: Y.Map<unknown>,
+  target: Record<string, T>
+) => {
+  source.forEach((value, key) => {
+    setSnapshotEntity(target, value, key);
+  });
+};
+
 export const readZone = (maps: Maps, zoneId: string): Zone | null =>
   readZoneRecord(maps, maps.zones.get(zoneId), zoneId);
 
@@ -150,17 +159,13 @@ export const buildSnapshot = (maps: Maps): Snapshot => {
   const battlefieldViewScale: Record<string, number> = {};
   const meta: Record<string, unknown> = {};
 
-  maps.players.forEach((value, key) => {
-    setSnapshotEntity(players, value, key);
-  });
+  copySnapshotEntities(maps.players, players);
 
   maps.zones.forEach((value, key) => {
     setSnapshotZone(zones, maps, value, key);
   });
 
-  maps.cards.forEach((value, key) => {
-    setSnapshotEntity(cards, value, key);
-  });
+  copySnapshotEntities(maps.cards, cards);
 
   copyMapEntries(maps.globalCounters, globalCounters, (value) => typeof value === "string");
   copyMapEntries(
