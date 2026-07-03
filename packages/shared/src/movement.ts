@@ -443,31 +443,24 @@ export const planCardMovement = ({
     fromPublic: isPublicZoneType(fromZone.type),
     toPublic: isPublicZoneType(toZone.type),
   };
-  const nextControllerId = resolveControllerAfterMove(card, fromZone, toZone);
-  const controlWillChange = nextControllerId !== card.controllerId;
   const shouldMarkCommander =
     isCommanderZoneType(toZone.type) &&
     card.ownerId === toZone.ownerId &&
     !card.isCommander &&
     !card.isToken;
-  const faceDown = resolveFaceDownAfterMove({
-    fromZoneType: fromZone.type,
-    toZoneType: toZone.type,
-    currentFaceDown: card.faceDown,
-    currentFaceDownMode: card.faceDownMode,
-    requestedFaceDown: opts?.faceDown,
-    requestedFaceDownMode: opts?.faceDownMode,
-  });
   const fallbackPosition = resolveBattlefieldEntryFallbackPosition(
     position,
     fromZone,
     toZone
   );
-  const resolvedPosition = normalizeMovePosition(fallbackPosition, card.position);
-  const revealPatch = computeRevealPatchAfterMove({
-    fromZoneType: fromZone.type,
-    toZoneType: toZone.type,
-    effectiveFaceDown: faceDown.effectiveFaceDown,
+  const facts = resolveCardMovementFacts({
+    card,
+    fromZone,
+    toZone,
+    position: fallbackPosition,
+    fallbackPosition: card.position,
+    requestedFaceDown: opts?.faceDown,
+    requestedFaceDownMode: opts?.faceDownMode,
   });
   const tokenLeavesBattlefield =
     card.isToken === true &&
@@ -476,21 +469,21 @@ export const planCardMovement = ({
   const resetToFrontFace =
     fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD;
   const enteringFaceDownBattlefield =
-    toZone.type === ZONE.BATTLEFIELD && faceDown.effectiveFaceDown;
+    toZone.type === ZONE.BATTLEFIELD && facts.faceDown.effectiveFaceDown;
   const leavingFaceDownBattlefield =
     fromZone.type === ZONE.BATTLEFIELD && toZone.type !== ZONE.BATTLEFIELD && card.faceDown;
   const nextTapped = toZone.type === ZONE.BATTLEFIELD ? card.tapped : false;
   const cardPatch: CardMovementPlan["cardPatch"] = {
     zoneId: toZone.id,
-    position: resolvedPosition,
+    position: facts.position,
     tapped: nextTapped,
     counters: enforceZoneCounterRulesForMove(card.counters, toZone),
-    faceDown: toZone.type === ZONE.BATTLEFIELD ? faceDown.effectiveFaceDown : false,
+    faceDown: toZone.type === ZONE.BATTLEFIELD ? facts.faceDown.effectiveFaceDown : false,
     faceDownMode:
-      toZone.type === ZONE.BATTLEFIELD ? faceDown.effectiveFaceDownMode : undefined,
-    controllerId: controlWillChange ? nextControllerId : card.controllerId,
+      toZone.type === ZONE.BATTLEFIELD ? facts.faceDown.effectiveFaceDownMode : undefined,
+    controllerId: facts.controlWillChange ? facts.nextControllerId : card.controllerId,
     isCommander: shouldMarkCommander ? true : card.isCommander,
-    ...(revealPatch ?? {}),
+    ...(facts.revealPatch ?? {}),
   };
 
   return {
@@ -504,10 +497,10 @@ export const planCardMovement = ({
     enteringFaceDownBattlefield,
     leavingFaceDownBattlefield,
     shouldMarkCommander,
-    nextControllerId,
-    controlWillChange,
-    faceDown,
-    revealPatch,
+    nextControllerId: facts.nextControllerId,
+    controlWillChange: facts.controlWillChange,
+    faceDown: facts.faceDown,
+    revealPatch: facts.revealPatch,
     cardPatch,
     logFacts: resolveMoveLogFacts({
       card,
@@ -515,9 +508,9 @@ export const planCardMovement = ({
       toZone,
       placement,
       opts,
-      faceDown,
-      controlWillChange,
-      nextControllerId,
+      faceDown: facts.faceDown,
+      controlWillChange: facts.controlWillChange,
+      nextControllerId: facts.nextControllerId,
       cardNameForLog,
     }),
   };
