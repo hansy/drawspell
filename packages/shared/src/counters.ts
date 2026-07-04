@@ -16,26 +16,25 @@ type ParsedPTCounterType = Extract<ParsedCounterType, { kind: "pt" }>;
 
 const clampTypeLength = (value: string, maxLen: number) => value.slice(0, maxLen);
 
-const canonicalizeSignedNumber = (raw: string) => {
-  const parsed = Number.parseInt(raw, 10);
-  const sign = parsed >= 0 ? "+" : "-";
-  return `${sign}${Math.abs(parsed)}`;
+const parseSignedCounterDelta = (raw: string) => Number.parseInt(raw, 10);
+
+const formatSignedCounterDelta = (delta: number) => {
+  const sign = delta >= 0 ? "+" : "-";
+  return `${sign}${Math.abs(delta)}`;
 };
 
-const canonicalizePTCounterType = (rawPowerDelta: string, rawToughnessDelta: string) =>
-  `${canonicalizeSignedNumber(rawPowerDelta)}/${canonicalizeSignedNumber(
-    rawToughnessDelta
-  )}`;
+const canonicalizePTCounterType = (powerDelta: number, toughnessDelta: number) =>
+  `${formatSignedCounterDelta(powerDelta)}/${formatSignedCounterDelta(toughnessDelta)}`;
 
 const parsePTCounterMatch = (match: RegExpMatchArray): ParsedPTCounterType => {
   const rawPowerDelta = match[1] ?? "0";
   const rawToughnessDelta = match[2] ?? "0";
-  const powerDelta = Number.parseInt(rawPowerDelta, 10);
-  const toughnessDelta = Number.parseInt(rawToughnessDelta, 10);
+  const powerDelta = parseSignedCounterDelta(rawPowerDelta);
+  const toughnessDelta = parseSignedCounterDelta(rawToughnessDelta);
 
   return {
     kind: "pt",
-    canonicalType: canonicalizePTCounterType(rawPowerDelta, rawToughnessDelta),
+    canonicalType: canonicalizePTCounterType(powerDelta, toughnessDelta),
     powerDelta,
     toughnessDelta,
   };
