@@ -18,6 +18,17 @@ interface NumberPromptDialogProps {
   onClose: () => void;
 }
 
+const parseNumberPromptValue = (
+  value: string,
+  minValue: number,
+  maxValue?: number
+): number | null => {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < minValue) return null;
+  if (typeof maxValue === "number" && parsed > maxValue) return null;
+  return parsed;
+};
+
 export const NumberPromptDialog: React.FC<NumberPromptDialogProps> = ({
   open,
   title,
@@ -47,20 +58,15 @@ export const NumberPromptDialog: React.FC<NumberPromptDialogProps> = ({
     });
   }, [open, initialValue]);
 
+  const parsedValue = parseNumberPromptValue(value, minValue, maxValue);
+  const isValid = parsedValue !== null;
+  const canUseMax = showMaxButton && typeof maxValue === "number" && Number.isFinite(maxValue);
+
   const handleSubmit = () => {
-    const parsed = Number.parseInt(value, 10);
-    if (!Number.isFinite(parsed) || parsed < minValue) return;
-    if (typeof maxValue === "number" && parsed > maxValue) return;
-    onSubmit(parsed);
+    if (parsedValue === null) return;
+    onSubmit(parsedValue);
     onClose();
   };
-
-  const parsedValue = Number.parseInt(value, 10);
-  const isValid =
-    Number.isFinite(parsedValue) &&
-    parsedValue >= minValue &&
-    (typeof maxValue !== "number" || parsedValue <= maxValue);
-  const canUseMax = showMaxButton && typeof maxValue === "number" && Number.isFinite(maxValue);
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
