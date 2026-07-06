@@ -126,6 +126,13 @@ const resolveBattlefieldEntryFallbackPosition = (
     ? { x: 0.5, y: 0.5 }
     : position;
 
+const resolveBattlefieldPlacementStepY = (
+  getStepY: ((id: string) => number | undefined) | undefined,
+  id: string
+) =>
+  getStepY?.(id) ??
+  getCanonicalBattlefieldPlacementGridSteps().stepY;
+
 export const resolveCardMovementPosition = ({
   card,
   cardId = card.id,
@@ -174,16 +181,12 @@ export const resolveCardMovementPosition = ({
           : {},
       orderedCardIds,
       getPosition,
-      getStepY: (id) =>
-        getStepY?.(id) ??
-        getCanonicalBattlefieldPlacementGridSteps().stepY,
+      getStepY: (id) => resolveBattlefieldPlacementStepY(getStepY, id),
     });
     return resolved[cardId] ?? resolvedPosition;
   }
 
-  const stepY =
-    getStepY?.(cardId) ??
-    getCanonicalBattlefieldPlacementGridSteps().stepY;
+  const stepY = resolveBattlefieldPlacementStepY(getStepY, cardId);
   return resolveBattlefieldCollisionPosition({
     movingCardId: cardId,
     targetPosition: resolvedPosition,
