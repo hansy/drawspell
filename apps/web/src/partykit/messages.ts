@@ -101,6 +101,17 @@ export type ShareLinksResponseMessage = {
   error?: string;
 };
 
+export type PeerCountsPayload = {
+  total: number;
+  players: number;
+  spectators: number;
+};
+
+export type PeerCountsMessage = {
+  type: "peerCounts";
+  payload: PeerCountsPayload;
+};
+
 export type PartyMessage =
   | IntentMessage
   | IntentAck
@@ -112,7 +123,8 @@ export type PartyMessage =
   | GameLogReplayMessage
   | GameLogSnapshotMessage
   | RoomTokensMessage
-  | ShareLinksResponseMessage;
+  | ShareLinksResponseMessage
+  | PeerCountsMessage;
 
 export type OverlayMeta = {
   cardCount: number;

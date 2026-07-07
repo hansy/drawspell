@@ -8,6 +8,7 @@
     "build": "wrangler build",
     "deploy": "wrangler deploy --env production",
     "deploy:staging": "wrangler deploy --env staging",
+    "do:metrics": "bun scripts/do-metrics.ts",
     "rooms:probe": "bun scripts/room-admin.ts --mode probe",
     "rooms:repair": "bun scripts/room-admin.ts --mode repair",
     "test": "vitest run",

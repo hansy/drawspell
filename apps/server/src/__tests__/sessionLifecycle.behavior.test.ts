@@ -39,6 +39,7 @@ vi.mock("y-partyserver", () => ({
     onConnect(...args: any[]) {
       return superOnConnect(...args);
     }
+    onClose() {}
   },
 }));
 
@@ -56,12 +57,11 @@ beforeEach(() => {
   superOnConnect.mockClear();
 });
 
-const LIBRARY_VIEW_PING_TIMEOUT_MS = 45_000;
-const HIDDEN_STATE_PERSIST_IDLE_MS = 5_000;
 const EMPTY_ROOM_IDLE_GRACE_MS = 120_000;
 const EMPTY_ROOM_HARD_RESET_MS = 30 * 60_000;
 const EMPTY_ROOM_TOTAL_RESET_MS =
   EMPTY_ROOM_IDLE_GRACE_MS + EMPTY_ROOM_HARD_RESET_MS;
+const ROOM_TEARDOWN_CLOSE_CODE = 1013;
 const INTENT_LOG_META_KEY = "intent-log:meta";
 const INTENT_LOG_PREFIX = "intent-log:";
 
@@ -126,12 +126,17 @@ class TestConnection {
   uri = "wss://example.test";
   state: unknown;
   closed: Array<{ code?: number; reason?: string }> = [];
+  sent: string[] = [];
   private listeners = new Map<string, Set<(event: any) => void>>();
 
   addEventListener(event: string, handler: (event: any) => void) {
     const set = this.listeners.get(event) ?? new Set();
     set.add(handler);
     this.listeners.set(event, set);
+  }
+
+  listenerCount(event: string) {
+    return this.listeners.get(event)?.size ?? 0;
   }
 
   close(code?: number, reason?: string) {
@@ -141,20 +146,263 @@ class TestConnection {
     handlers.forEach((handler) => handler({ code, reason }));
   }
 
-  send(_payload: string) {}
+  send(payload: string) {
+    this.sent.push(payload);
+  }
 
   setState(nextState: unknown) {
     this.state = nextState;
   }
-
-  emitMessage(payload: string) {
-    const handlers = this.listeners.get("message");
-    if (!handlers) return;
-    handlers.forEach((handler) => handler({ data: payload }));
-  }
 }
 
 describe("server lifecycle guards", () => {
+  it("opts into hibernatable websocket handling", () => {
+    expect((Room as any).options).toMatchObject({ hibernate: true });
+  });
+
+  it("logs perf metrics opportunistically without starting a recurring timer", () => {
+    vi.useFakeTimers();
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    try {
+      vi.setSystemTime(1_000);
+      const state = createState();
+      const server = new Room(state, createEnv());
+      (server as any).perfMetricsEnabledFlag = true;
+
+      (server as any).capturePerfMetricsFlag(new URL("wss://example.test"));
+
+      expect((server as any).perfMetricsTimer ?? null).toBeNull();
+      expect(infoSpy).toHaveBeenCalledTimes(1);
+
+      vi.setSystemTime(10_000);
+      (server as any).maybeLogPerfMetrics("test-activity");
+      expect(infoSpy).toHaveBeenCalledTimes(1);
+
+      vi.setSystemTime(31_001);
+      (server as any).maybeLogPerfMetrics("test-activity");
+      expect(infoSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      infoSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("counts hibernated sockets in perf metrics after in-memory state is reset", () => {
+    vi.useFakeTimers();
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    try {
+      vi.setSystemTime(1_000);
+      const state = createState();
+      const server = new Room(state, createEnv());
+      (server as any).perfMetricsEnabledFlag = true;
+      const player = new TestConnection();
+      player.id = "hibernated-player";
+      player.state = {
+        channel: "sync",
+        playerId: "p1",
+        viewerRole: "player",
+      };
+      const intent = new TestConnection();
+      intent.id = "hibernated-intent";
+      intent.state = {
+        channel: "intent",
+        playerId: "p1",
+        viewerRole: "player",
+        libraryView: {
+          playerId: "p1",
+          count: 3,
+          lastPingAt: 1_000,
+        },
+      };
+      const spectator = new TestConnection();
+      spectator.id = "hibernated-spectator";
+      spectator.state = {
+        channel: "intent",
+        viewerRole: "spectator",
+      };
+      (server as any).getConnections = () => [player, intent, spectator];
+
+      (server as any).maybeLogPerfMetrics("wake");
+
+      const metrics = infoSpy.mock.calls.find(
+        ([message]) => message === "[party] perf metrics",
+      )?.[1] as Record<string, unknown> | undefined;
+      expect(metrics).toMatchObject({
+        connections: 3,
+        intentConnections: 2,
+        libraryViews: 1,
+      });
+    } finally {
+      infoSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("broadcasts peer counts from hibernated connection state without double-counting sync and intent sockets", () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const sync = new TestConnection();
+    sync.id = "player-sync";
+    sync.state = {
+      channel: "sync",
+      playerId: "p1",
+      viewerRole: "player",
+      connectionGroupId: "device-1",
+    };
+    const intent = new TestConnection();
+    intent.id = "player-intent";
+    intent.state = {
+      channel: "intent",
+      playerId: "p1",
+      viewerRole: "player",
+      connectionGroupId: "device-1",
+    };
+    const spectator = new TestConnection();
+    spectator.id = "spectator-intent";
+    spectator.state = {
+      channel: "intent",
+      playerId: "spectator-1",
+      viewerRole: "spectator",
+      connectionGroupId: "device-2",
+    };
+    (server as any).getConnections = () => [sync, intent, spectator];
+
+    (server as any).broadcastPeerCounts();
+
+    expect(sync.sent).toEqual([]);
+    expect(intent.sent.map((payload) => JSON.parse(payload))).toContainEqual({
+      type: "peerCounts",
+      payload: { total: 2, players: 1, spectators: 1 },
+    });
+    expect(spectator.sent.map((payload) => JSON.parse(payload))).toContainEqual({
+      type: "peerCounts",
+      payload: { total: 2, players: 1, spectators: 1 },
+    });
+  });
+
+  it("handles hibernated intent messages through the server message hook", async () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const conn = new TestConnection();
+    conn.state = {
+      channel: "intent",
+      playerId: "p1",
+      viewerRole: "player",
+    };
+
+    await (server as any).onMessage(
+      conn,
+      JSON.stringify({
+        type: "intent",
+        intent: {
+          id: "intent-1",
+          type: "card.add",
+          payload: { actorId: "p1" },
+        },
+      }),
+    );
+
+    expect(conn.sent.map((payload) => JSON.parse(payload))).toContainEqual({
+      type: "ack",
+      intentId: "intent-1",
+      ok: true,
+    });
+  });
+
+  it("cleans up hibernated intent connections through the server close hook", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const conn = new TestConnection();
+    try {
+      conn.state = {
+        channel: "intent",
+        playerId: "p1",
+        viewerRole: "player",
+        connectionGroupId: "device-1",
+      };
+      (server as any).intentConnections.add(conn);
+      (server as any).connectionRoles.set(conn, "player");
+      (server as any).connectionPlayers.set(conn, "p1");
+      (server as any).connectionGroups.set(conn, "device-1");
+      (server as any).libraryViews.set(conn.id, {
+        playerId: "p1",
+        lastPingAt: Date.now(),
+      });
+
+      await (server as any).onClose(conn, 1000, "client closed", true);
+
+      expect((server as any).intentConnections.has(conn)).toBe(false);
+      expect((server as any).connectionRoles.has(conn)).toBe(false);
+      expect((server as any).connectionPlayers.has(conn)).toBe(false);
+      expect((server as any).connectionGroups.has(conn)).toBe(false);
+      expect((server as any).libraryViews.has(conn.id)).toBe(false);
+      expect(await state.storage.get(EMPTY_ROOM_STARTED_AT_KEY)).not.toBeUndefined();
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        "[party] intent connection closed",
+        expect.anything(),
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("broadcasts intent side effects to hibernated intent peers", async () => {
+    const { applyIntentToDoc } = await import("../domain/intents/applyIntentToDoc");
+    const applyMock = vi.mocked(applyIntentToDoc);
+    applyMock.mockReturnValueOnce({
+      ok: true,
+      hiddenChanged: false,
+      impact: {
+        changedOwners: [],
+        changedZones: [],
+        changedRevealScopes: { toAll: false, toPlayers: [] },
+        changedPublicDoc: false,
+      },
+      logEvents: [
+        { eventId: "player.endTurn", payload: { actorId: "p1" } },
+      ],
+    });
+
+    const state = createState();
+    const server = new Room(state, createEnv());
+    (server as any).hiddenState = createEmptyHiddenState();
+    const sender = new TestConnection();
+    sender.id = "sender";
+    sender.state = {
+      channel: "intent",
+      playerId: "p1",
+      viewerRole: "player",
+    };
+    const peer = new TestConnection();
+    peer.id = "peer";
+    peer.state = {
+      channel: "intent",
+      playerId: "p2",
+      viewerRole: "player",
+    };
+    (server as any).getConnections = () => [sender, peer];
+
+    await (server as any).onMessage(
+      sender,
+      JSON.stringify({
+        type: "intent",
+        intent: {
+          id: "intent-1",
+          type: "player.endTurn",
+          payload: { actorId: "p1" },
+        },
+      }),
+    );
+
+    expect(peer.sent.map((payload) => JSON.parse(payload))).toContainEqual(
+      expect.objectContaining({
+        type: "gameLogEvent",
+        eventId: "player.endTurn",
+      }),
+    );
+  });
+
   it("skips hidden-state persistence when a reset happens mid-intent", async () => {
     vi.useFakeTimers();
     try {
@@ -242,7 +490,7 @@ describe("server lifecycle guards", () => {
     expect(store.has("snapshot:meta")).toBe(false);
   });
 
-  it("debounces hidden-state persistence across rapid intents", async () => {
+  it("records rapid hidden-state intents without scheduling hidden-state timers", async () => {
     vi.useFakeTimers();
     try {
       const state = createState();
@@ -275,10 +523,8 @@ describe("server lifecycle guards", () => {
       ]);
 
       expect(persistSpy).not.toHaveBeenCalled();
-
-      await vi.runAllTimersAsync();
-
-      expect(persistSpy).toHaveBeenCalledTimes(1);
+      expect((server as any).hiddenStatePersistTimer ?? null).toBeNull();
+      expect((server as any).hiddenStateIdleTimer ?? null).toBeNull();
     } finally {
       vi.useRealTimers();
     }
@@ -329,7 +575,9 @@ describe("server lifecycle guards", () => {
     replayConn.send = (payload: string) => {
       replayed.push(payload);
     };
-    (server as any).handleGameLogRequest(replayConn, { type: "gameLogRequest" });
+    await (server as any).handleGameLogRequest(replayConn, {
+      type: "gameLogRequest",
+    });
 
     expect(JSON.parse(replayed[0])).toMatchObject({
       type: "gameLogSnapshot",
@@ -343,57 +591,94 @@ describe("server lifecycle guards", () => {
     });
   });
 
-  it("persists the retained Game Log in a debounced batch", async () => {
-    vi.useFakeTimers();
-    try {
-      const { applyIntentToDoc } = await import("../domain/intents/applyIntentToDoc");
-      const applyMock = vi.mocked(applyIntentToDoc);
-      applyMock.mockReturnValueOnce({
-        ok: true,
-        hiddenChanged: false,
-        impact: { changedOwners: [], changedZones: [], changedRevealScopes: { toAll: false, toPlayers: [] }, changedPublicDoc: false },
-        logEvents: [
-          { eventId: "coin.flip", payload: { actorId: "p1", result: "heads" } },
-        ],
-      });
+  it("lazily restores the retained Game Log for hibernated replay requests", async () => {
+    const state = createState();
+    await state.storage.put("game-log:v1", {
+      nextSeq: 3,
+      entries: [
+        {
+          seq: 1,
+          ts: 100,
+          eventId: "player.endTurn",
+          payload: { actorId: "p1" },
+        },
+        {
+          seq: 2,
+          ts: 200,
+          eventId: "coin.flip",
+          payload: { actorId: "p2", result: "tails" },
+        },
+      ],
+    });
+    state.storage.get.mockClear();
+    const server = new Room(state, createEnv());
 
-      const state = createState();
-      const server = new Room(state, createEnv());
-      (server as any).hiddenState = createEmptyHiddenState();
+    await server.onLoad();
 
-      const conn = new TestConnection();
-      conn.state = { playerId: "p1", viewerRole: "player" };
-      (server as any).intentConnections.add(conn);
+    expect(state.storage.get).not.toHaveBeenCalledWith("game-log:v1");
 
-      await (server as any).handleIntent(conn, {
-        id: "intent-1",
-        type: "coin.flip",
-        payload: { actorId: "p1" },
-      });
+    const replayConn = new TestConnection();
+    await (server as any).handleGameLogRequest(replayConn, {
+      type: "gameLogRequest",
+      lastLogSeq: 1,
+    });
 
-      expect(state.storage.put).not.toHaveBeenCalledWith(
-        "game-log:v1",
-        expect.anything(),
-      );
+    expect(JSON.parse(replayConn.sent[0])).toMatchObject({
+      type: "gameLogReplay",
+      events: [
+        {
+          seq: 2,
+          eventId: "coin.flip",
+          payload: { actorId: "p2", result: "tails" },
+        },
+      ],
+    });
+  });
 
-      await vi.runAllTimersAsync();
+  it("persists the retained Game Log without scheduling a debounce timer", async () => {
+    const { applyIntentToDoc } = await import("../domain/intents/applyIntentToDoc");
+    const applyMock = vi.mocked(applyIntentToDoc);
+    applyMock.mockReturnValueOnce({
+      ok: true,
+      hiddenChanged: false,
+      impact: { changedOwners: [], changedZones: [], changedRevealScopes: { toAll: false, toPlayers: [] }, changedPublicDoc: false },
+      logEvents: [
+        { eventId: "coin.flip", payload: { actorId: "p1", result: "heads" } },
+      ],
+    });
 
-      expect(state.storage.put).toHaveBeenCalledWith(
-        "game-log:v1",
-        expect.objectContaining({
-          nextSeq: 2,
-          entries: [
-            expect.objectContaining({
-              seq: 1,
-              eventId: "coin.flip",
-              payload: { actorId: "p1", result: "heads" },
-            }),
-          ],
-        }),
-      );
-    } finally {
-      vi.useRealTimers();
+    const state = createState();
+    const server = new Room(state, createEnv());
+    (server as any).hiddenState = createEmptyHiddenState();
+
+    const conn = new TestConnection();
+    conn.state = { playerId: "p1", viewerRole: "player" };
+    (server as any).intentConnections.add(conn);
+
+    await (server as any).handleIntent(conn, {
+      id: "intent-1",
+      type: "coin.flip",
+      payload: { actorId: "p1" },
+    });
+
+    for (let i = 0; i < 3; i += 1) {
+      await Promise.resolve();
     }
+
+    expect((server as any).gameLogPersistTimer ?? null).toBeNull();
+    expect(state.storage.put).toHaveBeenCalledWith(
+      "game-log:v1",
+      expect.objectContaining({
+        nextSeq: 2,
+        entries: [
+          expect.objectContaining({
+            seq: 1,
+            eventId: "coin.flip",
+            payload: { actorId: "p1", result: "heads" },
+          }),
+        ],
+      }),
+    );
   });
 
   it("drains in-flight Game Log persistence before clearing room storage", async () => {
@@ -444,39 +729,32 @@ describe("server lifecycle guards", () => {
     expect(store.has("game-log:v1")).toBe(false);
   });
 
-  it("flushes hidden-state persistence after idle timeout", async () => {
+  it("flushes due hidden-state snapshots without scheduling a timer", async () => {
     vi.useFakeTimers();
     try {
+      vi.setSystemTime(60_000);
       const state = createState();
       const server = new Room(state, createEnv());
       (server as any).hiddenState = createEmptyHiddenState();
-      vi
-        .spyOn(server as any, "broadcastOverlays")
-        .mockResolvedValue(undefined);
       const persistSpy = vi
         .spyOn(server as any, "persistHiddenState")
         .mockResolvedValue(undefined);
-
-      const conn = new TestConnection();
-      conn.state = { playerId: "p1", viewerRole: "player" };
-
-      const intent = {
-        id: "intent-1",
-        type: "card.add",
-        payload: { actorId: "p1" },
+      (server as any).intentLogMeta = {
+        nextIndex: 201,
+        logStartIndex: 1,
+        snapshotIndex: 0,
+        lastSnapshotAt: 0,
       };
 
-      await (server as any).handleIntent(conn, intent);
-
-      const debounceTimer = (server as any).hiddenStatePersistTimer;
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-        (server as any).hiddenStatePersistTimer = null;
-      }
-
-      await vi.advanceTimersByTimeAsync(HIDDEN_STATE_PERSIST_IDLE_MS + 50);
+      (server as any).scheduleHiddenStatePersist(
+        (server as any).resetGeneration,
+        "conn-1",
+      );
+      await Promise.resolve();
 
       expect(persistSpy).toHaveBeenCalledTimes(1);
+      expect((server as any).hiddenStatePersistTimer ?? null).toBeNull();
+      expect((server as any).hiddenStateIdleTimer ?? null).toBeNull();
     } finally {
       vi.useRealTimers();
     }
@@ -535,7 +813,43 @@ describe("server lifecycle guards", () => {
     expect(overlayService.getMetrics().resyncCount).toBe(1);
   });
 
-  it("expires library views after missed pings", async () => {
+  it("preserves negotiated overlay diff capability across hibernation", async () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+    (server as any).hiddenState = createEmptyHiddenState();
+    const conn = new TestConnection();
+    conn.state = {
+      channel: "intent",
+      playerId: "p1",
+      viewerRole: "player",
+    };
+
+    await (server as any).onMessage(
+      conn,
+      JSON.stringify({
+        type: "hello",
+        payload: { capabilities: ["overlay-diff-v1"] },
+      }),
+    );
+    expect(JSON.parse(conn.sent.at(-1) ?? "{}")).toEqual({
+      type: "helloAck",
+      payload: { acceptedCapabilities: ["overlay-diff-v1"] },
+    });
+    expect((conn.state as any).capabilities).toEqual(["overlay-diff-v1"]);
+
+    (server as any).connectionCapabilities.clear();
+    conn.sent = [];
+    const overlayService = (server as any).overlayService;
+    const sendSpy = vi.spyOn(overlayService, "sendOverlayForConnection");
+
+    await (server as any).sendOverlayForConnection(conn);
+
+    expect(sendSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ supportsDiff: true }),
+    );
+  });
+
+  it("keeps library views open until the viewer closes them", async () => {
     vi.useFakeTimers();
     try {
       const state = createState();
@@ -556,20 +870,245 @@ describe("server lifecycle guards", () => {
 
       expect((server as any).libraryViews.size).toBe(1);
 
-      vi.advanceTimersByTime(30_000);
+      vi.advanceTimersByTime(180_000);
+      (server as any).cleanupExpiredLibraryViews();
+      expect((server as any).libraryViews.size).toBe(1);
+
+      await (server as any).handleLibraryViewCloseIntent(conn, {
+        type: "library.view.close",
+        payload: { playerId: "p1" },
+      });
+      expect((server as any).libraryViews.size).toBe(0);
+      expect(overlaySpy).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("tracks library views without starting a server cleanup interval", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = createState();
+      const server = new Room(state, createEnv());
+      const conn = new TestConnection();
+      conn.state = { playerId: "p1", viewerRole: "player" };
+      (server as any).intentConnections.add(conn);
+
+      vi.setSystemTime(0);
+      await (server as any).handleLibraryViewIntent(conn, {
+        type: "library.view",
+        payload: { playerId: "p1", count: 3 },
+      });
+
+      expect((server as any).libraryViews.size).toBe(1);
+      expect((server as any).libraryViewCleanupTimer ?? null).toBeNull();
+
       (server as any).handleLibraryViewPingIntent(conn, {
         type: "library.view.ping",
         payload: { playerId: "p1" },
       });
 
-      vi.advanceTimersByTime(LIBRARY_VIEW_PING_TIMEOUT_MS - 1_000);
-      (server as any).cleanupExpiredLibraryViews();
-      expect((server as any).libraryViews.size).toBe(1);
+      expect((server as any).libraryViewCleanupTimer ?? null).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
-      vi.advanceTimersByTime(2_000);
+  it("handles legacy library view pings without applying an intent", async () => {
+    const { applyIntentToDoc } = await import("../domain/intents/applyIntentToDoc");
+    const applyMock = vi.mocked(applyIntentToDoc);
+    applyMock.mockClear();
+
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const conn = new TestConnection();
+    conn.state = {
+      channel: "intent",
+      playerId: "p1",
+      viewerRole: "player",
+      libraryView: {
+        playerId: "p1",
+        count: 3,
+        lastPingAt: 0,
+      },
+    };
+
+    await (server as any).onMessage(
+      conn,
+      JSON.stringify({
+        type: "intent",
+        intent: {
+          id: "legacy-ping",
+          type: "library.view.ping",
+          payload: { actorId: "p1", playerId: "p1" },
+        },
+      }),
+    );
+
+    expect(applyMock).not.toHaveBeenCalled();
+    expect(conn.sent.map((payload) => JSON.parse(payload))).toContainEqual({
+      type: "ack",
+      intentId: "legacy-ping",
+      ok: true,
+    });
+    expect((server as any).libraryViews.get(conn.id)).toMatchObject({
+      playerId: "p1",
+      count: 3,
+    });
+  });
+
+  it("keeps active library views open without recurring pings", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = createState();
+      const server = new Room(state, createEnv());
+      const conn = new TestConnection();
+      conn.state = { playerId: "p1", viewerRole: "player" };
+      (server as any).intentConnections.add(conn);
+
+      vi.setSystemTime(0);
+      await (server as any).handleLibraryViewIntent(conn, {
+        type: "library.view",
+        payload: { playerId: "p1", count: 3 },
+      });
+
+      vi.setSystemTime(180_000);
       (server as any).cleanupExpiredLibraryViews();
-      expect((server as any).libraryViews.size).toBe(0);
-      expect(overlaySpy).toHaveBeenCalledTimes(2);
+
+      expect((server as any).libraryViews.get(conn.id)).toMatchObject({
+        playerId: "p1",
+        count: 3,
+      });
+      expect((conn.state as any).libraryView).toMatchObject({
+        playerId: "p1",
+        count: 3,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps other active library views when one viewer pings", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = createState();
+      const server = new Room(state, createEnv());
+      const staleConn = new TestConnection();
+      staleConn.id = "stale";
+      staleConn.state = { playerId: "p1", viewerRole: "player" };
+      const activeConn = new TestConnection();
+      activeConn.id = "active";
+      activeConn.state = { playerId: "p2", viewerRole: "player" };
+      (server as any).intentConnections.add(staleConn);
+      (server as any).intentConnections.add(activeConn);
+
+      vi.setSystemTime(0);
+      await (server as any).handleLibraryViewIntent(staleConn, {
+        type: "library.view",
+        payload: { playerId: "p1", count: 3 },
+      });
+      await (server as any).handleLibraryViewIntent(activeConn, {
+        type: "library.view",
+        payload: { playerId: "p2", count: 3 },
+      });
+
+      vi.setSystemTime(180_000);
+      (server as any).handleLibraryViewPingIntent(activeConn, {
+        type: "library.view.ping",
+        payload: { playerId: "p2" },
+      });
+
+      expect((server as any).libraryViews.has(staleConn.id)).toBe(true);
+      expect((server as any).libraryViews.has(activeConn.id)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("restores hibernated library views without a keepalive ping", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = createState();
+      const server = new Room(state, createEnv());
+      const conn = new TestConnection();
+      conn.id = "hibernated-viewer";
+      conn.state = {
+        channel: "intent",
+        playerId: "p1",
+        viewerRole: "player",
+        libraryView: {
+          playerId: "p1",
+          count: 3,
+          lastPingAt: 0,
+        },
+      };
+      (server as any).getConnections = () => [conn];
+      const overlaySpy = vi
+        .spyOn(server as any, "sendOverlayForConnection")
+        .mockResolvedValue(undefined);
+
+      vi.setSystemTime(180_000);
+      (server as any).cleanupExpiredLibraryViews();
+
+      expect((server as any).libraryViews.get(conn.id)).toEqual({
+        playerId: "p1",
+        count: 3,
+        lastPingAt: 0,
+      });
+      expect((conn.state as any).libraryView).toMatchObject({
+        playerId: "p1",
+        count: 3,
+        lastPingAt: 0,
+      });
+      expect(overlaySpy).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("restores hibernated library views from connection state on ping", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = createState();
+      const server = new Room(state, createEnv());
+      const conn = new TestConnection();
+      conn.id = "viewer";
+      conn.state = {
+        channel: "intent",
+        playerId: "p1",
+        viewerRole: "player",
+      };
+      (server as any).intentConnections.add(conn);
+
+      vi.setSystemTime(0);
+      await (server as any).handleLibraryViewIntent(conn, {
+        type: "library.view",
+        payload: { playerId: "p1", count: 3 },
+      });
+
+      expect((conn.state as any).libraryView).toMatchObject({
+        playerId: "p1",
+        count: 3,
+        lastPingAt: 0,
+      });
+
+      (server as any).libraryViews.clear();
+      vi.setSystemTime(12_000);
+      (server as any).handleLibraryViewPingIntent(conn, {
+        type: "library.view.ping",
+        payload: { playerId: "p1" },
+      });
+
+      expect((server as any).libraryViews.get(conn.id)).toEqual({
+        playerId: "p1",
+        count: 3,
+        lastPingAt: 12_000,
+      });
+      expect((conn.state as any).libraryView).toMatchObject({
+        playerId: "p1",
+        count: 3,
+        lastPingAt: 12_000,
+      });
     } finally {
       vi.useRealTimers();
     }
@@ -814,7 +1353,7 @@ describe("server lifecycle guards", () => {
       request: new Request(url.toString()),
     });
 
-    conn.close(1000, "client closed");
+    await (server as any).onClose(conn, 1000, "client closed", true);
     loadDeferred.resolve(null);
     await bindPromise;
 
@@ -899,7 +1438,7 @@ describe("server lifecycle guards", () => {
     );
     const bindPromise = (server as any).bindIntentConnection(conn, url);
 
-    conn.close(1000, "client closed");
+    await (server as any).onClose(conn, 1000, "client closed", true);
     loadDeferred.resolve({
       playerToken: "player-token",
       spectatorToken: "spectator-token",
@@ -909,6 +1448,65 @@ describe("server lifecycle guards", () => {
     expect(
       await (server as any).validatePlayerResumeToken("p1", initialResumeToken)
     ).toBe(true);
+  });
+
+  it("does not register connections that close through the server close hook before auth resolves", async () => {
+    const intentState = createState();
+    const intentServer = new Room(intentState, createEnv());
+    const intentLoadDeferred = createDeferred<unknown>();
+    vi.spyOn(intentServer as any, "loadRoomTokens").mockReturnValue(
+      intentLoadDeferred.promise,
+    );
+
+    const intentConn = new TestConnection();
+    intentConn.id = "closing-intent";
+    const intentUrl = new URL(
+      "https://example.test/?role=intent&gt=player-token&playerId=p1&cid=device-1",
+    );
+    const intentBindPromise = (intentServer as any).bindIntentConnection(
+      intentConn,
+      intentUrl,
+    );
+
+    await (intentServer as any).onClose(intentConn, 1000, "client closed", true);
+    intentLoadDeferred.resolve({
+      playerToken: "player-token",
+      spectatorToken: "spectator-token",
+    });
+    await intentBindPromise;
+
+    expect((intentServer as any).connectionRoles.size).toBe(0);
+    expect((intentServer as any).intentConnections.has(intentConn)).toBe(false);
+    expect(intentConn.sent).toEqual([]);
+
+    const syncState = createState();
+    const syncServer = new Room(syncState, createEnv());
+    const syncLoadDeferred = createDeferred<unknown>();
+    vi.spyOn(syncServer as any, "loadRoomTokens").mockReturnValue(
+      syncLoadDeferred.promise,
+    );
+
+    const syncConn = new TestConnection();
+    syncConn.id = "closing-sync";
+    const syncUrl = new URL(
+      "https://example.test/?gt=player-token&playerId=p2&cid=device-2",
+    );
+    const syncBindPromise = (syncServer as any).bindSyncConnection(
+      syncConn,
+      syncUrl,
+      { request: new Request(syncUrl.toString()) },
+    );
+
+    await (syncServer as any).onClose(syncConn, 1000, "client closed", true);
+    syncLoadDeferred.resolve({
+      playerToken: "player-token",
+      spectatorToken: "spectator-token",
+    });
+    await syncBindPromise;
+
+    expect((syncServer as any).connectionRoles.size).toBe(0);
+    expect((syncServer as any).pendingPlayerConnections).toBe(0);
+    expect(superOnConnect).not.toHaveBeenCalled();
   });
 
   it("sends room tokens with a resume token for player intent connections", async () => {
@@ -945,6 +1543,71 @@ describe("server lifecycle guards", () => {
     expect(roomTokensMessage?.payload?.resumeToken).toBeTypeOf("string");
   });
 
+  it("keeps normal intent auth free of routine debug logs", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    try {
+      const state = createState();
+      const server = new Room(state, createEnv());
+      const conn = new TestConnection();
+      conn.id = "player-intent";
+      const url = new URL(
+        "https://example.test/?role=intent&viewerRole=player&playerId=p1&cid=device-1",
+      );
+
+      await (server as any).bindIntentConnection(conn, url);
+
+      const routineLogs = infoSpy.mock.calls.filter(
+        ([message]) =>
+          typeof message === "string" &&
+          (message.startsWith("[handoff-debug]") ||
+            message === "[party] intent connection established"),
+      );
+      expect(routineLogs).toHaveLength(0);
+    } finally {
+      infoSpy.mockRestore();
+    }
+  });
+
+  it("does not persist room auth tokens in hibernated connection state after auth", async () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const tokens = await (server as any).ensureRoomTokens();
+
+    const intentConn = new TestConnection();
+    intentConn.id = "player-intent";
+    const intentUrl = new URL(
+      `https://example.test/?role=intent&viewerRole=player&playerId=p1&gt=${tokens.playerToken}&cid=device-1`,
+    );
+    await (server as any).bindIntentConnection(intentConn, intentUrl);
+
+    expect(intentConn.listenerCount("close")).toBe(0);
+    expect((intentConn.state as any)).toMatchObject({
+      channel: "intent",
+      playerId: "p1",
+      viewerRole: "player",
+      connectionGroupId: "device-1",
+    });
+    expect((intentConn.state as any).token).toBeUndefined();
+
+    const syncConn = new TestConnection();
+    syncConn.id = "player-sync";
+    const syncUrl = new URL(
+      `https://example.test/?viewerRole=player&playerId=p2&gt=${tokens.playerToken}&cid=device-2`,
+    );
+    await (server as any).bindSyncConnection(syncConn, syncUrl, {
+      request: new Request(syncUrl.toString()),
+    });
+
+    expect(syncConn.listenerCount("close")).toBe(0);
+    expect((syncConn.state as any)).toMatchObject({
+      channel: "sync",
+      playerId: "p2",
+      viewerRole: "player",
+      connectionGroupId: "device-2",
+    });
+    expect((syncConn.state as any).token).toBeUndefined();
+  });
+
   it("returns canonical share links for authenticated player connections", async () => {
     const state = createState();
     const server = new Room(state, createEnv());
@@ -961,7 +1624,9 @@ describe("server lifecycle guards", () => {
     );
     await (server as any).bindIntentConnection(conn, url);
 
-    conn.emitMessage(
+    expect(conn.listenerCount("message")).toBe(0);
+    await (server as any).onMessage(
+      conn,
       JSON.stringify({
         type: "shareLinksRequest",
         requestId: "share-request-1",
@@ -1022,7 +1687,9 @@ describe("server lifecycle guards", () => {
     );
     await (server as any).bindIntentConnection(conn, url);
 
-    conn.emitMessage(
+    expect(conn.listenerCount("message")).toBe(0);
+    await (server as any).onMessage(
+      conn,
       JSON.stringify({
         type: "shareLinksRequest",
         requestId: "share-request-2",
@@ -1123,7 +1790,7 @@ describe("server lifecycle guards", () => {
     vi.spyOn(server as any, "ensurePlayerResumeToken").mockImplementation(
       (async (playerId: string, options?: { rotate?: boolean }) => {
         if (options?.rotate) {
-          conn.close(1000, "client closed");
+          await (server as any).onClose(conn, 1000, "client closed", true);
           return rotationDeferred.promise;
         }
         return originalEnsure(playerId, options);
@@ -1262,7 +1929,7 @@ describe("server lifecycle guards", () => {
     ).toBe(true);
   });
 
-  it("keeps empty rooms dormant before hard-resetting them", async () => {
+  it("keeps empty rooms dormant until the durable alarm hard-resets them", async () => {
     vi.useFakeTimers();
     try {
       vi.setSystemTime(1_000);
@@ -1287,15 +1954,18 @@ describe("server lifecycle guards", () => {
         1_000 + EMPTY_ROOM_TOTAL_RESET_MS,
       );
 
-      await vi.advanceTimersByTimeAsync(EMPTY_ROOM_IDLE_GRACE_MS);
+      await Promise.resolve();
       expect(clearRoomStorage).not.toHaveBeenCalled();
       expect((server as any).emptyRoomDormantAt).not.toBeNull();
       expect((server as any).roomTokens).toEqual({
         playerToken: "player-token",
         spectatorToken: "spectator-token",
       });
+      expect((server as any).emptyRoomIdleTimer ?? null).toBeNull();
+      expect((server as any).emptyRoomHardResetTimer ?? null).toBeNull();
 
-      await vi.advanceTimersByTimeAsync(EMPTY_ROOM_HARD_RESET_MS);
+      vi.setSystemTime(1_000 + EMPTY_ROOM_TOTAL_RESET_MS + 1);
+      await (server as any).alarm();
       expect(clearRoomStorage).toHaveBeenCalled();
       expect((server as any).roomTokens).toBeNull();
     } finally {
@@ -1356,6 +2026,160 @@ describe("server lifecycle guards", () => {
     }
   });
 
+  it("does not schedule empty-room teardown when hibernated peers remain connected", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(30_000);
+      const state = createState();
+      const server = new Room(state, createEnv());
+      const closing = new TestConnection();
+      closing.id = "closing-sync";
+      closing.state = {
+        channel: "sync",
+        playerId: "p1",
+        viewerRole: "player",
+      };
+      const remaining = new TestConnection();
+      remaining.id = "remaining-intent";
+      remaining.state = {
+        channel: "intent",
+        playerId: "p2",
+        viewerRole: "player",
+      };
+      (server as any).getConnections = () => [remaining];
+
+      await (server as any).onClose(closing, 1000, "closed", true);
+      await Promise.resolve();
+
+      expect(await state.storage.get(EMPTY_ROOM_STARTED_AT_KEY)).toBeUndefined();
+      expect(state.storage.setAlarm).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("unregisters a closing sync connection once when a pending close handler exists", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(30_000);
+      const state = createState();
+      const server = new Room(state, createEnv());
+      const closing = new TestConnection();
+      closing.id = "closing-sync";
+      closing.state = {
+        channel: "sync",
+        playerId: "p1",
+        viewerRole: "player",
+        connectionGroupId: "device-1",
+      };
+      const remaining = new TestConnection();
+      remaining.id = "remaining-intent";
+      remaining.state = {
+        channel: "intent",
+        playerId: "p2",
+        viewerRole: "player",
+        connectionGroupId: "device-2",
+      };
+      (server as any).registerConnection(closing, "player", closing.state);
+      (server as any).registerPendingCloseHandler(closing, () => {
+        (server as any).unregisterConnection(closing);
+      });
+      (server as any).getConnections = () => [remaining];
+
+      await (server as any).onClose(closing, 1000, "closed", true);
+
+      const peerCountMessages = remaining.sent
+        .map((payload) => JSON.parse(payload))
+        .filter((message) => message.type === "peerCounts");
+      expect(peerCountMessages).toEqual([
+        {
+          type: "peerCounts",
+          payload: { total: 1, players: 1, spectators: 0 },
+        },
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not tear down a room with hibernated active players when an old empty-room alarm fires", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(1_000);
+      const state = createState();
+      await state.storage.put(EMPTY_ROOM_STARTED_AT_KEY, 1_000);
+      await state.storage.put(ROOM_TOKENS_KEY, {
+        playerToken: "player-token",
+        spectatorToken: "spectator-token",
+      });
+      const server = new Room(state, createEnv());
+      const active = new TestConnection();
+      active.id = "active-sync";
+      active.state = {
+        channel: "sync",
+        playerId: "p1",
+        viewerRole: "player",
+      };
+      (server as any).getConnections = () => [active];
+      const clearRoomStorage = vi
+        .spyOn(server as any, "clearRoomStorage")
+        .mockResolvedValue(undefined);
+
+      vi.setSystemTime(1_000 + EMPTY_ROOM_TOTAL_RESET_MS + 1);
+      await (server as any).alarm();
+
+      expect(clearRoomStorage).not.toHaveBeenCalled();
+      expect(state.storage.delete).toHaveBeenCalledWith(
+        EMPTY_ROOM_STARTED_AT_KEY,
+      );
+      expect(state.storage.deleteAlarm).toHaveBeenCalled();
+      expect(await state.storage.get(ROOM_TOKENS_KEY)).toEqual({
+        playerToken: "player-token",
+        spectatorToken: "spectator-token",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("closes hibernated spectator sockets when an empty room tears down", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(1_000);
+      const state = createState();
+      await state.storage.put(EMPTY_ROOM_STARTED_AT_KEY, 1_000);
+      const server = new Room(state, createEnv());
+      const spectatorIntent = new TestConnection();
+      spectatorIntent.id = "hibernated-spectator-intent";
+      spectatorIntent.state = {
+        channel: "intent",
+        viewerRole: "spectator",
+      };
+      const spectatorSync = new TestConnection();
+      spectatorSync.id = "hibernated-spectator-sync";
+      spectatorSync.state = {
+        channel: "sync",
+        viewerRole: "spectator",
+      };
+      (server as any).getConnections = () => [spectatorIntent, spectatorSync];
+      vi.spyOn(server as any, "clearRoomStorage").mockResolvedValue(undefined);
+
+      vi.setSystemTime(1_000 + EMPTY_ROOM_TOTAL_RESET_MS + 1);
+      await (server as any).alarm();
+
+      expect(spectatorIntent.closed.at(0)).toEqual({
+        code: ROOM_TEARDOWN_CLOSE_CODE,
+        reason: "room reset",
+      });
+      expect(spectatorSync.closed.at(0)).toEqual({
+        code: ROOM_TEARDOWN_CLOSE_CODE,
+        reason: "room reset",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not reset the empty-room clock for failed pending auth", async () => {
     vi.useFakeTimers();
     try {
@@ -1381,6 +2205,45 @@ describe("server lifecycle guards", () => {
       expect(state.storage.setAlarm).toHaveBeenLastCalledWith(
         10_000 + EMPTY_ROOM_TOTAL_RESET_MS,
       );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("schedules empty-room teardown without keeping in-memory timers alive", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(20_000);
+      const state = createState();
+      const server = new Room(state, createEnv());
+
+      (server as any).scheduleEmptyRoomTeardown();
+      await Promise.resolve();
+
+      expect(await state.storage.get(EMPTY_ROOM_STARTED_AT_KEY)).toBe(20_000);
+      expect(state.storage.setAlarm).toHaveBeenCalledWith(
+        20_000 + EMPTY_ROOM_TOTAL_RESET_MS,
+      );
+      expect((server as any).emptyRoomIdleTimer ?? null).toBeNull();
+      expect((server as any).emptyRoomHardResetTimer ?? null).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("registers empty-room lifecycle background work with waitUntil", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(20_000);
+      const state = createState();
+      state.waitUntil = vi.fn();
+      const server = new Room(state, createEnv());
+
+      (server as any).scheduleEmptyRoomTeardown();
+      await Promise.resolve();
+
+      expect(state.waitUntil).toHaveBeenCalled();
+      expect(state.waitUntil.mock.calls[0]?.[0]).toBeInstanceOf(Promise);
     } finally {
       vi.useRealTimers();
     }
@@ -1523,6 +2386,62 @@ describe("server lifecycle guards", () => {
     expect(sameGroup.closed).toEqual([]);
   });
 
+  it("closes hibernated stale player connections on takeover", () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+
+    const current = new TestConnection();
+    current.id = "current";
+    current.state = {
+      channel: "intent",
+      playerId: "p1",
+      viewerRole: "player",
+      connectionGroupId: "new-device",
+    };
+    const oldSync = new TestConnection();
+    oldSync.id = "old-sync";
+    oldSync.state = {
+      channel: "sync",
+      playerId: "p1",
+      viewerRole: "player",
+      connectionGroupId: "old-device",
+    };
+    const oldIntent = new TestConnection();
+    oldIntent.id = "old-intent";
+    oldIntent.state = {
+      channel: "intent",
+      playerId: "p1",
+      viewerRole: "player",
+      connectionGroupId: "old-device",
+    };
+    const sameGroup = new TestConnection();
+    sameGroup.id = "same-group";
+    sameGroup.state = {
+      channel: "sync",
+      playerId: "p1",
+      viewerRole: "player",
+      connectionGroupId: "new-device",
+    };
+    (server as any).getConnections = () => [
+      current,
+      oldSync,
+      oldIntent,
+      sameGroup,
+    ];
+
+    (server as any).closeConnectionsForResumedPlayer("p1", "new-device", current);
+
+    expect(oldSync.closed.at(0)).toEqual({
+      code: 1008,
+      reason: "session moved to another device",
+    });
+    expect(oldIntent.closed.at(0)).toEqual({
+      code: 1008,
+      reason: "session moved to another device",
+    });
+    expect(sameGroup.closed).toEqual([]);
+  });
+
   it("closes legacy intent controllers when resumed takeover omits a connection group id", () => {
     const state = createState();
     const server = new Room(state, createEnv());
@@ -1628,5 +2547,53 @@ describe("server lifecycle guards", () => {
     );
 
     expect(legacySync.closed).toEqual([]);
+  });
+
+  it("refreshes hibernated legacy sync resume tokens after no-group resume", () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+
+    const current = new TestConnection();
+    current.id = "current";
+    current.state = {
+      playerId: "p1",
+      viewerRole: "player",
+      resumeToken: "resume-token-1",
+    };
+    const hibernatedLegacySync = new TestConnection();
+    hibernatedLegacySync.id = "hibernated-legacy-sync";
+    hibernatedLegacySync.state = {
+      playerId: "p1",
+      viewerRole: "player",
+      resumeToken: "resume-token-1",
+    };
+    const hibernatedLegacyIntent = new TestConnection();
+    hibernatedLegacyIntent.id = "hibernated-legacy-intent";
+    hibernatedLegacyIntent.state = {
+      channel: "intent",
+      playerId: "p1",
+      viewerRole: "player",
+      resumeToken: "resume-token-1",
+    };
+    (server as any).getConnections = () => [
+      current,
+      hibernatedLegacySync,
+      hibernatedLegacyIntent,
+    ];
+
+    (server as any).refreshLegacyResumeTokens(
+      "p1",
+      "resume-token-1",
+      "resume-token-2",
+      current,
+      undefined,
+    );
+
+    expect((hibernatedLegacySync.state as any).resumeToken).toBe(
+      "resume-token-2",
+    );
+    expect((hibernatedLegacyIntent.state as any).resumeToken).toBe(
+      "resume-token-1",
+    );
   });
 });

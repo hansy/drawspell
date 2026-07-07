@@ -51,6 +51,7 @@ const mockUseIdleTimeout = vi.hoisted(() =>
   })),
 );
 const mockNavigate = vi.hoisted(() => vi.fn());
+const mockSendIntent = vi.hoisted(() => vi.fn());
 const mockSendPartyMessage = vi.hoisted(() => vi.fn());
 const mockRequestShareLinks = vi.hoisted(() => vi.fn());
 const mockIntentConnectionMeta = vi.hoisted(() => ({
@@ -178,7 +179,7 @@ vi.mock("uuid", () => ({
 }));
 
 vi.mock("@/partykit/intentTransport", () => ({
-  sendIntent: vi.fn(),
+  sendIntent: mockSendIntent,
   sendPartyMessage: mockSendPartyMessage,
   getIntentConnectionMeta: () => mockIntentConnectionMeta,
   subscribeIntentConnectionMeta: () => () => {},
@@ -281,6 +282,7 @@ describe("useMultiplayerBoardController", () => {
     });
     mockUseIdleTimeout.mockClear();
     mockReadRoomTokensFromStorage.mockReset();
+    mockSendIntent.mockReset();
     mockSendPartyMessage.mockReset();
     mockSendPartyMessage.mockReturnValue(true);
     mockRequestShareLinks.mockReset();
@@ -553,6 +555,63 @@ describe("useMultiplayerBoardController", () => {
     expect(result.current.shareLinks.players).toContain("gt=token-123");
     expect(result.current.shareLinks.spectators).toContain("st=spectator-123");
     expect(result.current.shareLinks.resume).toContain("rt=resume-123");
+  });
+
+  it("tracks own-library views without recurring keepalive pings", async () => {
+    vi.useFakeTimers();
+    try {
+      mockGameState.zones = {
+        "library-player-1": {
+          id: "library-player-1",
+          type: "LIBRARY",
+          ownerId: "player-1",
+          cardIds: [],
+        },
+      };
+
+      const { result, unmount } = renderHook(() =>
+        useMultiplayerBoardController("room-1")
+      );
+
+      act(() => {
+        result.current.handleViewZone("library-player-1", 3);
+      });
+
+      expect(mockSendIntent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "library.view",
+          payload: expect.objectContaining({
+            actorId: "player-1",
+            playerId: "player-1",
+            count: 3,
+          }),
+        }),
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(36_000);
+      });
+
+      expect(
+        mockSendIntent.mock.calls.filter(
+          ([intent]) => intent?.type === "library.view.ping",
+        ),
+      ).toHaveLength(0);
+
+      unmount();
+
+      expect(mockSendIntent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "library.view.close",
+          payload: expect.objectContaining({
+            actorId: "player-1",
+            playerId: "player-1",
+          }),
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("disables idle timeout for spectators", () => {

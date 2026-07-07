@@ -159,6 +159,7 @@ vi.mock("y-partyserver/provider", () => {
     callbacks = new Map<string, (payload: any) => void>();
     awareness: any;
     opts: any;
+    _checkInterval: any = 123;
 
     constructor(_host: string, _room: string, _doc: any, opts: any) {
       this.awareness = opts.awareness;
@@ -187,15 +188,15 @@ vi.mock("y-protocols/awareness", () => {
     state: Record<string, unknown> | null = {};
     clientID = 1;
     states = new Map();
-    on(_event: string, _handler: () => void) {}
-    off(_event: string, _handler: () => void) {}
+    on = vi.fn();
+    off = vi.fn();
     getStates() {
       return this.states;
     }
-    setLocalState(_state: null) {
+    setLocalState = vi.fn((_state: null) => {
       this.state = null;
-    }
-    setLocalStateField(_key: string, _value: unknown) {}
+    });
+    setLocalStateField = vi.fn();
   }
 
   return { Awareness: MockAwareness, removeAwarenessStates: vi.fn() };
@@ -260,7 +261,6 @@ vi.mock("@/yjs/sync", () => ({
 vi.mock("@/yjs/docManager", () => docManagerMocks);
 
 vi.mock("../ensureLocalPlayerInitialized", () => ({ ensureLocalPlayerInitialized }));
-vi.mock("../peerCount", () => ({ computePeerCounts: () => ({ total: 2, players: 1, spectators: 1 }) }));
 vi.mock("../debouncedTimeout", () => ({
   scheduleDebouncedTimeout: (_ref: any, _ms: number, cb: () => void) => cb(),
   cancelDebouncedTimeout: vi.fn(),
@@ -1151,14 +1151,65 @@ describe("useMultiplayerSync", () => {
     }
   });
 
-  it("configures provider resyncs to keep idle sockets alive", async () => {
+  it("does not configure recurring provider resyncs for idle rooms", async () => {
     renderHook(() => useMultiplayerSync("session-resync"));
 
     await waitFor(() => {
       expect(providerInstances).toHaveLength(1);
     });
 
-    expect(providerInstances[0].opts.resyncInterval).toBe(15_000);
+    expect(providerInstances[0].opts.resyncInterval).toBe(-1);
+  });
+
+  it("disables the provider idle-message watchdog for hibernated rooms", async () => {
+    renderHook(() => useMultiplayerSync("session-idle-watchdog"));
+
+    await waitFor(() => {
+      expect(providerInstances).toHaveLength(1);
+    });
+
+    expect(providerInstances[0]._checkInterval).toBe(0);
+  });
+
+  it("uses intent peer-count messages without publishing local awareness state", async () => {
+    const { result } = renderHook(() => useMultiplayerSync("session-peer-counts"));
+
+    await waitFor(() => {
+      expect(providerInstances).toHaveLength(1);
+      expect(intentTransportMocks.createIntentTransport).toHaveBeenCalledTimes(1);
+    });
+
+    const provider = providerInstances[0];
+    expect(provider.awareness.setLocalStateField).not.toHaveBeenCalled();
+
+    const [{ onMessage }] =
+      intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+
+    act(() => {
+      onMessage({
+        type: "peerCounts",
+        payload: { total: 3, players: 2, spectators: 1 },
+      });
+    });
+
+    expect(result.current.peerCounts).toEqual({
+      total: 3,
+      players: 2,
+      spectators: 1,
+    });
+    expect(provider.awareness.setLocalStateField).not.toHaveBeenCalled();
+  });
+
+  it("clears local awareness state so idle clients do not publish refresh heartbeats", async () => {
+    renderHook(() => useMultiplayerSync("session-awareness-idle"));
+
+    await waitFor(() => {
+      expect(providerInstances).toHaveLength(1);
+    });
+
+    const provider = providerInstances[0];
+    expect(provider.awareness.setLocalState).toHaveBeenCalledWith(null);
+    expect(provider.awareness.state).toBeNull();
   });
 
   it("reuses a stable device id across sync and intent connections", async () => {
