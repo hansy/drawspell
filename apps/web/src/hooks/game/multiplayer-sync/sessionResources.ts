@@ -63,6 +63,11 @@ const viteEnv =
   (import.meta.env.MODE === "test" ? "development" : import.meta.env.MODE);
 const origins = resolveOriginsForEnv(viteEnv);
 
+type ResolvedRoomToken = {
+  token?: string;
+  tokenRole?: ViewerRole;
+};
+
 export type SessionSetupResult = {
   awareness: Awareness;
   provider: YSyncProvider;
@@ -84,6 +89,26 @@ export type SessionSetupDeps = {
 };
 
 const PROVIDER_RESYNC_INTERVAL_MS = 15_000;
+
+const resolveRoomTokenForRole = (
+  role: ViewerRole | undefined,
+  tokens: RoomTokensPayload | null,
+): ResolvedRoomToken => {
+  if (!role || !tokens) return {};
+  if (role === "spectator") {
+    if (tokens.spectatorToken) {
+      return { token: tokens.spectatorToken, tokenRole: "spectator" };
+    }
+    if (tokens.playerToken) {
+      return { token: tokens.playerToken, tokenRole: "player" };
+    }
+    return {};
+  }
+  if (tokens.playerToken) {
+    return { token: tokens.playerToken, tokenRole: "player" };
+  }
+  return {};
+};
 
 export function setupSessionResources({
   sessionId,
@@ -228,33 +253,13 @@ export function setupSessionResources({
     clearInviteTokenFromUrl();
   }
 
-  const resolveTokenForRole = (
-    role: ViewerRole | undefined,
-    tokens: RoomTokensPayload | null,
-  ): { token?: string; tokenRole?: ViewerRole } => {
-    if (!role || !tokens) return {};
-    if (role === "spectator") {
-      if (tokens.spectatorToken) {
-        return { token: tokens.spectatorToken, tokenRole: "spectator" };
-      }
-      if (tokens.playerToken) {
-        return { token: tokens.playerToken, tokenRole: "player" };
-      }
-      return {};
-    }
-    if (tokens.playerToken) {
-      return { token: tokens.playerToken, tokenRole: "player" };
-    }
-    return {};
-  };
-
   const intentViewerRole = useGameStore.getState().viewerRole;
   const intentCapabilities = ["overlay-diff-v1"];
   const userId = getPostHogDistinctId() ?? undefined;
   const resolvedIntentToken =
     inviteToken.token && inviteToken.role
       ? { token: inviteToken.token, tokenRole: inviteToken.role }
-      : resolveTokenForRole(
+      : resolveRoomTokenForRole(
           intentViewerRole,
           useGameStore.getState().roomTokens,
         );
@@ -292,7 +297,7 @@ export function setupSessionResources({
       params: async () => {
         const state = useGameStore.getState();
         const role = state.viewerRole;
-        const resolvedSyncToken = resolveTokenForRole(role, state.roomTokens);
+        const resolvedSyncToken = resolveRoomTokenForRole(role, state.roomTokens);
         const syncToken = resolvedSyncToken.token;
         const syncTokenRole = resolvedSyncToken.tokenRole;
         const syncResumeToken = state.roomTokens?.resumeToken;
