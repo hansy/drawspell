@@ -33,9 +33,10 @@ import {
 } from "@/partykit/intentTransport";
 import { PARTY_NAME } from "@/partykit/config";
 import type {
+  GameLogEntry,
+  PeerCountsPayload,
   PrivateOverlayDiffPayload,
   PrivateOverlayPayload,
-  GameLogEntry,
   RoomTokensPayload,
 } from "@/partykit/messages";
 import { handleShareLinksResponse } from "@/partykit/shareLinksClient";
@@ -85,10 +86,20 @@ export type SessionSetupDeps = {
   onIntentOpen?: () => void;
   onIntentClose?: (event: CloseEvent) => void;
   onGameLogSync?: () => void;
+  onPeerCounts?: (counts: PeerCountsPayload) => void;
   joinToken?: string;
 };
 
-const PROVIDER_RESYNC_INTERVAL_MS = 15_000;
+const PROVIDER_RESYNC_INTERVAL_MS = -1;
+
+const disableProviderIdleMessageWatchdog = (provider: YSyncProvider) => {
+  const candidate = provider as YSyncProvider & {
+    _checkInterval?: ReturnType<typeof setInterval> | number;
+  };
+  if (!candidate._checkInterval) return;
+  clearInterval(candidate._checkInterval as ReturnType<typeof setInterval>);
+  candidate._checkInterval = 0;
+};
 
 const resolveRoomTokenForRole = (
   role: ViewerRole | undefined,
@@ -117,6 +128,7 @@ export function setupSessionResources({
   onIntentOpen,
   onIntentClose,
   onGameLogSync,
+  onPeerCounts,
   joinToken,
 }: SessionSetupDeps): SessionSetupResult | null {
   const partyHost = resolvePartyKitHost(origins.server) ?? "server.ds.localhost";
@@ -285,6 +297,7 @@ export function setupSessionResources({
   });
 
   const awareness = new Awareness(doc);
+  awareness.setLocalState(null);
   const provider: YSyncProvider = new YPartyServerProvider(
     partyHost,
     sessionId,
@@ -321,6 +334,7 @@ export function setupSessionResources({
       },
     },
   );
+  disableProviderIdleMessageWatchdog(provider);
 
   if ("on" in provider && typeof provider.on === "function") {
     const handleConnectionClose = (event: CloseEvent) => {
@@ -436,6 +450,21 @@ export function setupSessionResources({
       }
       if (message.type === "shareLinksResponse") {
         handleShareLinksResponse(message);
+        return;
+      }
+      if (message.type === "peerCounts") {
+        const payload = message.payload as Partial<PeerCountsPayload>;
+        if (
+          typeof payload.total === "number" &&
+          typeof payload.players === "number" &&
+          typeof payload.spectators === "number"
+        ) {
+          onPeerCounts?.({
+            total: payload.total,
+            players: payload.players,
+            spectators: payload.spectators,
+          });
+        }
         return;
       }
       if (message.type === "helloAck") {

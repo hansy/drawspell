@@ -28,7 +28,6 @@ import {
   teardownSessionResources,
   type SessionSetupResult,
 } from "./sessionResources";
-import { createAwarenessLifecycle } from "./awarenessLifecycle";
 import { createAttemptJoin } from "./attemptJoin";
 import { emitLog, getLatestGameLogSeq } from "@/logging/logStore";
 import { resolveJoinToken } from "@/lib/joinToken";
@@ -73,8 +72,6 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
     useState<JoinBlockedReason>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [connectEpoch, setConnectEpoch] = useState(0);
-  const awarenessRef = useRef<SessionSetupResult["awareness"] | null>(null);
-  const localPlayerIdRef = useRef<string | null>(null);
   const fullSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const postSyncFullSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const postSyncInitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -325,11 +322,6 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
 
   useEffect(() => {
     attemptJoinRef.current?.();
-    const awareness = awarenessRef.current;
-    const playerId = localPlayerIdRef.current;
-    if (awareness && playerId) {
-      awareness.setLocalStateField("client", { id: playerId, role: viewerRole });
-    }
   }, [viewerRole]);
 
   useEffect(() => {
@@ -598,6 +590,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         onGameLogSync: () => {
           hasCompletedGameLogSync = true;
         },
+        onPeerCounts: setPeerCounts,
         onAuthFailure: (reason) => {
           if (!shouldHandleDisconnect()) return;
           if (authFailureHandled.current) return;
@@ -674,15 +667,12 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       setLastSessionId(sessionId);
 
       const {
-        awareness,
         provider,
         intentTransport,
         ensuredPlayerId,
         fullSyncToStore,
         doc,
       } = resources;
-      awarenessRef.current = awareness;
-      localPlayerIdRef.current = ensuredPlayerId;
       resourcesRef.current = resources;
       hasInitialSyncRef.current = false;
       authFailureHandled.current = false;
@@ -712,22 +702,10 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       };
       doc.on("update", handleDocUpdate);
 
-      const { pushLocalAwareness, handleAwarenessChange, disposeAwareness } =
-        createAwarenessLifecycle({
-          awareness,
-          playerId: ensuredPlayerId,
-          getViewerRole: () => useGameStore.getState().viewerRole,
-          onPeerCounts: setPeerCounts,
-        });
-      pushLocalAwareness();
-      awareness.on("change", handleAwarenessChange);
-      handleAwarenessChange();
-
       provider.on("status", ({ status: s }: any) => {
         if (connectionGeneration.current !== nextGeneration) return;
         if (s === "connected") {
           clearConnectAttemptTimer();
-          pushLocalAwareness();
           dispatchConnectionEvent({ type: "connected" });
         }
         if (s === "disconnected") {
@@ -760,13 +738,9 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       cleanup = () => {
         if (cleanedUp) return;
         cleanedUp = true;
-        disposeAwareness();
-        awarenessRef.current = null;
-        localPlayerIdRef.current = null;
         resetIntentCloseTracking();
         clearConnectAttemptTimer();
 
-        awareness.off("change", handleAwarenessChange);
         doc.off("update", handleDocUpdate);
         cancelDebouncedTimeout(fullSyncTimer);
         cancelDebouncedTimeout(postSyncFullSyncTimer);

@@ -178,17 +178,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     const playerId = zone.ownerId;
     libraryViewPlayerIdRef.current = playerId;
 
-    const ping = () => {
-      sendLogIntent("library.view.ping", {
-        actorId: state.myPlayerId,
-        playerId,
-      });
-    };
-    ping();
-    const interval = window.setInterval(ping, 12_000);
-
     return () => {
-      window.clearInterval(interval);
       if (libraryViewPlayerIdRef.current === playerId) {
         sendLogIntent("library.view.close", {
           actorId: state.myPlayerId,

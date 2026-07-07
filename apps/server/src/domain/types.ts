@@ -74,12 +74,19 @@ export type Intent = {
 };
 
 export type IntentConnectionState = {
+  channel?: "sync" | "intent";
   playerId?: string;
   viewerRole?: "player" | "spectator";
   token?: string;
   userId?: string;
   resumeToken?: string;
   connectionGroupId?: string;
+  capabilities?: string[];
+  libraryView?: {
+    playerId: string;
+    count?: number;
+    lastPingAt?: number;
+  };
 };
 
 export type OverlayMeta = {

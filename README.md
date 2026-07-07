@@ -121,6 +121,7 @@ its local certificate authority on first run.
 - Discord deploy: `bun run deploy:discord` (config: `apps/discord/wrangler.jsonc`).
 - Slash-command registration workflow: see [apps/discord/README.md](apps/discord/README.md) for guild-first rollout and global rollout commands.
 - Durable Object migrations are defined in `apps/server/wrangler.jsonc`.
+- Durable Object duration checks after server deploys are documented in [apps/server/README.md](apps/server/README.md#durable-object-duration-checks).
 - CI: **TBD** (no CI config found in the repo; add one under `.github/` or similar).
 
 ## Performance

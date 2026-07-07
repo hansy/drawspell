@@ -59,12 +59,32 @@ Development accepts websocket requests from any `Origin` and `Host` so multiple
 agents can run separate Portless instances without editing allowlists. Staging
 and production remain restricted to configured Drawspell origins.
 
+## Durable Object duration checks
+Use `bun run do:metrics` to inspect Cloudflare Durable Object duration around a
+server deploy. The script reads `CLOUDFLARE_ACCOUNT_ID`/`CF_ACCOUNT_ID` and
+`CLOUDFLARE_API_TOKEN`/`CF_API_TOKEN`; when no token is provided locally, it can
+use Wrangler's OAuth config.
+
+Daily post-deploy verification:
+
+```bash
+bun run do:metrics -- --account <cloudflare-account-id> --deployAt latest --checkDaily --durationLimitSec 86400 --pretty
+```
+
+The daily check compares a full pre-deploy day to the first full post-deploy day
+and includes a `dailyCheck` object in stdout JSON. Exit codes:
+
+- `0`: the settled daily check passed.
+- `2`: Cloudflare data is not ready yet; inspect `dailyCheck.readyAt`.
+- `3`: the daily check failed or Cloudflare returned a truncated metrics window.
+
 ## Key files
 - [src/server.ts](src/server.ts)
 - [src/domain/intents/applyIntentToDoc.ts](src/domain/intents/applyIntentToDoc.ts)
 - [src/domain/hiddenState.ts](src/domain/hiddenState.ts)
 - [src/domain/overlay.ts](src/domain/overlay.ts)
 - [src/domain/permissions.ts](src/domain/permissions.ts)
+- [scripts/do-metrics.ts](scripts/do-metrics.ts)
 - [wrangler.jsonc](wrangler.jsonc)
 - [partykit.json](partykit.json)
 

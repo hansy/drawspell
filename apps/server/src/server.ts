@@ -92,10 +92,7 @@ const SNAPSHOT_HIDDEN_PREFIX = "snapshot:hidden:";
 const INTENT_LOG_META_KEY = "intent-log:meta";
 const INTENT_LOG_PREFIX = "intent-log:";
 const GAME_LOG_STORAGE_KEY = "game-log:v1";
-const HIDDEN_STATE_PERSIST_DEBOUNCE_MS = 1500;
-const HIDDEN_STATE_PERSIST_IDLE_MS = 5_000;
 const GAME_LOG_MAX_ENTRIES = 200;
-const GAME_LOG_PERSIST_DEBOUNCE_MS = 2_000;
 const HIDDEN_STATE_CLEANUP_INTERVAL_MS = 10 * 60_000;
 const SNAPSHOT_INTENT_THRESHOLD = 200;
 const SNAPSHOT_TIME_THRESHOLD_MS = 30_000;
@@ -104,8 +101,6 @@ const PERF_METRICS_INTERVAL_MS = 30_000;
 const PERF_METRICS_MIN_INTERVAL_MS = 5_000;
 const PERF_METRICS_MAX_INTERVAL_MS = 300_000;
 const PERF_METRICS_SAMPLE_LIMIT = 5000;
-const LIBRARY_VIEW_PING_TIMEOUT_MS = 45_000;
-const LIBRARY_VIEW_CLEANUP_INTERVAL_MS = 15_000;
 const ROOM_ADMIN_PROBE_PATH = "/admin/rooms/probe";
 const ROOM_ADMIN_REPAIR_PATH = "/admin/rooms/repair";
 const ROOM_ADMIN_INTERNAL_PROBE_PATH = "/__admin/rooms/probe";
@@ -114,6 +109,8 @@ const ROOM_ADMIN_AUTH_HEADER = "x-drawspell-room-admin-auth";
 const OVERLAY_DIFF_CAPABILITY = "overlay-diff-v1";
 const PERF_METRICS_ENABLED = false;
 const PERF_METRICS_ALLOW_PARAM = false;
+const HANDOFF_DEBUG_LOGS_ENABLED = false;
+const ROUTINE_CONNECTION_LOGS_ENABLED = false;
 const CONNECT_RATE_WINDOW_MS = 60_000;
 const CONNECT_RATE_MAX_ATTEMPTS = 20;
 const CONNECT_RATE_BLOCK_MS = 120_000;
@@ -525,6 +522,8 @@ export default {
 };
 
 export class Room extends YServer<Env> {
+  static options = { hibernate: true };
+
   private intentConnections = new Set<Connection>();
   private hiddenState: HiddenState | null = null;
   private admission = new RoomAdmission({
@@ -541,7 +540,6 @@ export class Room extends YServer<Env> {
     string,
     { playerId: string; count?: number; lastPingAt: number }
   >();
-  private libraryViewCleanupTimer: number | null = null;
   private overlayService = new OverlayService({
     roomId: "pending",
     sampleLimit: PERF_METRICS_SAMPLE_LIMIT,
@@ -557,22 +555,20 @@ export class Room extends YServer<Env> {
   private connectionRoles = new Map<Connection, "player" | "spectator">();
   private connectionPlayers = new Map<Connection, string>();
   private connectionGroups = new Map<Connection, string>();
+  private closedConnections = new WeakSet<Connection>();
+  private pendingCloseHandlers = new WeakMap<Connection, () => void>();
   private roomAnalytics: RoomAnalyticsTracker | null = null;
   private pendingPlayerConnections = 0;
-  private emptyRoomIdleTimer: number | null = null;
-  private emptyRoomHardResetTimer: number | null = null;
   private emptyRoomStartedAt: number | null = null;
   private emptyRoomDormantAt: number | null = null;
   private teardownGeneration = 0;
   private resetGeneration = 0;
   private teardownInProgress = false;
-  private hiddenStatePersistTimer: number | null = null;
   private hiddenStatePersistInFlight: Promise<void> | null = null;
   private hiddenStatePersistQueued: {
     resetGeneration: number;
     connId?: string | null;
   } | null = null;
-  private hiddenStateIdleTimer: number | null = null;
   private hiddenStateLastChangeAt = 0;
   private lastHiddenStatePersistAt = 0;
   private intentLogMeta: IntentLogMeta | null = null;
@@ -580,7 +576,8 @@ export class Room extends YServer<Env> {
   private intentLogWritePromise: Promise<void> = Promise.resolve();
   private intentLogWritePending = false;
   private gameLog = new GameLogBuffer(GAME_LOG_MAX_ENTRIES);
-  private gameLogPersistTimer: number | null = null;
+  private gameLogRestored = false;
+  private gameLogRestoreInFlight: Promise<void> | null = null;
   private gameLogPersistInFlight: Promise<void> | null = null;
   private gameLogPersistQueued = false;
   private snapshotBarrier: Promise<void> | null = null;
@@ -592,7 +589,6 @@ export class Room extends YServer<Env> {
   private lastPerfMetricsAt = 0;
   private perfMetricsEnabledFlag = false;
   private perfMetricsIntervalMs = PERF_METRICS_INTERVAL_MS;
-  private perfMetricsTimer: number | null = null;
   private yjsMetricsListenerAttached = false;
   private intentApplySamples: number[] = [];
   private intentCountSinceMetrics = 0;
@@ -635,7 +631,6 @@ export class Room extends YServer<Env> {
     if (await this.restoreEmptyRoomLifecycle()) {
       return;
     }
-    await this.restoreGameLog();
     await this.restoreFromSnapshotAndLog();
   }
 
@@ -843,11 +838,17 @@ export class Room extends YServer<Env> {
   }
 
   private countConnectionsByRole(role: "player" | "spectator") {
-    let count = 0;
-    for (const connectionRole of this.connectionRoles.values()) {
-      if (connectionRole === role) count += 1;
+    const connectionIds = new Set<string>();
+    for (const [connection, connectionRole] of this.connectionRoles.entries()) {
+      if (connectionRole === role) connectionIds.add(connection.id);
     }
-    return count;
+    try {
+      for (const connection of this.getConnections()) {
+        const state = (connection.state ?? {}) as IntentConnectionState;
+        if (state.viewerRole === role) connectionIds.add(connection.id);
+      }
+    } catch (_err) {}
+    return connectionIds.size;
   }
 
   private async buildRoomAdminStorageSummary(): Promise<RoomAdminStorageSummary> {
@@ -1132,21 +1133,24 @@ export class Room extends YServer<Env> {
     }
   }
 
+  private async ensureGameLogRestored() {
+    if (this.gameLogRestored) return;
+    if (!this.gameLogRestoreInFlight) {
+      this.gameLogRestoreInFlight = this.restoreGameLog().finally(() => {
+        this.gameLogRestored = true;
+        this.gameLogRestoreInFlight = null;
+      });
+    }
+    await this.gameLogRestoreInFlight;
+  }
+
   private scheduleGameLogPersist() {
     if (this.teardownInProgress) return;
     this.gameLogPersistQueued = true;
-    if (this.gameLogPersistTimer !== null) return;
-    this.gameLogPersistTimer = setTimeout(() => {
-      this.gameLogPersistTimer = null;
-      void this.flushGameLogPersist();
-    }, GAME_LOG_PERSIST_DEBOUNCE_MS) as unknown as number;
+    this.runBackground(this.flushGameLogPersist());
   }
 
   private async flushGameLogPersist() {
-    if (this.gameLogPersistTimer !== null) {
-      clearTimeout(this.gameLogPersistTimer);
-      this.gameLogPersistTimer = null;
-    }
     if (!this.gameLogPersistQueued && !this.gameLogPersistInFlight) return;
     if (this.gameLogPersistInFlight) {
       await this.gameLogPersistInFlight;
@@ -1173,10 +1177,322 @@ export class Room extends YServer<Env> {
   }
 
   onMessage(conn: Connection, message: WSMessage) {
-    if (this.intentConnections.has(conn)) {
-      return;
+    const state = (conn.state ?? {}) as IntentConnectionState;
+    if (state.channel === "intent" || this.intentConnections.has(conn)) {
+      this.intentConnections.add(conn);
+      return this.handleIntentSocketMessage(conn, message);
     }
     return super.onMessage(conn, message);
+  }
+
+  private async handleIntentSocketMessage(conn: Connection, raw: WSMessage) {
+    if (typeof raw !== "string") return;
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (_err) {
+      return;
+    }
+
+    if (!parsed || typeof parsed.type !== "string") return;
+    if (parsed.type === "hello") {
+      this.handleHelloMessage(conn, parsed.payload);
+      return;
+    }
+    if (parsed.type === "overlayResync") {
+      await this.handleOverlayResync(conn, parsed.payload);
+      return;
+    }
+    if (parsed.type === "shareLinksRequest") {
+      await this.handleShareLinksRequest(conn, parsed.requestId);
+      return;
+    }
+    if (parsed.type === "gameLogRequest") {
+      await this.handleGameLogRequest(conn, parsed);
+      return;
+    }
+    if (parsed.type !== "intent") return;
+    const intent = parsed.intent as Intent | undefined;
+    if (!intent || typeof intent.id !== "string") return;
+    if (intent.type === "library.view.ping") {
+      const ok = this.handleLibraryViewPingIntent(conn, intent);
+      this.sendIntentAck(conn, intent.id, ok);
+      return;
+    }
+
+    await this.handleIntent(conn, intent);
+  }
+
+  onClose(
+    conn: Connection,
+    code: number,
+    reason: string,
+    wasClean: boolean,
+  ) {
+    this.markConnectionClosed(conn);
+    const handledPendingClose = this.runPendingCloseHandler(conn);
+    const state = (conn.state ?? {}) as IntentConnectionState;
+    if (state.channel === "intent" || this.intentConnections.has(conn)) {
+      this.cleanupIntentConnection(conn);
+      this.unregisterConnection(conn);
+      const analyticsUserId =
+        state.userId ??
+        (state.viewerRole === "player" && state.playerId
+          ? `player:${state.playerId}`
+          : undefined);
+      if (analyticsUserId) {
+        this.roomAnalytics?.onUserLeave(analyticsUserId);
+      }
+      if (!wasClean || code !== 1000) {
+        console.warn("[party] intent connection closed", {
+          room: this.name,
+          connId: conn.id,
+          playerId: state.playerId,
+          viewerRole: state.viewerRole,
+          code,
+          wasClean,
+        });
+      }
+      return;
+    }
+
+    if (state.channel === "sync" || this.connectionRoles.has(conn)) {
+      if (!handledPendingClose) {
+        this.unregisterConnection(conn);
+      }
+    }
+    return super.onClose(conn, code, reason, wasClean);
+  }
+
+  private markConnectionClosed(conn: Connection) {
+    this.closedConnections.add(conn);
+  }
+
+  private isConnectionClosed(conn: Connection) {
+    return this.closedConnections.has(conn);
+  }
+
+  private logHandoffDebug(
+    event: string,
+    buildDetails: () => Record<string, unknown>,
+  ) {
+    if (!HANDOFF_DEBUG_LOGS_ENABLED) return;
+    console.info(`[handoff-debug] ${event}`, buildDetails());
+  }
+
+  private logRoutineConnection(
+    event: string,
+    buildDetails: () => Record<string, unknown>,
+  ) {
+    if (!ROUTINE_CONNECTION_LOGS_ENABLED) return;
+    console.info(event, buildDetails());
+  }
+
+  private registerPendingCloseHandler(conn: Connection, handler: () => void) {
+    this.pendingCloseHandlers.set(conn, handler);
+  }
+
+  private clearPendingCloseHandler(conn: Connection) {
+    this.pendingCloseHandlers.delete(conn);
+  }
+
+  private runPendingCloseHandler(conn: Connection) {
+    const handler = this.pendingCloseHandlers.get(conn);
+    if (!handler) return false;
+    this.pendingCloseHandlers.delete(conn);
+    handler();
+    return true;
+  }
+
+  private cleanupIntentConnection(conn: Connection) {
+    this.intentConnections.delete(conn);
+    this.connectionCapabilities.delete(conn.id);
+    this.libraryViews.delete(conn.id);
+    this.overlayService.removeConnection(conn.id);
+  }
+
+  private runBackground(promise: Promise<unknown>) {
+    const waitUntil = (
+      this.ctx as { waitUntil?: (promise: Promise<unknown>) => void }
+    ).waitUntil;
+    if (typeof waitUntil === "function") {
+      waitUntil.call(this.ctx, promise);
+    }
+  }
+
+  private sendIntentAck(
+    conn: Connection,
+    intentId: string,
+    success: boolean,
+    message?: string,
+  ) {
+    const ack = {
+      type: "ack",
+      intentId,
+      ok: success,
+      ...(message ? { error: message } : null),
+    };
+    try {
+      conn.send(JSON.stringify(ack));
+    } catch (_err) {}
+  }
+
+  private getIntentConnectionsSnapshot(): Connection[] {
+    const byId = new Map<string, Connection>();
+    for (const connection of this.intentConnections) {
+      byId.set(connection.id, connection);
+    }
+    try {
+      for (const connection of this.getConnections()) {
+        const state = (connection.state ?? {}) as IntentConnectionState;
+        if (state.channel !== "intent") continue;
+        byId.set(connection.id, connection);
+        this.intentConnections.add(connection);
+      }
+    } catch (_err) {}
+    return [...byId.values()];
+  }
+
+  private getAllConnectionsSnapshot(): Connection[] {
+    const byId = new Map<string, Connection>();
+    for (const connection of this.connectionRoles.keys()) {
+      byId.set(connection.id, connection);
+    }
+    for (const connection of this.intentConnections) {
+      byId.set(connection.id, connection);
+    }
+    try {
+      for (const connection of this.getConnections()) {
+        byId.set(connection.id, connection);
+      }
+    } catch (_err) {}
+    return [...byId.values()];
+  }
+
+  private getConnectionMetricsSnapshot() {
+    const connections = this.getAllConnectionsSnapshot();
+    let intentConnections = 0;
+    for (const connection of connections) {
+      const state = (connection.state ?? {}) as IntentConnectionState;
+      if (state.channel === "intent" || this.intentConnections.has(connection)) {
+        intentConnections += 1;
+      }
+    }
+    return {
+      connections: connections.length,
+      intentConnections,
+    };
+  }
+
+  private getPeerCountsSnapshot() {
+    const peers = new Map<string, "player" | "spectator">();
+    for (const connection of this.getAllConnectionsSnapshot()) {
+      const state = (connection.state ?? {}) as IntentConnectionState;
+      const role =
+        state.viewerRole === "spectator" || state.viewerRole === "player"
+          ? state.viewerRole
+          : this.connectionRoles.get(connection);
+      if (role !== "player" && role !== "spectator") continue;
+      const key =
+        normalizeNonEmptyString(state.playerId) ??
+        normalizeNonEmptyString(this.connectionPlayers.get(connection)) ??
+        normalizeNonEmptyString(state.userId) ??
+        normalizeNonEmptyString(
+          state.connectionGroupId ?? this.connectionGroups.get(connection),
+        ) ??
+        connection.id;
+      const existing = peers.get(key);
+      if (!existing || (existing === "spectator" && role === "player")) {
+        peers.set(key, role);
+      }
+    }
+
+    let players = 0;
+    let spectators = 0;
+    for (const role of peers.values()) {
+      if (role === "spectator") spectators += 1;
+      else players += 1;
+    }
+    return { total: peers.size, players, spectators };
+  }
+
+  private broadcastPeerCounts() {
+    const payload = this.getPeerCountsSnapshot();
+    const message = JSON.stringify({ type: "peerCounts", payload });
+    for (const connection of this.getIntentConnectionsSnapshot()) {
+      try {
+        connection.send(message);
+      } catch (_err) {}
+    }
+  }
+
+  private getPlayerConnectionsSnapshot(): Array<{
+    connection: Connection;
+    playerId: string;
+    connectionGroupId?: string;
+    state: IntentConnectionState;
+    isIntent: boolean;
+  }> {
+    const byId = new Map<
+      string,
+      {
+        connection: Connection;
+        playerId: string;
+        connectionGroupId?: string;
+        state: IntentConnectionState;
+        isIntent: boolean;
+      }
+    >();
+
+    const rememberConnection = (
+      connection: Connection,
+      playerId: string | undefined,
+      state: IntentConnectionState,
+    ) => {
+      const normalizedPlayerId = normalizeNonEmptyString(playerId);
+      if (!normalizedPlayerId) return;
+      const connectionGroupId =
+        normalizeNonEmptyString(
+          this.connectionGroups.get(connection) ?? state.connectionGroupId,
+        ) ?? undefined;
+      const isIntent =
+        state.channel === "intent" || this.intentConnections.has(connection);
+      byId.set(connection.id, {
+        connection,
+        playerId: normalizedPlayerId,
+        connectionGroupId,
+        state,
+        isIntent,
+      });
+
+      this.connectionPlayers.set(connection, normalizedPlayerId);
+      if (connectionGroupId) {
+        this.connectionGroups.set(connection, connectionGroupId);
+      } else {
+        this.connectionGroups.delete(connection);
+      }
+      if (state.viewerRole === "player" || state.viewerRole === "spectator") {
+        this.connectionRoles.set(connection, state.viewerRole);
+      }
+      if (isIntent) {
+        this.intentConnections.add(connection);
+      }
+    };
+
+    for (const [connection, playerId] of this.connectionPlayers.entries()) {
+      const state = (connection.state ?? {}) as IntentConnectionState;
+      rememberConnection(connection, playerId, state);
+    }
+
+    try {
+      for (const connection of this.getConnections()) {
+        const state = (connection.state ?? {}) as IntentConnectionState;
+        rememberConnection(connection, state.playerId, state);
+      }
+    } catch (_err) {}
+
+    return [...byId.values()];
   }
 
   onError(conn: Connection, error: unknown) {
@@ -1222,7 +1538,9 @@ export class Room extends YServer<Env> {
       migrated = migrateHiddenStateFromSnapshot(getMaps(doc));
     });
     this.hiddenState = migrated ?? createEmptyHiddenState();
-    await this.persistHiddenState();
+    await this.persistHiddenState(undefined, undefined, {
+      waitForIntentIdle: false,
+    });
     return this.hiddenState;
   }
 
@@ -1240,6 +1558,7 @@ export class Room extends YServer<Env> {
   private async persistHiddenState(
     expectedResetGeneration?: number,
     connId?: string | null,
+    options: { waitForIntentIdle?: boolean } = {},
   ) {
     if (!this.hiddenState) return;
     if (!this.shouldPersistHiddenState(expectedResetGeneration)) return;
@@ -1248,7 +1567,7 @@ export class Room extends YServer<Env> {
     }
     const releaseSnapshotBarrier = this.createSnapshotBarrier();
     try {
-      if (this.inflightIntentCount > 0) {
+      if (options.waitForIntentIdle !== false && this.inflightIntentCount > 0) {
         await this.waitForIntentIdle();
       }
       if (this.intentLogWritePending) {
@@ -1616,14 +1935,19 @@ export class Room extends YServer<Env> {
     await this.admission.restorePlayerResumeToken(playerId, resumeToken);
   }
 
-  private hasPlayerConnections(): boolean {
+  private hasPlayerConnections(excluding?: Connection): boolean {
     if (this.pendingPlayerConnections > 0) return true;
-    return this.hasAuthenticatedPlayerConnections();
+    return this.hasAuthenticatedPlayerConnections(excluding);
   }
 
-  private hasAuthenticatedPlayerConnections(): boolean {
-    for (const role of this.connectionRoles.values()) {
+  private hasAuthenticatedPlayerConnections(excluding?: Connection): boolean {
+    for (const [connection, role] of this.connectionRoles.entries()) {
+      if (connection === excluding) continue;
       if (role === "player") return true;
+    }
+    for (const existingConnection of this.getPlayerConnectionsSnapshot()) {
+      if (existingConnection.connection === excluding) continue;
+      return true;
     }
     return false;
   }
@@ -1664,7 +1988,7 @@ export class Room extends YServer<Env> {
   }
 
   private persistEmptyRoomLifecycle(startedAt: number, generation: number) {
-    void (async () => {
+    this.runBackground((async () => {
       if (this.teardownGeneration !== generation) return;
       if (this.hasPlayerConnections()) return;
       try {
@@ -1687,7 +2011,7 @@ export class Room extends YServer<Env> {
           await this.deleteEmptyRoomAlarm();
         } catch (_err) {}
       }
-    })();
+    })());
   }
 
   private ensureEmptyRoomStartedAt(): number {
@@ -1700,12 +2024,12 @@ export class Room extends YServer<Env> {
 
   private clearEmptyRoomLifecycle() {
     this.emptyRoomStartedAt = null;
-    void (async () => {
+    this.runBackground((async () => {
       try {
         await this.ctx.storage.delete(EMPTY_ROOM_STARTED_AT_KEY);
         await this.deleteEmptyRoomAlarm();
       } catch (_err) {}
-    })();
+    })());
   }
 
   private async restoreEmptyRoomLifecycle(): Promise<boolean> {
@@ -1775,77 +2099,22 @@ export class Room extends YServer<Env> {
     await this.teardownRoomIfEmpty(this.teardownGeneration);
   }
 
-  private clearEmptyRoomIdleTimer() {
-    if (this.emptyRoomIdleTimer !== null) {
-      clearTimeout(this.emptyRoomIdleTimer);
-      this.emptyRoomIdleTimer = null;
-    }
-  }
-
-  private clearEmptyRoomHardResetTimer() {
-    if (this.emptyRoomHardResetTimer !== null) {
-      clearTimeout(this.emptyRoomHardResetTimer);
-      this.emptyRoomHardResetTimer = null;
-    }
-  }
-
-  private pauseEmptyRoomTimersForPendingConnection() {
-    this.clearEmptyRoomIdleTimer();
-    this.clearEmptyRoomHardResetTimer();
-  }
-
   private markRoomActive() {
     this.clearEmptyRoomLifecycle();
     this.emptyRoomDormantAt = null;
-    this.clearEmptyRoomIdleTimer();
-    this.clearEmptyRoomHardResetTimer();
   }
 
-  private clearHiddenStatePersistTimer() {
-    if (this.hiddenStatePersistTimer !== null) {
-      clearTimeout(this.hiddenStatePersistTimer);
-      this.hiddenStatePersistTimer = null;
-    }
+  private clearHiddenStatePersistQueue() {
     this.hiddenStatePersistQueued = null;
-    this.clearHiddenStateIdleTimer();
-  }
-
-  private clearHiddenStateIdleTimer() {
-    if (this.hiddenStateIdleTimer !== null) {
-      clearTimeout(this.hiddenStateIdleTimer);
-      this.hiddenStateIdleTimer = null;
-    }
-  }
-
-  private clearGameLogPersistTimer() {
-    if (this.gameLogPersistTimer !== null) {
-      clearTimeout(this.gameLogPersistTimer);
-      this.gameLogPersistTimer = null;
-    }
   }
 
   private async cancelAndDrainGameLogPersist() {
-    this.clearGameLogPersistTimer();
     const inFlight = this.gameLogPersistInFlight;
     if (inFlight) {
       await inFlight;
     }
     this.gameLogPersistQueued = false;
     this.gameLogPersistInFlight = null;
-  }
-
-  private clearPerfMetricsTimer() {
-    if (this.perfMetricsTimer !== null) {
-      clearInterval(this.perfMetricsTimer);
-      this.perfMetricsTimer = null;
-    }
-  }
-
-  private clearLibraryViewCleanupTimer() {
-    if (this.libraryViewCleanupTimer !== null) {
-      clearInterval(this.libraryViewCleanupTimer);
-      this.libraryViewCleanupTimer = null;
-    }
   }
 
   private getConnectionRateConfig() {
@@ -1953,43 +2222,130 @@ export class Room extends YServer<Env> {
     return entry.blockedUntil > now;
   }
 
-  private ensureLibraryViewCleanupTimer() {
-    if (this.libraryViewCleanupTimer !== null) return;
-    this.libraryViewCleanupTimer = setInterval(() => {
-      this.cleanupExpiredLibraryViews();
-    }, LIBRARY_VIEW_CLEANUP_INTERVAL_MS) as unknown as number;
-  }
-
-  private cleanupExpiredLibraryViews() {
-    if (this.libraryViews.size === 0) {
-      this.clearLibraryViewCleanupTimer();
-      return;
-    }
+  private cleanupExpiredLibraryViews(options: { resend?: boolean } = {}) {
     const now = Date.now();
-    const expired: string[] = [];
-    for (const [connId, entry] of this.libraryViews.entries()) {
-      if (now - entry.lastPingAt > LIBRARY_VIEW_PING_TIMEOUT_MS) {
-        expired.push(connId);
+    const invalidConnections = new Map<string, Connection>();
+
+    for (const connection of this.getIntentConnectionsSnapshot()) {
+      const state = (connection.state ?? {}) as IntentConnectionState;
+      const view = state.libraryView;
+      if (!view) continue;
+      const restored = this.normalizeConnectionLibraryView(connection, now);
+      if (restored) {
+        this.libraryViews.set(connection.id, restored);
+      } else {
+        invalidConnections.set(connection.id, connection);
       }
     }
-    if (!expired.length) return;
-    for (const connId of expired) {
+
+    if (invalidConnections.size === 0) {
+      return;
+    }
+
+    for (const connId of invalidConnections.keys()) {
       this.libraryViews.delete(connId);
-      const connection = this.findIntentConnectionById(connId);
+      const connection = invalidConnections.get(connId);
+      if (connection) {
+        this.setConnectionLibraryView(connection, undefined);
+      }
+      if (options.resend === false) continue;
       if (connection) {
         void this.sendOverlayForConnection(connection);
       }
     }
-    if (this.libraryViews.size === 0) {
-      this.clearLibraryViewCleanupTimer();
-    }
   }
 
-  private findIntentConnectionById(connId: string): Connection | undefined {
-    for (const connection of this.intentConnections) {
-      if (connection.id === connId) return connection;
+  private getLibraryViewMetricsCount() {
+    this.cleanupExpiredLibraryViews({ resend: false });
+    return this.libraryViews.size;
+  }
+
+  private normalizeConnectionLibraryView(
+    conn: Connection,
+    now = Date.now(),
+  ): { playerId: string; count?: number; lastPingAt: number } | undefined {
+    const state = (conn.state ?? {}) as IntentConnectionState;
+    if (state.viewerRole === "spectator") return undefined;
+    const view = state.libraryView;
+    if (!view || typeof view.playerId !== "string") return undefined;
+    const playerId = normalizeNonEmptyString(view.playerId);
+    if (!playerId) return undefined;
+    if (state.playerId && state.playerId !== playerId) return undefined;
+    const count =
+      typeof view.count === "number" &&
+      Number.isFinite(view.count) &&
+      view.count > 0
+        ? Math.floor(view.count)
+        : undefined;
+    const lastPingAt =
+      typeof view.lastPingAt === "number" && Number.isFinite(view.lastPingAt)
+        ? view.lastPingAt
+        : now;
+    return {
+      playerId,
+      ...(count ? { count } : null),
+      lastPingAt,
+    };
+  }
+
+  private setConnectionLibraryView(
+    conn: Connection,
+    libraryView:
+      | { playerId: string; count?: number; lastPingAt: number }
+      | undefined,
+  ) {
+    const existingState = (conn.state ?? {}) as IntentConnectionState;
+    const nextState: IntentConnectionState = { ...existingState };
+    if (libraryView) {
+      nextState.libraryView = libraryView;
+    } else {
+      delete nextState.libraryView;
     }
-    return undefined;
+    this.setConnectionState(conn, nextState);
+  }
+
+  private setConnectionCapabilitiesState(conn: Connection, capabilities: string[]) {
+    const existingState = (conn.state ?? {}) as IntentConnectionState;
+    this.setConnectionState(conn, {
+      ...existingState,
+      capabilities,
+    });
+  }
+
+  private sanitizeConnectionState(
+    state: IntentConnectionState,
+  ): IntentConnectionState {
+    const { token: _token, ...safeState } = state;
+    return safeState;
+  }
+
+  private setConnectionState(conn: Connection, state: IntentConnectionState) {
+    try {
+      conn.setState(this.sanitizeConnectionState(state));
+    } catch (_err) {}
+  }
+
+  private getConnectionCapabilities(conn: Connection) {
+    const existing = this.connectionCapabilities.get(conn.id);
+    if (existing) return existing;
+    const state = (conn.state ?? {}) as IntentConnectionState;
+    const capabilities = Array.isArray(state.capabilities)
+      ? state.capabilities.filter((value) => value === OVERLAY_DIFF_CAPABILITY)
+      : [];
+    const restored = new Set(capabilities);
+    if (restored.size > 0) {
+      this.connectionCapabilities.set(conn.id, restored);
+    }
+    return restored;
+  }
+
+  private getLibraryViewForConnection(conn: Connection) {
+    const existing = this.libraryViews.get(conn.id);
+    if (existing) return existing;
+    const restored = this.normalizeConnectionLibraryView(conn);
+    if (!restored) return undefined;
+    this.libraryViews.set(conn.id, restored);
+    return restored;
   }
 
   private scheduleHiddenStatePersist(
@@ -2005,11 +2361,6 @@ export class Room extends YServer<Env> {
       this.lastHiddenStatePersistAt + 1,
     );
     this.hiddenStateLastChangeAt = changeAt;
-    this.scheduleHiddenStateIdleFlush(
-      expectedResetGeneration,
-      connId,
-      changeAt,
-    );
     const meta = this.intentLogMeta;
     if (!meta) {
       this.maybeLogPerfMetrics("hidden-state-change");
@@ -2034,36 +2385,8 @@ export class Room extends YServer<Env> {
       this.maybeLogPerfMetrics("hidden-state-change");
       return;
     }
-    if (this.hiddenStatePersistTimer !== null) {
-      clearTimeout(this.hiddenStatePersistTimer);
-    }
-    const scheduledGeneration = expectedResetGeneration;
-    const scheduledConnId = connId ?? null;
-    this.hiddenStatePersistTimer = setTimeout(() => {
-      this.hiddenStatePersistTimer = null;
-      this.enqueueHiddenStatePersist(scheduledGeneration, scheduledConnId);
-    }, HIDDEN_STATE_PERSIST_DEBOUNCE_MS) as unknown as number;
+    this.enqueueHiddenStatePersist(expectedResetGeneration, connId);
     this.maybeLogPerfMetrics("hidden-state-change");
-  }
-
-  private scheduleHiddenStateIdleFlush(
-    expectedResetGeneration: number,
-    connId: string | undefined,
-    changeAt: number,
-  ) {
-    if (this.hiddenStateIdleTimer !== null) {
-      clearTimeout(this.hiddenStateIdleTimer);
-    }
-    const scheduledGeneration = expectedResetGeneration;
-    const scheduledConnId = connId ?? null;
-    const scheduledChangeAt = changeAt;
-    this.hiddenStateIdleTimer = setTimeout(() => {
-      this.hiddenStateIdleTimer = null;
-      if (!this.shouldPersistHiddenState(scheduledGeneration)) return;
-      if (this.hiddenStateLastChangeAt !== scheduledChangeAt) return;
-      if (!this.isHiddenStateDirty()) return;
-      this.enqueueHiddenStatePersist(scheduledGeneration, scheduledConnId);
-    }, HIDDEN_STATE_PERSIST_IDLE_MS) as unknown as number;
   }
 
   private async appendIntentLog(
@@ -2152,6 +2475,7 @@ export class Room extends YServer<Env> {
         );
       }
     });
+    this.runBackground(this.hiddenStatePersistInFlight);
   }
 
   private async flushHiddenStatePersist(
@@ -2209,16 +2533,7 @@ export class Room extends YServer<Env> {
         this.perfMetricsIntervalMs = this.clampPerfMetricsInterval(parsed);
       }
     }
-    this.ensurePerfMetricsTimer();
-  }
-
-  private ensurePerfMetricsTimer() {
-    if (!this.perfMetricsEnabled()) return;
-    if (this.perfMetricsTimer !== null) return;
-    this.perfMetricsTimer = setInterval(() => {
-      this.logPerfMetrics("interval");
-    }, this.perfMetricsIntervalMs) as unknown as number;
-    this.logPerfMetrics("interval");
+    this.maybeLogPerfMetrics("connection");
   }
 
   private logPerfMetrics(reason: string) {
@@ -2256,6 +2571,7 @@ export class Room extends YServer<Env> {
       overlayMetrics.bytesSent.snapshot + overlayMetrics.bytesSent.diff;
     const totalOverlayMessages =
       overlayMetrics.messagesSent.snapshot + overlayMetrics.messagesSent.diff;
+    const connectionMetrics = this.getConnectionMetricsSnapshot();
     const intentRate =
       this.intentCountSinceMetrics > 0
         ? this.intentCountSinceMetrics / metricsWindowSec
@@ -2269,10 +2585,10 @@ export class Room extends YServer<Env> {
       intervalMs: this.perfMetricsIntervalMs,
       room: this.name,
       reason,
-      connections: this.connectionRoles.size,
-      intentConnections: this.intentConnections.size,
+      connections: connectionMetrics.connections,
+      intentConnections: connectionMetrics.intentConnections,
       overlays: this.overlayService.cacheSize,
-      libraryViews: this.libraryViews.size,
+      libraryViews: this.getLibraryViewMetricsCount(),
       roomHotness: {
         intentsPerSec: intentRate,
         intentCount: this.intentCountSinceMetrics,
@@ -2336,7 +2652,12 @@ export class Room extends YServer<Env> {
   private maybeLogPerfMetrics(reason: string) {
     if (!this.perfMetricsEnabled()) return;
     const now = Date.now();
-    if (now - this.lastPerfMetricsAt < this.perfMetricsIntervalMs) return;
+    if (
+      this.lastPerfMetricsAt > 0 &&
+      now - this.lastPerfMetricsAt < this.perfMetricsIntervalMs
+    ) {
+      return;
+    }
     this.logPerfMetrics(reason);
   }
 
@@ -2351,6 +2672,7 @@ export class Room extends YServer<Env> {
     const supported = new Set([OVERLAY_DIFF_CAPABILITY]);
     const accepted = capabilities.filter((value) => supported.has(value));
     this.connectionCapabilities.set(conn.id, new Set(accepted));
+    this.setConnectionCapabilitiesState(conn, accepted);
     try {
       conn.send(
         JSON.stringify({
@@ -2376,7 +2698,6 @@ export class Room extends YServer<Env> {
 
   private beginPendingPlayerConnection() {
     this.pendingPlayerConnections += 1;
-    this.pauseEmptyRoomTimersForPendingConnection();
     let released = false;
     return () => {
       if (released) return;
@@ -2389,54 +2710,37 @@ export class Room extends YServer<Env> {
     };
   }
 
-  private scheduleEmptyRoomTeardown() {
+  private scheduleEmptyRoomTeardown(excluding?: Connection) {
     if (this.teardownInProgress) return;
-    if (this.hasAuthenticatedPlayerConnections()) {
+    if (this.hasAuthenticatedPlayerConnections(excluding)) {
       this.markRoomActive();
       return;
     }
-    if (this.pendingPlayerConnections > 0) {
-      this.pauseEmptyRoomTimersForPendingConnection();
-      return;
-    }
-    const emptyStartedAt = this.ensureEmptyRoomStartedAt();
-    if (this.emptyRoomDormantAt !== null) {
-      if (this.emptyRoomHardResetTimer !== null) return;
-      const generation = this.teardownGeneration;
-      const elapsed = Date.now() - this.emptyRoomDormantAt;
-      const delay = Math.max(0, EMPTY_ROOM_HARD_RESET_MS - elapsed);
-      this.emptyRoomHardResetTimer = setTimeout(() => {
-        this.emptyRoomHardResetTimer = null;
-        void this.teardownRoomIfEmpty(generation);
-      }, delay) as unknown as number;
-      return;
-    }
-    if (this.emptyRoomIdleTimer !== null) return;
+    if (this.pendingPlayerConnections > 0) return;
+    this.ensureEmptyRoomStartedAt();
+    if (this.emptyRoomDormantAt !== null) return;
     const generation = this.teardownGeneration;
-    const elapsed = Date.now() - emptyStartedAt;
-    const delay = Math.max(0, EMPTY_ROOM_IDLE_GRACE_MS - elapsed);
-    this.emptyRoomIdleTimer = setTimeout(() => {
-      this.emptyRoomIdleTimer = null;
-      void this.markRoomDormantIfEmpty(generation);
-    }, delay) as unknown as number;
+    this.runBackground(this.markRoomDormantIfEmpty(generation, excluding));
   }
 
-  private async markRoomDormantIfEmpty(expectedGeneration: number) {
+  private async markRoomDormantIfEmpty(
+    expectedGeneration: number,
+    excluding?: Connection,
+  ) {
     if (this.teardownInProgress) return;
     if (expectedGeneration !== this.teardownGeneration) return;
-    if (this.hasPlayerConnections()) return;
+    if (this.hasPlayerConnections(excluding)) return;
     if (this.emptyRoomDormantAt !== null) {
-      this.scheduleEmptyRoomTeardown();
+      this.scheduleEmptyRoomTeardown(excluding);
       return;
     }
 
     this.emptyRoomDormantAt = Date.now();
-    this.clearPerfMetricsTimer();
     if (this.isHiddenStateDirty()) {
       await this.flushHiddenStatePersist(this.resetGeneration);
     }
     await this.flushGameLogPersist();
-    this.scheduleEmptyRoomTeardown();
+    this.scheduleEmptyRoomTeardown(excluding);
   }
 
   private registerConnection(
@@ -2460,18 +2764,17 @@ export class Room extends YServer<Env> {
       this.markRoomActive();
     }
     this.scheduleEmptyRoomTeardown();
+    this.broadcastPeerCounts();
   }
 
   private unregisterConnection(conn: Connection) {
     this.connectionRoles.delete(conn);
     this.connectionPlayers.delete(conn);
     this.connectionGroups.delete(conn);
-    this.scheduleEmptyRoomTeardown();
-    if (!this.hasPlayerConnections()) {
+    this.scheduleEmptyRoomTeardown(conn);
+    this.broadcastPeerCounts();
+    if (!this.hasPlayerConnections(conn)) {
       this.enqueueHiddenStatePersist(this.resetGeneration, conn.id);
-    }
-    if (this.connectionRoles.size === 0) {
-      this.clearPerfMetricsTimer();
     }
   }
 
@@ -2482,25 +2785,23 @@ export class Room extends YServer<Env> {
     currentResumeToken?: string,
   ) {
     const normalizedResumeToken = normalizeNonEmptyString(currentResumeToken);
-    for (const [
-      connection,
-      connectedPlayerId,
-    ] of this.connectionPlayers.entries()) {
-      if (connectedPlayerId !== playerId || connection === currentConnection) {
+    for (const existingConnection of this.getPlayerConnectionsSnapshot()) {
+      const { connection } = existingConnection;
+      if (
+        existingConnection.playerId !== playerId ||
+        connection === currentConnection
+      ) {
         continue;
       }
-      const existingGroupId = this.connectionGroups.get(connection);
-      const existingState = (connection.state ?? null) as
-        | IntentConnectionState
-        | null;
       const existingResumeToken = normalizeNonEmptyString(
-        existingState?.resumeToken,
+        existingConnection.state.resumeToken,
       );
       const isSameGroupedSession =
-        Boolean(connectionGroupId) && existingGroupId === connectionGroupId;
+        Boolean(connectionGroupId) &&
+        existingConnection.connectionGroupId === connectionGroupId;
       const isSameLegacySyncSession =
         !connectionGroupId &&
-        !this.intentConnections.has(connection) &&
+        !existingConnection.isIntent &&
         Boolean(normalizedResumeToken) &&
         existingResumeToken === normalizedResumeToken;
       if (isSameGroupedSession || isSameLegacySyncSession) continue;
@@ -2522,12 +2823,10 @@ export class Room extends YServer<Env> {
     const existingState = (connection.state ?? null) as
       | IntentConnectionState
       | null;
-    try {
-      connection.setState({
-        ...(existingState ?? {}),
-        resumeToken: normalizedResumeToken,
-      });
-    } catch (_err) {}
+    this.setConnectionState(connection, {
+      ...(existingState ?? {}),
+      resumeToken: normalizedResumeToken,
+    });
   }
 
   private refreshLegacyResumeTokens(
@@ -2552,19 +2851,17 @@ export class Room extends YServer<Env> {
       return;
     }
 
-    for (const [
-      connection,
-      connectedPlayerId,
-    ] of this.connectionPlayers.entries()) {
-      if (connectedPlayerId !== playerId || connection === currentConnection) {
+    for (const existingConnection of this.getPlayerConnectionsSnapshot()) {
+      const { connection } = existingConnection;
+      if (
+        existingConnection.playerId !== playerId ||
+        connection === currentConnection
+      ) {
         continue;
       }
-      if (this.intentConnections.has(connection)) continue;
-      const existingState = (connection.state ?? null) as
-        | IntentConnectionState
-        | null;
+      if (existingConnection.isIntent) continue;
       const existingResumeToken = normalizeNonEmptyString(
-        existingState?.resumeToken,
+        existingConnection.state.resumeToken,
       );
       if (existingResumeToken !== normalizedPriorResumeToken) continue;
       this.updateConnectionResumeToken(connection, normalizedNextResumeToken);
@@ -2631,18 +2928,16 @@ export class Room extends YServer<Env> {
     this.teardownInProgress = true;
     this.emptyRoomStartedAt = null;
     this.emptyRoomDormantAt = null;
-    this.clearEmptyRoomIdleTimer();
-    this.clearEmptyRoomHardResetTimer();
-    this.clearHiddenStatePersistTimer();
+    this.clearHiddenStatePersistQueue();
     await this.cancelAndDrainGameLogPersist();
-    this.clearPerfMetricsTimer();
     this.resetGeneration += 1;
     try {
-      const connections = Array.from(this.connectionRoles.keys());
+      const connections = this.getAllConnectionsSnapshot();
       this.connectionRoles.clear();
       this.connectionPlayers.clear();
       this.connectionGroups.clear();
       this.connectionCapabilities.clear();
+      this.intentConnections.clear();
       for (const connection of connections) {
         try {
           connection.close(ROOM_TEARDOWN_CLOSE_CODE, "room reset");
@@ -2660,7 +2955,6 @@ export class Room extends YServer<Env> {
       this.intentLogWritePromise = Promise.resolve();
       this.gameLog.clear();
       this.libraryViews.clear();
-      this.clearLibraryViewCleanupTimer();
       this.overlayService.clearCache();
 
       try {
@@ -2715,36 +3009,11 @@ export class Room extends YServer<Env> {
   private async bindIntentConnection(conn: Connection, url: URL) {
     this.intentConnections.add(conn);
     const state = parseConnectionParams(url);
-    let connectionClosed = false;
     let connectionRegistered = false;
     let resolvedRole: "player" | "spectator" | undefined;
     let resolvedPlayerId: string | undefined;
     let resolvedUserId: string | undefined;
     let resolvedAnalyticsUserId: string | undefined;
-    const cleanupTrackedConnection = () => {
-      this.intentConnections.delete(conn);
-      this.connectionCapabilities.delete(conn.id);
-      this.libraryViews.delete(conn.id);
-      if (this.libraryViews.size === 0) {
-        this.clearLibraryViewCleanupTimer();
-      }
-      this.overlayService.removeConnection(conn.id);
-    };
-    conn.addEventListener("close", () => {
-      connectionClosed = true;
-      cleanupTrackedConnection();
-      if (!connectionRegistered) return;
-      this.unregisterConnection(conn);
-      if (resolvedAnalyticsUserId) {
-        this.roomAnalytics?.onUserLeave(resolvedAnalyticsUserId);
-      }
-      console.warn("[party] intent connection closed", {
-        room: this.name,
-        connId: conn.id,
-        playerId: resolvedPlayerId,
-        viewerRole: resolvedRole,
-      });
-    });
     const rejectConnection = (reason: string, code = 1008) => {
       if (connectionRegistered) {
         connectionRegistered = false;
@@ -2753,13 +3022,13 @@ export class Room extends YServer<Env> {
           this.roomAnalytics?.onUserLeave(resolvedAnalyticsUserId);
         }
       }
-      cleanupTrackedConnection();
+      this.cleanupIntentConnection(conn);
       try {
         conn.close(code, reason);
       } catch (_err) {}
     };
 
-    console.info("[handoff-debug] intent.auth.start", {
+    this.logHandoffDebug("intent.auth.start", () => ({
       room: this.name,
       connId: conn.id,
       playerId: state.playerId ?? null,
@@ -2769,7 +3038,7 @@ export class Room extends YServer<Env> {
       resumeToken: summarizeSecretToken(state.resumeToken),
       hasConnectionGroupId: Boolean(state.connectionGroupId),
       connectionGroupId: state.connectionGroupId ?? null,
-    });
+    }));
 
     const storedTokens = await this.loadRoomTokens();
     const auth = await this.resolveConnectionAuthWithResume(
@@ -2778,11 +3047,11 @@ export class Room extends YServer<Env> {
       { allowTokenCreation: true },
     );
     if (!auth.ok) {
-      console.info("[handoff-debug] intent.auth.rejected", {
+      this.logHandoffDebug("intent.auth.rejected", () => ({
         room: this.name,
         connId: conn.id,
         reason: auth.reason,
-      });
+      }));
       rejectConnection(auth.reason);
       return;
     }
@@ -2804,7 +3073,7 @@ export class Room extends YServer<Env> {
       if (!priorResumeToken || !resolvedPlayerId) return;
       await this.restorePlayerResumeToken(resolvedPlayerId, priorResumeToken);
     };
-    console.info("[handoff-debug] intent.auth.accepted", {
+    this.logHandoffDebug("intent.auth.accepted", () => ({
       room: this.name,
       connId: conn.id,
       resolvedRole,
@@ -2813,21 +3082,21 @@ export class Room extends YServer<Env> {
       hasActivePlayerToken: Boolean(activeTokens?.playerToken),
       hasActiveSpectatorToken: Boolean(activeTokens?.spectatorToken),
       priorResumeToken: summarizeSecretToken(priorResumeToken),
-    });
-    if (connectionClosed) return;
+    }));
+    if (this.isConnectionClosed(conn)) return;
     this.capturePerfMetricsFlag(url);
-    conn.setState({
+    this.setConnectionState(conn, {
+      channel: "intent",
       playerId: resolvedPlayerId,
       viewerRole: resolvedRole,
-      token: auth.token,
       userId: resolvedUserId,
       resumeToken: state.resumeToken,
       connectionGroupId: state.connectionGroupId,
     });
     this.registerConnection(conn, resolvedRole, {
+      channel: "intent",
       playerId: resolvedPlayerId,
       viewerRole: resolvedRole,
-      token: auth.token,
       userId: resolvedUserId,
       resumeToken: state.resumeToken,
       connectionGroupId: state.connectionGroupId,
@@ -2867,12 +3136,12 @@ export class Room extends YServer<Env> {
       });
     }
 
-    if (connectionClosed) {
+    if (this.isConnectionClosed(conn)) {
       await rollbackResumeToken();
       return;
     }
 
-    console.info("[handoff-debug] intent.roomTokens.sending", {
+    this.logHandoffDebug("intent.roomTokens.sending", () => ({
       room: this.name,
       connId: conn.id,
       resolvedRole,
@@ -2881,7 +3150,7 @@ export class Room extends YServer<Env> {
       hasPlayerToken: Boolean(activeTokens?.playerToken),
       hasSpectatorToken: Boolean(activeTokens?.spectatorToken),
       generatedResumeToken: summarizeSecretToken(resumeToken),
-    });
+    }));
 
     if (activeTokens) {
       const sent = this.sendRoomTokens(
@@ -2924,50 +3193,15 @@ export class Room extends YServer<Env> {
     if (resolvedAnalyticsUserId) {
       this.roomAnalytics?.onUserJoin(resolvedAnalyticsUserId, resolvedRole);
     }
-    console.info("[party] intent connection established", {
+    this.logRoutineConnection("[party] intent connection established", () => ({
       room: this.name,
       connId: conn.id,
       playerId: resolvedPlayerId,
       viewerRole: resolvedRole,
       hasToken: Boolean(auth.token),
-    });
+    }));
 
     void this.sendOverlayForConnection(conn);
-
-    conn.addEventListener("message", (event) => {
-      const raw = event.data;
-      if (typeof raw !== "string") return;
-
-      let parsed: any;
-      try {
-        parsed = JSON.parse(raw);
-      } catch (_err) {
-        return;
-      }
-
-      if (!parsed || typeof parsed.type !== "string") return;
-      if (parsed.type === "hello") {
-        this.handleHelloMessage(conn, parsed.payload);
-        return;
-      }
-      if (parsed.type === "overlayResync") {
-        void this.handleOverlayResync(conn, parsed.payload);
-        return;
-      }
-      if (parsed.type === "shareLinksRequest") {
-        void this.handleShareLinksRequest(conn, parsed.requestId);
-        return;
-      }
-      if (parsed.type === "gameLogRequest") {
-        this.handleGameLogRequest(conn, parsed);
-        return;
-      }
-      if (parsed.type !== "intent") return;
-      const intent = parsed.intent as Intent | undefined;
-      if (!intent || typeof intent.id !== "string") return;
-
-      void this.handleIntent(conn, intent);
-    });
   }
 
   private async bindSyncConnection(
@@ -2975,7 +3209,6 @@ export class Room extends YServer<Env> {
     url: URL,
     ctx: ConnectionContext,
   ) {
-    let connectionClosed = false;
     let connectionRegistered = false;
     const state = parseConnectionParams(url);
     const initialRole = state.viewerRole ?? "player";
@@ -2985,10 +3218,10 @@ export class Room extends YServer<Env> {
     const finalizePending = () => {
       if (pendingReleased) return;
       pendingReleased = true;
+      this.clearPendingCloseHandler(conn);
       pendingRelease?.();
     };
-    conn.addEventListener("close", () => {
-      connectionClosed = true;
+    this.registerPendingCloseHandler(conn, () => {
       if (!connectionRegistered) {
         finalizePending();
         return;
@@ -3019,7 +3252,6 @@ export class Room extends YServer<Env> {
 
     let resolvedRole: "player" | "spectator";
     let resolvedPlayerId: string | undefined;
-    let authToken: string | undefined;
     try {
       const auth = await this.resolveConnectionAuthWithResume(
         state,
@@ -3032,13 +3264,12 @@ export class Room extends YServer<Env> {
       }
       resolvedRole = auth.resolvedRole;
       resolvedPlayerId = auth.playerId;
-      authToken = auth.token;
     } catch (err) {
       finalizePending();
       throw err;
     }
 
-    if (connectionClosed) {
+    if (this.isConnectionClosed(conn)) {
       finalizePending();
       return;
     }
@@ -3047,18 +3278,18 @@ export class Room extends YServer<Env> {
       return;
     }
     this.capturePerfMetricsFlag(url);
-    conn.setState({
+    this.setConnectionState(conn, {
+      channel: "sync",
       playerId: resolvedPlayerId,
       viewerRole: resolvedRole,
-      token: authToken,
       userId: state.userId,
       resumeToken: state.resumeToken,
       connectionGroupId: state.connectionGroupId,
     });
     this.registerConnection(conn, resolvedRole, {
+      channel: "sync",
       playerId: resolvedPlayerId,
       viewerRole: resolvedRole,
-      token: authToken,
       userId: state.userId,
       resumeToken: state.resumeToken,
       connectionGroupId: state.connectionGroupId,
@@ -3083,28 +3314,18 @@ export class Room extends YServer<Env> {
       this.intentCountSinceMetrics += 1;
       const resetGeneration = this.resetGeneration;
       const state = (conn.state ?? {}) as IntentConnectionState;
-      const sendAck = (
-        intentId: string,
-        success: boolean,
-        message?: string,
-      ) => {
-        const ack = {
-          type: "ack",
-          intentId,
-          ok: success,
-          ...(message ? { error: message } : null),
-        };
-        try {
-          conn.send(JSON.stringify(ack));
-        } catch (_err) {}
-      };
 
       if (state.viewerRole === "spectator") {
-        sendAck(intent.id, false, "spectators cannot send intents");
+        this.sendIntentAck(
+          conn,
+          intent.id,
+          false,
+          "spectators cannot send intents",
+        );
         return;
       }
       if (!state.playerId) {
-        sendAck(intent.id, false, "missing player");
+        this.sendIntentAck(conn, intent.id, false, "missing player");
         return;
       }
 
@@ -3113,7 +3334,7 @@ export class Room extends YServer<Env> {
         typeof payload.actorId === "string" &&
         payload.actorId !== state.playerId
       ) {
-        sendAck(intent.id, false, "actor mismatch");
+        this.sendIntentAck(conn, intent.id, false, "actor mismatch");
         return;
       }
       payload.actorId = state.playerId;
@@ -3139,7 +3360,7 @@ export class Room extends YServer<Env> {
         error = err?.message ?? "intent handler failed";
       }
 
-      sendAck(intent.id, ok, error);
+      this.sendIntentAck(conn, intent.id, ok, error);
 
       const shouldLogIntent =
         ok && this.shouldLogIntent(hiddenChanged, intentImpact);
@@ -3161,6 +3382,7 @@ export class Room extends YServer<Env> {
 
       if (ok && logEvents.length > 0) {
         try {
+          await this.ensureGameLogRestored();
           const entries = this.gameLog.append(logEvents);
           this.scheduleGameLogPersist();
           this.broadcastGameLogEvents(entries);
@@ -3188,7 +3410,11 @@ export class Room extends YServer<Env> {
     }
   }
 
-  private handleGameLogRequest(conn: Connection, parsed: Record<string, unknown>) {
+  private async handleGameLogRequest(
+    conn: Connection,
+    parsed: Record<string, unknown>,
+  ) {
+    await this.ensureGameLogRestored();
     const lastLogSeq =
       typeof parsed.lastLogSeq === "number" ? parsed.lastLogSeq : undefined;
     const response = this.gameLog.replayAfter(lastLogSeq);
@@ -3210,7 +3436,7 @@ export class Room extends YServer<Env> {
         payload: event.payload,
       }),
     );
-    for (const connection of this.intentConnections) {
+    for (const connection of this.getIntentConnectionsSnapshot()) {
       for (const message of messages) {
         try {
           connection.send(message);
@@ -3238,7 +3464,7 @@ export class Room extends YServer<Env> {
       const state = (conn.state ?? {}) as IntentConnectionState;
       const viewerRole = state.viewerRole ?? "player";
       const viewerId = state.playerId;
-      const libraryView = this.libraryViews.get(conn.id);
+      const libraryView = this.getLibraryViewForConnection(conn);
       const buildResult = this.overlayService.buildOverlaySnapshotData({
         snapshot: overlaySnapshot,
         zoneLookup: overlayZoneLookup,
@@ -3247,7 +3473,7 @@ export class Room extends YServer<Env> {
         viewerId,
         libraryView,
       });
-      const capabilities = this.connectionCapabilities.get(conn.id);
+      const capabilities = this.getConnectionCapabilities(conn);
       const supportsDiff = capabilities?.has(OVERLAY_DIFF_CAPABILITY) ?? false;
       this.overlayService.sendOverlayForConnection({
         conn,
@@ -3260,7 +3486,9 @@ export class Room extends YServer<Env> {
   }
 
   private async broadcastOverlays(impact?: IntentImpact) {
-    if (this.intentConnections.size === 0) return;
+    const intentConnections = this.getIntentConnectionsSnapshot();
+    if (intentConnections.length === 0) return;
+    this.cleanupExpiredLibraryViews({ resend: false });
 
     const maps = getMaps(this.document);
     const hidden = await this.ensureHiddenState(this.document);
@@ -3294,11 +3522,11 @@ export class Room extends YServer<Env> {
         if (typeof playerId === "string") affectedPlayers.add(playerId);
       });
     }
-    for (const connection of this.intentConnections) {
+    for (const connection of intentConnections) {
       const state = (connection.state ?? {}) as IntentConnectionState;
       const viewerRole = state.viewerRole ?? "player";
       const viewerId = state.playerId;
-      const libraryView = this.libraryViews.get(connection.id);
+      const libraryView = this.getLibraryViewForConnection(connection);
       const libraryViewOwner = libraryView?.playerId;
       const shouldSend =
         viewerRole === "spectator" ||
@@ -3321,7 +3549,7 @@ export class Room extends YServer<Env> {
         });
         overlayBuildCache.set(cacheKey, buildResult);
       }
-      const capabilities = this.connectionCapabilities.get(connection.id);
+      const capabilities = this.getConnectionCapabilities(connection);
       const supportsDiff = capabilities?.has(OVERLAY_DIFF_CAPABILITY) ?? false;
       this.overlayService.sendOverlayForConnection({
         conn: connection,
@@ -3348,12 +3576,14 @@ export class Room extends YServer<Env> {
       payload.count > 0
         ? Math.floor(payload.count)
         : undefined;
-    this.libraryViews.set(conn.id, {
+    const libraryView = {
       playerId,
       ...(count ? { count } : null),
       lastPingAt: Date.now(),
-    });
-    this.ensureLibraryViewCleanupTimer();
+    };
+    this.libraryViews.set(conn.id, libraryView);
+    this.setConnectionLibraryView(conn, libraryView);
+    this.cleanupExpiredLibraryViews();
     await this.sendOverlayForConnection(conn);
   }
 
@@ -3367,25 +3597,25 @@ export class Room extends YServer<Env> {
     if (!playerId) return;
     if (viewerId && viewerId !== playerId) return;
     this.libraryViews.delete(conn.id);
-    if (this.libraryViews.size === 0) {
-      this.clearLibraryViewCleanupTimer();
-    }
+    this.setConnectionLibraryView(conn, undefined);
     await this.sendOverlayForConnection(conn);
   }
 
-  private handleLibraryViewPingIntent(conn: Connection, intent: Intent) {
+  private handleLibraryViewPingIntent(conn: Connection, intent: Intent): boolean {
     const state = (conn.state ?? {}) as IntentConnectionState;
-    if (state.viewerRole === "spectator") return;
+    if (state.viewerRole === "spectator") return false;
     const viewerId = state.playerId;
     const payload = isRecord(intent.payload) ? intent.payload : {};
     const playerId =
       typeof payload.playerId === "string" ? payload.playerId : null;
-    if (!playerId) return;
-    if (viewerId && viewerId !== playerId) return;
-    const existing = this.libraryViews.get(conn.id);
-    if (!existing || existing.playerId !== playerId) return;
+    if (!playerId) return false;
+    if (viewerId && viewerId !== playerId) return false;
+    const existing = this.getLibraryViewForConnection(conn);
+    if (!existing || existing.playerId !== playerId) return false;
     existing.lastPingAt = Date.now();
     this.libraryViews.set(conn.id, existing);
-    this.ensureLibraryViewCleanupTimer();
+    this.setConnectionLibraryView(conn, existing);
+    this.cleanupExpiredLibraryViews();
+    return true;
   }
 }
