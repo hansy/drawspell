@@ -47,4 +47,6 @@ export type LogEventRegistry = {
   [K in LogEventId]: LogEventDefinition<LogEventPayloadMap[K]>;
 };
 
+export type PartialLogEventRegistry = Partial<Record<LogEventId, LogEventDefinition<any>>>;
+
 export type { LogEventPayloadMap };

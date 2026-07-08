@@ -1,5 +1,5 @@
 import { buildPlayerPart } from "../helpers";
-import type { LogEventDefinition, LogEventId } from "@/logging/types";
+import type { LogEventDefinition, PartialLogEventRegistry } from "@/logging/types";
 
 export type DeckPayload = { playerId: string; actorId?: string };
 
@@ -20,4 +20,4 @@ export const deckEvents = {
   "deck.unload": {
     format: formatDeckUnload,
   },
-} satisfies Partial<Record<LogEventId, LogEventDefinition<any>>>;
+} satisfies PartialLogEventRegistry;

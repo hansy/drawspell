@@ -1,5 +1,5 @@
 import { buildPlayerPart } from "../helpers";
-import type { LogEventDefinition, LogEventId } from "@/logging/types";
+import type { LogEventDefinition, PartialLogEventRegistry } from "@/logging/types";
 
 export type DiceRollPayload = {
   actorId?: string;
@@ -27,4 +27,4 @@ export const diceEvents = {
   "dice.roll": {
     format: formatDiceRoll,
   },
-} satisfies Partial<Record<LogEventId, LogEventDefinition<any>>>;
+} satisfies PartialLogEventRegistry;

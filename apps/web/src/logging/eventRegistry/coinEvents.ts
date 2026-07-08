@@ -1,5 +1,5 @@
 import { buildPlayerPart } from "../helpers";
-import type { LogEventDefinition, LogEventId } from "@/logging/types";
+import type { LogEventDefinition, PartialLogEventRegistry } from "@/logging/types";
 
 export type CoinFlipPayload = {
   actorId?: string;
@@ -26,4 +26,4 @@ export const coinEvents = {
   "coin.flip": {
     format: formatCoinFlip,
   },
-} satisfies Partial<Record<LogEventId, LogEventDefinition<any>>>;
+} satisfies PartialLogEventRegistry;

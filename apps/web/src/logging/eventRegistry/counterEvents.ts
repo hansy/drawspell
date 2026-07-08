@@ -1,5 +1,5 @@
 import { buildCardPart, buildPlayerPart, getLogZone } from "../helpers";
-import type { LogEventDefinition, LogEventId } from "@/logging/types";
+import type { LogEventDefinition, PartialLogEventRegistry } from "@/logging/types";
 import type { ZoneType } from "@/types";
 import { DEFAULT_AGGREGATE_WINDOW_MS } from "./constants";
 
@@ -74,4 +74,4 @@ export const counterEvents = {
   "counter.global.add": {
     format: formatGlobalCounterAdd,
   },
-} satisfies Partial<Record<LogEventId, LogEventDefinition<any>>>;
+} satisfies PartialLogEventRegistry;
