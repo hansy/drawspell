@@ -1,6 +1,7 @@
 export { normalizeCounterType } from "@mtg/shared/counters";
 import { normalizeCounterType } from "@mtg/shared/counters";
 import type { Counter } from "@/types";
+import { findGlobalCounterKey } from "@/lib/counters";
 
 export const normalizeCounterCount = (raw: number): number => {
   if (!Number.isFinite(raw)) return 1;
@@ -19,14 +20,6 @@ export const getAllCounterTypes = (params: {
     )
   ).sort();
 };
-
-const hasGlobalCounterType = (
-  globalCounters: Record<string, string>,
-  type: string
-) =>
-  Object.keys(globalCounters).some(
-    (existingType) => normalizeCounterType(existingType) === type
-  );
 
 export const planAddCounter = (params: {
   rawType: string;
@@ -47,6 +40,6 @@ export const planAddCounter = (params: {
 
   return {
     counter: { type, count, color },
-    shouldAddGlobalCounter: !hasGlobalCounterType(params.globalCounters, type),
+    shouldAddGlobalCounter: !findGlobalCounterKey(params.globalCounters, type),
   };
 };

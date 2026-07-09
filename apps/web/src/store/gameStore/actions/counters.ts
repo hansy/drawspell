@@ -8,6 +8,7 @@ import { canModifyCardState } from "@/rules/permissions";
 import { logPermission } from "@/rules/logger";
 import {
   decrementCounter,
+  findGlobalCounterKey,
   isBattlefieldZone,
   mergeCounters,
   resolveCounterColor,
@@ -74,9 +75,7 @@ export const createCounterActions = (
     const normalizedName = normalizeCounterType(name);
     if (!normalizedName) return;
 
-    const existing = Object.keys(get().globalCounters).find(
-      (counterType) => normalizeCounterType(counterType) === normalizedName
-    );
+    const existing = findGlobalCounterKey(get().globalCounters, normalizedName);
     if (existing) return;
 
     const resolvedColor = resolveCounterColor(normalizedName, get().globalCounters);

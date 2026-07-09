@@ -42,7 +42,7 @@ const findCounterIndex = (existing: Counter[], type: string) => {
   return existing.findIndex((counter) => matchesCounterType(counter.type, lookupType));
 };
 
-const findGlobalCounterKey = (
+export const findGlobalCounterKey = (
   globalCounters: Record<string, string>,
   type: string
 ): string | undefined => {
