@@ -151,20 +151,25 @@ const pendingDropClaimKey = (claim: PendingDropVisualClaim) =>
   `${claim.cardId}:${claim.sourceZoneId}:${claim.targetZoneId}`;
 const PENDING_DROP_SOURCE_STYLE_ID = "__drawspell-pending-drop-source-style";
 
+const getPendingDropCardSelector = (zoneId: string, cardId: string) =>
+  `[data-zone-id="${escapeSelectorValue(zoneId)}"] [data-card-id="${escapeSelectorValue(cardId)}"]`;
+
+const getPendingDropSourceSelector = (claim: PendingDropVisualClaim) =>
+  getPendingDropCardSelector(claim.sourceZoneId, claim.cardId);
+
+const getPendingDropSourceOpacityRule = (claim: PendingDropVisualClaim) =>
+  `${getPendingDropSourceSelector(claim)}{opacity:0!important;}`;
+
 const isPendingDropSourceStillRendered = (claim: PendingDropVisualClaim) => {
   if (typeof document === "undefined") return false;
-  return Boolean(
-    document.querySelector(
-      `[data-zone-id="${escapeSelectorValue(claim.sourceZoneId)}"] [data-card-id="${escapeSelectorValue(claim.cardId)}"]`
-    )
-  );
+  return Boolean(document.querySelector(getPendingDropSourceSelector(claim)));
 };
 
 const isPendingDropTargetRendered = (claim: PendingDropVisualClaim) => {
   if (typeof document === "undefined") return false;
   return Boolean(
     document.querySelector(
-      `[data-zone-id="${escapeSelectorValue(claim.targetZoneId)}"] [data-card-id="${escapeSelectorValue(claim.cardId)}"]`
+      getPendingDropCardSelector(claim.targetZoneId, claim.cardId)
     )
   );
 };
@@ -172,9 +177,7 @@ const isPendingDropTargetRendered = (claim: PendingDropVisualClaim) => {
 const getPendingDropSourceElements = (claim: PendingDropVisualClaim) => {
   if (typeof document === "undefined") return [];
   return Array.from(
-    document.querySelectorAll(
-      `[data-zone-id="${escapeSelectorValue(claim.sourceZoneId)}"] [data-card-id="${escapeSelectorValue(claim.cardId)}"]`
-    )
+    document.querySelectorAll(getPendingDropSourceSelector(claim))
   ).filter((node): node is HTMLElement => node instanceof HTMLElement);
 };
 
@@ -189,10 +192,7 @@ const suppressPendingDropSourceElements = (
       document.head.appendChild(styleNode);
     }
     styleNode.textContent = claims
-      .map(
-        (claim) =>
-          `[data-zone-id="${escapeSelectorValue(claim.sourceZoneId)}"] [data-card-id="${escapeSelectorValue(claim.cardId)}"]{opacity:0!important;}`
-      )
+      .map(getPendingDropSourceOpacityRule)
       .join("\n");
   }
   claims.forEach((claim) => {
@@ -225,10 +225,7 @@ const releasePendingDropSourceElements = (
     const styleNode = document.getElementById(PENDING_DROP_SOURCE_STYLE_ID);
     if (styleNode) {
       styleNode.textContent = retainedClaims
-        .map(
-          (claim) =>
-            `[data-zone-id="${escapeSelectorValue(claim.sourceZoneId)}"] [data-card-id="${escapeSelectorValue(claim.cardId)}"]{opacity:0!important;}`
-        )
+        .map(getPendingDropSourceOpacityRule)
         .join("\n");
       if (!styleNode.textContent) {
         styleNode.remove();
