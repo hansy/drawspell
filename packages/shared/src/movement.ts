@@ -133,6 +133,22 @@ const resolveBattlefieldPlacementStepY = (
   getStepY?.(id) ??
   getCanonicalBattlefieldPlacementGridSteps().stepY;
 
+const resolveGroupCollisionOptions = (
+  groupCollision: NonNullable<CardMovementOptions["groupCollision"]>
+) => {
+  const targetPositions = groupCollision.targetPositions;
+
+  return {
+    movingCardIds: Array.isArray(groupCollision.movingCardIds)
+      ? groupCollision.movingCardIds
+      : [],
+    targetPositions:
+      targetPositions && typeof targetPositions === "object"
+        ? targetPositions
+        : {},
+  };
+};
+
 export const resolveCardMovementPosition = ({
   card,
   cardId = card.id,
@@ -170,15 +186,10 @@ export const resolveCardMovementPosition = ({
   }
 
   if (opts?.groupCollision) {
+    const groupCollision = resolveGroupCollisionOptions(opts.groupCollision);
     const resolved = resolveBattlefieldGroupCollisionPositions({
-      movingCardIds: Array.isArray(opts.groupCollision.movingCardIds)
-        ? opts.groupCollision.movingCardIds
-        : [],
-      targetPositions:
-        opts.groupCollision.targetPositions &&
-        typeof opts.groupCollision.targetPositions === "object"
-          ? opts.groupCollision.targetPositions
-          : {},
+      movingCardIds: groupCollision.movingCardIds,
+      targetPositions: groupCollision.targetPositions,
       orderedCardIds,
       getPosition,
       getStepY: (id) => resolveBattlefieldPlacementStepY(getStepY, id),
