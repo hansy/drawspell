@@ -66,6 +66,21 @@ export const parseCounterType = (
 export const normalizeCounterType = (raw: string, maxLen = 64): string =>
   parseCounterType(raw, maxLen).canonicalType;
 
+type CounterTotalInput = {
+  type: string;
+  count: number;
+};
+
+export const getNormalizedCounterTotal = (
+  counters: CounterTotalInput[],
+  counterType: string
+) =>
+  counters.reduce((sum, counter) => {
+    return normalizeCounterType(counter.type) === counterType
+      ? sum + counter.count
+      : sum;
+  }, 0);
+
 export const parsePTCounterType = (
   raw: string,
   maxLen = 64

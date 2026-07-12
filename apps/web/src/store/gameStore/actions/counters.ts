@@ -1,4 +1,4 @@
-import { normalizeCounterType } from "@mtg/shared/counters";
+import { getNormalizedCounterTotal, normalizeCounterType } from "@mtg/shared/counters";
 import type { StoreApi } from "zustand";
 
 import type { GameState } from "@/types";
@@ -20,16 +20,6 @@ type GetState = StoreApi<GameState>["getState"];
 type Deps = {
   dispatchIntent: DispatchIntent;
 };
-
-const getNormalizedCounterTotal = (
-  counters: GameState["cards"][string]["counters"],
-  counterType: string
-) =>
-  counters.reduce((sum, counter) => {
-    return normalizeCounterType(counter.type) === counterType
-      ? sum + counter.count
-      : sum;
-  }, 0);
 
 const resolveCardCounterContext = (
   get: GetState,

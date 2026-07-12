@@ -1,4 +1,4 @@
-import { normalizeCounterType } from "@mtg/shared/counters";
+import { getNormalizedCounterTotal, normalizeCounterType } from "@mtg/shared/counters";
 import type { Card } from "@mtg/shared/types/cards";
 import type { Counter } from "@mtg/shared/types/counters";
 
@@ -57,13 +57,6 @@ type PreparedCardAdd = {
   zoneId: string;
   isCommanderZone: boolean;
 };
-
-const getNormalizedCounterTotal = (counters: Counter[], counterType: string) =>
-  counters.reduce((sum, counter) => {
-    return normalizeCounterType(counter.type) === counterType
-      ? sum + counter.count
-      : sum;
-  }, 0);
 
 const prepareCardAdd = (
   actorId: string,
