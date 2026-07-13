@@ -13,6 +13,7 @@ export const MAX_COUNTER_TYPE_LENGTH = 64;
 export const MAX_COUNTER_COLOR_LENGTH = 32;
 
 export const MAX_NAME_LENGTH = 120;
+export const MAX_MANA_COST_LENGTH = 160;
 export const MAX_PLAYER_NAME_LENGTH = MAX_NAME_LENGTH;
 export const MAX_PLAYER_COLOR_LENGTH = 16;
 

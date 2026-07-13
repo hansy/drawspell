@@ -6,6 +6,7 @@ import type { Card } from "@/types";
 
 import { ZoneViewerGroupedView } from "../ZoneViewerGroupedView";
 import { ZoneViewerLinearView } from "../ZoneViewerLinearView";
+import { buildLibraryManaSections } from "@/models/game/zone-viewer/zoneViewerModel";
 
 const createPointerEvent = (
   type: string,
@@ -147,10 +148,7 @@ describe("ZoneViewer touch gestures", () => {
 
     const { container } = render(
       <ZoneViewerGroupedView
-        sortedKeys={["Lands"]}
-        groupedCards={{ Lands: [card] }}
-        cardWidthPx={220}
-        cardHeightPx={308}
+        sections={buildLibraryManaSections([card])}
         interactionsDisabled={false}
         pinnedCardId={undefined}
         onCardContextMenu={onCardContextMenu}
@@ -294,36 +292,27 @@ describe("ZoneViewer touch gestures", () => {
     expect(container.firstElementChild?.className).toContain("snap-x");
   });
 
-  it("uses vertical grouped layout with per-row cover-flow on mobile", () => {
+  it("uses compact grouped rows without card-image cover flow", () => {
     const land = buildCard("l1", "Land", "zone-1");
     const spell = buildCard("s1", "Spell", "zone-1");
 
     const { container } = render(
       <ZoneViewerGroupedView
-        sortedKeys={["Lands", "Cost 1"]}
-        groupedCards={{ Lands: [land], "Cost 1": [spell] }}
-        cardWidthPx={220}
-        cardHeightPx={308}
+        sections={buildLibraryManaSections([land, spell])}
         interactionsDisabled={false}
         pinnedCardId={undefined}
         onCardContextMenu={vi.fn()}
-        mobileCoverFlow
       />
     );
 
-    const root = container.firstElementChild as HTMLElement | null;
-    expect(root?.className).toContain("overflow-y-auto");
-    const groupedRow = container.querySelector(
-      ".overflow-x-auto"
-    ) as HTMLElement | null;
-    expect(groupedRow).not.toBeNull();
-    expect(groupedRow?.className).toContain("touch-auto");
-    expect(groupedRow?.className).not.toContain("touch-pan-x");
+    expect(container.querySelectorAll(".library-mana-section")).toHaveLength(1);
+    expect(container.querySelectorAll(".library-card-row")).toHaveLength(2);
+    expect(container.querySelector(".overflow-x-auto")).toBeNull();
 
     const landNode = container.querySelector('[data-zone-viewer-card-id="l1"]');
     const spellNode = container.querySelector('[data-zone-viewer-card-id="s1"]');
     if (!landNode || !spellNode) throw new Error("Expected grouped mobile card nodes");
-    expect(landNode.getAttribute("data-zone-viewer-focused")).toBe("true");
-    expect(spellNode.getAttribute("data-zone-viewer-focused")).toBe("true");
+    expect(landNode.textContent).toContain("1×");
+    expect(spellNode.textContent).toContain("1×");
   });
 });

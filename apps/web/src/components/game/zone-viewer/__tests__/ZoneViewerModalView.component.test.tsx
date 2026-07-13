@@ -6,6 +6,7 @@ import { ZONE } from "@/constants/zones";
 import type { Card, Zone } from "@/types";
 
 import { ZoneViewerModalView } from "../ZoneViewerModalView";
+import { buildLibraryManaSections } from "@/models/game/zone-viewer/zoneViewerModel";
 
 const buildZone = (overrides: Partial<Zone>): Zone =>
   ({
@@ -50,6 +51,8 @@ describe("ZoneViewerModalView", () => {
         viewMode="linear"
         groupedCards={{}}
         sortedKeys={[]}
+        librarySections={[]}
+        uniqueCardCount={0}
         canReorder={false}
         orderedCards={cards}
         orderedCardIds={cards.map((c) => c.id)}
@@ -93,6 +96,8 @@ describe("ZoneViewerModalView", () => {
         viewMode="linear"
         groupedCards={{}}
         sortedKeys={[]}
+        librarySections={[]}
+        uniqueCardCount={0}
         canReorder={false}
         orderedCards={cards}
         orderedCardIds={cards.map((c) => c.id)}
@@ -119,6 +124,8 @@ describe("ZoneViewerModalView", () => {
     const zone = buildZone({ type: ZONE.LIBRARY, id: "lib-me" });
     const land = buildCard("l1", "Land", zone.id);
     const spell = buildCard("s1", "Spell", zone.id);
+    land.typeLine = "Basic Land";
+    spell.scryfall = { cmc: 1 } as any;
 
     render(
       <ZoneViewerModalView
@@ -136,6 +143,8 @@ describe("ZoneViewerModalView", () => {
         viewMode="grouped"
         groupedCards={{ Lands: [land], "Cost 1": [spell] }}
         sortedKeys={["Lands", "Cost 1"]}
+        librarySections={buildLibraryManaSections([land, spell])}
+        uniqueCardCount={2}
         canReorder={false}
         orderedCards={[]}
         orderedCardIds={[]}
@@ -152,9 +161,10 @@ describe("ZoneViewerModalView", () => {
       />
     );
 
-    expect(screen.getByText("library Viewer")).toBeTruthy();
-    expect(screen.getByText("Lands (1)")).toBeTruthy();
-    expect(screen.getByText("Cost 1 (1)")).toBeTruthy();
+    expect(screen.getByText("Library")).toBeTruthy();
+    expect(screen.getByText("2 cards · 2 unique")).toBeTruthy();
+    expect(screen.getByText("Lands")).toBeTruthy();
+    expect(screen.getByText("1-mana")).toBeTruthy();
     expect(screen.getByText("Land")).toBeTruthy();
     expect(screen.getByText("Spell")).toBeTruthy();
   });

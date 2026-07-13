@@ -128,6 +128,9 @@ export const decrementCounter = (existing: Counter[], type: string, delta: numbe
 
 export const buildCardIdentity = (card: Card): CardIdentity => ({
   name: card.name ?? "Card",
+  canonicalName: card.canonicalName,
+  manaCost: card.manaCost,
+  manaValue: card.manaValue,
   imageUrl: card.imageUrl,
   oracleText: card.oracleText,
   typeLine: card.typeLine,
@@ -142,6 +145,9 @@ export const mergeCardIdentity = (card: Card, identity?: CardIdentity | null): C
 export const stripCardIdentity = (card: Card): Card => ({
   ...card,
   name: "Card",
+  canonicalName: undefined,
+  manaCost: undefined,
+  manaValue: undefined,
   imageUrl: undefined,
   oracleText: undefined,
   typeLine: undefined,

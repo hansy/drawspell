@@ -7,6 +7,7 @@ export interface ZoneViewerModalHeaderProps {
   zoneType: string;
   totalCards: number;
   count?: number;
+  uniqueCards?: number;
   filterText: string;
   onFilterTextChange: (text: string) => void;
 }
@@ -14,16 +15,25 @@ export interface ZoneViewerModalHeaderProps {
 export const ZoneViewerModalHeader: React.FC<ZoneViewerModalHeaderProps> = ({
   zoneType,
   totalCards,
+  count,
+  uniqueCards,
   filterText,
   onFilterTextChange,
 }) => {
   const totalLabel = totalCards === 1 ? "card" : "cards";
+  const isFullLibrary = zoneType === "library" && !count;
+  const title = zoneType === "library"
+    ? count
+      ? `Top ${count} cards of Library`
+      : "Library"
+    : `${zoneType} Viewer`;
   return (
     <>
       <DialogHeader>
-        <DialogTitle className="text-xl capitalize">{zoneType} Viewer</DialogTitle>
+        <DialogTitle className="text-xl first-letter:capitalize">{title}</DialogTitle>
         <DialogDescription className="text-zinc-400">
           {totalCards} {totalLabel}
+          {isFullLibrary && typeof uniqueCards === "number" ? ` · ${uniqueCards} unique` : ""}
         </DialogDescription>
       </DialogHeader>
 

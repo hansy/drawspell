@@ -741,6 +741,9 @@ describe('Yjs update size regression', () => {
       controllerId: 'p1',
       zoneId: zone.id,
       name: 'Big Token',
+      canonicalName: 'Big Token',
+      manaCost: '{2}{U}',
+      manaValue: 3,
       typeLine: 'Token Creature',
       scryfallId: 's1',
       scryfall: fullScryfall,
@@ -764,6 +767,11 @@ describe('Yjs update size regression', () => {
     expect('type_line' in stored).toBe(false);
     expect('color_identity' in stored).toBe(false);
     expect('blob' in stored).toBe(false);
+    expect(snapshot.cards.c1).toMatchObject({
+      canonicalName: 'Big Token',
+      manaCost: '{2}{U}',
+      manaValue: 3,
+    });
   });
 });
 

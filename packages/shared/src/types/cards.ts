@@ -8,6 +8,12 @@ import type { ScryfallCardLite } from "./scryfallLite";
 // using the scryfallId.
 export interface CardIdentity {
   name: string;
+  /** Canonical Scryfall name, shared by all printings of the same card. */
+  canonicalName?: string;
+  /** Exact printed mana cost using Scryfall symbol notation (for example, {1}{U}). */
+  manaCost?: string;
+  /** Mana value used for lightweight library grouping without full Scryfall data. */
+  manaValue?: number;
   imageUrl?: string; // Preferred display image (normally Scryfall image_uris.normal)
   oracleText?: string;
   typeLine?: string;

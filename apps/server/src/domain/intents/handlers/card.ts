@@ -399,6 +399,9 @@ const handleCardUpdate: IntentHandler = ({ actorId, maps, hidden, payload, pushL
 
   const forbiddenKeys = [
     "name",
+    "canonicalName",
+    "manaCost",
+    "manaValue",
     "imageUrl",
     "oracleText",
     "typeLine",

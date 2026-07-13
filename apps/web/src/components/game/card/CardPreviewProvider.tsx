@@ -171,3 +171,6 @@ export const useCardPreview = () => {
   }
   return ctx;
 };
+
+/** Preview integration for reusable surfaces that can also render in isolation (for example, tests). */
+export const useOptionalCardPreview = () => React.useContext(CardPreviewContext);

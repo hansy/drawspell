@@ -2,7 +2,7 @@ import type { Card, Zone } from "@/types";
 
 import { MAX_REVEALED_TO } from "@/lib/limits";
 
-import { MAX_NAME_LENGTH } from "../sanitizeLimits";
+import { MAX_MANA_COST_LENGTH, MAX_NAME_LENGTH } from "../sanitizeLimits";
 
 import { sanitizeCounters } from "./counters";
 import { clampNumber, dedupeStrings, normalizePosition } from "./utils";
@@ -42,6 +42,18 @@ export const sanitizeCard = (value: any, zones: Record<string, Zone>): Card | nu
     rotation,
     counters,
     name: typeof value.name === "string" ? value.name.slice(0, MAX_NAME_LENGTH) : "Card",
+    canonicalName:
+      typeof value.canonicalName === "string"
+        ? value.canonicalName.slice(0, MAX_NAME_LENGTH)
+        : undefined,
+    manaCost:
+      typeof value.manaCost === "string"
+        ? value.manaCost.slice(0, MAX_MANA_COST_LENGTH)
+        : undefined,
+    manaValue:
+      typeof value.manaValue === "number" && Number.isFinite(value.manaValue)
+        ? Math.max(0, Math.min(1_000, value.manaValue))
+        : undefined,
     imageUrl: typeof value.imageUrl === "string" ? value.imageUrl : undefined,
     oracleText: typeof value.oracleText === "string" ? value.oracleText : undefined,
     typeLine: typeof value.typeLine === "string" ? value.typeLine : undefined,

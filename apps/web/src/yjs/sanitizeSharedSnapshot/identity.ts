@@ -2,6 +2,7 @@ import type { CardIdentity, LibraryRevealEntry } from "@/types";
 
 import {
   MAX_NAME_LENGTH,
+  MAX_MANA_COST_LENGTH,
   MAX_TYPE_LINE_LENGTH,
   MAX_ORACLE_TEXT_LENGTH,
   MAX_SCRYFALL_ID_LENGTH,
@@ -14,6 +15,16 @@ export const sanitizeCardIdentity = (value: unknown): CardIdentity | null => {
   const rawName = clampString(value.name, MAX_NAME_LENGTH);
   const name = rawName || "Card";
   const identity: CardIdentity = { name };
+
+  const canonicalName = clampString(value.canonicalName, MAX_NAME_LENGTH);
+  if (canonicalName) identity.canonicalName = canonicalName;
+
+  const manaCost = clampString(value.manaCost, MAX_MANA_COST_LENGTH);
+  if (manaCost) identity.manaCost = manaCost;
+
+  if (typeof value.manaValue === "number" && Number.isFinite(value.manaValue)) {
+    identity.manaValue = Math.max(0, Math.min(1_000, value.manaValue));
+  }
 
   const imageUrl = sanitizeImageUrl(value.imageUrl);
   if (imageUrl) identity.imageUrl = imageUrl;

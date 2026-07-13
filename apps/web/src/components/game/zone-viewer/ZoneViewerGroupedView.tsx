@@ -1,475 +1,265 @@
 import React from "react";
 
 import type { Card } from "@/types";
-
+import type { LibraryCardGroup, LibraryManaSection } from "@/models/game/zone-viewer/zoneViewerModel";
+import { useOptionalCardPreview } from "../card/CardPreviewProvider";
+import { ManaCost } from "../mana/ManaCost";
 import { cn } from "@/lib/utils";
-import { CardView } from "../card/Card";
-import { useTwoFingerScroll } from "@/hooks/shared/useTwoFingerScroll";
-import { getCoverFlowVisuals, useHorizontalCoverFlow } from "./coverFlow";
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
 
-type TouchPointState = {
-  cardId: string;
+type PointerState = {
+  pointerId: number;
   startX: number;
   startY: number;
   x: number;
   y: number;
-  target: HTMLDivElement;
   moved: boolean;
 };
 
+type TouchGestureState = {
+  activePointerIds: Set<number>;
+  hadMultiplePointers: boolean;
+};
+
 export interface ZoneViewerGroupedViewProps {
-  sortedKeys: string[];
-  groupedCards: Record<string, Card[]>;
-  cardWidthPx: number;
-  cardHeightPx: number;
+  sections: LibraryManaSection[];
   interactionsDisabled: boolean;
   pinnedCardId?: string;
-  onCardContextMenu: (e: React.MouseEvent, card: Card) => void;
-  mobileCoverFlow?: boolean;
+  onCardContextMenu: (event: React.MouseEvent, card: Card) => void;
 }
 
-const useTouchCardContextMenu = (params: {
-  cardsById: Map<string, Card>;
+type LibraryCardRowProps = {
+  group: LibraryCardGroup;
+  touchGesture: React.RefObject<TouchGestureState>;
   interactionsDisabled: boolean;
-  onCardContextMenu: (e: React.MouseEvent, card: Card) => void;
-  capturePointer: boolean;
-  onTapCard?: (cardId: string) => void;
-}) => {
-  const { cardsById, interactionsDisabled, onCardContextMenu, capturePointer, onTapCard } = params;
-  const touchPointsRef = React.useRef<Map<number, TouchPointState>>(new Map());
-  const touchHoldTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const touchHoldPointerIdRef = React.useRef<number | null>(null);
-  const touchContextMenuTriggeredRef = React.useRef(false);
+  isContextMenuOpen: boolean;
+  onCardContextMenu: (event: React.MouseEvent, card: Card) => void;
+};
 
-  const clearTouchHoldTimeout = React.useCallback(() => {
-    if (touchHoldTimeoutRef.current) {
-      clearTimeout(touchHoldTimeoutRef.current);
-      touchHoldTimeoutRef.current = null;
-    }
+const LibraryCardRow: React.FC<LibraryCardRowProps> = ({
+  group,
+  touchGesture,
+  interactionsDisabled,
+  isContextMenuOpen,
+  onCardContextMenu,
+}) => {
+  const preview = useOptionalCardPreview();
+  const holdTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointersRef = React.useRef<Map<number, PointerState>>(new Map());
+  const longPressTriggeredRef = React.useRef(false);
+  const suppressClickRef = React.useRef(false);
+
+  const clearHold = React.useCallback(() => {
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = null;
   }, []);
 
-  const cancelTouchHold = React.useCallback(() => {
-    clearTouchHoldTimeout();
-    touchHoldPointerIdRef.current = null;
-  }, [clearTouchHoldTimeout]);
+  React.useEffect(() => clearHold, [clearHold]);
 
-  const beginTouchHold = React.useCallback(
-    (pointerId: number) => {
+  const openContextMenu = React.useCallback(
+    (event: React.MouseEvent) => {
       if (interactionsDisabled) return;
-      const point = touchPointsRef.current.get(pointerId);
-      if (!point) return;
-      const targetCard = cardsById.get(point.cardId);
-      if (!targetCard) return;
-
-      touchHoldPointerIdRef.current = pointerId;
-      clearTouchHoldTimeout();
-      touchHoldTimeoutRef.current = setTimeout(() => {
-        if (touchHoldPointerIdRef.current !== pointerId) return;
-        if (touchPointsRef.current.size !== 1) return;
-        const currentPoint = touchPointsRef.current.get(pointerId);
-        if (!currentPoint || currentPoint.moved) return;
-        touchContextMenuTriggeredRef.current = true;
-        cancelTouchHold();
-        onCardContextMenu(
-          {
-            preventDefault: () => {},
-            stopPropagation: () => {},
-            clientX: currentPoint.x,
-            clientY: currentPoint.y,
-            currentTarget: currentPoint.target,
-            target: currentPoint.target,
-          } as unknown as React.MouseEvent,
-          targetCard
-        );
-      }, TOUCH_CONTEXT_MENU_LONG_PRESS_MS);
-    },
-    [cancelTouchHold, cardsById, clearTouchHoldTimeout, interactionsDisabled, onCardContextMenu]
+      preview?.hidePreview(group.representative.id);
+      preview?.unlockPreview();
+      onCardContextMenu(event, group.representative);
+    }, [group.representative, interactionsDisabled, onCardContextMenu, preview]
   );
 
-  const handlePointerDown = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>, cardId: string) => {
-      if (event.pointerType !== "touch") return;
-      if (interactionsDisabled) return;
-      if (event.button !== 0) return;
-
-      if (capturePointer) {
-        try {
-          event.currentTarget.setPointerCapture(event.pointerId);
-        } catch {
-          // Ignore capture failures on unsupported environments.
-        }
-      }
-
-      touchPointsRef.current.set(event.pointerId, {
-        cardId,
-        startX: event.clientX,
-        startY: event.clientY,
-        x: event.clientX,
-        y: event.clientY,
-        target: event.currentTarget,
-        moved: false,
-      });
-
-      if (touchPointsRef.current.size === 1) {
-        touchContextMenuTriggeredRef.current = false;
-        beginTouchHold(event.pointerId);
-      } else {
-        cancelTouchHold();
-      }
-    },
-    [beginTouchHold, cancelTouchHold, capturePointer, interactionsDisabled]
-  );
-
-  const handlePointerMove = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      if (event.pointerType !== "touch") return;
-      const point = touchPointsRef.current.get(event.pointerId);
-      if (!point) return;
-
-      point.x = event.clientX;
-      point.y = event.clientY;
-      if (!point.moved) {
-        const dx = event.clientX - point.startX;
-        const dy = event.clientY - point.startY;
-        if (Math.hypot(dx, dy) > TOUCH_MOVE_TOLERANCE_PX) {
-          point.moved = true;
-        }
-      }
-
-      if (touchHoldPointerIdRef.current === event.pointerId && point.moved) {
-        cancelTouchHold();
-      }
-    },
-    [cancelTouchHold]
-  );
-
-  const finishPointer = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      if (event.pointerType !== "touch") return;
-      const point = touchPointsRef.current.get(event.pointerId);
-      if (!point) return;
-
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "touch" || interactionsDisabled || event.button !== 0) return;
+    const target = event.currentTarget;
+    pointersRef.current.set(event.pointerId, {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      x: event.clientX,
+      y: event.clientY,
+      moved: false,
+    });
+    longPressTriggeredRef.current = false;
+    clearHold();
+    if (
+      touchGesture.current.hadMultiplePointers ||
+      touchGesture.current.activePointerIds.size !== 1
+    ) {
+      return;
+    }
+    holdTimerRef.current = setTimeout(() => {
+      const pointer = pointersRef.current.get(event.pointerId);
+      if (!pointer || pointer.moved || pointer.pointerId !== event.pointerId) return;
       if (
-        capturePointer &&
-        typeof event.currentTarget.hasPointerCapture === "function" &&
-        typeof event.currentTarget.releasePointerCapture === "function" &&
-        event.currentTarget.hasPointerCapture(event.pointerId)
+        touchGesture.current.hadMultiplePointers ||
+        touchGesture.current.activePointerIds.size !== 1
       ) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
+        return;
       }
-
-      touchPointsRef.current.delete(event.pointerId);
-      if (touchHoldPointerIdRef.current === event.pointerId) {
-        cancelTouchHold();
-      }
-      if (
-        onTapCard &&
-        !point.moved &&
-        !touchContextMenuTriggeredRef.current
-      ) {
-        onTapCard(point.cardId);
-      }
-      if (touchPointsRef.current.size === 0) {
-        touchContextMenuTriggeredRef.current = false;
-      }
-    },
-    [cancelTouchHold, capturePointer, onTapCard]
-  );
-
-  React.useEffect(() => {
-    return () => {
-      cancelTouchHold();
-      touchPointsRef.current.clear();
-    };
-  }, [cancelTouchHold]);
-
-  return {
-    handlePointerDown,
-    handlePointerMove,
-    finishPointer,
+      longPressTriggeredRef.current = true;
+      openContextMenu({
+        preventDefault: () => {},
+        stopPropagation: () => {},
+        clientX: pointer.x,
+        clientY: pointer.y,
+        currentTarget: target,
+        target,
+      } as unknown as React.MouseEvent);
+    }, TOUCH_CONTEXT_MENU_LONG_PRESS_MS);
   };
-};
 
-type GroupedColumnProps = {
-  groupKey: string;
-  cardsInGroup: Card[];
-  cardWidthPx: number;
-  cardHeightPx: number;
-  interactionsDisabled: boolean;
-  pinnedCardId?: string;
-  onCardContextMenu: (e: React.MouseEvent, card: Card) => void;
-  columnWidthPx: number;
-  overlapPx: number;
-  paddingBottomPx: number;
-};
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const pointer = pointersRef.current.get(event.pointerId);
+    if (event.pointerType !== "touch" || !pointer || pointer.pointerId !== event.pointerId) return;
+    pointer.x = event.clientX;
+    pointer.y = event.clientY;
+    if (Math.hypot(pointer.x - pointer.startX, pointer.y - pointer.startY) > TOUCH_MOVE_TOLERANCE_PX) {
+      pointer.moved = true;
+      clearHold();
+    }
+  };
 
-const GroupedColumn: React.FC<GroupedColumnProps> = ({
-  groupKey,
-  cardsInGroup,
-  cardWidthPx,
-  cardHeightPx,
-  interactionsDisabled,
-  pinnedCardId,
-  onCardContextMenu,
-  columnWidthPx,
-  overlapPx,
-  paddingBottomPx,
-}) => {
-  const [scrollNode, setScrollNode] = React.useState<HTMLDivElement | null>(null);
-  useTwoFingerScroll({ target: scrollNode, axis: "y" });
-  const cardsById = React.useMemo(
-    () => new Map(cardsInGroup.map((card) => [card.id, card])),
-    [cardsInGroup]
-  );
-  const { handlePointerDown, handlePointerMove, finishPointer } = useTouchCardContextMenu({
-    cardsById,
-    interactionsDisabled,
-    onCardContextMenu,
-    capturePointer: true,
-  });
+  const handlePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    const pointer = pointersRef.current.get(event.pointerId);
+    if (event.pointerType !== "touch" || !pointer || pointer.pointerId !== event.pointerId) return;
+    clearHold();
+    pointersRef.current.delete(event.pointerId);
+    if (
+      !pointer.moved &&
+      !longPressTriggeredRef.current &&
+      !interactionsDisabled &&
+      !touchGesture.current.hadMultiplePointers
+    ) {
+      preview?.toggleLock(group.representative, event.currentTarget);
+    }
+    suppressClickRef.current = true;
+    longPressTriggeredRef.current = false;
+  };
 
   return (
-    <div className="shrink-0 flex flex-col" style={{ width: columnWidthPx }}>
-      <h3 className="text-sm font-medium text-zinc-400 border-b border-zinc-800/50 pb-2 mb-4 text-center sticky top-0 bg-zinc-950/50 backdrop-blur-sm z-10">
-        {groupKey} ({cardsInGroup.length})
-      </h3>
-      <div
-        ref={setScrollNode}
-        className="relative flex-1 overflow-y-auto overflow-x-hidden flex flex-col touch-none"
-        style={{
-          pointerEvents: interactionsDisabled ? "none" : "auto",
-          paddingBottom: paddingBottomPx,
-        }}
-      >
-        {cardsInGroup.map((card, index) => {
-          const isPinned = pinnedCardId === card.id;
-          return (
-            <div
-              key={card.id}
-              data-zone-viewer-card-id={card.id}
-              className={cn(
-                "mx-auto transition-all duration-200",
-                !interactionsDisabled && "hover:z-[100] hover:scale-110 hover:!mb-4",
-                isPinned && "scale-110 shadow-xl"
-              )}
-              style={{
-                width: `${cardWidthPx}px`,
-                height: `${cardHeightPx}px`,
-                marginBottom: isPinned
-                  ? `${Math.round(cardHeightPx * 0.06)}px`
-                  : `-${overlapPx}px`,
-                zIndex: isPinned ? 200 : index,
-              }}
-              onPointerDown={(event) => handlePointerDown(event, card.id)}
-              onPointerMove={handlePointerMove}
-              onPointerUp={finishPointer}
-              onPointerCancel={finishPointer}
-              onPointerLeave={finishPointer}
-            >
-              <CardView
-                card={card}
-                faceDown={false}
-                style={{ width: cardWidthPx, height: cardHeightPx }}
-                className="w-full shadow-lg h-full"
-                imageClassName="object-top"
-                preferArtCrop={false}
-                onContextMenu={(e) => onCardContextMenu(e, card)}
-              />
-            </div>
-          );
-        })}
-      </div>
+    <div
+      data-zone-viewer-card-id={group.representative.id}
+      data-library-card-group={group.key}
+      className={cn(
+        "library-card-row group relative grid min-h-11 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-1.5 border-b border-zinc-800/60 px-2.5 py-2 text-left transition-colors",
+        !interactionsDisabled && "cursor-pointer hover:bg-zinc-800/55 active:bg-zinc-800/80",
+        isContextMenuOpen && "bg-zinc-800/65"
+      )}
+      style={{ pointerEvents: interactionsDisabled && !isContextMenuOpen ? "none" : "auto" }}
+      onClick={(event) => {
+        if (suppressClickRef.current) {
+          suppressClickRef.current = false;
+          return;
+        }
+        if (!interactionsDisabled && event.detail !== 0) {
+          preview?.toggleLock(group.representative, event.currentTarget);
+        }
+      }}
+      onContextMenu={openContextMenu}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={(event) => {
+        clearHold();
+        pointersRef.current.delete(event.pointerId);
+      }}
+    >
+      <span className="font-mono text-xs tabular-nums text-zinc-500 group-hover:text-zinc-300">
+        {group.count}×
+      </span>
+      <span className="library-card-name min-w-0 text-sm font-medium leading-5 text-zinc-200">
+        {group.name}
+      </span>
+      <ManaCost manaCost={group.manaCost} className="justify-self-end text-[0.95rem]" />
     </div>
   );
 };
 
-type MobileGroupedRowProps = {
-  groupKey: string;
-  cardsInGroup: Card[];
-  cardWidthPx: number;
-  cardHeightPx: number;
+const LibrarySection: React.FC<{
+  section: LibraryManaSection;
+  touchGesture: React.RefObject<TouchGestureState>;
   interactionsDisabled: boolean;
   pinnedCardId?: string;
-  onCardContextMenu: (e: React.MouseEvent, card: Card) => void;
-};
-
-const MobileGroupedRow: React.FC<MobileGroupedRowProps> = ({
-  groupKey,
-  cardsInGroup,
-  cardWidthPx,
-  cardHeightPx,
-  interactionsDisabled,
-  pinnedCardId,
-  onCardContextMenu,
-}) => {
-  const [scrollNode, setScrollNode] = React.useState<HTMLDivElement | null>(null);
-  const cardIds = React.useMemo(() => cardsInGroup.map((card) => card.id), [cardsInGroup]);
-  const {
-    centeredId,
-    setCenteredId,
-    setItemNode,
-    scheduleCenteredUpdate,
-  } = useHorizontalCoverFlow({
-    enabled: true,
-    itemIds: cardIds,
-    scrollNode,
-  });
-  const cardsById = React.useMemo(
-    () => new Map(cardsInGroup.map((card) => [card.id, card])),
-    [cardsInGroup]
-  );
-  const { handlePointerDown, handlePointerMove, finishPointer } = useTouchCardContextMenu({
-    cardsById,
-    interactionsDisabled,
-    onCardContextMenu,
-    capturePointer: false,
-    onTapCard: setCenteredId,
-  });
-
-  const effectiveCardHeightPx = Math.max(1, Math.round(cardHeightPx));
-  const effectiveCardWidthPx = Math.max(1, Math.round(cardWidthPx));
-  const slotWidthPx = Math.max(50, Math.round(effectiveCardWidthPx * 0.28));
-  const rowPaddingY = Math.max(24, Math.round(effectiveCardHeightPx * 0.08));
-  const activeCardId = centeredId ?? cardsInGroup[0]?.id ?? null;
-  const activeIndex = activeCardId ? cardIds.indexOf(activeCardId) : -1;
-
-  return (
-    <section className="rounded-lg border border-zinc-800/50 bg-zinc-950/40">
-      <h3 className="px-3 pt-3 text-sm font-medium text-zinc-300">
-        {groupKey} ({cardsInGroup.length})
-      </h3>
-      <div
-        ref={setScrollNode}
-        className="flex min-h-0 items-center overflow-x-auto touch-auto snap-x snap-mandatory overscroll-x-contain scroll-smooth"
-        onScroll={scheduleCenteredUpdate}
-        style={{
-          pointerEvents: interactionsDisabled ? "none" : "auto",
-          WebkitOverflowScrolling: "touch",
-          paddingLeft: `calc(50% - ${Math.round(slotWidthPx / 2)}px)`,
-          paddingRight: `calc(50% - ${Math.round(slotWidthPx / 2)}px)`,
-          paddingTop: `${rowPaddingY}px`,
-          paddingBottom: `${rowPaddingY}px`,
-        }}
-      >
-        {cardsInGroup.map((card, index) => {
-          const isFocused = activeCardId === card.id;
-          const distance = activeIndex < 0 ? 0 : Math.abs(index - activeIndex);
-          const visuals = getCoverFlowVisuals({
-            isFocused,
-            distance,
-            isPinned: pinnedCardId === card.id,
-            cardHeightPx: effectiveCardHeightPx,
-          });
-          return (
-            <div
-              key={card.id}
-              ref={(node) => setItemNode(card.id, node)}
-              data-zone-viewer-card-id={card.id}
-              data-zone-viewer-focused={isFocused ? "true" : "false"}
-              className="shrink-0 transition-transform duration-200 ease-out relative group flex items-start justify-center"
-              style={{
-                width: slotWidthPx,
-                transform: `translateY(${visuals.liftPx}px) scale(${visuals.scale})`,
-                zIndex: visuals.zIndex,
-                opacity: visuals.opacity,
-                scrollSnapAlign: "center",
-                scrollSnapStop: "always",
-              }}
-              onPointerDown={(event) => handlePointerDown(event, card.id)}
-              onPointerMove={handlePointerMove}
-              onPointerUp={finishPointer}
-              onPointerCancel={finishPointer}
-              onPointerLeave={finishPointer}
-            >
-              <div
-                className={cn(
-                  "relative transition-all duration-200 ease-out",
-                  isFocused && "drop-shadow-[0_14px_28px_rgba(99,102,241,0.5)]"
-                )}
-                style={{ width: effectiveCardWidthPx, height: effectiveCardHeightPx }}
-              >
-                <CardView
-                  card={card}
-                  faceDown={false}
-                  style={{ width: effectiveCardWidthPx, height: effectiveCardHeightPx }}
-                  className="w-full shadow-lg h-full"
-                  imageClassName="object-top"
-                  preferArtCrop={false}
-                  disableHoverAnimation
-                  onContextMenu={(e) => onCardContextMenu(e, card)}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-};
+  onCardContextMenu: (event: React.MouseEvent, card: Card) => void;
+}> = ({ section, touchGesture, interactionsDisabled, pinnedCardId, onCardContextMenu }) => (
+  <section className="library-mana-section min-w-0 rounded-lg border border-zinc-800/80 bg-zinc-950/45">
+    <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/95 px-3 py-2.5 backdrop-blur-sm">
+      <h3 className="text-sm font-semibold tracking-wide text-zinc-200">{section.label}</h3>
+      <p className="mt-0.5 text-[11px] tabular-nums text-zinc-500">
+        {section.cardCount} {section.cardCount === 1 ? "card" : "cards"} · {section.uniqueCount}{" "}
+        unique
+      </p>
+    </header>
+    <div>
+      {section.groups.map((group) => (
+        <LibraryCardRow
+          key={group.key}
+          group={group}
+          touchGesture={touchGesture}
+          interactionsDisabled={interactionsDisabled}
+          isContextMenuOpen={group.cards.some((card) => card.id === pinnedCardId)}
+          onCardContextMenu={onCardContextMenu}
+        />
+      ))}
+    </div>
+  </section>
+);
 
 export const ZoneViewerGroupedView: React.FC<ZoneViewerGroupedViewProps> = ({
-  sortedKeys,
-  groupedCards,
-  cardWidthPx,
-  cardHeightPx,
+  sections,
   interactionsDisabled,
   pinnedCardId,
   onCardContextMenu,
-  mobileCoverFlow = false,
 }) => {
-  const stackOffsetPx = Math.max(24, Math.round(cardHeightPx * 0.2));
-  const overlapPx = cardHeightPx - stackOffsetPx;
-  const columnWidthPx = Math.round(cardWidthPx + 24);
-  const paddingBottomPx = Math.round(cardHeightPx);
+  const preview = useOptionalCardPreview();
+  const hidePreview = preview?.hidePreview;
+  const unlockPreview = preview?.unlockPreview;
+  const touchGesture = React.useRef<TouchGestureState>({
+    activePointerIds: new Set(),
+    hadMultiplePointers: false,
+  });
 
-  if (mobileCoverFlow) {
-    return (
-      <div className="h-full min-h-0 overflow-y-auto overflow-x-hidden touch-pan-y">
-        <div className="flex min-h-full flex-col justify-center gap-5 py-3">
-          {sortedKeys.map((key) => {
-            const cardsInGroup = groupedCards[key] ?? [];
-            return (
-              <MobileGroupedRow
-                key={key}
-                groupKey={key}
-                cardsInGroup={cardsInGroup}
-                cardWidthPx={cardWidthPx}
-                cardHeightPx={cardHeightPx}
-                interactionsDisabled={interactionsDisabled}
-                pinnedCardId={pinnedCardId}
-                onCardContextMenu={onCardContextMenu}
-              />
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
+  React.useEffect(
+    () => () => {
+      hidePreview?.();
+      unlockPreview?.();
+    },
+    [hidePreview, unlockPreview]
+  );
+
+  const finishTouchPointer = (pointerId: number) => {
+    const gesture = touchGesture.current;
+    gesture.activePointerIds.delete(pointerId);
+    if (gesture.activePointerIds.size === 0) gesture.hadMultiplePointers = false;
+  };
 
   return (
-    <div className="flex gap-8 h-full">
-      {sortedKeys.map((key) => {
-        const cardsInGroup = groupedCards[key] ?? [];
-
-        return (
-          <GroupedColumn
-            key={key}
-            groupKey={key}
-            cardsInGroup={cardsInGroup}
-            cardWidthPx={cardWidthPx}
-            cardHeightPx={cardHeightPx}
-            interactionsDisabled={interactionsDisabled}
-            pinnedCardId={pinnedCardId}
-            onCardContextMenu={onCardContextMenu}
-            columnWidthPx={columnWidthPx}
-            overlapPx={overlapPx}
-            paddingBottomPx={paddingBottomPx}
-          />
-        );
-      })}
+  <div
+    className="library-view-container h-full min-h-0"
+    onPointerDownCapture={(event) => {
+      if (event.pointerType !== "touch") return;
+      const gesture = touchGesture.current;
+      gesture.activePointerIds.add(event.pointerId);
+      if (gesture.activePointerIds.size > 1) gesture.hadMultiplePointers = true;
+    }}
+    onPointerUp={(event) => {
+      if (event.pointerType === "touch") finishTouchPointer(event.pointerId);
+    }}
+    onPointerCancel={(event) => {
+      if (event.pointerType === "touch") finishTouchPointer(event.pointerId);
+    }}
+  >
+    <div className="library-sections h-full min-h-0">
+      {sections.map((section) => (
+        <LibrarySection
+          key={section.key}
+          section={section}
+          touchGesture={touchGesture}
+          interactionsDisabled={interactionsDisabled}
+          pinnedCardId={pinnedCardId}
+          onCardContextMenu={onCardContextMenu}
+        />
+      ))}
     </div>
+  </div>
   );
 };

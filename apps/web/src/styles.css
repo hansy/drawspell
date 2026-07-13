@@ -136,6 +136,55 @@ code {
   .ds-dialog-scroll {
     @apply min-h-0 overflow-y-auto overscroll-contain;
   }
+
+  .library-view-container {
+    container-type: inline-size;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .library-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-bottom: 0.25rem;
+  }
+
+  .library-card-name {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  @container (min-width: 44rem) {
+    .library-view-container {
+      overflow: hidden;
+    }
+
+    .library-sections {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(14rem, 1fr);
+      gap: 1rem;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+    }
+
+    .library-mana-section {
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior-x: auto;
+      overscroll-behavior-y: contain;
+    }
+
+    .library-card-name {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
 }
 
 .dark {

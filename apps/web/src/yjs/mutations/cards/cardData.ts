@@ -9,6 +9,7 @@ import {
 
 import {
   MAX_CUSTOM_TEXT_LENGTH,
+  MAX_MANA_COST_LENGTH,
   MAX_NAME_LENGTH,
   MAX_ORACLE_TEXT_LENGTH,
   MAX_SCRYFALL_ID_LENGTH,
@@ -44,6 +45,12 @@ export const writeCard = (maps: SharedMaps, card: Card) => {
   writeCounters(countersMap, counters);
 
   const name = (card.name || "Card").slice(0, MAX_NAME_LENGTH);
+  const canonicalName = clampString(card.canonicalName, MAX_NAME_LENGTH);
+  const manaCost = clampString(card.manaCost, MAX_MANA_COST_LENGTH);
+  const manaValue =
+    typeof card.manaValue === "number" && Number.isFinite(card.manaValue)
+      ? Math.max(0, Math.min(1_000, card.manaValue))
+      : undefined;
   const imageUrl = sanitizeImageUrl(card.imageUrl);
   const oracleText = clampString(card.oracleText, MAX_ORACLE_TEXT_LENGTH);
   const typeLine = clampString(card.typeLine, MAX_TYPE_LINE_LENGTH);
@@ -77,6 +84,9 @@ export const writeCard = (maps: SharedMaps, card: Card) => {
   target.set("position", normalizedPosition);
   target.set("rotation", card.rotation);
   target.set("name", name);
+  target.set("canonicalName", canonicalName);
+  target.set("manaCost", manaCost);
+  target.set("manaValue", manaValue);
   target.set("imageUrl", imageUrl);
   target.set("oracleText", oracleText);
   target.set("typeLine", typeLine);
@@ -133,6 +143,9 @@ export const readCard = (maps: SharedMaps, cardId: string): Card | null => {
     rotation: getVal("rotation"),
     counters,
     name: getVal("name"),
+    canonicalName: getVal("canonicalName"),
+    manaCost: getVal("manaCost"),
+    manaValue: getVal("manaValue"),
     imageUrl: getVal("imageUrl"),
     oracleText: getVal("oracleText"),
     typeLine: getVal("typeLine"),

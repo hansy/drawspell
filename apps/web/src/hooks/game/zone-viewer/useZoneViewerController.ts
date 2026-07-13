@@ -13,6 +13,7 @@ import {
   getZoneViewerMode,
   groupZoneViewerCards,
   sortZoneViewerGroupKeys,
+  buildLibraryManaSections,
 } from "@/models/game/zone-viewer/zoneViewerModel";
 import { mergeZoneCardOrder, reorderZoneViewerList } from "@/models/game/zone-viewer/zoneViewerReorder";
 
@@ -162,6 +163,15 @@ export const useZoneViewerController = ({
     return sortZoneViewerGroupKeys(Object.keys(groupedCards));
   }, [groupedCards, viewMode]);
 
+  const librarySections = React.useMemo(
+    () => (viewMode === "grouped" ? buildLibraryManaSections(displayCards) : []),
+    [displayCards, viewMode]
+  );
+  const uniqueCardCount = React.useMemo(
+    () => librarySections.reduce((total, section) => total + section.uniqueCount, 0),
+    [librarySections]
+  );
+
   const canReorder =
     viewMode === "linear" && zone?.ownerId === myPlayerId && !filterText.trim();
 
@@ -299,6 +309,8 @@ export const useZoneViewerController = ({
     viewMode,
     groupedCards,
     sortedKeys,
+    librarySections,
+    uniqueCardCount,
     canReorder,
     orderedCards,
     orderedCardIds,

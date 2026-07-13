@@ -36,6 +36,10 @@ _Avoid_: move helper, drag logic
 The process that turns an external deck list and Scryfall card data into Drawspell cards for a player who does not already have an imported deck in the Room.
 _Avoid_: deck load, card import
 
+**Library Card Group**:
+A set of interchangeable copies with the same canonical card name while viewing a Library, regardless of printing or artwork. Choosing the group chooses any one copy; the identity and position of that copy are not meaningful to the player.
+_Avoid_: card stack, duplicate row
+
 **Import Deck List**:
 The editable deck list text being prepared for Deck Import. It may be pasted by a player, restored from that player's last user-provided import, or populated from a Curated Deck.
 _Avoid_: draft deck list, deck text, pasted deck
@@ -64,6 +68,7 @@ _Avoid_: Discord game, slash-command room
 - A **Game Log Event** may describe visible gameplay that does not change the **Yjs Document**.
 - **Card Movement Resolution** determines how cards move between public zones and **Hidden State**.
 - **Deck Import** starts from an **Import Deck List**.
+- A **Library Card Group** contains one or more cards from one player's Library.
 - **Deck Import** creates cards that later participate in **Card Movement Resolution**.
 - **Deck Import** is rejected when the target player already has an imported deck in the **Room**.
 - A **Curated Deck** is imported through **Deck Import**.

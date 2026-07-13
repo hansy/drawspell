@@ -4,6 +4,7 @@ import { ZONE } from "@/constants/zones";
 import type { Card, Zone } from "@/types";
 
 import {
+  buildLibraryManaSections,
   computeZoneViewerCards,
   getZoneViewerMode,
   groupZoneViewerCards,
@@ -34,6 +35,9 @@ const makeCard = (overrides: Partial<Card>): Card =>
     imageUrl: overrides.imageUrl,
     oracleText: overrides.oracleText,
     typeLine: overrides.typeLine,
+    canonicalName: overrides.canonicalName,
+    manaCost: overrides.manaCost,
+    manaValue: overrides.manaValue,
     scryfallId: overrides.scryfallId,
     scryfall: overrides.scryfall,
     isToken: overrides.isToken,
@@ -134,5 +138,164 @@ describe("zoneViewerModel", () => {
     const sorted = sortZoneViewerGroupKeys(Object.keys(groups));
     expect(sorted[0]).toBe("Lands");
   });
-});
 
+  it("prefers lightweight mana value when grouping cards", () => {
+    const cards = [
+      makeCard({
+        id: "private-overlay-card",
+        name: "Three Drop",
+        manaValue: 3,
+        scryfall: { cmc: 1 } as any,
+      }),
+    ];
+
+    const groups = groupZoneViewerCards(cards);
+
+    expect(Object.keys(groups)).toEqual(["Cost 3"]);
+  });
+
+  it("builds sorted mana sections containing alphabetical canonical-name groups", () => {
+    const cards = [
+      makeCard({
+        id: "bolt-retro",
+        name: "Lightning Bolt",
+        canonicalName: "Lightning Bolt",
+        manaCost: "{R}",
+        scryfall: { cmc: 1 } as any,
+      }),
+      makeCard({
+        id: "island",
+        name: "Island",
+        canonicalName: "Island",
+        typeLine: "Basic Land — Island",
+      }),
+      makeCard({
+        id: "abrade",
+        name: "Abrade",
+        canonicalName: "Abrade",
+        manaCost: "{1}{R}",
+        scryfall: { cmc: 2 } as any,
+      }),
+      makeCard({
+        id: "bolt-modern",
+        name: "Lightning Bolt (Borderless)",
+        canonicalName: "Lightning Bolt",
+        manaCost: "{R}",
+        scryfall: { cmc: 1 } as any,
+      }),
+      makeCard({
+        id: "zero",
+        name: "Mox Amber",
+        canonicalName: "Mox Amber",
+        manaCost: "{0}",
+        scryfall: { cmc: 0 } as any,
+      }),
+      makeCard({
+        id: "zwei",
+        name: "Zweihander",
+        canonicalName: "Zweihander",
+        manaCost: "{2}",
+        scryfall: { cmc: 2 } as any,
+      }),
+    ];
+
+    const sections = buildLibraryManaSections(cards);
+
+    expect(sections.map((section) => section.key)).toEqual([
+      "Lands",
+      "Cost 0",
+      "Cost 1",
+      "Cost 2",
+    ]);
+    expect(sections[2]).toMatchObject({
+      label: "1-mana",
+      manaValue: 1,
+      cardCount: 2,
+      uniqueCount: 1,
+    });
+    expect(sections[2]?.groups[0]).toMatchObject({
+      name: "Lightning Bolt",
+      manaCost: "{R}",
+      count: 2,
+      representative: { id: "bolt-retro" },
+    });
+    expect(sections[2]?.groups[0]?.cards.map((card) => card.id)).toEqual([
+      "bolt-retro",
+      "bolt-modern",
+    ]);
+    expect(sections[3]?.groups.map((group) => group.name)).toEqual([
+      "Abrade",
+      "Zweihander",
+    ]);
+  });
+
+  it("keeps a complete canonical-name group when any copy matches full-library search", () => {
+    const zone: Zone = {
+      id: "lib",
+      type: ZONE.LIBRARY,
+      ownerId: "p1",
+      cardIds: ["old", "new", "other"],
+    };
+    const cardsById = {
+      old: makeCard({
+        id: "old",
+        name: "Sky Drake",
+        canonicalName: "Sky Drake",
+        typeLine: "Creature — Drake",
+      }),
+      new: makeCard({
+        id: "new",
+        name: "Sky Drake",
+        canonicalName: "Sky Drake",
+        typeLine: "Creature — Drake",
+        oracleText: "Flying",
+      }),
+      other: makeCard({
+        id: "other",
+        name: "Groundling",
+        canonicalName: "Groundling",
+        typeLine: "Creature — Beast",
+      }),
+    };
+
+    expect(
+      computeZoneViewerCards({ zone, cardsById, filterText: " flying " }).map(
+        (card) => card.id
+      )
+    ).toEqual(["old", "new"]);
+  });
+
+  it("keeps top-N library views linear, ordered, and individually filtered", () => {
+    const zone: Zone = {
+      id: "lib",
+      type: ZONE.LIBRARY,
+      ownerId: "p1",
+      cardIds: ["bottom", "old", "new"],
+    };
+    const cardsById = {
+      bottom: makeCard({ id: "bottom", name: "Bottom" }),
+      old: makeCard({
+        id: "old",
+        name: "Sky Drake",
+        canonicalName: "Sky Drake",
+      }),
+      new: makeCard({
+        id: "new",
+        name: "Sky Drake",
+        canonicalName: "Sky Drake",
+        oracleText: "Flying",
+      }),
+    };
+
+    expect(
+      computeZoneViewerCards({ zone, cardsById, count: 2, filterText: "flying" }).map(
+        (card) => card.id
+      )
+    ).toEqual(["new"]);
+    expect(
+      computeZoneViewerCards({ zone, cardsById, count: 2, filterText: "" }).map(
+        (card) => card.id
+      )
+    ).toEqual(["old", "new"]);
+  });
+});

@@ -6,6 +6,30 @@ import { ZONE } from "@/constants/zones";
 
 export type ZoneViewerMode = "grouped" | "linear";
 
+export type LibraryCardGroup = {
+  /** Case-insensitive canonical-name key. */
+  key: string;
+  /** Canonical card name displayed to the player. */
+  name: string;
+  /** Exact Scryfall mana-cost notation, when known. */
+  manaCost?: string;
+  /** All interchangeable physical copies represented by this row. */
+  cards: Card[];
+  /** Stable representative used for previews and card actions. */
+  representative: Card;
+  count: number;
+};
+
+export type LibraryManaSection = {
+  key: string;
+  label: string;
+  manaValue: number | null;
+  isLands: boolean;
+  groups: LibraryCardGroup[];
+  cardCount: number;
+  uniqueCount: number;
+};
+
 const resolveZoneViewerCardMetadata = (card: Card) => {
   const cached = card.scryfallId ? peekCachedCard(card.scryfallId) : null;
   const scryfallLite = card.scryfall ?? (cached ? toScryfallCardLite(cached) : undefined);
@@ -14,19 +38,47 @@ const resolveZoneViewerCardMetadata = (card: Card) => {
     cached?.oracle_text ??
     cached?.card_faces?.map((face) => face.oracle_text).filter(Boolean).join(" ");
 
-  return { scryfallLite, oracleText };
+  return { cached, scryfallLite, oracleText };
+};
+
+const getCanonicalName = (card: Card): string => {
+  const { cached } = resolveZoneViewerCardMetadata(card);
+  return card.canonicalName?.trim() || cached?.name?.trim() || card.name.trim();
+};
+
+const getCanonicalNameKey = (card: Card): string =>
+  getCanonicalName(card).toLowerCase();
+
+const getManaCost = (card: Card): string | undefined => {
+  if (card.manaCost?.trim()) return card.manaCost.trim();
+
+  const { cached } = resolveZoneViewerCardMetadata(card);
+  if (!cached) return undefined;
+
+  if (cached.layout === "split") {
+    const combined = cached.card_faces
+      ?.map((face) => face.mana_cost?.trim())
+      .filter((cost): cost is string => Boolean(cost))
+      .join(" // ");
+    if (combined) return combined;
+  }
+
+  return cached.card_faces?.[0]?.mana_cost?.trim() ||
+    cached.mana_cost?.split("//")[0]?.trim() ||
+    undefined;
 };
 
 const matchesZoneViewerFilter = (card: Card, lowerFilter: string) => {
   const { scryfallLite, oracleText } = resolveZoneViewerCardMetadata(card);
   const nameMatch = card.name.toLowerCase().includes(lowerFilter);
+  const canonicalNameMatch = getCanonicalName(card).toLowerCase().includes(lowerFilter);
   const faceNameMatch = scryfallLite?.card_faces?.some((face) =>
     face.name?.toLowerCase().includes(lowerFilter)
   );
   const typeMatch = card.typeLine?.toLowerCase().includes(lowerFilter);
   const oracleMatch = oracleText?.toLowerCase().includes(lowerFilter);
 
-  return nameMatch || faceNameMatch || typeMatch || oracleMatch;
+  return nameMatch || canonicalNameMatch || faceNameMatch || typeMatch || oracleMatch;
 };
 
 const getZoneViewerGroupKey = (card: Card) => {
@@ -35,7 +87,35 @@ const getZoneViewerGroupKey = (card: Card) => {
   }
 
   const { scryfallLite } = resolveZoneViewerCardMetadata(card);
-  return `Cost ${scryfallLite?.cmc ?? 0}`;
+  return `Cost ${card.manaValue ?? scryfallLite?.cmc ?? 0}`;
+};
+
+const createLibraryCardGroups = (cards: Card[]): LibraryCardGroup[] => {
+  const byCanonicalName = new Map<string, LibraryCardGroup>();
+
+  cards.forEach((card) => {
+    const key = getCanonicalNameKey(card);
+    const existing = byCanonicalName.get(key);
+    if (existing) {
+      existing.cards.push(card);
+      existing.count += 1;
+      if (!existing.manaCost) existing.manaCost = getManaCost(card);
+      return;
+    }
+
+    byCanonicalName.set(key, {
+      key,
+      name: getCanonicalName(card),
+      manaCost: getManaCost(card),
+      cards: [card],
+      representative: card,
+      count: 1,
+    });
+  });
+
+  return [...byCanonicalName.values()].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
 };
 
 export const getZoneViewerMode = (zone: Zone | null, count?: number): ZoneViewerMode => {
@@ -64,14 +144,50 @@ export const computeZoneViewerCards = (params: {
 
   let currentCards = cardIds.map((id) => params.cardsById[id]).filter(Boolean);
 
-  if (params.filterText.trim()) {
-    const lowerFilter = params.filterText.toLowerCase();
-    currentCards = currentCards.filter((card) =>
-      matchesZoneViewerFilter(card, lowerFilter)
-    );
+  const normalizedFilter = params.filterText.trim().toLowerCase();
+  if (normalizedFilter) {
+    if (getZoneViewerMode(params.zone, params.count) === "grouped") {
+      const matchingGroupKeys = new Set(
+        currentCards
+          .filter((card) => matchesZoneViewerFilter(card, normalizedFilter))
+          .map(getCanonicalNameKey)
+      );
+      currentCards = currentCards.filter((card) =>
+        matchingGroupKeys.has(getCanonicalNameKey(card))
+      );
+    } else {
+      currentCards = currentCards.filter((card) =>
+        matchesZoneViewerFilter(card, normalizedFilter)
+      );
+    }
   }
 
   return currentCards;
+};
+
+/**
+ * Builds the compact full-library view. Cards are first separated into Lands
+ * and mana-value sections, then collapsed by canonical card name.
+ */
+export const buildLibraryManaSections = (cards: Card[]): LibraryManaSection[] => {
+  const manaGroups = groupZoneViewerCards(cards);
+
+  return sortZoneViewerGroupKeys(Object.keys(manaGroups)).map((key) => {
+    const sectionCards = manaGroups[key] ?? [];
+    const isLands = key === "Lands";
+    const manaValue = isLands ? null : Number(key.replace("Cost ", ""));
+    const groups = createLibraryCardGroups(sectionCards);
+
+    return {
+      key,
+      label: isLands ? "Lands" : `${manaValue}-mana`,
+      manaValue,
+      isLands,
+      groups,
+      cardCount: sectionCards.length,
+      uniqueCount: groups.length,
+    };
+  });
 };
 
 export const groupZoneViewerCards = (cards: Card[]): Record<string, Card[]> => {

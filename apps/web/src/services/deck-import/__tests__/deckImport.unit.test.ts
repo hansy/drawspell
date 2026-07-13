@@ -24,6 +24,8 @@ const baseScryfallCard: ScryfallCard = {
     prices: {},
     related_uris: {},
     image_uris: { normal: 'https://img.example.com/bolt.png' },
+    mana_cost: '{R}',
+    cmc: 1,
 };
 
 afterEach(() => {
@@ -160,10 +162,42 @@ describe('fetchScryfallCards', () => {
 
         expect(result.cards).toHaveLength(1);
         expect(result.cards[0].name).toBe('Lightning Bolt');
+        expect(result.cards[0].canonicalName).toBe('Lightning Bolt');
+        expect(result.cards[0].manaCost).toBe('{R}');
+        expect(result.cards[0].manaValue).toBe(1);
         expect(result.cards[0].section).toBe('main');
         expect(result.missing).toHaveLength(0);
         expect(result.warnings).toContain('Using newest printing');
         expect(result.errors).toHaveLength(0);
+    });
+
+    it('keeps the canonical name and combines split-card mana costs', async () => {
+        const splitCard: ScryfallCard = {
+            ...baseScryfallCard,
+            id: 'fire-ice',
+            name: 'Fire // Ice',
+            layout: 'split',
+            mana_cost: '{1}{R} // {1}{U}',
+            card_faces: [
+                { name: 'Fire', mana_cost: '{1}{R}' },
+                { name: 'Ice', mana_cost: '{1}{U}' },
+            ],
+        };
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ data: [splitCard] }),
+        }) as any);
+
+        const result = await fetchScryfallCards([
+            { quantity: 1, name: 'Fire // Ice', set: '', collectorNumber: '', section: 'main' },
+        ]);
+
+        expect(result.cards[0]).toMatchObject({
+            name: 'Fire',
+            canonicalName: 'Fire // Ice',
+            manaCost: '{1}{R} // {1}{U}',
+            manaValue: 1,
+        });
     });
 
     it('surfaces missing cards when Scryfall cannot find them', async () => {

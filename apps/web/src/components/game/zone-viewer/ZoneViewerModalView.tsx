@@ -25,8 +25,8 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
   listRef,
   displayCards,
   viewMode,
-  groupedCards,
-  sortedKeys,
+  librarySections,
+  uniqueCardCount,
   canReorder,
   orderedCards,
   orderedCardIds,
@@ -63,13 +63,11 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
   }, []);
 
   const enableLinearCoverFlow = viewMode === "linear" && isCoarsePointer;
-  const enableGroupedCoverFlow = viewMode === "grouped" && isCoarsePointer;
-  const enableMobileCoverFlow = enableLinearCoverFlow || enableGroupedCoverFlow;
   const [scrollNode, setScrollNode] = React.useState<HTMLDivElement | null>(null);
   useTwoFingerScroll({
     target: scrollNode,
     axis: "x",
-    enabled: !enableMobileCoverFlow,
+    enabled: viewMode === "linear" && !enableLinearCoverFlow,
   });
 
   return (
@@ -77,6 +75,12 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
       <DialogContent
         className="ds-dialog-size-lg ds-dialog-inset bg-zinc-950 border-zinc-800 text-zinc-100 flex min-h-0 flex-col"
         onOpenAutoFocus={(event) => event.preventDefault()}
+        onPointerDownOutside={(event) => {
+          const target = event.target;
+          if (target instanceof Element && target.closest("[data-card-preview]")) {
+            event.preventDefault();
+          }
+        }}
       >
         <div ref={containerRef} className="relative flex h-full min-h-0 w-full flex-col">
           <div className="px-4 py-3 lg:px-6 lg:py-4 border-b border-zinc-800">
@@ -88,6 +92,7 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
                   : displayCards.length
               }
               count={count}
+              uniqueCards={viewMode === "grouped" ? uniqueCardCount : undefined}
               filterText={filterText}
               onFilterTextChange={setFilterText}
             />
@@ -97,10 +102,10 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
             ref={setScrollNode}
             className={cn(
               "flex-1 min-h-0 px-4 pb-4 pt-3 lg:px-6 lg:pb-6 lg:pt-4 bg-zinc-950/50",
-              enableGroupedCoverFlow
-                ? "overflow-y-auto overflow-x-hidden touch-pan-y"
+              viewMode === "grouped"
+                ? "overflow-hidden"
                 : "overflow-x-auto overflow-y-hidden",
-              enableLinearCoverFlow ? "touch-pan-x" : !enableGroupedCoverFlow && "touch-none"
+              enableLinearCoverFlow ? "touch-pan-x" : viewMode === "linear" && "touch-none"
             )}
           >
             {displayCards.length === 0 ? (
@@ -123,14 +128,10 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
               </div>
             ) : viewMode === "grouped" ? (
               <ZoneViewerGroupedView
-                sortedKeys={sortedKeys}
-                groupedCards={groupedCards}
-                cardWidthPx={previewWidthPx}
-                cardHeightPx={previewHeightPx}
+                sections={librarySections}
                 interactionsDisabled={interactionsDisabled}
                 pinnedCardId={pinnedCardId}
                 onCardContextMenu={handleContextMenu}
-                mobileCoverFlow={enableGroupedCoverFlow}
               />
             ) : (
               // Linear View

@@ -88,6 +88,23 @@ const matchesParsedName = (parsed: ParsedCard, scryfallCard: ScryfallCard): bool
   return canonicalFront === target;
 };
 
+const getImportedManaCost = (card: ScryfallCard): string | undefined => {
+  if (card.layout === "split") {
+    const combined = card.card_faces
+      ?.map((face) => face.mana_cost?.trim())
+      .filter((cost): cost is string => Boolean(cost))
+      .join(" // ");
+    return combined || card.mana_cost?.trim() || undefined;
+  }
+
+  const frontCost = card.card_faces?.[0]?.mana_cost?.trim();
+  if (frontCost) return frontCost;
+
+  // Scryfall can expose a combined root cost for multi-part cards. Non-split
+  // cards use the primary/front spell in compact library rows.
+  return card.mana_cost?.split("//")[0]?.trim() || undefined;
+};
+
 const buildImportedCardPart = (
   scryfallCard: ScryfallCard,
   section: ParsedCard["section"]
@@ -99,6 +116,12 @@ const buildImportedCardPart = (
 
   return {
     name,
+    canonicalName: scryfallCard.name,
+    manaCost: getImportedManaCost(scryfallCard),
+    manaValue:
+      typeof scryfallCard.cmc === "number" && Number.isFinite(scryfallCard.cmc)
+        ? scryfallCard.cmc
+        : undefined,
     // imageUrl omitted - use scryfall.image_uris.normal instead
     typeLine: scryfallCard.type_line,
     // oracleText omitted - fetch on-demand from cache when needed
