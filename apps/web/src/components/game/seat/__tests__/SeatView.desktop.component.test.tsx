@@ -267,4 +267,68 @@ describe("SeatView desktop side-zone previews", () => {
 
     expect(container.querySelector("[data-card-preview]")).toBeNull();
   });
+
+  it("composes desktop zones as battlefield edge overlays", () => {
+    const handZone = makeZone("hand-p1", "hand", ["c-hand"]);
+    const libraryZone = makeZone("library-p1", "library", ["c-library"]);
+    const graveyardZone = makeZone("graveyard-p1", "graveyard", ["c-graveyard"]);
+    const exileZone = makeZone("exile-p1", "exile", ["c-exile"]);
+    const battlefieldZone = makeZone("battlefield-p1", "battlefield");
+    const commanderZone = makeZone("commander-p1", "commander", ["c-commander"]);
+    const model = {
+      isTop: false,
+      isRight: false,
+      mirrorBattlefieldY: false,
+      inverseScalePercent: 100,
+      zones: {
+        hand: handZone,
+        library: libraryZone,
+        graveyard: graveyardZone,
+        exile: exileZone,
+        battlefield: battlefieldZone,
+        commander: commanderZone,
+      },
+      cards: {
+        hand: [makeCard("c-hand", handZone.id, "Hand Card")],
+        library: [makeCard("c-library", libraryZone.id, "Library Card")],
+        graveyard: [makeCard("c-graveyard", graveyardZone.id, "Graveyard Card")],
+        exile: [makeCard("c-exile", exileZone.id, "Exile Card")],
+        battlefield: [],
+        commander: [
+          {
+            ...makeCard("c-commander", commanderZone.id, "Commander Card"),
+            commanderTax: 2,
+            isCommander: true,
+          },
+        ],
+      },
+      opponentLibraryRevealCount: 0,
+    } as const;
+
+    const { container } = render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer({ libraryCount: 1 })}
+            color="sky"
+            isMe
+            viewerPlayerId="p1"
+            opponentColors={{ p1: "sky" }}
+            model={model as any}
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    expect(container.querySelector("[data-desktop-seat-overlay]")).not.toBeNull();
+    expect(container.querySelector("[data-desktop-life-overlay]")).not.toBeNull();
+    expect(container.querySelector("[data-desktop-bottom-overlay]")).not.toBeNull();
+    expect(container.querySelector("[data-desktop-commander-overlay]")).not.toBeNull();
+    expect(container.querySelector('[data-hand-fit-cards="true"]')).not.toBeNull();
+    expect(container.querySelectorAll('[data-side-zone-variant="edge"]')).toHaveLength(3);
+    expect(container.textContent).toContain("Hand - 1");
+    expect(container.textContent).toContain("Library - 1");
+    expect(container.textContent).toContain("Graveyard - 1");
+    expect(container.textContent).toContain("Exile - 1");
+  });
 });

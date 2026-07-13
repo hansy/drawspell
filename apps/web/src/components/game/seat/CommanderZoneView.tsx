@@ -29,6 +29,7 @@ export interface CommanderZoneViewProps extends CommanderZoneController {
   onZoneContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   scale?: number;
   color?: string;
+  variant?: "bar" | "overlay";
 }
 
 export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
@@ -38,6 +39,7 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
   onZoneContextMenu,
   scale = 1,
   color,
+  variant = "bar",
   isOwner,
   handleTaxDelta,
 }) => {
@@ -166,11 +168,18 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
   return (
     <div
       ref={rootRef}
+      data-commander-zone-variant={variant}
       className={cn(
-        "relative z-30 h-full shrink-0 flex items-stretch justify-start aspect-[11/15]", // Increased z-index to sit above Hand
-        isRight ? "border-r border-white/5" : "border-l border-white/5" // Separator
+        "relative z-30 h-full shrink-0 flex items-stretch justify-start aspect-[11/15]",
+        variant === "bar" &&
+          (isRight ? "border-r border-white/5" : "border-l border-white/5"),
       )}
     >
+      {variant === "overlay" && (
+        <div className="pointer-events-none absolute left-1/2 top-0 z-40 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-300 shadow-sm select-none">
+          Commander
+        </div>
+      )}
       <div
         className="relative group h-full w-full"
         onContextMenu={(e) => onZoneContextMenu?.(e, zone.id)}
@@ -184,14 +193,16 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
           zone={zone}
           className={cn(
             "h-full w-full",
-            "flex items-start justify-center relative shadow-lg backdrop-blur-sm p-2 overflow-visible",
+            "flex items-start justify-center relative shadow-lg p-2 overflow-visible",
+            variant === "overlay" &&
+              "rounded-lg border-2 border-zinc-700/90 bg-zinc-900/70",
             // Base background
-            "bg-zinc-900/40",
+            variant === "bar" && "bg-zinc-900/40 backdrop-blur-sm",
             // Color variants for background tint
-            color === "rose" && "bg-rose-950/40 border-rose-900/30",
-            color === "violet" && "bg-violet-950/40 border-violet-900/30",
-            color === "sky" && "bg-sky-950/40 border-sky-900/30",
-            color === "amber" && "bg-amber-950/40 border-amber-900/30"
+            variant === "bar" && color === "rose" && "bg-rose-950/40 border-rose-900/30",
+            variant === "bar" && color === "violet" && "bg-violet-950/40 border-violet-900/30",
+            variant === "bar" && color === "sky" && "bg-sky-950/40 border-sky-900/30",
+            variant === "bar" && color === "amber" && "bg-amber-950/40 border-amber-900/30",
           )}
           scale={scale}
         >

@@ -41,9 +41,7 @@ describe("BottomBar", () => {
 
       const bottomBar = container.querySelector(".flex.w-full.shrink-0");
       expect(bottomBar).toBeTruthy();
-      expect((bottomBar as HTMLElement).style.height).toBe(
-        `var(--hand-h, ${HAND_DEFAULT_HEIGHT}px)`
-      );
+      expect((bottomBar as HTMLElement).style.height).toBe(`${HAND_DEFAULT_HEIGHT}px`);
     });
 
     it("applies custom height when specified", () => {
@@ -55,9 +53,7 @@ describe("BottomBar", () => {
 
       const bottomBar = container.querySelector(".flex.w-full.shrink-0");
       expect(bottomBar).toBeTruthy();
-      expect((bottomBar as HTMLElement).style.height).toBe(
-        "var(--hand-h, 250px)"
-      );
+      expect((bottomBar as HTMLElement).style.height).toBe("250px");
     });
 
     it("applies flex-row-reverse when isRight is true", () => {
@@ -327,6 +323,7 @@ describe("BottomBar", () => {
 
       // Check that dragging state is applied (visual indicator should exist with dragging classes)
       expect(visualIndicator).toBeTruthy();
+      expect(visualIndicator?.classList.contains("z-10")).toBe(true);
 
       // End dragging
       fireEvent.mouseUp(document);

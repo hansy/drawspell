@@ -1,7 +1,9 @@
 import { act, fireEvent, render } from "@testing-library/react";
+import { DndContext } from "@dnd-kit/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ZONE } from "@/constants/zones";
+import { CardPreviewProvider } from "../../card/CardPreviewProvider";
 
 import { SideZone } from "../SideZone";
 
@@ -36,6 +38,61 @@ describe("SideZone touch gestures", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("shows a dotted outline and a single bottom label when the edge zone is empty", () => {
+    const { container, getByText } = render(
+      <SideZone
+        variant="edge"
+        zone={zone as any}
+        label="Library"
+        count={92}
+        visibleHeight={150}
+      />
+    );
+
+    const edgeZone = container.querySelector('[data-side-zone-variant="edge"]');
+    const dropZone = container.querySelector('[data-zone-id="library-me"]');
+    const label = getByText("Library - 92");
+    const emptyContent = container.querySelector("[data-edge-zone-empty-content]");
+    const emptyLabel = container.querySelector("[data-edge-zone-empty-label]");
+
+    expect(edgeZone).not.toBeNull();
+    expect(dropZone?.classList.contains("border-dotted")).toBe(true);
+    expect((emptyContent as HTMLElement | null)?.style.height).toBe("150px");
+    expect(emptyLabel?.classList.contains("top-1/4")).toBe(true);
+    expect(label.classList.contains("bottom-1")).toBe(true);
+  });
+
+  it("removes the dotted outline when the edge zone contains a card", () => {
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <SideZone
+            variant="edge"
+            zone={{ ...zone, cardIds: ["card-1"] } as any}
+            card={{
+              id: "card-1",
+              name: "Forest",
+              ownerId: "me",
+              controllerId: "me",
+              zoneId: zone.id,
+              tapped: false,
+              faceDown: false,
+              position: { x: 0, y: 0 },
+              rotation: 0,
+              counters: [],
+            } as any}
+            label="Library"
+            count={1}
+            disableCardDrag
+          />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+
+    const dropZone = container.querySelector('[data-zone-id="library-me"]');
+    expect(dropZone?.classList.contains("border-dotted")).toBe(false);
   });
 
   it("maps touch double tap to onDoubleClick", () => {

@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Drawspell desktop edge zones mock</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --line: rgba(255, 255, 255, 0.1);
+        --surface: #17171d;
+        --surface-hover: #22222a;
+        --muted: #a1a1aa;
+        --accent: #818cf8;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-width: 980px;
+        min-height: 100vh;
+        overflow: hidden;
+        background: #09090b;
+        color: #fafafa;
+      }
+
+      button { font: inherit; }
+
+      .app {
+        position: relative;
+        height: 100vh;
+        min-height: 680px;
+        overflow: hidden;
+        background: #0e0e13;
+      }
+
+      .topbar {
+        position: absolute;
+        inset: 0 0 auto 0;
+        z-index: 40;
+        display: flex;
+        height: 42px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(9, 9, 11, 0.95);
+      }
+
+      .brand {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        color: #d4d4d8;
+      }
+
+      .study-label,
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .icon-button {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: #a1a1aa;
+        cursor: pointer;
+      }
+
+      .icon-button:hover,
+      .icon-button:focus-visible {
+        background: #27272a;
+        color: white;
+        outline: none;
+      }
+
+      .battlefield {
+        position: absolute;
+        inset: 42px 0 0 0;
+        overflow: hidden;
+        background:
+          linear-gradient(rgba(255,255,255,0.024) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.024) 1px, transparent 1px),
+          radial-gradient(circle at 50% 45%, rgba(79,70,229,0.075), transparent 37%),
+          #0e0e13;
+        background-size: 72px 72px, 72px 72px, auto, auto;
+      }
+
+      .battlefield::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        box-shadow: inset 0 -52px 70px rgba(0,0,0,0.25);
+      }
+
+      .opponents {
+        position: absolute;
+        top: 14px;
+        left: 50%;
+        display: flex;
+        gap: 8px;
+        transform: translateX(-50%);
+      }
+
+      .opponent {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 7px 11px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #15151a;
+        color: #d4d4d8;
+        font-size: 12px;
+      }
+
+      .opponent strong { color: white; font-size: 14px; }
+      .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #34d399; }
+
+      .pile {
+        position: absolute;
+        display: flex;
+        align-items: flex-end;
+        gap: 12px;
+      }
+
+      .pile.creatures { left: 27%; top: 22%; }
+      .pile.lands { left: 36%; bottom: 12%; }
+
+      .battle-card {
+        position: relative;
+        width: 92px;
+        aspect-ratio: 11 / 15;
+        overflow: hidden;
+        border-radius: 8px;
+        border: 3px solid #171717;
+        background: #292524;
+        box-shadow: 0 5px 8px rgba(0,0,0,0.45);
+      }
+
+      .battle-card:nth-child(2) { transform: rotate(2deg); }
+      .battle-card:nth-child(3) { transform: rotate(-1deg); }
+
+      .card-art {
+        height: 57%;
+        background:
+          radial-gradient(circle at 70% 24%, rgba(255,255,255,0.52), transparent 7%),
+          linear-gradient(145deg, #164e63, #172554 58%, #111827);
+      }
+
+      .battle-card.green .card-art {
+        background:
+          radial-gradient(circle at 72% 30%, rgba(217,249,157,0.32), transparent 10%),
+          linear-gradient(145deg, #3f6212, #14532d 60%, #052e16);
+      }
+
+      .battle-card.land .card-art { background: linear-gradient(145deg, #713f12, #3f3f46 56%, #1c1917); }
+      .card-copy { padding: 6px; color: #e4e4e7; font-size: 8px; }
+      .card-copy strong { display: block; margin-bottom: 4px; font-size: 9px; }
+
+      .life-box {
+        position: absolute;
+        z-index: 30;
+        top: 58px;
+        right: 18px;
+        width: 200px;
+        padding: 10px;
+        border: 1px solid #3f3f46;
+        border-radius: 12px;
+        background: #18181d;
+        box-shadow: 0 5px 8px rgba(0,0,0,0.45);
+      }
+
+      .life-name {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 7px;
+        color: #d4d4d8;
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .damage-summary {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #a1a1aa;
+        font-size: 10px;
+        cursor: pointer;
+      }
+
+      .damage-summary:hover,
+      .damage-summary:focus-visible { color: white; outline: 2px solid var(--accent); outline-offset: 1px; }
+
+      .life-row { display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+      .life-button {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border: 0;
+        border-radius: 8px;
+        background: #27272a;
+        color: #e4e4e7;
+        cursor: pointer;
+      }
+
+      .life-button:hover,
+      .life-button:focus-visible { background: #3f3f46; color: white; outline: 2px solid var(--accent); outline-offset: 1px; }
+      .life-total { min-width: 42px; text-align: center; font: 700 27px ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+      .damage-drawer {
+        display: grid;
+        grid-template-rows: 0fr;
+        opacity: 0;
+        transition: grid-template-rows 180ms cubic-bezier(.22,1,.36,1), opacity 150ms ease-out;
+      }
+
+      .damage-drawer > div { min-height: 0; overflow: hidden; }
+
+      .life-box:hover .damage-drawer,
+      .life-box:focus-within .damage-drawer,
+      .life-box.damage-open .damage-drawer { grid-template-rows: 1fr; opacity: 1; }
+
+      .damage-list {
+        display: flex;
+        gap: 6px;
+        padding-top: 9px;
+        border-top: 1px solid var(--line);
+        margin-top: 9px;
+      }
+
+      .damage-entry {
+        display: flex;
+        flex: 1;
+        align-items: center;
+        justify-content: space-between;
+        gap: 5px;
+        padding: 5px 6px;
+        border-radius: 7px;
+        background: #27272a;
+        font: 650 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      .damage-dot { width: 8px; height: 8px; border-radius: 50%; }
+      .damage-dot.rose { background: #fb7185; }
+      .damage-dot.sky { background: #38bdf8; }
+
+      .edge-overlays {
+        position: absolute;
+        z-index: 20;
+        inset: 42px 0 0 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      .commander-zone,
+      .hand-zone,
+      .zone-group { pointer-events: auto; }
+
+      .card-shell {
+        position: relative;
+        overflow: hidden;
+        border: 3px solid #171717;
+        border-radius: 9px;
+        background: #27272a;
+        box-shadow: 0 5px 8px rgba(0,0,0,0.48);
+      }
+
+      .border-label {
+        position: absolute;
+        z-index: 5;
+        top: 0;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        padding: 4px 9px;
+        border: 1px solid #3f3f46;
+        border-radius: 999px;
+        background: #18181d;
+        color: #d4d4d8;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .edge-count {
+        position: absolute;
+        z-index: 6;
+        left: 50%;
+        bottom: 7px;
+        display: grid;
+        min-width: 28px;
+        height: 28px;
+        padding: 0 7px;
+        place-items: center;
+        transform: translateX(-50%);
+        border: 1px solid #3f3f46;
+        border-radius: 999px;
+        background: rgba(9,9,11,0.94);
+        color: #f4f4f5;
+        font: 700 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      .commander-zone {
+        position: absolute;
+        z-index: 24;
+        left: 18px;
+        bottom: -82px;
+        width: 124px;
+        aspect-ratio: 11 / 15;
+      }
+
+      .commander-zone .card-shell { width: 100%; height: 100%; }
+      .commander-art { height: 62%; background: radial-gradient(circle at 62% 28%, #c4b5fd, #5b21b6 18%, #1e1b4b 68%); }
+      .commander-copy { padding: 8px; color: #d4d4d8; font-size: 9px; }
+      .commander-copy strong { display: block; margin-bottom: 4px; font-size: 10px; }
+      .tax-count { top: 69px; right: 4px; bottom: auto; left: auto; transform: none; }
+
+      .hand-zone {
+        position: absolute;
+        z-index: 22;
+        left: 110px;
+        right: 50%;
+        bottom: 0;
+        height: 146px;
+        overflow: hidden;
+      }
+
+      .hand-label {
+        position: absolute;
+        z-index: 12;
+        left: 42px;
+        top: 4px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 8px;
+        border-radius: 7px;
+        background: rgba(24,24,29,0.92);
+        color: #d4d4d8;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .hand-label span { color: white; font: 700 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+      .hand-cards {
+        position: absolute;
+        inset: 31px 8px 0 8px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        overflow: visible;
+      }
+
+      .hand-card {
+        width: clamp(88px, 8.2vw, 118px);
+        aspect-ratio: 11 / 15;
+        flex: 0 0 auto;
+        overflow: hidden;
+        border: 3px solid #171717;
+        border-radius: 9px;
+        background: #18181b;
+        box-shadow: 0 5px 7px rgba(0,0,0,0.46);
+        transform-origin: top center;
+      }
+
+      .hand-card + .hand-card { margin-left: calc(-1px * var(--hand-overlap, 34)); }
+      .hand-card:nth-child(2n) { transform: translateY(3px) rotate(-0.8deg); }
+      .hand-card:nth-child(3n) { transform: translateY(1px) rotate(0.7deg); }
+      .hand-card img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+      .zone-group {
+        position: absolute;
+        z-index: 21;
+        right: 0;
+        bottom: 0;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        width: 50%;
+        height: 132px;
+      }
+
+      .edge-zone { position: relative; min-width: 0; }
+
+      .zone-card {
+        position: absolute;
+        top: 18px;
+        left: 50%;
+        width: min(71%, 170px);
+        aspect-ratio: 11 / 15;
+        transform: translateX(-50%);
+      }
+
+      .zone-card .card-shell { width: 100%; height: 100%; }
+      .zone-card.library img { display: block; width: 100%; height: 100%; object-fit: cover; }
+      .zone-art { height: 60%; }
+      .graveyard .zone-art { background: radial-gradient(circle at 30% 30%, rgba(253,224,71,0.26), transparent 15%), linear-gradient(150deg, #7c2d12, #451a03 55%, #1c1917); }
+      .exile .zone-art { background: radial-gradient(circle at 62% 34%, rgba(224,231,255,0.38), transparent 11%), linear-gradient(150deg, #312e81, #1e1b4b 55%, #172554); filter: grayscale(0.55); opacity: 0.78; }
+      .zone-copy { padding: 8px; color: #d4d4d8; font-size: 9px; }
+      .zone-copy strong { display: block; margin-bottom: 5px; font-size: 10px; }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div class="brand">DRAWSPELL</div>
+        <div class="study-label">Desktop edge zones study</div>
+        <div class="top-actions"><span>Game log</span><button class="icon-button" aria-label="Open settings">⋯</button></div>
+      </header>
+
+      <section class="battlefield" aria-label="Battlefield mock">
+        <div class="opponents">
+          <div class="opponent"><span class="status-dot"></span>Mara <strong>27</strong></div>
+          <div class="opponent"><span class="status-dot"></span>Jon <strong>34</strong></div>
+        </div>
+
+        <div class="pile creatures">
+          <div class="battle-card green"><div class="card-art"></div><div class="card-copy"><strong>Elvish Mystic</strong>Creature</div></div>
+          <div class="battle-card"><div class="card-art"></div><div class="card-copy"><strong>Coiling Oracle</strong>Creature</div></div>
+          <div class="battle-card green"><div class="card-art"></div><div class="card-copy"><strong>Seedborn Muse</strong>Creature</div></div>
+        </div>
+        <div class="pile lands">
+          <div class="battle-card land"><div class="card-art"></div><div class="card-copy"><strong>Forest</strong>Basic Land</div></div>
+          <div class="battle-card land"><div class="card-art"></div><div class="card-copy"><strong>Island</strong>Basic Land</div></div>
+          <div class="battle-card land"><div class="card-art"></div><div class="card-copy"><strong>Command Tower</strong>Land</div></div>
+          <div class="battle-card land"><div class="card-art"></div><div class="card-copy"><strong>Breeding Pool</strong>Land</div></div>
+        </div>
+      </section>
+
+      <section class="life-box" aria-label="Hansy life and commander damage">
+        <div class="life-name">
+          <span>Hansy</span>
+          <button class="damage-summary" id="damage-toggle" aria-expanded="false" aria-controls="damage-drawer">Commander damage <span>5</span></button>
+        </div>
+        <div class="life-row">
+          <button class="life-button" id="life-down" aria-label="Decrease life">−</button>
+          <span class="life-total" id="life-total">40</span>
+          <button class="life-button" id="life-up" aria-label="Increase life">+</button>
+        </div>
+        <div class="damage-drawer" id="damage-drawer">
+          <div><div class="damage-list">
+            <div class="damage-entry"><span class="damage-dot rose"></span><span>Mara</span><strong>3</strong></div>
+            <div class="damage-entry"><span class="damage-dot sky"></span><span>Jon</span><strong>2</strong></div>
+          </div></div>
+        </div>
+      </section>
+
+      <section class="edge-overlays" aria-label="Player card zones">
+        <section class="commander-zone" aria-label="Command zone, one card">
+          <div class="border-label">Commander</div>
+          <div class="card-shell"><div class="commander-art"></div><div class="commander-copy"><strong>Aesi</strong>Legendary Creature</div></div>
+          <div class="edge-count tax-count" aria-label="Commander tax 2">Tax 2</div>
+        </section>
+
+        <section class="hand-zone" aria-label="Hand, 7 cards">
+          <div class="hand-label">Hand <span>7</span></div>
+          <div class="hand-cards" id="hand-cards">
+            <div class="hand-card"><img src="/mtg_card_back.jpeg" alt="Face-down card" /></div>
+            <div class="hand-card"><img src="/mtg_card_back.jpeg" alt="Face-down card" /></div>
+            <div class="hand-card"><img src="/mtg_card_back.jpeg" alt="Face-down card" /></div>
+            <div class="hand-card"><img src="/mtg_card_back.jpeg" alt="Face-down card" /></div>
+            <div class="hand-card"><img src="/mtg_card_back.jpeg" alt="Face-down card" /></div>
+            <div class="hand-card"><img src="/mtg_card_back.jpeg" alt="Face-down card" /></div>
+            <div class="hand-card"><img src="/mtg_card_back.jpeg" alt="Face-down card" /></div>
+          </div>
+        </section>
+
+        <section class="zone-group">
+          <section class="edge-zone" aria-label="Library, 62 cards">
+            <div class="zone-card library">
+              <div class="border-label">Library</div>
+              <div class="card-shell"><img src="/mtg_card_back.jpeg" alt="Library top card" /></div>
+            </div>
+            <div class="edge-count">62</div>
+          </section>
+          <section class="edge-zone graveyard" aria-label="Graveyard, 8 cards">
+            <div class="zone-card">
+              <div class="border-label">Graveyard</div>
+              <div class="card-shell"><div class="zone-art"></div><div class="zone-copy"><strong>Cultivate</strong>Sorcery</div></div>
+            </div>
+            <div class="edge-count">8</div>
+          </section>
+          <section class="edge-zone exile" aria-label="Exile, 2 cards">
+            <div class="zone-card">
+              <div class="border-label">Exile</div>
+              <div class="card-shell"><div class="zone-art"></div><div class="zone-copy"><strong>Growth Spiral</strong>Instant</div></div>
+            </div>
+            <div class="edge-count">2</div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const lifeTotal = document.querySelector("#life-total");
+      document.querySelector("#life-down").addEventListener("click", () => { lifeTotal.textContent = String(Number(lifeTotal.textContent) - 1); });
+      document.querySelector("#life-up").addEventListener("click", () => { lifeTotal.textContent = String(Number(lifeTotal.textContent) + 1); });
+
+      const lifeBox = document.querySelector(".life-box");
+      const damageToggle = document.querySelector("#damage-toggle");
+      damageToggle.addEventListener("click", () => {
+        const open = damageToggle.getAttribute("aria-expanded") !== "true";
+        damageToggle.setAttribute("aria-expanded", String(open));
+        lifeBox.classList.toggle("damage-open", open);
+      });
+
+      const hand = document.querySelector("#hand-cards");
+      const updateHandOverlap = () => {
+        const cards = Array.from(hand.children);
+        if (cards.length < 2) return;
+        const cardWidth = cards[0].getBoundingClientRect().width;
+        const available = hand.getBoundingClientRect().width;
+        const neededOverlap = Math.max(18, (cards.length * cardWidth - available) / (cards.length - 1));
+        const overlap = Math.min(cardWidth * 0.82, neededOverlap);
+        hand.style.setProperty("--hand-overlap", overlap.toFixed(1));
+      };
+      new ResizeObserver(updateHandOverlap).observe(hand);
+      window.addEventListener("load", updateHandOverlap);
+    </script>
+  </body>
+</html>

@@ -16,6 +16,7 @@ export interface CommanderZoneProps {
   onZoneContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   scale?: number;
   color?: string;
+  variant?: "bar" | "overlay";
 }
 
 export type CommanderZoneControllerProps = CommanderZoneControllerInput;
@@ -24,4 +25,3 @@ export const CommanderZone: React.FC<CommanderZoneProps> = (props) => {
   const controller = useCommanderZoneController({ zoneOwnerId: props.zone.ownerId });
   return <CommanderZoneView {...props} {...controller} />;
 };
-

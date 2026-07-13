@@ -24,18 +24,14 @@ import { PortraitSeatToolbar } from "./PortraitSeatToolbar";
 import { SideZone } from "./SideZone";
 import type { SeatModel } from "@/models/game/seat/seatModel";
 import {
+  getDesktopHandHeights,
   HAND_CARD_HEIGHT_RATIO,
   HAND_DEFAULT_HEIGHT,
   HAND_MAX_HEIGHT,
   HAND_MIN_HEIGHT,
 } from "./handSizing";
 import { BASE_CARD_HEIGHT } from "@/lib/constants";
-import {
-  SEAT_BOTTOM_BAR_PCT,
-  SEAT_HAND_MAX_PCT,
-  SEAT_HAND_MIN_PCT,
-  useSeatSizing,
-} from "@/hooks/game/seat/useSeatSizing";
+import { useSeatSizing } from "@/hooks/game/seat/useSeatSizing";
 
 const MOBILE_HAND_CARD_BASE_HEIGHT_PX = 120;
 const MOBILE_HAND_SCROLLBAR_RESERVED_PX = 14;
@@ -102,37 +98,31 @@ export const SeatView: React.FC<SeatViewProps> = ({
     cssVars,
     sizing,
     isLg,
-  } = useSeatSizing({
-    handHeightOverridePx: hasHandOverride ? handHeight : undefined,
-  });
+  } = useSeatSizing();
   const clamp = React.useCallback(
     (value: number, min: number, max: number) =>
       Math.min(max, Math.max(min, value)),
     [],
   );
-  const seatHeightPx = sizing?.seatHeightPx;
-  const handMinHeightPx = React.useMemo(
+  const desktopHandHeights = React.useMemo(
     () =>
-      isLg && seatHeightPx ? seatHeightPx * SEAT_HAND_MIN_PCT : HAND_MIN_HEIGHT,
-    [isLg, seatHeightPx],
+      isLg && sizing
+        ? getDesktopHandHeights({
+            seatWidth: sizing.seatWidthPx,
+            seatHeight: sizing.seatHeightPx,
+          })
+        : null,
+    [isLg, sizing],
   );
-  const handMaxHeightPx = React.useMemo(
-    () =>
-      isLg && seatHeightPx ? seatHeightPx * SEAT_HAND_MAX_PCT : HAND_MAX_HEIGHT,
-    [isLg, seatHeightPx],
-  );
-  const handDefaultHeightPx = React.useMemo(
-    () =>
-      isLg && seatHeightPx
-        ? clamp(
-            seatHeightPx * SEAT_BOTTOM_BAR_PCT,
-            handMinHeightPx,
-            handMaxHeightPx,
-          )
-        : HAND_DEFAULT_HEIGHT,
-    [clamp, handMaxHeightPx, handMinHeightPx, isLg, seatHeightPx],
-  );
-  const effectiveHandHeight = isLg && sizing ? sizing.handHeightPx : handHeight;
+  const handMinHeightPx = desktopHandHeights?.minHeight ?? HAND_MIN_HEIGHT;
+  const handMaxHeightPx = desktopHandHeights?.maxHeight ?? HAND_MAX_HEIGHT;
+  const handDefaultHeightPx =
+    desktopHandHeights?.defaultHeight ?? HAND_DEFAULT_HEIGHT;
+  const effectiveHandHeight = desktopHandHeights
+    ? hasHandOverride
+      ? clamp(handHeight, handMinHeightPx, handMaxHeightPx)
+      : handDefaultHeightPx
+    : handHeight;
   const { ref: portraitHandRef, size: portraitHandSize } =
     useElementSize<HTMLDivElement>();
   const portraitHandHeight = portraitHandSize.height;
@@ -187,6 +177,12 @@ export const SeatView: React.FC<SeatViewProps> = ({
     layoutVariant,
     portraitHandHeight,
   ]);
+  const desktopHandCardScale = React.useMemo(() => {
+    if (!desktopHandHeights) return handCardScale;
+    const resolvedBaseHeight = baseCardHeightPx ?? BASE_CARD_HEIGHT;
+    if (!resolvedBaseHeight) return 1;
+    return desktopHandHeights.cardHeight / resolvedBaseHeight;
+  }, [baseCardHeightPx, desktopHandHeights, handCardScale]);
   const libraryCount = player.libraryCount ?? library?.cardIds.length ?? 0;
   const libraryPlaceholder = React.useMemo(
     () =>
@@ -555,12 +551,9 @@ export const SeatView: React.FC<SeatViewProps> = ({
       className={cn("relative w-full h-full", className)}
       style={cssVars}
     >
-      {/* Scaled Wrapper */}
       <div
-        className={cn(
-          "flex w-full h-full relative",
-          isRight && "flex-row-reverse", // If on right, flip so sidebar is on right (edge)
-        )}
+        data-desktop-seat-overlay
+        className="relative h-full w-full"
         style={{
           width: `${inverseScalePercent}%`,
           height: `${inverseScalePercent}%`,
@@ -568,7 +561,6 @@ export const SeatView: React.FC<SeatViewProps> = ({
           transformOrigin: "top left",
         }}
       >
-        {/* Neon Border Glow */}
         <div
           className={cn(
             "absolute inset-0 pointer-events-none",
@@ -585,142 +577,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
           )}
         />
 
-        {/* Sidebar */}
-        <div
-          className={cn(
-            "bg-zinc-900/50 flex flex-col justify-between shrink-0 z-10 items-center border-zinc-800/50 h-full overflow-visible w-[var(--seat-sidebar-w)] px-[var(--sidebar-pad-x)] py-[var(--sidebar-pad-y)]",
-            isRight ? "border-l" : "border-r",
-          )}
-        >
-          {/* Player HUD (Life) */}
-          <div
-            className={cn(
-              "w-full h-[var(--sidezone-h)] min-h-0 shrink-0 flex items-center justify-center",
-              isTop && "order-last",
-            )}
-          >
-            <LifeBox
-              player={player}
-              isMe={isMe}
-              className="origin-center h-full !w-auto max-w-full aspect-[var(--sidezone-aspect)]"
-              opponentColors={opponentColors}
-              isRight={isRight}
-              onEditUsername={isMe ? onEditUsername : undefined}
-              onContextMenu={
-                isMe && onLifeContextMenu
-                  ? (e) => onLifeContextMenu(e, player)
-                  : undefined
-              }
-            />
-          </div>
-
-          {/* Zones */}
-          <div
-            className={cn(
-              "my-auto flex flex-col w-full min-h-0 shrink-0 items-center overflow-hidden py-[var(--sidezone-container-pad-y)] gap-[var(--sidezone-gap)]",
-              isTop && "flex-col-reverse",
-            )}
-          >
-            {/* Library */}
-            {library && (
-              <SideZone
-                zone={library}
-                card={libraryTopCard}
-                label={ZONE_LABEL.library}
-                count={libraryCount}
-                onContextMenu={onZoneContextMenu}
-                faceDown={libraryFaceDown}
-                disableCardDrag={libraryTopIsPlaceholder}
-                showContextMenuCursor={player.deckLoaded}
-                indicatorSide={isRight ? "left" : "right"}
-                onClick={
-                  !isMe &&
-                  opponentLibraryRevealCount > 0 &&
-                  onOpponentLibraryReveals
-                    ? (e) => {
-                        e.preventDefault();
-                        onOpponentLibraryReveals(library.id);
-                      }
-                    : undefined
-                }
-                rightIndicator={
-                  !isMe && opponentLibraryRevealCount > 0 ? (
-                    <div className="w-9 h-9 rounded-full bg-zinc-950/95 border border-zinc-700 flex items-center justify-center shadow-lg">
-                      <Eye size={20} className="text-white" />
-                    </div>
-                  ) : undefined
-                }
-                {...getSideZonePreviewProps(libraryPreviewCard)}
-                onDoubleClick={
-                  isMe && onDrawCard
-                    ? (e) => {
-                        e.preventDefault();
-                        onDrawCard(player.id);
-                      }
-                    : undefined
-                }
-                emptyContent={
-                  showLoadDeckAction ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={onLoadDeck}
-                      className="h-full w-full flex flex-col gap-1 text-zinc-300 bg-indigo-600/20 hover:bg-indigo-600/40 hover:text-white border border-indigo-500/30"
-                    >
-                      <Plus size={20} />
-                      <span className="text-[10px] font-medium">Load Deck</span>
-                    </Button>
-                  ) : undefined
-                }
-              />
-            )}
-
-            {graveyard && (
-              <SideZone
-                zone={graveyard}
-                card={graveyardCards[graveyardCards.length - 1]}
-                label={ZONE_LABEL.graveyard}
-                count={graveyard.cardIds.length}
-                onContextMenu={onZoneContextMenu}
-                onClick={
-                  onViewZone && graveyard.type === ZONE.GRAVEYARD
-                    ? (_e) => onViewZone(graveyard.id)
-                    : undefined
-                }
-                faceDown={graveyardCards[graveyardCards.length - 1]?.faceDown}
-                showContextMenuCursor={false}
-                {...getSideZonePreviewProps(graveyardPreviewCard)}
-              />
-            )}
-
-            {exile && (
-              <SideZone
-                zone={exile}
-                card={exileCards[exileCards.length - 1]}
-                label={ZONE_LABEL.exile}
-                count={exile.cardIds.length}
-                onContextMenu={onZoneContextMenu}
-                onClick={
-                  onViewZone && exile.type === ZONE.EXILE
-                    ? (_e) => onViewZone(exile.id)
-                    : undefined
-                }
-                cardClassName="opacity-60 grayscale"
-                faceDown={exileCards[exileCards.length - 1]?.faceDown}
-                showContextMenuCursor={false}
-                {...getSideZonePreviewProps(exilePreviewCard)}
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Main Area */}
-        <div
-          className={cn(
-            "flex-1 relative flex flex-col",
-            isTop ? "border-b border-white/5" : "border-t border-white/5",
-          )}
-        >
+        <div className="absolute inset-0 flex min-h-0 min-w-0">
           {battlefield && (
             <Battlefield
               zone={battlefield}
@@ -742,31 +599,63 @@ export const SeatView: React.FC<SeatViewProps> = ({
               disableZoomControls={zoomControlsDisabled}
             />
           )}
+        </div>
 
-          {/* Bottom Bar (Hand + Commander) */}
-          <BottomBar
-            isTop={isTop}
-            isRight={isRight}
-            height={effectiveHandHeight}
-            defaultHeight={handDefaultHeightPx}
-            minHeight={handMinHeightPx}
-            maxHeight={handMaxHeightPx}
-            onHeightChange={isMe ? handleHandHeightChange : undefined}
+        <div
+          data-desktop-life-overlay
+          className="absolute right-[var(--sidebar-pad-x)] top-[calc(var(--sidebar-pad-y)+18px)] z-40 flex h-[clamp(72px,var(--sidezone-h),104px)] items-center justify-end"
+        >
+          <LifeBox
+            player={player}
+            isMe={isMe}
+            className="origin-center h-full !w-auto max-w-full aspect-[var(--sidezone-aspect)]"
+            opponentColors={opponentColors}
+            isRight
+            onEditUsername={isMe ? onEditUsername : undefined}
+            onContextMenu={
+              isMe && onLifeContextMenu
+                ? (e) => onLifeContextMenu(e, player)
+                : undefined
+            }
+          />
+        </div>
+
+        {commander && (
+          <div
+            data-desktop-commander-overlay
+            className="absolute left-[var(--sidebar-pad-x)] z-30"
+            style={{
+              bottom: Math.max(0, effectiveHandHeight - 6),
+              height: Math.min(
+                144,
+                Math.max(84, effectiveHandHeight * 0.72),
+              ),
+            }}
           >
-            {/* Commander Zone */}
-            {commander && (
-              <CommanderZone
-                zone={commander}
-                cards={commandCards}
-                isTop={isTop}
-                isRight={isRight}
-                onZoneContextMenu={onZoneContextMenu}
-                scale={scale}
-                color={color}
-              />
-            )}
+            <CommanderZone
+              zone={commander}
+              cards={commandCards}
+              isTop={isTop}
+              isRight={false}
+              onZoneContextMenu={onZoneContextMenu}
+              scale={scale}
+              color={color}
+              variant="overlay"
+            />
+          </div>
+        )}
 
-            {/* Hand */}
+        <BottomBar
+          isTop={isTop}
+          isRight={false}
+          height={effectiveHandHeight}
+          defaultHeight={handDefaultHeightPx}
+          minHeight={handMinHeightPx}
+          maxHeight={handMaxHeightPx}
+          onHeightChange={isMe ? handleHandHeightChange : undefined}
+          className="absolute inset-x-0 bottom-0 bg-transparent"
+        >
+          <div data-desktop-bottom-overlay className="contents">
             {hand && (
               <Hand
                 zone={hand}
@@ -779,12 +668,123 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 onCardContextMenu={onCardContextMenu}
                 onHandContextMenu={onHandContextMenu}
                 scale={scale}
-                cardScale={handCardScale}
+                cardScale={desktopHandCardScale}
                 baseCardHeight={baseCardHeightPx}
+                fitCards
+                labelPlacement="bottom-center"
+                cardTopGapPx={0}
+                className="!w-1/2 !flex-none !border-0 !bg-transparent !px-2"
               />
             )}
-          </BottomBar>
-        </div>
+
+            <div className="grid h-full w-1/2 shrink-0 grid-cols-3">
+              {library && (
+                <SideZone
+                  variant="edge"
+                  cardHeight={desktopHandHeights?.cardHeight}
+                  visibleHeight={effectiveHandHeight}
+                  zone={library}
+                  card={libraryTopCard}
+                  label={ZONE_LABEL.library}
+                  count={libraryCount}
+                  onContextMenu={onZoneContextMenu}
+                  faceDown={libraryFaceDown}
+                  disableCardDrag={libraryTopIsPlaceholder}
+                  showContextMenuCursor={player.deckLoaded}
+                  onClick={
+                    !isMe &&
+                    opponentLibraryRevealCount > 0 &&
+                    onOpponentLibraryReveals
+                      ? (e) => {
+                          e.preventDefault();
+                          onOpponentLibraryReveals(library.id);
+                        }
+                      : undefined
+                  }
+                  rightIndicator={
+                    !isMe && opponentLibraryRevealCount > 0 ? (
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/95 shadow-lg">
+                        <Eye size={18} className="text-white" />
+                      </div>
+                    ) : undefined
+                  }
+                  {...getSideZonePreviewProps(libraryPreviewCard)}
+                  onDoubleClick={
+                    isMe && onDrawCard
+                      ? (e) => {
+                          e.preventDefault();
+                          onDrawCard(player.id);
+                        }
+                      : undefined
+                  }
+                  emptyContent={
+                    showLoadDeckAction ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onLoadDeck}
+                        className="relative h-full w-full border border-indigo-500/30 bg-indigo-600/20 text-zinc-300 hover:bg-indigo-600/40 hover:text-white"
+                      >
+                        <span
+                          data-load-deck-label
+                          className="absolute left-1/2 top-1/4 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
+                        >
+                          <Plus size={18} />
+                          <span className="whitespace-nowrap text-[10px] font-medium">
+                            Load Deck
+                          </span>
+                        </span>
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              )}
+
+              {graveyard && (
+                <SideZone
+                  variant="edge"
+                  cardHeight={desktopHandHeights?.cardHeight}
+                  visibleHeight={effectiveHandHeight}
+                  zone={graveyard}
+                  card={graveyardTopCard}
+                  label={ZONE_LABEL.graveyard}
+                  count={graveyard.cardIds.length}
+                  onContextMenu={onZoneContextMenu}
+                  onClick={
+                    onViewZone && graveyard.type === ZONE.GRAVEYARD
+                      ? (_e) => onViewZone(graveyard.id)
+                      : undefined
+                  }
+                  faceDown={graveyardTopCard?.faceDown}
+                  showContextMenuCursor={false}
+                  {...getSideZonePreviewProps(graveyardPreviewCard)}
+                />
+              )}
+
+              {exile && (
+                <SideZone
+                  variant="edge"
+                  cardHeight={desktopHandHeights?.cardHeight}
+                  visibleHeight={effectiveHandHeight}
+                  zone={exile}
+                  card={exileTopCard}
+                  label={ZONE_LABEL.exile}
+                  count={exile.cardIds.length}
+                  onContextMenu={onZoneContextMenu}
+                  onClick={
+                    onViewZone && exile.type === ZONE.EXILE
+                      ? (_e) => onViewZone(exile.id)
+                      : undefined
+                  }
+                  cardClassName="opacity-60 grayscale"
+                  faceDown={exileTopCard?.faceDown}
+                  showContextMenuCursor={false}
+                  {...getSideZonePreviewProps(exilePreviewCard)}
+                />
+              )}
+            </div>
+          </div>
+        </BottomBar>
       </div>
     </div>
   );

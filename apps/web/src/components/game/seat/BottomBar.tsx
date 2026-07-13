@@ -119,13 +119,14 @@ export const BottomBar: React.FC<BottomBarProps> = ({
   return (
     <div
       ref={containerRef}
+      data-bottom-bar
       className={cn(
         "flex w-full shrink-0 relative z-20",
         isRight ? "flex-row-reverse" : "flex-row",
         className
       )}
       style={{
-        height: `var(--hand-h, ${height}px)`,
+        height: `${height}px`,
         minHeight: `${minHeight}px`,
         maxHeight: `${maxHeight}px`,
       }}
@@ -133,8 +134,9 @@ export const BottomBar: React.FC<BottomBarProps> = ({
       {canResize && (
         <>
           <div
+            data-bottom-bar-resize-handle
             className={cn(
-              "absolute left-0 right-0 transition-all pointer-events-none",
+              "absolute left-0 right-0 z-10 transition-all pointer-events-none",
               isTop ? "bottom-0" : "top-0",
               indicatorActive ? "h-[2px]" : "h-[1px]",
               isDragging

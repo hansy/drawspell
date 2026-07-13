@@ -3,7 +3,7 @@ import { Card as CardType, Zone as ZoneType, ZoneId } from "@/types";
 import { Zone } from "../zone/Zone";
 import { Card } from "../card/Card";
 import { cn } from "@/lib/utils";
-import { ZONE_SIDEWAYS_CLASSES } from "@/lib/constants";
+import { CARD_ASPECT_RATIO, ZONE_SIDEWAYS_CLASSES } from "@/lib/constants";
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_DOUBLE_TAP_MS = 280;
@@ -38,6 +38,9 @@ interface SideZoneProps {
   indicatorSide?: "left" | "right";
   onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>) => void;
+  variant?: "side" | "edge";
+  cardHeight?: number;
+  visibleHeight?: number;
 }
 
 // Shared rendering for vertical sidebar zones (library/graveyard/exile).
@@ -58,6 +61,9 @@ export const SideZone: React.FC<SideZoneProps> = ({
   indicatorSide = "right",
   onMouseEnter,
   onMouseLeave,
+  variant = "side",
+  cardHeight,
+  visibleHeight,
 }) => {
   const touchPressTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
@@ -246,6 +252,90 @@ export const SideZone: React.FC<SideZoneProps> = ({
       clearTouchPress();
     };
   }, [clearTouchPress]);
+
+  if (variant === "edge") {
+    return (
+      <div
+        data-side-zone-variant="edge"
+        className="relative h-full min-w-0 overflow-hidden touch-manipulation select-none"
+        onContextMenu={handleContextMenu}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        onPointerDown={handleTouchPressStart}
+        onPointerMove={handleTouchPressMove}
+        onPointerUp={handleTouchPressEnd}
+        onPointerCancel={handleTouchPressCancel}
+        onPointerLeave={handleTouchPressCancel}
+        style={{
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTouchCallout: "none",
+        }}
+      >
+        <Zone
+          zone={zone}
+          className={cn(
+            "group absolute left-1/2 -translate-x-1/2 overflow-hidden rounded-lg bg-zinc-900/25 transition-colors duration-150",
+            cardHeight === undefined && "top-2 aspect-[11/15] w-[104%] max-w-44",
+            cardHeight !== undefined && "top-0",
+            !card && "border-2 border-dotted border-zinc-700/80 hover:border-zinc-500/80",
+            "hover:bg-zinc-800/40",
+            showContextMenuCursor
+              ? "cursor-context-menu"
+              : onClick && "cursor-pointer",
+          )}
+          style={
+            cardHeight === undefined
+              ? undefined
+              : {
+                  height: cardHeight,
+                  width: cardHeight * CARD_ASPECT_RATIO,
+                }
+          }
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+        >
+          {rightIndicator && (
+            <div className="pointer-events-none absolute right-1 top-1 z-20 drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]">
+              {rightIndicator}
+            </div>
+          )}
+
+          {card ? (
+            <Card
+              card={card}
+              style={{ width: "100%", height: "100%" }}
+              faceDown={faceDown}
+              disableDrag={disableCardDrag}
+              disableInteractions
+              disableHoverAnimation
+              className={cn("h-full w-full", cardClassName)}
+            />
+          ) : (
+            <div
+              data-edge-zone-empty-content
+              className="relative w-full overflow-hidden rounded-lg"
+              style={{ height: visibleHeight ?? "100%" }}
+            >
+              {emptyContent ?? (
+                <span
+                  data-edge-zone-empty-label
+                  className="absolute left-1/2 top-1/4 -translate-x-1/2 -translate-y-1/2 text-xs text-zinc-500"
+                >
+                  Empty
+                </span>
+              )}
+            </div>
+          )}
+
+        </Zone>
+
+        <div className="pointer-events-none absolute bottom-1 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full border border-zinc-700/70 bg-zinc-900 px-3 py-1 text-xs font-bold uppercase tracking-widest text-zinc-400 shadow-[0_2px_10px_rgba(0,0,0,0.45)] select-none">
+          {label} - {count}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

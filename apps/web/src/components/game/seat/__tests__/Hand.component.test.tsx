@@ -284,6 +284,42 @@ describe("Hand visual ownership", () => {
     );
   });
 
+  it("aligns fitted card geometry to the hand bounds and places its label at the bottom", () => {
+    const cards = [buildCard("c1", "p1-hand"), buildCard("c2", "p1-hand")];
+    const zone = buildHandZone("p1-hand", "p1", cards.map((card) => card.id));
+
+    const { container, getByText } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Hand
+            zone={zone}
+            cards={cards}
+            isTop={false}
+            isRight={false}
+            isMe
+            viewerPlayerId="p1"
+            viewerRole="player"
+            baseCardHeight={120}
+            cardScale={1.25}
+            fitCards
+            labelPlacement="bottom-center"
+          />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+
+    const frame = container.querySelector(
+      '[data-dnd-hand-card-frame-id="c1"]',
+    ) as HTMLElement | null;
+    const card = container.querySelector('[data-card-id="c1"]') as HTMLElement | null;
+    const label = getByText("Hand - 2");
+
+    expect(frame?.style.width).toBe("100px");
+    expect(frame?.style.height).toBe("150px");
+    expect(card?.style.transformOrigin).toBe("top left");
+    expect(label.classList.contains("bottom-1")).toBe(true);
+  });
+
   it("supports a low-overlap mobile hand layout", () => {
     const cards = [buildCard("c1", "p1-hand"), buildCard("c2", "p1-hand")];
     const zone = buildHandZone("p1-hand", "p1", cards.map((card) => card.id));

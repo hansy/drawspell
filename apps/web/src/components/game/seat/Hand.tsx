@@ -45,6 +45,9 @@ interface HandProps {
   showLabel?: boolean;
   dropDisabled?: boolean;
   showCustomScrollbar?: boolean;
+  fitCards?: boolean;
+  labelPlacement?: "seat-edge" | "top-left" | "top-center" | "bottom-center";
+  cardTopGapPx?: number;
 }
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
@@ -73,6 +76,7 @@ const SortableCard = React.memo(
     cardOverlapRatio,
     baseCardHeight,
     useFullSlotWidth,
+    alignVisualBounds,
     renderedZoneId,
   }: {
     card: CardType;
@@ -84,6 +88,7 @@ const SortableCard = React.memo(
     cardOverlapRatio: number;
     baseCardHeight?: number;
     useFullSlotWidth: boolean;
+    alignVisualBounds: boolean;
     renderedZoneId: string;
   }) => {
     const {
@@ -117,6 +122,7 @@ const SortableCard = React.memo(
 
     const resolvedBaseHeight = baseCardHeight ?? BASE_CARD_HEIGHT;
     const cardWidth = resolvedBaseHeight * CARD_ASPECT_RATIO * cardScale;
+    const cardHeight = resolvedBaseHeight * cardScale;
     const overlapWidth = useFullSlotWidth
       ? cardWidth
       : cardWidth * cardOverlapRatio;
@@ -201,6 +207,8 @@ const SortableCard = React.memo(
             "w-auto aspect-[11/15] transition-transform duration-200",
           )}
           style={{
+            width: alignVisualBounds ? cardWidth : undefined,
+            height: alignVisualBounds ? cardHeight : undefined,
             opacity: isActiveDragSource ? 0.45 : undefined,
             transition: "opacity 160ms ease-out",
           }}
@@ -217,6 +225,7 @@ const SortableCard = React.memo(
                 "ring-2 ring-cyan-200/90 ring-offset-2 ring-offset-zinc-950 shadow-[0_16px_36px_rgba(103,232,249,0.25)]",
             )}
             style={{
+              transformOrigin: alignVisualBounds ? "top left" : undefined,
               transition:
                 "transform 300ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 300ms cubic-bezier(0.22, 1, 0.36, 1), border-color 300ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms ease-out",
             }}
@@ -255,6 +264,9 @@ const HandInner: React.FC<HandProps> = ({
   showLabel = true,
   dropDisabled = false,
   showCustomScrollbar = false,
+  fitCards = false,
+  labelPlacement = "seat-edge",
+  cardTopGapPx = HAND_CARD_TOP_GAP_PX,
 }) => {
   const handDragPreview = useDragStore((state) => state.handDragPreview);
   const displayCards = React.useMemo(() => {
@@ -283,6 +295,9 @@ const HandInner: React.FC<HandProps> = ({
     max: 0,
     visible: false,
   });
+  const [fitCardOverlapRatio, setFitCardOverlapRatio] = React.useState(
+    cardOverlapRatio,
+  );
 
   const clearTouchPressTimeout = React.useCallback(() => {
     if (touchPressTimeoutRef.current) {
@@ -354,6 +369,36 @@ const HandInner: React.FC<HandProps> = ({
     [syncScrollbarState],
   );
 
+  const syncFitCardOverlap = React.useCallback(() => {
+    if (!fitCards || displayCards.length < 2) {
+      setFitCardOverlapRatio(cardOverlapRatio);
+      return;
+    }
+    const node = scrollContainerRef.current;
+    if (!node) return;
+
+    const resolvedBaseHeight = baseCardHeight ?? BASE_CARD_HEIGHT;
+    const cardWidth = resolvedBaseHeight * CARD_ASPECT_RATIO * cardScale;
+    if (cardWidth <= 0) return;
+
+    const edgePadding = 16;
+    const availableWidth = Math.max(0, node.clientWidth - edgePadding * 2);
+    const fittedSlotWidth = Math.max(
+      0,
+      (availableWidth - cardWidth) / (displayCards.length - 1),
+    );
+    const nextRatio = Math.min(cardOverlapRatio, fittedSlotWidth / cardWidth);
+    setFitCardOverlapRatio((current) =>
+      Math.abs(current - nextRatio) < 0.001 ? current : nextRatio,
+    );
+  }, [
+    baseCardHeight,
+    cardOverlapRatio,
+    cardScale,
+    displayCards.length,
+    fitCards,
+  ]);
+
   React.useLayoutEffect(() => {
     syncScrollbarState();
     const node = scrollContainerRef.current;
@@ -369,6 +414,15 @@ const HandInner: React.FC<HandProps> = ({
     if (strip instanceof Element) observer.observe(strip);
     return () => observer.disconnect();
   }, [displayCards.length, syncScrollbarState]);
+
+  React.useLayoutEffect(() => {
+    syncFitCardOverlap();
+    const node = scrollContainerRef.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(syncFitCardOverlap);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [syncFitCardOverlap]);
 
   const handleTouchContextMenuStart = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
@@ -448,6 +502,7 @@ const HandInner: React.FC<HandProps> = ({
 
   return (
     <div
+      data-hand-fit-cards={fitCards ? "true" : undefined}
       className={cn(
         "h-full flex-1 relative min-w-0 w-0", // w-0 enforces flex width constraint
         // Distinct background for hand area
@@ -463,11 +518,23 @@ const HandInner: React.FC<HandProps> = ({
           className={cn(
             "absolute px-3 py-1 lg:text-xs font-bold uppercase tracking-widest text-zinc-400 bg-zinc-900 border border-zinc-700/70 rounded-full z-40 pointer-events-none select-none shadow-[0_2px_10px_rgba(0,0,0,0.45)]",
             // Vertical positioning: straddle the border
-            isTop ? "-bottom-3" : "-top-3",
+            labelPlacement === "top-left"
+              ? "-top-3 left-8"
+              : labelPlacement === "top-center"
+                ? "-top-3 left-1/2 -translate-x-1/2"
+              : labelPlacement === "bottom-center"
+                ? "bottom-1 left-1/2 -translate-x-1/2"
+              : isTop
+                ? "-bottom-3"
+                : "-top-3",
             // Horizontal positioning: opposite to sidebar
             // If sidebar is Right (isRight), label is Left
             // If sidebar is Left (!isRight), label is Right
-            isRight ? "left-8" : "right-8",
+            labelPlacement === "seat-edge"
+              ? isRight
+                ? "left-8"
+                : "right-8"
+              : undefined,
           )}
         >
           {ZONE_LABEL.hand} - {cards.length}
@@ -488,8 +555,9 @@ const HandInner: React.FC<HandProps> = ({
         onPointerLeave={handleTouchContextMenuEnd}
         onScroll={syncScrollbarState}
         className={cn(
-          "w-full h-full flex overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent overscroll-x-none",
-          showCustomScrollbar ? "touch-none" : "touch-pan-x",
+          "w-full h-full flex overflow-y-hidden scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent overscroll-x-none",
+          fitCards ? "overflow-x-hidden touch-none" : "overflow-x-auto",
+          !fitCards && (showCustomScrollbar ? "touch-none" : "touch-pan-x"),
         )}
       >
         <SortableContext
@@ -505,9 +573,9 @@ const HandInner: React.FC<HandProps> = ({
                 : "w-max min-w-full shrink-0 justify-center",
             )}
             style={{
-              ["--hand-card-top-gap" as string]: `${HAND_CARD_TOP_GAP_PX}px`,
-              paddingLeft: HAND_CARD_SCROLL_EDGE_PADDING_PX,
-              paddingRight: HAND_CARD_SCROLL_EDGE_PADDING_PX,
+              ["--hand-card-top-gap" as string]: `${cardTopGapPx}px`,
+              paddingLeft: fitCards ? 16 : HAND_CARD_SCROLL_EDGE_PADDING_PX,
+              paddingRight: fitCards ? 16 : HAND_CARD_SCROLL_EDGE_PADDING_PX,
               paddingBottom: reserveCustomScrollbarSpace ? 12 : 0,
             }}
           >
@@ -515,7 +583,7 @@ const HandInner: React.FC<HandProps> = ({
               Keep single-card hands visually centered by using a full-width slot.
               Overlap slot widths remain for multi-card hands.
             */}
-            {displayCards.map((card) => (
+            {displayCards.map((card, index) => (
               <SortableCard
                 key={card.id}
                 card={card}
@@ -524,9 +592,15 @@ const HandInner: React.FC<HandProps> = ({
                 viewerRole={viewerRole}
                 onCardContextMenu={onCardContextMenu}
                 cardScale={cardScale}
-                cardOverlapRatio={cardOverlapRatio}
+                cardOverlapRatio={
+                  fitCards ? fitCardOverlapRatio : cardOverlapRatio
+                }
                 baseCardHeight={baseCardHeight}
-                useFullSlotWidth={isSingleCardHand}
+                useFullSlotWidth={
+                  isSingleCardHand ||
+                  (fitCards && index === displayCards.length - 1)
+                }
+                alignVisualBounds={fitCards}
                 renderedZoneId={zone.id}
               />
             ))}

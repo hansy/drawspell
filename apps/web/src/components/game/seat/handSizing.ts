@@ -10,3 +10,32 @@ export const HAND_CARD_SCROLL_EDGE_PADDING_PX = 48;
 
 export const HAND_SNAP_THRESHOLD_PX = 8;
 export const HAND_SNAP_RELEASE_PX = 16;
+
+export const DESKTOP_HAND_MIN_VISIBLE_RATIO = 0.5;
+export const DESKTOP_HAND_DEFAULT_VISIBLE_RATIO = 0.75;
+export const DESKTOP_HAND_MAX_SEAT_RATIO = 0.4;
+export const DESKTOP_BOTTOM_ZONE_COUNT = 6;
+export const DESKTOP_ZONE_CARD_GUTTER_PX = 16;
+
+export const getDesktopHandHeights = ({
+  seatWidth,
+  seatHeight,
+}: {
+  seatWidth: number;
+  seatHeight: number;
+}) => {
+  const zoneWidth = seatWidth / DESKTOP_BOTTOM_ZONE_COUNT;
+  const cardWidth = Math.max(0, zoneWidth - DESKTOP_ZONE_CARD_GUTTER_PX);
+  const widthConstrainedCardHeight = cardWidth / (2 / 3);
+  const fullCardHeight = Math.min(
+    seatHeight * DESKTOP_HAND_MAX_SEAT_RATIO,
+    widthConstrainedCardHeight,
+  );
+
+  return {
+    cardHeight: fullCardHeight,
+    minHeight: fullCardHeight * DESKTOP_HAND_MIN_VISIBLE_RATIO,
+    defaultHeight: fullCardHeight * DESKTOP_HAND_DEFAULT_VISIBLE_RATIO,
+    maxHeight: fullCardHeight,
+  };
+};

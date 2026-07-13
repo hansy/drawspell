@@ -18,6 +18,7 @@ import {
 interface ZoneProps {
     zone: ZoneType;
     className?: string;
+    style?: React.CSSProperties;
     children?: React.ReactNode;
     layout?: 'stack' | 'fan' | 'grid' | 'free-form';
     scale?: number;
@@ -40,7 +41,7 @@ interface ZoneProps {
 
 const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
-const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 'stack', scale = 1, cardScale = 1, cardBaseHeight, cardBaseWidth, mirrorY = false, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onPointerLeave, onScroll, onMouseEnter, onMouseLeave, innerRef, disabled = false }) => {
+const ZoneInner: React.FC<ZoneProps> = ({ zone, className, style, children, layout = 'stack', scale = 1, cardScale = 1, cardBaseHeight, cardBaseWidth, mirrorY = false, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onPointerLeave, onScroll, onMouseEnter, onMouseLeave, innerRef, disabled = false }) => {
     const myPlayerId = useGameStore((state) => state.myPlayerId);
     const viewerRole = useGameStore((state) => state.viewerRole);
 
@@ -133,6 +134,7 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, children, layout = 's
         <div
             ref={setRefs}
             data-zone-id={zone.id}
+            style={style}
             className={cn(
                 "transition-colors duration-200",
                 isValidDrop && "bg-indigo-500/10 ring-2 ring-indigo-500/50",
