@@ -158,7 +158,44 @@ describe("CardPreview", () => {
 
     expect(await screen.findByText("Test Card")).toBeTruthy();
     expect(screen.queryByText("Hello")).toBeNull();
+    expect(
+      document
+        .querySelector("[data-card-preview]")
+        ?.getAttribute("data-card-preview-placement"),
+    ).toBe("top");
     anchorEl.remove();
+  });
+
+  it("places a top-seat hand preview below its card", async () => {
+    const zoneId = "top-hand";
+    const cardId = "top-card";
+    const zone = buildZone(zoneId, "HAND", "me", [cardId]);
+    const card = buildCard(cardId, "Top Hand Card", zoneId);
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me") },
+      myPlayerId: "me",
+    }));
+
+    const seatEl = document.createElement("div");
+    seatEl.dataset.seatEdge = "top";
+    const anchorEl = document.createElement("div");
+    seatEl.appendChild(anchorEl);
+    document.body.appendChild(seatEl);
+
+    render(<CardPreview card={card} anchorEl={anchorEl} locked={false} />);
+
+    expect(await screen.findByText("Top Hand Card")).toBeTruthy();
+    expect(
+      document
+        .querySelector("[data-card-preview]")
+        ?.getAttribute("data-card-preview-placement"),
+    ).toBe("bottom");
+
+    seatEl.remove();
   });
 
   it("uses seat preview width when available and clamps to viewport min/max", async () => {

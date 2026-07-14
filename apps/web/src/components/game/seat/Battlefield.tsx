@@ -66,6 +66,7 @@ const BattlefieldCard = React.memo<{
     viewerPlayerId: string;
     viewerRole?: ViewerRole;
     mirrorBattlefieldY: boolean;
+    isTop: boolean;
     viewScale: number;
     baseCardHeight?: number;
     baseCardWidth?: number;
@@ -83,6 +84,7 @@ const BattlefieldCard = React.memo<{
         viewerPlayerId,
         viewerRole,
         mirrorBattlefieldY,
+        isTop,
         viewScale,
         baseCardHeight,
         baseCardWidth,
@@ -122,7 +124,9 @@ const BattlefieldCard = React.memo<{
             position: 'absolute' as const,
             left,
             top,
-        }), [left, top]);
+            transform: isTop ? 'rotate(180deg)' : undefined,
+            transformOrigin: 'center center',
+        }), [isTop, left, top]);
 
         const handleContextMenu = React.useCallback((e: React.MouseEvent) => {
             e.stopPropagation();
@@ -136,6 +140,7 @@ const BattlefieldCard = React.memo<{
                 onContextMenu={handleContextMenu}
                 scale={viewScale}
                 faceDown={card.faceDown}
+                rotateLabel={isTop}
                 highlightColor={highlightColor}
                 isSelected={isSelected}
                 isDragging={isSourceVisualSuppressed ? true : undefined}
@@ -509,6 +514,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                         viewerPlayerId={viewerPlayerId}
                         viewerRole={viewerRole}
                         mirrorBattlefieldY={mirrorBattlefieldY}
+                        isTop={isTop}
                         viewScale={viewScale}
                         baseCardHeight={baseCardHeight}
                         baseCardWidth={baseCardWidth}
@@ -536,6 +542,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                         zoneOwnerId={zone.ownerId}
                         playerColors={playerColors}
                         selectedCardIds={selectedCardIds}
+                        isTop={isTop}
                     />
             </Zone>
 

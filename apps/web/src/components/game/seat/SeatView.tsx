@@ -548,7 +548,11 @@ export const SeatView: React.FC<SeatViewProps> = ({
   return (
     <div
       ref={seatRef}
-      className={cn("relative w-full h-full", className)}
+      data-seat-edge={isTop ? "top" : "bottom"}
+      className={cn(
+        "ds-desktop-seat-container relative w-full h-full",
+        className,
+      )}
       style={cssVars}
     >
       <div
@@ -603,14 +607,26 @@ export const SeatView: React.FC<SeatViewProps> = ({
 
         <div
           data-desktop-life-overlay
-          className="absolute right-[var(--sidebar-pad-x)] top-[calc(var(--sidebar-pad-y)+18px)] z-40 flex h-[clamp(72px,var(--sidezone-h),104px)] items-center justify-end"
+          className={cn(
+            "absolute z-40",
+            isTop
+              ? "right-[var(--sidebar-pad-x)]"
+              : "left-[var(--sidebar-pad-x)]",
+          )}
+          style={
+            isTop
+              ? { top: effectiveHandHeight + 8 }
+              : { bottom: effectiveHandHeight + 8 }
+          }
         >
           <LifeBox
             player={player}
+            color={color}
             isMe={isMe}
-            className="origin-center h-full !w-auto max-w-full aspect-[var(--sidezone-aspect)]"
+            isTop={isTop}
+            variant="hand-edge"
             opponentColors={opponentColors}
-            isRight
+            isRight={false}
             onEditUsername={isMe ? onEditUsername : undefined}
             onContextMenu={
               isMe && onLifeContextMenu
@@ -623,9 +639,16 @@ export const SeatView: React.FC<SeatViewProps> = ({
         {commander && (
           <div
             data-desktop-commander-overlay
-            className="absolute left-[var(--sidebar-pad-x)] z-30"
+            className={cn(
+              "absolute z-30",
+              isTop
+                ? "right-[clamp(384px,34vw,464px)] rotate-180"
+                : "left-[clamp(384px,34vw,464px)]",
+            )}
             style={{
-              bottom: Math.max(0, effectiveHandHeight - 6),
+              ...(isTop
+                ? { top: Math.max(0, effectiveHandHeight - 6) }
+                : { bottom: Math.max(0, effectiveHandHeight - 6) }),
               height: Math.min(
                 144,
                 Math.max(84, effectiveHandHeight * 0.72),
@@ -653,9 +676,18 @@ export const SeatView: React.FC<SeatViewProps> = ({
           minHeight={handMinHeightPx}
           maxHeight={handMaxHeightPx}
           onHeightChange={isMe ? handleHandHeightChange : undefined}
-          className="absolute inset-x-0 bottom-0 bg-transparent"
+          className={cn(
+            "absolute inset-x-0 bg-transparent",
+            isTop ? "top-0" : "bottom-0",
+          )}
         >
-          <div data-desktop-bottom-overlay className="contents">
+          <div
+            data-desktop-bottom-overlay
+            className={cn(
+              "flex h-full w-full",
+              isTop && "rotate-180",
+            )}
+          >
             {hand && (
               <Hand
                 zone={hand}
@@ -681,6 +713,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               {library && (
                 <SideZone
                   variant="edge"
+                  isTop={isTop}
                   cardHeight={desktopHandHeights?.cardHeight}
                   visibleHeight={effectiveHandHeight}
                   zone={library}
@@ -727,7 +760,10 @@ export const SeatView: React.FC<SeatViewProps> = ({
                       >
                         <span
                           data-load-deck-label
-                          className="absolute left-1/2 top-1/4 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
+                          className={cn(
+                            "absolute left-1/2 top-1/4 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1",
+                            isTop && "rotate-180",
+                          )}
                         >
                           <Plus size={18} />
                           <span className="whitespace-nowrap text-[10px] font-medium">
@@ -743,6 +779,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               {graveyard && (
                 <SideZone
                   variant="edge"
+                  isTop={isTop}
                   cardHeight={desktopHandHeights?.cardHeight}
                   visibleHeight={effectiveHandHeight}
                   zone={graveyard}
@@ -764,6 +801,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               {exile && (
                 <SideZone
                   variant="edge"
+                  isTop={isTop}
                   cardHeight={desktopHandHeights?.cardHeight}
                   visibleHeight={effectiveHandHeight}
                   zone={exile}

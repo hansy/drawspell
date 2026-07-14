@@ -62,6 +62,7 @@ export const CardFaceView: React.FC<CardFaceViewProps> = ({
         displayToughness={model.displayToughness}
         powerClassName={model.powerClassName}
         toughnessClassName={model.toughnessClassName}
+        rotateLabel={rotateLabel}
         onPTDelta={onPTDelta}
       />
 

@@ -107,4 +107,44 @@ describe("LifeBox", () => {
     const button = screen.getByRole("button", { name: "Increase life" }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
   });
+
+  it("renders the compact hand-edge trigger and commander controls", () => {
+    const { container } = render(
+      <LifeBox
+        player={{
+          id: "me",
+          name: "Jace",
+          life: 38,
+          counters: [],
+          commanderDamage: { opponent: 3 },
+          commanderTax: 0,
+        } as any}
+        isMe
+        color="sky"
+        variant="hand-edge"
+        opponentColors={{ me: "sky", opponent: "rose" }}
+      />
+    );
+
+    expect(container.querySelector('[data-life-box-variant="hand-edge"]')).not.toBeNull();
+    const lifePill = container.querySelector(
+      '[data-life-box-variant="hand-edge"]',
+    );
+    expect(lifePill?.classList.contains("ds-seat-life-pill")).toBe(true);
+    expect(lifePill?.classList.contains("invisible")).toBe(false);
+    expect(screen.getByText("Jace")).toBeTruthy();
+    expect(screen.getByText("Jace").classList.contains("text-sky-400")).toBe(true);
+    expect(screen.getAllByText("38").length).toBeGreaterThan(0);
+    expect(
+      screen
+        .getByLabelText("Jace life total 38")
+        .classList.contains("ds-seat-life-total"),
+    ).toBe(true);
+    expect(container.querySelector("[data-life-edge-disclosure]")).not.toBeNull();
+    expect(container.querySelector("[data-commander-damage-controls]")).not.toBeNull();
+    const decreaseLife = screen.getByRole("button", { name: "Decrease life" });
+    expect(decreaseLife.classList.contains("w-0")).toBe(true);
+    expect(decreaseLife.classList.contains("group-hover/life:w-7")).toBe(true);
+    expect(screen.getByRole("button", { name: "Increase life" })).toBeTruthy();
+  });
 });

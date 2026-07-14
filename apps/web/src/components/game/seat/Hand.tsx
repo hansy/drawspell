@@ -504,7 +504,7 @@ const HandInner: React.FC<HandProps> = ({
     <div
       data-hand-fit-cards={fitCards ? "true" : undefined}
       className={cn(
-        "h-full flex-1 relative min-w-0 w-0", // w-0 enforces flex width constraint
+        "group/hand-zone h-full flex-1 relative min-w-0 w-0", // w-0 enforces flex width constraint
         // Distinct background for hand area
         "bg-zinc-900/60 backdrop-blur-sm",
         isTop ? "border-b border-white/10" : "border-t border-white/10",
@@ -515,8 +515,10 @@ const HandInner: React.FC<HandProps> = ({
     >
       {showLabel && (
         <div
+          data-edge-zone-label
           className={cn(
-            "absolute px-3 py-1 lg:text-xs font-bold uppercase tracking-widest text-zinc-400 bg-zinc-900 border border-zinc-700/70 rounded-full z-40 pointer-events-none select-none shadow-[0_2px_10px_rgba(0,0,0,0.45)]",
+            "ds-edge-zone-label absolute font-bold uppercase text-zinc-400 bg-zinc-900 border border-zinc-700/70 rounded-full z-40 pointer-events-none select-none shadow-[0_2px_10px_rgba(0,0,0,0.45)] whitespace-nowrap",
+            "invisible opacity-0 transition-[opacity,visibility] duration-150 group-hover/hand-zone:visible group-hover/hand-zone:opacity-100 group-focus-within/hand-zone:visible group-focus-within/hand-zone:opacity-100 motion-reduce:transition-none",
             // Vertical positioning: straddle the border
             labelPlacement === "top-left"
               ? "-top-3 left-8"
@@ -535,6 +537,7 @@ const HandInner: React.FC<HandProps> = ({
                 ? "left-8"
                 : "right-8"
               : undefined,
+            isTop && "rotate-180",
           )}
         >
           {ZONE_LABEL.hand} - {cards.length}

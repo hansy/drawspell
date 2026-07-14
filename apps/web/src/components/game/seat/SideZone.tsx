@@ -25,6 +25,7 @@ interface SideZoneProps {
   zone: ZoneType;
   card?: CardType;
   label: string;
+  isTop?: boolean;
   count: number;
   onContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   onClick?: (e: React.MouseEvent, zoneId: ZoneId) => void;
@@ -48,6 +49,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
   zone,
   card,
   label,
+  isTop = false,
   count,
   onContextMenu,
   onClick,
@@ -257,7 +259,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
     return (
       <div
         data-side-zone-variant="edge"
-        className="relative h-full min-w-0 overflow-hidden touch-manipulation select-none"
+        className="group/edge-zone relative h-full min-w-0 overflow-hidden touch-manipulation select-none"
         onContextMenu={handleContextMenu}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
@@ -320,9 +322,12 @@ export const SideZone: React.FC<SideZoneProps> = ({
               {emptyContent ?? (
                 <span
                   data-edge-zone-empty-label
-                  className="absolute left-1/2 top-1/4 -translate-x-1/2 -translate-y-1/2 text-xs text-zinc-500"
+                  className={cn(
+                    "absolute left-1/2 top-1/4 -translate-x-1/2 -translate-y-1/2 text-xs text-zinc-500",
+                    isTop && "rotate-180",
+                  )}
                 >
-                  Empty
+                  {label}
                 </span>
               )}
             </div>
@@ -330,7 +335,13 @@ export const SideZone: React.FC<SideZoneProps> = ({
 
         </Zone>
 
-        <div className="pointer-events-none absolute bottom-1 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full border border-zinc-700/70 bg-zinc-900 px-3 py-1 text-xs font-bold uppercase tracking-widest text-zinc-400 shadow-[0_2px_10px_rgba(0,0,0,0.45)] select-none">
+        <div
+          data-edge-zone-label
+          className={cn(
+            "ds-edge-zone-label pointer-events-none invisible absolute bottom-1 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full border border-zinc-700/70 bg-zinc-900 font-bold uppercase text-zinc-400 opacity-0 shadow-[0_2px_10px_rgba(0,0,0,0.45)] transition-[opacity,visibility] duration-150 group-hover/edge-zone:visible group-hover/edge-zone:opacity-100 group-focus-within/edge-zone:visible group-focus-within/edge-zone:opacity-100 motion-reduce:transition-none select-none",
+            isTop && "rotate-180",
+          )}
+        >
           {label} - {count}
         </div>
       </div>
@@ -395,7 +406,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
             </div>
           </div>
         ) : (
-          (emptyContent ?? <span className="text-zinc-600 text-xs">Empty</span>)
+          (emptyContent ?? <span className="text-zinc-600 text-xs">{label}</span>)
         )}
 
         <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 px-2 text-xs text-zinc-400 uppercase tracking-wider font-medium whitespace-nowrap border border-zinc-800 rounded-full z-10 top-0 pointer-events-none select-none">

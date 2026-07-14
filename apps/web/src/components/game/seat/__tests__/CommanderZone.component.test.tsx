@@ -70,9 +70,10 @@ describe("CommanderZone", () => {
           <CommanderZone
             zone={zone}
             cards={[card]}
-            isTop={false}
+            isTop
             isRight={false}
             scale={1}
+            variant="overlay"
           />
         </CardPreviewProvider>
       </DndContext>
@@ -81,6 +82,12 @@ describe("CommanderZone", () => {
     fireEvent.click(
       screen.getByRole("button", { name: `Increase commander tax for ${card.name}` })
     );
+    const label = document.querySelector("[data-commander-zone-label]");
+    expect(label?.classList.contains("invisible")).toBe(true);
+    expect(
+      label?.classList.contains("group-hover/commander-zone:visible"),
+    ).toBe(true);
+    expect(label?.classList.contains("rotate-180")).toBe(true);
     expect(updateCard).toHaveBeenCalledWith(card.id, { commanderTax: 2 }, "me");
   });
 });

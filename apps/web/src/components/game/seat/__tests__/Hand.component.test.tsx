@@ -318,6 +318,14 @@ describe("Hand visual ownership", () => {
     expect(frame?.style.height).toBe("150px");
     expect(card?.style.transformOrigin).toBe("top left");
     expect(label.classList.contains("bottom-1")).toBe(true);
+    expect(label.classList.contains("ds-edge-zone-label")).toBe(true);
+    expect(label.classList.contains("invisible")).toBe(true);
+    expect(label.classList.contains("group-hover/hand-zone:visible")).toBe(true);
+    expect(
+      container
+        .querySelector('[data-hand-fit-cards="true"]')
+        ?.classList.contains("group"),
+    ).toBe(false);
   });
 
   it("supports a low-overlap mobile hand layout", () => {

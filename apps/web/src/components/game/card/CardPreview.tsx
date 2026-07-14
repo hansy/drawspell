@@ -112,6 +112,8 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
       ? FACE_DOWN_MORPH_STAT
       : currentCard.baseToughness;
   const isHand = zoneType === ZONE.HAND;
+  const placement: Placement =
+    isHand && anchorEl.closest('[data-seat-edge="top"]') ? "bottom" : "top";
 
   // If in hand, we hide ancillary things.
   const showAncillary = !isHand;
@@ -166,7 +168,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     [floatingPadding, fallbackPlacements, gap, isHand],
   );
   const { refs, floatingStyles, update, x, y } = useFloating({
-    placement: "top",
+    placement,
     strategy: "fixed",
     middleware,
     whileElementsMounted: autoUpdate,
@@ -344,6 +346,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
       ptBasePower={ptBasePower}
       ptBaseToughness={ptBaseToughness}
       onPTDelta={handleUpdatePT}
+      placement={placement}
     />
   );
 };

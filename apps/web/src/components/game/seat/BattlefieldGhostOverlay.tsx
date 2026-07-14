@@ -25,6 +25,7 @@ type BattlefieldGhostOverlayProps = {
   zoneOwnerId: string;
   playerColors: Record<string, string>;
   selectedCardIds: string[];
+  isTop?: boolean;
 };
 
 const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
@@ -38,6 +39,7 @@ export const BattlefieldGhostOverlay = React.memo(
     zoneOwnerId,
     playerColors,
     selectedCardIds,
+    isTop = false,
   }: BattlefieldGhostOverlayProps) => {
     React.useEffect(() => {
       if (!isDebugEnabled(BATTLEFIELD_DND_DEBUG_KEY)) return;
@@ -73,7 +75,8 @@ export const BattlefieldGhostOverlay = React.memo(
         {ghostCards.map(({ card, position, tapped }) => {
           const rotation = card.rotation ? ` rotate(${card.rotation}deg)` : "";
           const tappedRotation = tapped ? " rotate(90deg)" : "";
-          const transform = `scale(${viewScale})${rotation}${tappedRotation}`;
+          const seatRotation = isTop ? " rotate(180deg)" : "";
+          const transform = `scale(${viewScale})${seatRotation}${rotation}${tappedRotation}`;
           const highlightColor =
             card.ownerId !== zoneOwnerId ? playerColors[card.ownerId] : undefined;
           const flipRotation = getFlipRotation(card);

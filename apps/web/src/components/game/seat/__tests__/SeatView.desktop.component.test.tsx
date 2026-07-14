@@ -321,6 +321,7 @@ describe("SeatView desktop side-zone previews", () => {
     );
 
     expect(container.querySelector("[data-desktop-seat-overlay]")).not.toBeNull();
+    expect(container.querySelector(".ds-desktop-seat-container")).not.toBeNull();
     expect(container.querySelector("[data-desktop-life-overlay]")).not.toBeNull();
     expect(container.querySelector("[data-desktop-bottom-overlay]")).not.toBeNull();
     expect(container.querySelector("[data-desktop-commander-overlay]")).not.toBeNull();
@@ -330,5 +331,76 @@ describe("SeatView desktop side-zone previews", () => {
     expect(container.textContent).toContain("Library - 1");
     expect(container.textContent).toContain("Graveyard - 1");
     expect(container.textContent).toContain("Exile - 1");
+  });
+
+  it("anchors the zone rail and its dependent overlays to the top for top seats", () => {
+    const handZone = makeZone("hand-p1", "hand");
+    const libraryZone = makeZone("library-p1", "library");
+    const graveyardZone = makeZone("graveyard-p1", "graveyard");
+    const exileZone = makeZone("exile-p1", "exile");
+    const commanderZone = makeZone("commander-p1", "commander");
+    const model = {
+      isTop: true,
+      isRight: false,
+      mirrorBattlefieldY: true,
+      inverseScalePercent: 100,
+      zones: {
+        hand: handZone,
+        library: libraryZone,
+        graveyard: graveyardZone,
+        exile: exileZone,
+        commander: commanderZone,
+      },
+      cards: {
+        hand: [],
+        library: [],
+        graveyard: [],
+        exile: [],
+        battlefield: [],
+        commander: [],
+      },
+      opponentLibraryRevealCount: 0,
+    } as const;
+
+    const { container } = render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer()}
+            color="violet"
+            isMe={false}
+            viewerPlayerId="viewer"
+            opponentColors={{ p1: "violet", viewer: "sky" }}
+            model={model as any}
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    const rail = container.querySelector("[data-bottom-bar]");
+    const seat = container.querySelector('[data-seat-edge="top"]');
+    const life = container.querySelector("[data-desktop-life-overlay]");
+    const commander = container.querySelector(
+      "[data-desktop-commander-overlay]",
+    );
+    const overlay = container.querySelector("[data-desktop-bottom-overlay]");
+
+    expect(seat).not.toBeNull();
+    expect(rail?.classList.contains("top-0")).toBe(true);
+    expect(rail?.classList.contains("bottom-0")).toBe(false);
+    expect((life as HTMLElement | null)?.style.top).not.toBe("");
+    expect((life as HTMLElement | null)?.style.bottom).toBe("");
+    expect((commander as HTMLElement | null)?.style.top).not.toBe("");
+    expect((commander as HTMLElement | null)?.style.bottom).toBe("");
+    expect(overlay?.classList.contains("rotate-180")).toBe(true);
+    expect(commander?.classList.contains("rotate-180")).toBe(true);
+    expect(commander?.className).toContain("right-[clamp(384px,34vw,464px)]");
+    expect(life?.className).toContain("right-[var(--sidebar-pad-x)]");
+    expect(life?.classList.contains("rotate-180")).toBe(false);
+    expect(
+      Array.from(container.querySelectorAll("[data-edge-zone-label]")).every(
+        (label) => label.classList.contains("rotate-180"),
+      ),
+    ).toBe(true);
   });
 });

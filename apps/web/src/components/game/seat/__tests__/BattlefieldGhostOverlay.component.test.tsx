@@ -88,11 +88,11 @@ describe("Battlefield ghost rendering", () => {
             zone={zone}
             cards={[card]}
             player={player}
-            isTop={false}
+            isTop
             isMe
             viewerPlayerId="p1"
             viewerRole="player"
-            mirrorBattlefieldY={false}
+            mirrorBattlefieldY
             playerColors={{ p1: "sky" }}
           />
         </CardPreviewProvider>
@@ -100,12 +100,14 @@ describe("Battlefield ghost rendering", () => {
     );
 
     const ghost = container.querySelector('[data-dnd-ghost-card-id="c1"]');
+    const sourceCard = container.querySelector('[data-card-id="c1"]');
 
     expect(ghost).not.toBeNull();
     expect(ghost?.getAttribute("data-card-id")).toBeNull();
     expect(ghost?.getAttribute("data-dnd-ghost-kind")).toBe("single");
     expect(ghost?.querySelector(".border-cyan-200")).not.toBeNull();
     expect(ghost?.querySelector(".bg-cyan-300\\/25")).not.toBeNull();
+    expect((sourceCard as HTMLElement | null)?.style.transform).toContain("rotate(180deg)");
   });
 
   it("keeps a battlefield source card visually suppressed while cross-zone drop ownership is pending", () => {

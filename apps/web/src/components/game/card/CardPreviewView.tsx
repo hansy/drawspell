@@ -30,6 +30,7 @@ interface CardPreviewViewProps {
   ptBasePower?: string;
   ptBaseToughness?: string;
   onPTDelta: (type: "power" | "toughness", delta: number) => void;
+  placement: "top" | "bottom";
 }
 
 export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewProps>(
@@ -55,6 +56,7 @@ export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewP
       ptBasePower,
       ptBaseToughness,
       onPTDelta,
+      placement,
     },
     ref
   ) => {
@@ -66,6 +68,7 @@ export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewP
         data-card-preview
         data-card-preview-card-id={currentCard.id}
         data-card-preview-locked={String(locked)}
+        data-card-preview-placement={placement}
         className={cn(
           "fixed z-[9999] rounded-xl shadow-2xl bg-zinc-900 transition-opacity duration-200 ease-out",
           locked ? "pointer-events-auto" : "pointer-events-none",

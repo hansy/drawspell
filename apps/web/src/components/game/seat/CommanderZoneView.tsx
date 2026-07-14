@@ -35,6 +35,7 @@ export interface CommanderZoneViewProps extends CommanderZoneController {
 export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
   zone,
   cards,
+  isTop,
   isRight,
   onZoneContextMenu,
   scale = 1,
@@ -170,13 +171,19 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
       ref={rootRef}
       data-commander-zone-variant={variant}
       className={cn(
-        "relative z-30 h-full shrink-0 flex items-stretch justify-start aspect-[11/15]",
+        "group/commander-zone relative z-30 h-full shrink-0 flex items-stretch justify-start aspect-[11/15]",
         variant === "bar" &&
           (isRight ? "border-r border-white/5" : "border-l border-white/5"),
       )}
     >
       {variant === "overlay" && (
-        <div className="pointer-events-none absolute left-1/2 top-0 z-40 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-300 shadow-sm select-none">
+        <div
+          data-commander-zone-label
+          className={cn(
+            "pointer-events-none invisible absolute left-1/2 top-0 z-40 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-300 opacity-0 shadow-sm transition-[opacity,visibility] duration-150 group-hover/commander-zone:visible group-hover/commander-zone:opacity-100 group-focus-within/commander-zone:visible group-focus-within/commander-zone:opacity-100 motion-reduce:transition-none select-none",
+            isTop && "rotate-180",
+          )}
+        >
           Commander
         </div>
       )}
@@ -226,9 +233,15 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
                   >
                     <Card
                       card={card}
+                      rotateLabel={isTop}
                       className="w-full h-full lg:!w-full lg:!h-full"
                     />
-                    <div className="absolute right-1 top-1 z-40 pointer-events-auto">
+                    <div
+                      className={cn(
+                        "absolute right-1 top-1 z-40 pointer-events-auto",
+                        isTop && "rotate-180",
+                      )}
+                    >
                       <div
                         className={cn(
                           "grid h-7 grid-cols-[0fr_auto_0fr] items-center rounded-full border border-zinc-700 bg-zinc-950/90 px-1 shadow-lg ring-1 ring-black/50 transition-[grid-template-columns,border-color] duration-150 ease-out group-hover/commander-card:grid-cols-[1fr_auto_1fr]",
@@ -295,7 +308,10 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
               })}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center text-white/30 gap-1">
+            <div className={cn(
+              "flex flex-col items-center justify-center text-white/30 gap-1",
+              isTop && "rotate-180",
+            )}>
               <span className="text-md font-medium uppercase tracking-widest">Cmdr</span>
             </div>
           )}

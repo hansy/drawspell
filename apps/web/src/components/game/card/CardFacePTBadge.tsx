@@ -11,6 +11,7 @@ export const CardFacePTBadge: React.FC<{
   displayToughness?: string;
   powerClassName: string;
   toughnessClassName: string;
+  rotateLabel?: boolean;
   onPTDelta?: (type: CardStatKey, delta: number) => void;
 }> = ({
   showPT,
@@ -19,15 +20,18 @@ export const CardFacePTBadge: React.FC<{
   displayToughness,
   powerClassName,
   toughnessClassName,
+  rotateLabel,
   onPTDelta,
 }) => {
   if (!showPT) return null;
 
   return (
     <div
+      data-card-pt-badge
       className={cn(
         "absolute bottom-1 right-1 bg-zinc-900/90 px-2 py-1 rounded-sm border border-zinc-700 shadow-sm z-10",
-        interactive && "scale-125 origin-bottom-right"
+        interactive && "scale-125 origin-bottom-right",
+        rotateLabel && "rotate-180",
       )}
     >
       <span className="text-sm font-bold flex items-center gap-1">
@@ -98,4 +102,3 @@ export const CardFacePTBadge: React.FC<{
     </div>
   );
 };
-

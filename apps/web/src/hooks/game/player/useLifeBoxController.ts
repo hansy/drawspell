@@ -14,22 +14,28 @@ export type CommanderDamageEntry = {
 
 export type LifeBoxControllerInput = {
   player: Player;
+  color?: string;
   isMe?: boolean;
   className?: string;
   opponentColors: Record<string, string>;
   isRight?: boolean;
+  isTop?: boolean;
   onEditUsername?: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
+  variant?: "box" | "hand-edge";
 };
 
 export const useLifeBoxController = ({
   player,
+  color,
   isMe,
   className,
   opponentColors,
   isRight,
+  isTop = false,
   onEditUsername,
   onContextMenu,
+  variant = "box",
 }: LifeBoxControllerInput) => {
   const updatePlayer = useGameStore((state) => state.updatePlayer);
 
@@ -66,11 +72,14 @@ export const useLifeBoxController = ({
 
   return {
     player,
+    color,
     isMe,
     className,
     isRight,
+    isTop,
     onEditUsername,
     onContextMenu,
+    variant,
     canEditLife,
     canEditCommanderDamage,
     showCommanderDamageDrawer,
@@ -81,4 +90,3 @@ export const useLifeBoxController = ({
 };
 
 export type LifeBoxController = ReturnType<typeof useLifeBoxController>;
-
