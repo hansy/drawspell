@@ -32,6 +32,21 @@ const canActorMoveBattlefieldCard = (
 const isOwnerSeatOrBattlefield = (cardOwnerId: string, zone: CardPlacementZone) =>
   zone.type === ZONE.BATTLEFIELD || zone.ownerId === cardOwnerId;
 
+const denyIfCommanderZoneFull = (
+  zone: { type: ZoneType | typeof LEGACY_COMMAND_ZONE; cardIds: string[] },
+  isEnteringCommanderZone: boolean
+): PermissionResult | null => {
+  if (!isCommanderZoneType(zone.type) || !isEnteringCommanderZone) {
+    return null;
+  }
+
+  if (zone.cardIds.length >= MAX_COMMANDER_ZONE_CARDS) {
+    return deny(`Commander zone cannot contain more than ${MAX_COMMANDER_ZONE_CARDS} cards`);
+  }
+
+  return null;
+};
+
 const requireBattlefieldController = (
   actor: ActorInput,
   card: ControlledCard,
@@ -220,9 +235,8 @@ export function canMoveCard(
       return deny("Cannot place cards into another player's command zone");
     }
     const isEnteringCommanderZone = startZone.id !== destZone.id;
-    if (isEnteringCommanderZone && destZone.cardIds.length >= MAX_COMMANDER_ZONE_CARDS) {
-      return deny(`Commander zone cannot contain more than ${MAX_COMMANDER_ZONE_CARDS} cards`);
-    }
+    const commanderCapacityResult = denyIfCommanderZoneFull(destZone, isEnteringCommanderZone);
+    if (commanderCapacityResult) return commanderCapacityResult;
   }
 
   const tokenLeavingBattlefield = isToken && fromBattlefield && !toBattlefield;
@@ -280,9 +294,8 @@ export function canAddCard(actor: ActorInput, card: Card, zone: Zone): Permissio
     if (card.ownerId !== zone.ownerId) {
       return deny("Cannot place cards into another player's command zone");
     }
-    if (zone.cardIds.length >= MAX_COMMANDER_ZONE_CARDS) {
-      return deny(`Commander zone cannot contain more than ${MAX_COMMANDER_ZONE_CARDS} cards`);
-    }
+    const commanderCapacityResult = denyIfCommanderZoneFull(zone, true);
+    if (commanderCapacityResult) return commanderCapacityResult;
   }
 
   if (!isOwnerSeatOrBattlefield(card.ownerId, zone)) {
