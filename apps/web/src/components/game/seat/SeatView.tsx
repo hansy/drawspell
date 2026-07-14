@@ -14,7 +14,6 @@ import type { Card as CardType, Player, ViewerRole, ZoneId } from "@/types";
 import { useCardPreview } from "@/components/game/card/CardPreviewProvider";
 import { useElementSize } from "@/hooks/shared/useElementSize";
 
-import { LifeBox } from "../player/LifeBox";
 import { Battlefield } from "./Battlefield";
 import { BottomBar } from "./BottomBar";
 import { CommanderZone } from "./CommanderZone";
@@ -86,7 +85,6 @@ export const SeatView: React.FC<SeatViewProps> = ({
   onOpponentLibraryReveals,
   model,
   zoomControlsDisabled,
-  onLifeContextMenu,
   layoutVariant = "default",
   onPortraitCommanderDrawerOpenChange,
 }) => {
@@ -606,67 +604,84 @@ export const SeatView: React.FC<SeatViewProps> = ({
         </div>
 
         <div
-          data-desktop-life-overlay
+          data-desktop-side-column
           className={cn(
-            "absolute z-40",
-            isTop
-              ? "right-[var(--sidebar-pad-x)]"
-              : "left-[var(--sidebar-pad-x)]",
+            "absolute z-10 flex w-[var(--seat-side-column-w)] bg-zinc-950/80 backdrop-blur-sm",
+            isTop ? "flex-col-reverse" : "flex-col",
+            isRight
+              ? "right-0 border-l border-white/10"
+              : "left-0 border-r border-white/10",
           )}
-          style={
-            isTop
-              ? { top: effectiveHandHeight + 8 }
-              : { bottom: effectiveHandHeight + 8 }
-          }
+          style={{
+            ...(isTop
+              ? { top: effectiveHandHeight, bottom: 0 }
+              : { top: 0, bottom: effectiveHandHeight }),
+            "--commander-zone-height": `${Math.min(
+              168,
+              Math.max(104, effectiveHandHeight * 0.85),
+            )}px`,
+          } as React.CSSProperties & { "--commander-zone-height": string }}
         >
-          <LifeBox
-            player={player}
-            color={color}
-            isMe={isMe}
-            isTop={isTop}
-            variant="hand-edge"
-            opponentColors={opponentColors}
-            isRight={false}
-            onEditUsername={isMe ? onEditUsername : undefined}
-            onContextMenu={
-              isMe && onLifeContextMenu
-                ? (e) => onLifeContextMenu(e, player)
-                : undefined
-            }
-          />
-        </div>
-
-        {commander && (
           <div
-            data-desktop-commander-overlay
+            data-desktop-side-player-slot
             className={cn(
-              "absolute z-30",
-              isTop
-                ? "right-[clamp(384px,34vw,464px)] rotate-180"
-                : "left-[clamp(384px,34vw,464px)]",
+              "flex min-h-0 flex-1 justify-center overflow-hidden py-3",
+              isTop ? "items-end" : "items-start",
             )}
-            style={{
-              ...(isTop
-                ? { top: Math.max(0, effectiveHandHeight - 6) }
-                : { bottom: Math.max(0, effectiveHandHeight - 6) }),
-              height: Math.min(
-                144,
-                Math.max(84, effectiveHandHeight * 0.72),
-              ),
-            }}
           >
+            {isMe && onEditUsername ? (
+              <button
+                type="button"
+                data-desktop-side-player-name
+                aria-label="Edit player name"
+                onClick={onEditUsername}
+                className={cn(
+                  "max-h-full cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.16em] transition-colors [writing-mode:vertical-rl] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70",
+                  !isRight && "rotate-180",
+                  color === "rose" && "text-rose-400",
+                  color === "violet" && "text-violet-400",
+                  color === "sky" && "text-sky-400",
+                  color === "amber" && "text-amber-400",
+                )}
+              >
+                {player.name || "Me"}
+              </button>
+            ) : (
+              <span
+                data-desktop-side-player-name
+                className={cn(
+                  "max-h-full overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.16em] [writing-mode:vertical-rl]",
+                  !isRight && "rotate-180",
+                  color === "rose" && "text-rose-400",
+                  color === "violet" && "text-violet-400",
+                  color === "sky" && "text-sky-400",
+                  color === "amber" && "text-amber-400",
+                )}
+              >
+                {player.name || (isMe ? "Me" : "")}
+              </span>
+            )}
+          </div>
+
+          {commander && (
             <CommanderZone
               zone={commander}
               cards={commandCards}
               isTop={isTop}
-              isRight={false}
+              isRight={isRight}
               onZoneContextMenu={onZoneContextMenu}
               scale={scale}
-              color={color}
-              variant="overlay"
             />
-          </div>
-        )}
+          )}
+        </div>
+
+        <div
+          data-desktop-life-total
+          className="pointer-events-none absolute right-3 z-40 font-mono text-2xl font-bold leading-none text-zinc-100 drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]"
+          style={{ top: isTop ? effectiveHandHeight + 12 : 12 }}
+        >
+          {player.life}
+        </div>
 
         <BottomBar
           isTop={isTop}

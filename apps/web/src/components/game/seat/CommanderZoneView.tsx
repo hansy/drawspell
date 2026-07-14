@@ -28,8 +28,6 @@ export interface CommanderZoneViewProps extends CommanderZoneController {
   isRight: boolean;
   onZoneContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   scale?: number;
-  color?: string;
-  variant?: "bar" | "overlay";
 }
 
 export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
@@ -39,17 +37,12 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
   isRight,
   onZoneContextMenu,
   scale = 1,
-  color,
-  variant = "bar",
   isOwner,
   handleTaxDelta,
 }) => {
-  const MAX_STACK_CARDS = 2;
-  const STACK_OFFSET_PX = 36;
-  const stackCards = cards.slice(-MAX_STACK_CARDS);
-  const stackOffset = `var(--cmdr-offset, ${STACK_OFFSET_PX}px)`;
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const [activeTaxCardId, setActiveTaxCardId] = React.useState<string | null>(null);
+  const [touchExpanded, setTouchExpanded] = React.useState(false);
   const touchPressTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
@@ -153,42 +146,62 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
   }, [clearTouchPress]);
 
   React.useEffect(() => {
-    if (!activeTaxCardId) return;
+    if (!activeTaxCardId && !touchExpanded) return;
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target;
       if (!(target instanceof Node)) return;
       if (rootRef.current?.contains(target)) return;
       setActiveTaxCardId(null);
+      setTouchExpanded(false);
     };
     document.addEventListener("pointerdown", handlePointerDown, true);
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown, true);
     };
-  }, [activeTaxCardId]);
+  }, [activeTaxCardId, touchExpanded]);
 
   return (
     <div
       ref={rootRef}
-      data-commander-zone-variant={variant}
-      className={cn(
-        "group/commander-zone relative z-30 h-full shrink-0 flex items-stretch justify-start aspect-[11/15]",
-        variant === "bar" &&
-          (isRight ? "border-r border-white/5" : "border-l border-white/5"),
-      )}
+      data-commander-zone-variant="drawer"
+      className="group/commander-zone relative z-30 flex w-full items-center justify-center"
     >
-      {variant === "overlay" && (
-        <div
-          data-commander-zone-label
+      <button
+        type="button"
+        data-commander-zone-label
+        aria-label="Open commander zone"
+        aria-expanded={touchExpanded}
+        onClick={() => setTouchExpanded((expanded) => !expanded)}
+        className={cn(
+          "relative z-40 flex w-full shrink-0 items-center justify-center border-y border-white/10 bg-zinc-900/85 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400/70",
+          touchExpanded && "bg-zinc-800 text-white",
+        )}
+      >
+        <span
           className={cn(
-            "pointer-events-none invisible absolute left-1/2 top-0 z-40 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-300 opacity-0 shadow-sm transition-[opacity,visibility] duration-150 group-hover/commander-zone:visible group-hover/commander-zone:opacity-100 group-focus-within/commander-zone:visible group-focus-within/commander-zone:opacity-100 motion-reduce:transition-none select-none",
-            isTop && "rotate-180",
+            "whitespace-nowrap leading-none [writing-mode:vertical-rl]",
+            !isRight && "rotate-180",
           )}
         >
           Commander
-        </div>
-      )}
+        </span>
+      </button>
+
       <div
-        className="relative group h-full w-full"
+        data-commander-zone-panel
+        className={cn(
+          "absolute z-30 h-[var(--commander-zone-height)] w-max transition-[clip-path,visibility] duration-200 ease-out motion-reduce:transition-none",
+          isTop ? "top-0" : "bottom-0",
+          isRight ? "right-full" : "left-full",
+          touchExpanded
+            ? "visible [clip-path:inset(0_0_0_0)]"
+            : cn(
+                "invisible group-hover/commander-zone:visible group-hover/commander-zone:[clip-path:inset(0_0_0_0)] group-focus-within/commander-zone:visible group-focus-within/commander-zone:[clip-path:inset(0_0_0_0)]",
+                isRight
+                  ? "[clip-path:inset(0_0_0_100%)]"
+                  : "[clip-path:inset(0_100%_0_0)]",
+              ),
+        )}
         onContextMenu={(e) => onZoneContextMenu?.(e, zone.id)}
         onPointerDown={handleTouchContextMenuStart}
         onPointerMove={handleTouchContextMenuMove}
@@ -198,121 +211,94 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
       >
         <Zone
           zone={zone}
-          className={cn(
-            "h-full w-full",
-            "flex items-start justify-center relative shadow-lg p-2 overflow-visible",
-            variant === "overlay" &&
-              "rounded-lg border-2 border-zinc-700/90 bg-zinc-900/70",
-            // Base background
-            variant === "bar" && "bg-zinc-900/40 backdrop-blur-sm",
-            // Color variants for background tint
-            variant === "bar" && color === "rose" && "bg-rose-950/40 border-rose-900/30",
-            variant === "bar" && color === "violet" && "bg-violet-950/40 border-violet-900/30",
-            variant === "bar" && color === "sky" && "bg-sky-950/40 border-sky-900/30",
-            variant === "bar" && color === "amber" && "bg-amber-950/40 border-amber-900/30",
-          )}
+          className="flex h-full w-max min-w-[calc(var(--commander-zone-height)*0.733)] items-stretch gap-2 overflow-visible rounded-lg border border-zinc-700/90 bg-zinc-900/95 p-2 shadow-lg"
           scale={scale}
         >
-          {stackCards.length > 0 ? (
-            <div
-              className="relative w-full h-full"
-              style={{ clipPath: "inset(0 -1000px 0 -1000px)" }}
-            >
-              {stackCards.map((card, index) => {
-                const taxValue = card.commanderTax ?? 0;
-                const canDecrement = taxValue > 0;
-                const taxControlsVisible = activeTaxCardId === card.id;
-                return (
-                  <div
-                    key={card.id}
-                    className="absolute left-0 w-full h-full group/commander-card"
-                    style={{
-                      top: `calc(${index} * ${stackOffset})`,
-                      zIndex: index + 1,
-                    }}
-                  >
-                    <Card
-                      card={card}
-                      rotateLabel={isTop}
-                      className="w-full h-full lg:!w-full lg:!h-full"
-                    />
+          {cards.length > 0 ? (
+            cards.map((card) => {
+              const taxValue = card.commanderTax ?? 0;
+              const canDecrement = taxValue > 0;
+              const taxControlsVisible = activeTaxCardId === card.id;
+              return (
+                <div
+                  key={card.id}
+                  data-commander-drawer-card
+                  className="group/commander-card relative h-full shrink-0 aspect-[11/15]"
+                >
+                  <Card
+                    card={card}
+                    rotateLabel={isTop}
+                    style={isTop ? { transform: "rotate(180deg)" } : undefined}
+                    className="h-full w-full lg:!h-full lg:!w-full"
+                  />
+                  <div className="pointer-events-auto absolute right-1 top-1 z-40">
                     <div
                       className={cn(
-                        "absolute right-1 top-1 z-40 pointer-events-auto",
-                        isTop && "rotate-180",
+                        "grid h-7 grid-cols-[0fr_auto_0fr] items-center rounded-full border border-zinc-700 bg-zinc-950/90 px-1 shadow-lg ring-1 ring-black/50 transition-[grid-template-columns,border-color] duration-150 ease-out group-hover/commander-card:grid-cols-[1fr_auto_1fr]",
+                        taxControlsVisible && "grid-cols-[1fr_auto_1fr] border-indigo-300",
                       )}
                     >
-                      <div
-                        className={cn(
-                          "grid h-7 grid-cols-[0fr_auto_0fr] items-center rounded-full border border-zinc-700 bg-zinc-950/90 px-1 shadow-lg ring-1 ring-black/50 transition-[grid-template-columns,border-color] duration-150 ease-out group-hover/commander-card:grid-cols-[1fr_auto_1fr]",
-                          taxControlsVisible && "grid-cols-[1fr_auto_1fr] border-indigo-300"
+                      <div className="min-w-0 overflow-hidden">
+                        {isOwner && (
+                          <Tooltip content="Subtract commander tax" placement="top">
+                            <button
+                              type="button"
+                              aria-label={`Decrease commander tax for ${card.name}`}
+                              className={cn(
+                                "flex h-5 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white",
+                                !canDecrement && "cursor-not-allowed opacity-40",
+                              )}
+                              disabled={!canDecrement}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleTaxDelta(card, -2);
+                              }}
+                            >
+                              -2
+                            </button>
+                          </Tooltip>
                         )}
-                      >
-                        <div className="min-w-0 overflow-hidden">
-                          {isOwner && (
-                            <Tooltip content="Subtract commander tax" placement="top">
-                              <button
-                                type="button"
-                                aria-label={`Decrease commander tax for ${card.name}`}
-                                className={cn(
-                                  "flex h-5 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white",
-                                  !canDecrement && "cursor-not-allowed opacity-40"
-                                )}
-                                disabled={!canDecrement}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleTaxDelta(card, -2);
-                                }}
-                              >
-                                -2
-                              </button>
-                            </Tooltip>
+                      </div>
+                      <Tooltip content="Commander tax" placement="top">
+                        <div
+                          className={cn(
+                            "pointer-events-auto flex h-5 min-w-5 items-center justify-center rounded-full border border-zinc-500 bg-zinc-900 px-1 text-[11px] font-bold text-white transition-colors",
+                            taxControlsVisible && "border-indigo-300 ring-indigo-300/70",
                           )}
+                          onPointerDown={(event) => {
+                            if (event.pointerType !== "touch") return;
+                            event.stopPropagation();
+                            setActiveTaxCardId(card.id);
+                          }}
+                        >
+                          {taxValue}
                         </div>
-                        <Tooltip content="Commander tax" placement="top">
-                          <div
-                            className={cn(
-                              "flex h-5 min-w-5 items-center justify-center rounded-full border border-zinc-500 bg-zinc-900 px-1 text-[11px] font-bold text-white pointer-events-auto transition-colors",
-                              taxControlsVisible && "border-indigo-300 ring-indigo-300/70"
-                            )}
-                            onPointerDown={(e) => {
-                              if (e.pointerType !== "touch") return;
-                              e.stopPropagation();
-                              setActiveTaxCardId(card.id);
-                            }}
-                          >
-                            {taxValue}
-                          </div>
-                        </Tooltip>
-                        <div className="min-w-0 overflow-hidden">
-                          {isOwner && (
-                            <Tooltip content="Add commander tax" placement="top">
-                              <button
-                                type="button"
-                                aria-label={`Increase commander tax for ${card.name}`}
-                                className="flex h-5 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleTaxDelta(card, 2);
-                                }}
-                              >
-                                +2
-                              </button>
-                            </Tooltip>
-                          )}
-                        </div>
+                      </Tooltip>
+                      <div className="min-w-0 overflow-hidden">
+                        {isOwner && (
+                          <Tooltip content="Add commander tax" placement="top">
+                            <button
+                              type="button"
+                              aria-label={`Increase commander tax for ${card.name}`}
+                              className="flex h-5 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleTaxDelta(card, 2);
+                              }}
+                            >
+                              +2
+                            </button>
+                          </Tooltip>
+                        )}
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })
           ) : (
-            <div className={cn(
-              "flex flex-col items-center justify-center text-white/30 gap-1",
-              isTop && "rotate-180",
-            )}>
-              <span className="text-md font-medium uppercase tracking-widest">Cmdr</span>
+            <div className="flex h-full min-w-[calc(var(--commander-zone-height)*0.733)] items-center justify-center px-5 text-xs font-medium uppercase tracking-widest text-zinc-600">
+              Empty
             </div>
           )}
         </Zone>

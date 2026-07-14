@@ -281,7 +281,7 @@ describe("BottomBar", () => {
   });
 
   describe("Visual Feedback", () => {
-    it("shows hover state on resize indicator", () => {
+    it("keeps the full-width resize indicator hidden on hover", () => {
       const { container } = render(
         <BottomBar isTop={false} isRight={false} onHeightChange={onHeightChange}>
           <div>Content</div>
@@ -295,7 +295,8 @@ describe("BottomBar", () => {
 
       const resizeHandle = container.querySelector(".cursor-ns-resize");
       fireEvent.mouseEnter(resizeHandle!);
-      expect(visualIndicator?.classList.contains("bg-indigo-400/50")).toBe(true);
+      expect(visualIndicator?.classList.contains("bg-transparent")).toBe(true);
+      expect(visualIndicator?.classList.contains("bg-indigo-400/50")).toBe(false);
       fireEvent.mouseLeave(resizeHandle!);
     });
 

@@ -114,8 +114,6 @@ export const BottomBar: React.FC<BottomBarProps> = ({
     };
   }, [defaultHeight, isDragging, isTop, maxHeight, minHeight, onHeightChange]);
 
-  const indicatorActive = isDragging || isHovering;
-
   return (
     <div
       ref={containerRef}
@@ -138,12 +136,7 @@ export const BottomBar: React.FC<BottomBarProps> = ({
             className={cn(
               "absolute left-0 right-0 z-10 transition-all pointer-events-none",
               isTop ? "bottom-0" : "top-0",
-              indicatorActive ? "h-[2px]" : "h-[1px]",
-              isDragging
-                ? "bg-indigo-500"
-                : indicatorActive
-                  ? "bg-indigo-400/50"
-                  : "bg-white/5"
+              isDragging ? "h-[2px] bg-indigo-500" : "h-px bg-transparent",
             )}
           />
           <div

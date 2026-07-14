@@ -47,11 +47,16 @@ describe("CommanderZone", () => {
       commanderTax: 0,
       isCommander: true,
     };
+    const secondCard: Card = {
+      ...card,
+      id: "c2",
+      name: "Partner Commander",
+    };
     const zone = {
       id: "cmd-me",
       type: ZONE.COMMANDER,
       ownerId: "me",
-      cardIds: [card.id],
+      cardIds: [card.id, secondCard.id],
     } as any;
     act(() => {
       useGameStore.setState({
@@ -59,7 +64,7 @@ describe("CommanderZone", () => {
         viewerRole: "player",
         players: { me: { id: "me", commanderTax: 0 } as any },
         zones: { [zone.id]: zone },
-        cards: { [card.id]: card },
+        cards: { [card.id]: card, [secondCard.id]: secondCard },
         updateCard: updateCard as any,
       } as any);
     });
@@ -69,11 +74,10 @@ describe("CommanderZone", () => {
         <CardPreviewProvider>
           <CommanderZone
             zone={zone}
-            cards={[card]}
+            cards={[card, secondCard]}
             isTop
             isRight={false}
             scale={1}
-            variant="overlay"
           />
         </CardPreviewProvider>
       </DndContext>
@@ -83,11 +87,24 @@ describe("CommanderZone", () => {
       screen.getByRole("button", { name: `Increase commander tax for ${card.name}` })
     );
     const label = document.querySelector("[data-commander-zone-label]");
-    expect(label?.classList.contains("invisible")).toBe(true);
+    const panel = document.querySelector("[data-commander-zone-panel]");
+    expect(label?.textContent).toBe("Commander");
+    expect(label?.classList.contains("h-28")).toBe(false);
+    expect(label?.classList.contains("py-3")).toBe(true);
+    expect(label?.querySelector("span")?.classList.contains("rotate-180")).toBe(true);
+    expect(label?.classList.contains("invisible")).toBe(false);
+    expect(label?.classList.contains("rotate-180")).toBe(false);
+    expect(panel?.classList.contains("invisible")).toBe(true);
     expect(
-      label?.classList.contains("group-hover/commander-zone:visible"),
+      panel?.classList.contains("group-hover/commander-zone:visible"),
     ).toBe(true);
-    expect(label?.classList.contains("rotate-180")).toBe(true);
+    expect(panel?.classList.contains("top-0")).toBe(true);
+    expect(panel?.classList.contains("left-full")).toBe(true);
+    expect(document.querySelectorAll("[data-commander-drawer-card]")).toHaveLength(2);
+    fireEvent.click(label as HTMLElement);
+    expect(label?.getAttribute("aria-expanded")).toBe("true");
+    expect(panel?.classList.contains("visible")).toBe(true);
+    expect(panel?.classList.contains("invisible")).toBe(false);
     expect(updateCard).toHaveBeenCalledWith(card.id, { commanderTax: 2 }, "me");
   });
 });

@@ -190,7 +190,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
         ref={rootRef}
         data-life-box-variant="hand-edge"
         className={cn(
-          "ds-seat-life-pill relative flex items-center whitespace-nowrap rounded-full border border-zinc-700/80 bg-zinc-900 font-bold uppercase text-zinc-400 shadow-[0_2px_10px_rgba(0,0,0,0.45)]",
+          "ds-seat-life-pill relative flex items-center whitespace-nowrap rounded-lg border border-zinc-700/80 bg-zinc-900 font-bold uppercase text-zinc-400 shadow-[0_2px_10px_rgba(0,0,0,0.45)]",
           isMe && "border-indigo-500/50",
           touchExpanded && "border-indigo-300/70",
           className,

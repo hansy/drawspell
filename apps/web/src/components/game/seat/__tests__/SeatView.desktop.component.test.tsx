@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { DndContext } from "@dnd-kit/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -269,6 +269,7 @@ describe("SeatView desktop side-zone previews", () => {
   });
 
   it("composes desktop zones as battlefield edge overlays", () => {
+    const onEditUsername = vi.fn();
     const handZone = makeZone("hand-p1", "hand", ["c-hand"]);
     const libraryZone = makeZone("library-p1", "library", ["c-library"]);
     const graveyardZone = makeZone("graveyard-p1", "graveyard", ["c-graveyard"]);
@@ -315,6 +316,7 @@ describe("SeatView desktop side-zone previews", () => {
             viewerPlayerId="p1"
             opponentColors={{ p1: "sky" }}
             model={model as any}
+            onEditUsername={onEditUsername}
           />
         </DndContext>
       </CardPreviewProvider>,
@@ -322,9 +324,16 @@ describe("SeatView desktop side-zone previews", () => {
 
     expect(container.querySelector("[data-desktop-seat-overlay]")).not.toBeNull();
     expect(container.querySelector(".ds-desktop-seat-container")).not.toBeNull();
-    expect(container.querySelector("[data-desktop-life-overlay]")).not.toBeNull();
+    expect(container.querySelector("[data-desktop-life-overlay]")).toBeNull();
+    expect(container.querySelector("[data-desktop-life-total]")?.textContent).toBe("40");
     expect(container.querySelector("[data-desktop-bottom-overlay]")).not.toBeNull();
-    expect(container.querySelector("[data-desktop-commander-overlay]")).not.toBeNull();
+    expect(container.querySelector("[data-desktop-side-column]")).not.toBeNull();
+    expect(container.querySelector("[data-desktop-side-player-name]")?.textContent).toBe("Player One");
+    expect(container.querySelector("[data-desktop-side-column]")?.classList.contains("flex-col")).toBe(true);
+    expect(container.querySelector("[data-desktop-side-player-slot]")?.classList.contains("items-start")).toBe(true);
+    expect(container.querySelector("[data-commander-zone-panel]")?.classList.contains("bottom-0")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Edit player name" }));
+    expect(onEditUsername).toHaveBeenCalledTimes(1);
     expect(container.querySelector('[data-hand-fit-cards="true"]')).not.toBeNull();
     expect(container.querySelectorAll('[data-side-zone-variant="edge"]')).toHaveLength(3);
     expect(container.textContent).toContain("Hand - 1");
@@ -379,24 +388,25 @@ describe("SeatView desktop side-zone previews", () => {
 
     const rail = container.querySelector("[data-bottom-bar]");
     const seat = container.querySelector('[data-seat-edge="top"]');
-    const life = container.querySelector("[data-desktop-life-overlay]");
-    const commander = container.querySelector(
-      "[data-desktop-commander-overlay]",
-    );
+    const life = container.querySelector("[data-desktop-life-total]");
+    const sideColumn = container.querySelector("[data-desktop-side-column]");
+    const commanderPanel = container.querySelector("[data-commander-zone-panel]");
     const overlay = container.querySelector("[data-desktop-bottom-overlay]");
 
     expect(seat).not.toBeNull();
     expect(rail?.classList.contains("top-0")).toBe(true);
     expect(rail?.classList.contains("bottom-0")).toBe(false);
     expect((life as HTMLElement | null)?.style.top).not.toBe("");
-    expect((life as HTMLElement | null)?.style.bottom).toBe("");
-    expect((commander as HTMLElement | null)?.style.top).not.toBe("");
-    expect((commander as HTMLElement | null)?.style.bottom).toBe("");
+    expect((sideColumn as HTMLElement | null)?.style.top).not.toBe("");
+    expect((sideColumn as HTMLElement | null)?.style.bottom).toBe("0px");
     expect(overlay?.classList.contains("rotate-180")).toBe(true);
-    expect(commander?.classList.contains("rotate-180")).toBe(true);
-    expect(commander?.className).toContain("right-[clamp(384px,34vw,464px)]");
-    expect(life?.className).toContain("right-[var(--sidebar-pad-x)]");
+    expect(sideColumn?.classList.contains("left-0")).toBe(true);
+    expect(sideColumn?.classList.contains("flex-col-reverse")).toBe(true);
+    expect(container.querySelector("[data-desktop-side-player-slot]")?.classList.contains("items-end")).toBe(true);
+    expect(commanderPanel?.classList.contains("left-full")).toBe(true);
+    expect(commanderPanel?.classList.contains("top-0")).toBe(true);
     expect(life?.classList.contains("rotate-180")).toBe(false);
+    expect(container.querySelector("[data-desktop-hand-edge-glow]")).toBeNull();
     expect(
       Array.from(container.querySelectorAll("[data-edge-zone-label]")).every(
         (label) => label.classList.contains("rotate-180"),

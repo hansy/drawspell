@@ -131,6 +131,8 @@ describe("LifeBox", () => {
       '[data-life-box-variant="hand-edge"]',
     );
     expect(lifePill?.classList.contains("ds-seat-life-pill")).toBe(true);
+    expect(lifePill?.classList.contains("rounded-lg")).toBe(true);
+    expect(lifePill?.classList.contains("rounded-full")).toBe(false);
     expect(lifePill?.classList.contains("invisible")).toBe(false);
     expect(screen.getByText("Jace")).toBeTruthy();
     expect(screen.getByText("Jace").classList.contains("text-sky-400")).toBe(true);
