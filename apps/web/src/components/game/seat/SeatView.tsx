@@ -16,11 +16,13 @@ import { useElementSize } from "@/hooks/shared/useElementSize";
 
 import { Battlefield } from "./Battlefield";
 import { BottomBar } from "./BottomBar";
+import { LifeBox } from "../player/LifeBox";
 import { CommanderZone } from "./CommanderZone";
 import { Hand } from "./Hand";
 import { PortraitCommanderDrawer } from "./PortraitCommanderDrawer";
 import { PortraitSeatToolbar } from "./PortraitSeatToolbar";
 import { SideZone } from "./SideZone";
+import { SeatOrientationFrame } from "./SeatOrientationFrame";
 import type { SeatModel } from "@/models/game/seat/seatModel";
 import {
   getDesktopHandHeights,
@@ -85,6 +87,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
   onOpponentLibraryReveals,
   model,
   zoomControlsDisabled,
+  onLifeContextMenu,
   layoutVariant = "default",
   onPortraitCommanderDrawerOpenChange,
 }) => {
@@ -603,30 +606,40 @@ export const SeatView: React.FC<SeatViewProps> = ({
           )}
         </div>
 
+        <SeatOrientationFrame isTop={isTop} isRight={isRight}>
         <div
           data-desktop-side-column
           className={cn(
-            "absolute z-10 flex w-[var(--seat-side-column-w)] bg-zinc-950/80 backdrop-blur-sm",
-            isTop ? "flex-col-reverse" : "flex-col",
-            isRight
-              ? "right-0 border-l border-white/10"
-              : "left-0 border-r border-white/10",
+            "pointer-events-auto absolute z-10 flex w-[var(--seat-side-column-w)] bg-zinc-950/80 backdrop-blur-sm",
+            "left-0 flex-col border-r border-white/10",
           )}
           style={{
-            ...(isTop
-              ? { top: effectiveHandHeight, bottom: 0 }
-              : { top: 0, bottom: effectiveHandHeight }),
+            top: 0,
+            bottom: effectiveHandHeight,
             "--commander-zone-height": `${Math.min(
               168,
               Math.max(104, effectiveHandHeight * 0.85),
             )}px`,
           } as React.CSSProperties & { "--commander-zone-height": string }}
         >
+          <LifeBox
+            player={player}
+            color={color}
+            isMe={isMe}
+            opponentColors={opponentColors}
+            variant="sidebar"
+            onContextMenu={
+              onLifeContextMenu
+                ? (event) => onLifeContextMenu(event, player)
+                : undefined
+            }
+          />
+
           <div
             data-desktop-side-player-slot
             className={cn(
               "flex min-h-0 flex-1 justify-center overflow-hidden py-3",
-              isTop ? "items-end" : "items-start",
+              "items-start",
             )}
           >
             {isMe && onEditUsername ? (
@@ -637,7 +650,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 onClick={onEditUsername}
                 className={cn(
                   "max-h-full cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.16em] transition-colors [writing-mode:vertical-rl] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70",
-                  !isRight && "rotate-180",
+                  "ds-seat-upright ds-seat-vertical-label",
                   color === "rose" && "text-rose-400",
                   color === "violet" && "text-violet-400",
                   color === "sky" && "text-sky-400",
@@ -651,7 +664,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 data-desktop-side-player-name
                 className={cn(
                   "max-h-full overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.16em] [writing-mode:vertical-rl]",
-                  !isRight && "rotate-180",
+                  "ds-seat-upright ds-seat-vertical-label",
                   color === "rose" && "text-rose-400",
                   color === "violet" && "text-violet-400",
                   color === "sky" && "text-sky-400",
@@ -667,48 +680,40 @@ export const SeatView: React.FC<SeatViewProps> = ({
             <CommanderZone
               zone={commander}
               cards={commandCards}
-              isTop={isTop}
-              isRight={isRight}
+              isTop={false}
+              isRight={false}
               onZoneContextMenu={onZoneContextMenu}
               scale={scale}
             />
           )}
         </div>
 
-        <div
-          data-desktop-life-total
-          className="pointer-events-none absolute right-3 z-40 font-mono text-2xl font-bold leading-none text-zinc-100 drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]"
-          style={{ top: isTop ? effectiveHandHeight + 12 : 12 }}
-        >
-          {player.life}
-        </div>
-
         <BottomBar
-          isTop={isTop}
+          isTop={false}
           isRight={false}
+          invertResizeDirection={isTop}
           height={effectiveHandHeight}
           defaultHeight={handDefaultHeightPx}
           minHeight={handMinHeightPx}
           maxHeight={handMaxHeightPx}
           onHeightChange={isMe ? handleHandHeightChange : undefined}
           className={cn(
-            "absolute inset-x-0 bg-transparent",
-            isTop ? "top-0" : "bottom-0",
+            "pointer-events-auto absolute inset-x-0 bg-transparent",
+            "bottom-0",
           )}
         >
           <div
             data-desktop-bottom-overlay
             className={cn(
               "flex h-full w-full",
-              isTop && "rotate-180",
             )}
           >
             {hand && (
               <Hand
                 zone={hand}
                 cards={handCards}
-                isTop={isTop}
-                isRight={isRight}
+                isTop={false}
+                isRight={false}
                 isMe={isMe}
                 viewerPlayerId={viewerPlayerId}
                 viewerRole={viewerRole}
@@ -728,7 +733,6 @@ export const SeatView: React.FC<SeatViewProps> = ({
               {library && (
                 <SideZone
                   variant="edge"
-                  isTop={isTop}
                   cardHeight={desktopHandHeights?.cardHeight}
                   visibleHeight={effectiveHandHeight}
                   zone={library}
@@ -777,7 +781,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                           data-load-deck-label
                           className={cn(
                             "absolute left-1/2 top-1/4 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1",
-                            isTop && "rotate-180",
+                            "ds-seat-upright",
                           )}
                         >
                           <Plus size={18} />
@@ -794,7 +798,6 @@ export const SeatView: React.FC<SeatViewProps> = ({
               {graveyard && (
                 <SideZone
                   variant="edge"
-                  isTop={isTop}
                   cardHeight={desktopHandHeights?.cardHeight}
                   visibleHeight={effectiveHandHeight}
                   zone={graveyard}
@@ -816,7 +819,6 @@ export const SeatView: React.FC<SeatViewProps> = ({
               {exile && (
                 <SideZone
                   variant="edge"
-                  isTop={isTop}
                   cardHeight={desktopHandHeights?.cardHeight}
                   visibleHeight={effectiveHandHeight}
                   zone={exile}
@@ -838,6 +840,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
             </div>
           </div>
         </BottomBar>
+        </SeatOrientationFrame>
       </div>
     </div>
   );

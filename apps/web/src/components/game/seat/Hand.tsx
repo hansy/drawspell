@@ -190,7 +190,7 @@ const SortableCard = React.memo(
         data-dnd-hand-sortable-card-id={card.id}
         data-dnd-hand-card-scale={cardScale}
         className={cn(
-          "relative flex shrink-0 h-full w-[var(--hand-card-slot-width)] items-center lg:items-start touch-none transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group",
+          "ds-seat-upright relative flex shrink-0 h-full w-[var(--hand-card-slot-width)] items-center lg:items-start touch-none transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group",
           "hover:-translate-y-3",
           isActiveDragSource && "z-50",
           isPendingDrop && "z-50 opacity-0",
@@ -537,7 +537,7 @@ const HandInner: React.FC<HandProps> = ({
                 ? "left-8"
                 : "right-8"
               : undefined,
-            isTop && "rotate-180",
+            "ds-seat-upright",
           )}
         >
           {ZONE_LABEL.hand} - {cards.length}

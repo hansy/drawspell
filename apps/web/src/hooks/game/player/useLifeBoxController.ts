@@ -22,7 +22,7 @@ export type LifeBoxControllerInput = {
   isTop?: boolean;
   onEditUsername?: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
-  variant?: "box" | "hand-edge";
+  variant?: "box" | "hand-edge" | "sidebar";
 };
 
 export const useLifeBoxController = ({

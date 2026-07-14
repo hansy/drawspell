@@ -118,6 +118,22 @@ code {
     container-type: inline-size;
   }
 
+  .ds-seat-orientation-frame {
+    transform: scale(
+      var(--seat-mirror-x, 1),
+      var(--seat-mirror-y, 1)
+    );
+    transform-origin: center;
+  }
+
+  .ds-seat-upright {
+    scale: var(--seat-mirror-x, 1) var(--seat-mirror-y, 1);
+  }
+
+  .ds-seat-vertical-label {
+    rotate: var(--seat-vertical-label-rotation, 180deg);
+  }
+
   .ds-edge-zone-label {
     max-width: calc(100% - 0.5rem);
     padding: 0.2rem 0.35rem;

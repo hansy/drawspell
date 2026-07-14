@@ -179,8 +179,7 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
       >
         <span
           className={cn(
-            "whitespace-nowrap leading-none [writing-mode:vertical-rl]",
-            !isRight && "rotate-180",
+            "ds-seat-upright ds-seat-vertical-label whitespace-nowrap leading-none [writing-mode:vertical-rl]",
           )}
         >
           Commander
@@ -223,7 +222,7 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
                 <div
                   key={card.id}
                   data-commander-drawer-card
-                  className="group/commander-card relative h-full shrink-0 aspect-[11/15]"
+                  className="ds-seat-upright group/commander-card relative h-full shrink-0 aspect-[11/15]"
                 >
                   <Card
                     card={card}
@@ -297,7 +296,10 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
               );
             })
           ) : (
-            <div className="flex h-full min-w-[calc(var(--commander-zone-height)*0.733)] items-center justify-center px-5 text-xs font-medium uppercase tracking-widest text-zinc-600">
+            <div
+              data-commander-zone-empty
+              className="ds-seat-upright flex h-full min-w-[calc(var(--commander-zone-height)*0.733)] items-center justify-center px-5 text-xs font-medium uppercase tracking-widest text-zinc-600"
+            >
               Empty
             </div>
           )}

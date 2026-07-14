@@ -91,7 +91,9 @@ describe("CommanderZone", () => {
     expect(label?.textContent).toBe("Commander");
     expect(label?.classList.contains("h-28")).toBe(false);
     expect(label?.classList.contains("py-3")).toBe(true);
-    expect(label?.querySelector("span")?.classList.contains("rotate-180")).toBe(true);
+    expect(
+      label?.querySelector("span")?.classList.contains("ds-seat-vertical-label"),
+    ).toBe(true);
     expect(label?.classList.contains("invisible")).toBe(false);
     expect(label?.classList.contains("rotate-180")).toBe(false);
     expect(panel?.classList.contains("invisible")).toBe(true);

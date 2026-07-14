@@ -173,6 +173,127 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
     ? "opacity-100 visible"
     : "opacity-0 invisible group-hover:opacity-100 group-hover:visible";
 
+  if (variant === "sidebar") {
+    const sidebarDisclosureVisibility = touchExpanded
+      ? "visible opacity-100"
+      : "invisible opacity-0 group-hover/life:visible group-hover/life:opacity-100 group-focus-within/life:visible group-focus-within/life:opacity-100";
+
+    return (
+      <div
+        ref={rootRef}
+        data-life-box-variant="sidebar"
+        className={cn(
+          "group/life pointer-events-auto relative flex h-12 w-full shrink-0 items-center justify-center border-b border-white/10 bg-zinc-900/60",
+          className,
+        )}
+        onPointerDown={handleTouchExpand}
+      >
+        <div
+          data-desktop-life-total
+          tabIndex={canEditLife || showCommanderDamageDrawer ? 0 : undefined}
+          aria-label={`${player.name || "Player"} life total ${player.life}`}
+          className="ds-seat-upright cursor-default select-none font-mono text-xl font-bold leading-none text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+          onContextMenu={canEditLife ? onContextMenu : undefined}
+          onPointerDown={handleTouchContextMenuStart}
+          onPointerMove={handleTouchContextMenuMove}
+          onPointerUp={handleTouchContextMenuEnd}
+          onPointerCancel={handleTouchContextMenuEnd}
+          onPointerLeave={handleTouchContextMenuEnd}
+        >
+          {player.life}
+        </div>
+
+        <div
+          data-life-sidebar-disclosure
+          className={cn(
+            "ds-seat-upright absolute left-full top-1/2 z-50 ml-2 w-48 -translate-y-1/2 rounded-lg border border-zinc-700 bg-zinc-900 p-3 shadow-xl transition-[opacity,visibility] duration-150 ease-out motion-reduce:transition-none",
+            sidebarDisclosureVisibility,
+          )}
+        >
+          <div className="flex items-center justify-center gap-2">
+            {canEditLife && (
+              <button
+                type="button"
+                aria-label="Decrease life"
+                onClick={() => handleLifeChange(-1)}
+                disabled={isAtMinLife}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-300 transition-colors hover:bg-red-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Minus size={14} />
+              </button>
+            )}
+            <span className="min-w-10 text-center font-mono text-xl font-bold text-zinc-100">
+              {player.life}
+            </span>
+            {canEditLife && (
+              <button
+                type="button"
+                aria-label="Increase life"
+                onClick={() => handleLifeChange(1)}
+                disabled={isAtMaxLife}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-300 transition-colors hover:bg-green-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Plus size={14} />
+              </button>
+            )}
+          </div>
+
+          {showCommanderDamageDrawer && (
+            <div
+              data-commander-damage-controls
+              className="mt-3 border-t border-zinc-700 pt-3"
+            >
+              <div className="mb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                Commander damage
+              </div>
+              <div className="flex flex-col gap-2">
+                {commanderDamageEntries.map(({ opponentId, color, damage }) => (
+                  <div
+                    key={opponentId}
+                    className="flex items-center justify-center gap-3"
+                  >
+                    {canEditCommanderDamage && (
+                      <button
+                        type="button"
+                        aria-label={`Decrease commander damage from ${opponentId}`}
+                        onClick={() => handleCommanderDamageChange(opponentId, -1)}
+                        disabled={damage <= 0}
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Minus size={13} />
+                      </button>
+                    )}
+                    <span
+                      className={cn(
+                        "w-8 text-center font-mono text-base",
+                        color === "rose" && "text-rose-400",
+                        color === "violet" && "text-violet-400",
+                        color === "sky" && "text-sky-400",
+                        color === "amber" && "text-amber-400",
+                      )}
+                    >
+                      {damage}
+                    </span>
+                    {canEditCommanderDamage && (
+                      <button
+                        type="button"
+                        aria-label={`Increase commander damage from ${opponentId}`}
+                        onClick={() => handleCommanderDamageChange(opponentId, 1)}
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-100"
+                      >
+                        <Plus size={13} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (variant === "hand-edge") {
     const edgeControlVisibility = touchExpanded
       ? "visible w-7 opacity-100"

@@ -44,7 +44,6 @@ describe("SideZone touch gestures", () => {
     const { container, getByText } = render(
       <SideZone
         variant="edge"
-        isTop
         zone={zone as any}
         label="Library"
         count={92}
@@ -63,12 +62,12 @@ describe("SideZone touch gestures", () => {
     expect((emptyContent as HTMLElement | null)?.style.height).toBe("150px");
     expect(emptyLabel?.classList.contains("top-1/4")).toBe(true);
     expect(emptyLabel?.textContent).toBe("Library");
-    expect(emptyLabel?.classList.contains("rotate-180")).toBe(true);
+    expect(emptyLabel?.classList.contains("ds-seat-upright")).toBe(true);
     expect(label.classList.contains("bottom-1")).toBe(true);
     expect(label.classList.contains("ds-edge-zone-label")).toBe(true);
     expect(label.classList.contains("invisible")).toBe(true);
     expect(label.classList.contains("group-hover/edge-zone:visible")).toBe(true);
-    expect(label.classList.contains("rotate-180")).toBe(true);
+    expect(label.classList.contains("ds-seat-upright")).toBe(true);
   });
 
   it("removes the dotted outline when the edge zone contains a card", () => {

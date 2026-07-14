@@ -149,4 +149,38 @@ describe("LifeBox", () => {
     expect(decreaseLife.classList.contains("group-hover/life:w-7")).toBe(true);
     expect(screen.getByRole("button", { name: "Increase life" })).toBeTruthy();
   });
+
+  it("renders a narrow sidebar trigger with hover life and commander controls", () => {
+    const { container } = render(
+      <LifeBox
+        player={{
+          id: "me",
+          name: "Jace",
+          life: 38,
+          counters: [],
+          commanderDamage: { opponent: 3 },
+          commanderTax: 0,
+        } as any}
+        isMe
+        color="sky"
+        variant="sidebar"
+        opponentColors={{ me: "sky", opponent: "rose" }}
+      />
+    );
+
+    const lifeBox = container.querySelector('[data-life-box-variant="sidebar"]');
+    const disclosure = container.querySelector("[data-life-sidebar-disclosure]");
+    expect(lifeBox).not.toBeNull();
+    expect(lifeBox?.classList.contains("w-full")).toBe(true);
+    expect(screen.getByLabelText("Jace life total 38")).toBeTruthy();
+    expect(disclosure?.classList.contains("group-hover/life:visible")).toBe(true);
+    expect(container.querySelector("[data-commander-damage-controls]")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Decrease life" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Increase life" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: "Increase commander damage from opponent",
+      }),
+    ).toBeTruthy();
+  });
 });

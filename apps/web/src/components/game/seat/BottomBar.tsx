@@ -18,6 +18,7 @@ interface BottomBarProps {
   minHeight?: number;
   maxHeight?: number;
   defaultHeight?: number;
+  invertResizeDirection?: boolean;
 }
 
 export const BottomBar: React.FC<BottomBarProps> = ({
@@ -30,8 +31,10 @@ export const BottomBar: React.FC<BottomBarProps> = ({
   minHeight: minHeightProp,
   maxHeight: maxHeightProp,
   defaultHeight: defaultHeightProp,
+  invertResizeDirection: invertResizeDirectionProp,
 }) => {
   const canResize = Boolean(onHeightChange);
+  const invertResizeDirection = invertResizeDirectionProp ?? isTop;
   const minHeight = minHeightProp ?? HAND_MIN_HEIGHT;
   const maxHeight = maxHeightProp ?? HAND_MAX_HEIGHT;
   const defaultHeight = defaultHeightProp ?? HAND_DEFAULT_HEIGHT;
@@ -72,7 +75,7 @@ export const BottomBar: React.FC<BottomBarProps> = ({
       if (dragStartYRef.current === null || dragStartHeightRef.current === null) {
         return;
       }
-      const delta = isTop
+      const delta = invertResizeDirection
         ? e.clientY - dragStartYRef.current
         : dragStartYRef.current - e.clientY;
       let newHeight = dragStartHeightRef.current + delta;
@@ -112,7 +115,7 @@ export const BottomBar: React.FC<BottomBarProps> = ({
       dragStartYRef.current = null;
       dragStartHeightRef.current = null;
     };
-  }, [defaultHeight, isDragging, isTop, maxHeight, minHeight, onHeightChange]);
+  }, [defaultHeight, invertResizeDirection, isDragging, maxHeight, minHeight, onHeightChange]);
 
   return (
     <div

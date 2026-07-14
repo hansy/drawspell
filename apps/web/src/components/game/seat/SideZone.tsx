@@ -25,7 +25,6 @@ interface SideZoneProps {
   zone: ZoneType;
   card?: CardType;
   label: string;
-  isTop?: boolean;
   count: number;
   onContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   onClick?: (e: React.MouseEvent, zoneId: ZoneId) => void;
@@ -49,7 +48,6 @@ export const SideZone: React.FC<SideZoneProps> = ({
   zone,
   card,
   label,
-  isTop = false,
   count,
   onContextMenu,
   onClick,
@@ -298,7 +296,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
           onMouseLeave={onMouseLeave}
         >
           {rightIndicator && (
-            <div className="pointer-events-none absolute right-1 top-1 z-20 drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]">
+            <div className="ds-seat-upright pointer-events-none absolute right-1 top-1 z-20 drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]">
               {rightIndicator}
             </div>
           )}
@@ -311,7 +309,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
               disableDrag={disableCardDrag}
               disableInteractions
               disableHoverAnimation
-              className={cn("h-full w-full", cardClassName)}
+              className={cn("ds-seat-upright h-full w-full", cardClassName)}
             />
           ) : (
             <div
@@ -324,7 +322,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
                   data-edge-zone-empty-label
                   className={cn(
                     "absolute left-1/2 top-1/4 -translate-x-1/2 -translate-y-1/2 text-xs text-zinc-500",
-                    isTop && "rotate-180",
+                    "ds-seat-upright",
                   )}
                 >
                   {label}
@@ -339,7 +337,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
           data-edge-zone-label
           className={cn(
             "ds-edge-zone-label pointer-events-none invisible absolute bottom-1 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full border border-zinc-700/70 bg-zinc-900 font-bold uppercase text-zinc-400 opacity-0 shadow-[0_2px_10px_rgba(0,0,0,0.45)] transition-[opacity,visibility] duration-150 group-hover/edge-zone:visible group-hover/edge-zone:opacity-100 group-focus-within/edge-zone:visible group-focus-within/edge-zone:opacity-100 motion-reduce:transition-none select-none",
-            isTop && "rotate-180",
+            "ds-seat-upright",
           )}
         >
           {label} - {count}
