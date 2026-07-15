@@ -5,6 +5,7 @@ import { createRoomId } from "@/lib/roomId";
 import {
   clearRoomHostPending,
   isRoomHostPending,
+  isRoomUnavailable,
   markRoomAsHostPending,
   readRoomTokensFromStorage,
   writeRoomTokensToStorage,
@@ -19,10 +20,11 @@ import { LandingHero } from "@/components/landing/LandingHero";
 import { OrbitAnimation } from "@/components/landing/OrbitAnimation";
 import { ResumeCard } from "@/components/landing/ResumeCard";
 import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
+import { getRoomStatus } from "@/server/roomStatus";
 
 const origins = resolveOriginsForEnv(import.meta.env.VITE_ENV);
 
-const LandingPage = () => {
+export const LandingPage = () => {
   const navigate = useNavigate();
   const hasHydrated = useClientPrefsStore((state) => state.hasHydrated);
   const lastSessionId = useClientPrefsStore((state) => state.lastSessionId);
@@ -51,12 +53,41 @@ const LandingPage = () => {
       storedTokens?.spectatorToken ||
       isRoomHostPending(lastSessionId),
     );
-    if (canResume) {
-      setResumeSessionId(lastSessionId);
-    } else {
+    if (!canResume || isRoomUnavailable(lastSessionId)) {
       setResumeSessionId(null);
       clearLastSessionId();
+      return;
     }
+
+    const accessToken =
+      storedTokens?.playerToken ?? storedTokens?.spectatorToken ?? null;
+    if (!accessToken) {
+      setResumeSessionId(lastSessionId);
+      return;
+    }
+
+    let cancelled = false;
+    setResumeSessionId(null);
+    void getRoomStatus({ data: { roomId: lastSessionId, accessToken } })
+      .then(({ exists }) => {
+        if (cancelled) return;
+        if (exists) {
+          setResumeSessionId(lastSessionId);
+          return;
+        }
+        clearRoomHostPending(lastSessionId);
+        writeRoomTokensToStorage(lastSessionId, null);
+        useGameStore.getState().forgetSessionIdentity(lastSessionId);
+        clearLastSessionId();
+      })
+      .catch(() => {
+        // A transient status outage should not discard a valid saved room.
+        if (!cancelled) setResumeSessionId(lastSessionId);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [hasHydrated, lastSessionId, clearLastSessionId]);
 
   const handleCreateGame = () => {

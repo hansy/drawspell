@@ -2597,3 +2597,39 @@ describe("server lifecycle guards", () => {
     );
   });
 });
+
+describe("room status", () => {
+  it("confirms an existing room for either saved access token", async () => {
+    const state = createState();
+    await state.storage.put(ROOM_TOKENS_KEY, {
+      playerToken: "player-token",
+      spectatorToken: "spectator-token",
+    });
+    const server = new Room(state, createEnv());
+
+    const response = await server.onRequest(
+      new Request("https://internal/__room/status", {
+        method: "POST",
+        headers: { "x-drawspell-room-access-token": "spectator-token" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ exists: true });
+  });
+
+  it("reports a room as absent after its storage has been destroyed", async () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+
+    const response = await server.onRequest(
+      new Request("https://internal/__room/status", {
+        method: "POST",
+        headers: { "x-drawspell-room-access-token": "stale-player-token" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ exists: false });
+  });
+});

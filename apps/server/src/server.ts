@@ -106,6 +106,9 @@ const ROOM_ADMIN_REPAIR_PATH = "/admin/rooms/repair";
 const ROOM_ADMIN_INTERNAL_PROBE_PATH = "/__admin/rooms/probe";
 const ROOM_ADMIN_INTERNAL_REPAIR_PATH = "/__admin/rooms/repair";
 const ROOM_ADMIN_AUTH_HEADER = "x-drawspell-room-admin-auth";
+const ROOM_STATUS_PATH = "/rooms/status";
+const ROOM_STATUS_INTERNAL_PATH = "/__room/status";
+const ROOM_ACCESS_TOKEN_HEADER = "x-drawspell-room-access-token";
 const OVERLAY_DIFF_CAPABILITY = "overlay-diff-v1";
 const PERF_METRICS_ENABLED = false;
 const PERF_METRICS_ALLOW_PARAM = false;
@@ -464,6 +467,48 @@ const handleRoomAdminProxyRequest = async (
   }
 };
 
+const handleRoomStatusRequest = async (
+  request: Request,
+  env: Env,
+): Promise<Response> => {
+  if (request.method !== "POST") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+  if (!env.rooms) {
+    return new Response("Rooms namespace unavailable", { status: 503 });
+  }
+
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch (_err) {
+    return new Response("Invalid JSON body", { status: 400 });
+  }
+  if (!rawBody || typeof rawBody !== "object") {
+    return new Response("Invalid request body", { status: 400 });
+  }
+  const body = rawBody as Record<string, unknown>;
+  const roomId = normalizeNonEmptyString(body.roomId);
+  const accessToken = normalizeNonEmptyString(body.accessToken);
+  if (!roomId || roomId.length > 128 || !accessToken) {
+    return new Response("Invalid request body", { status: 400 });
+  }
+
+  const roomRequest = new Request(`https://internal${ROOM_STATUS_INTERNAL_PATH}`, {
+    method: "POST",
+    headers: {
+      "x-partykit-namespace": "rooms",
+      "x-partykit-room": roomId,
+      [ROOM_ACCESS_TOKEN_HEADER]: accessToken,
+    },
+  });
+  try {
+    return await env.rooms.get(env.rooms.idFromName(roomId)).fetch(roomRequest);
+  } catch (_err) {
+    return new Response("Room status unavailable", { status: 503 });
+  }
+};
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
@@ -487,6 +532,9 @@ export default {
           env,
           ROOM_ADMIN_INTERNAL_REPAIR_PATH,
         );
+      }
+      if (url.pathname === ROOM_STATUS_PATH) {
+        return handleRoomStatusRequest(request, env);
       }
       if (url.pathname === DISCORD_ROOM_PROVISION_PATH) {
         if (request.method !== "POST") {
@@ -636,6 +684,22 @@ export class Room extends YServer<Env> {
 
   async onRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === ROOM_STATUS_INTERNAL_PATH) {
+      if (request.method !== "POST") {
+        return new Response("Method not allowed", { status: 405 });
+      }
+      const accessToken = normalizeNonEmptyString(
+        request.headers.get(ROOM_ACCESS_TOKEN_HEADER),
+      );
+      const tokens = accessToken ? await this.admission.loadRoomTokens() : null;
+      const exists = Boolean(
+        accessToken &&
+          tokens &&
+          (accessToken === tokens.playerToken ||
+            accessToken === tokens.spectatorToken),
+      );
+      return Response.json({ exists });
+    }
     if (url.pathname === ROOM_ADMIN_INTERNAL_PROBE_PATH) {
       return this.handleRoomAdminRequest(request, "probe");
     }
