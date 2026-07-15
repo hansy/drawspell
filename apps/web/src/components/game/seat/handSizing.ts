@@ -16,6 +16,36 @@ export const DESKTOP_HAND_DEFAULT_VISIBLE_RATIO = 0.75;
 export const DESKTOP_HAND_MAX_SEAT_RATIO = 0.4;
 export const DESKTOP_BOTTOM_ZONE_COUNT = 6;
 export const DESKTOP_ZONE_CARD_GUTTER_PX = 16;
+export const COMMANDER_CARD_MIN_HEIGHT_PX = 160;
+export const COMMANDER_DRAWER_PADDING_PX = 8;
+export const COMMANDER_ZONE_LABEL_TEXT_HEIGHT_PX = 72;
+export const COMMANDER_ZONE_LABEL_PADDING_PX = 12;
+export const COMMANDER_ZONE_LABEL_HEIGHT_PX =
+  COMMANDER_ZONE_LABEL_TEXT_HEIGHT_PX + COMMANDER_ZONE_LABEL_PADDING_PX * 2;
+export const COMMANDER_DRAWER_MIN_HEIGHT_PX =
+  COMMANDER_CARD_MIN_HEIGHT_PX + COMMANDER_DRAWER_PADDING_PX * 2;
+
+export const getCommanderDrawerHeight = ({
+  battlefieldCardHeight,
+  handHeight,
+}: {
+  battlefieldCardHeight?: number;
+  handHeight: number;
+}) =>
+  Math.max(
+    COMMANDER_DRAWER_MIN_HEIGHT_PX,
+    battlefieldCardHeight ?? handHeight * 0.85,
+  );
+
+export const getCommanderZoneLabelSizing = (seatScale: number) => {
+  const safeScale = Math.max(seatScale, 0.01);
+  const padding = COMMANDER_ZONE_LABEL_PADDING_PX / safeScale;
+
+  return {
+    height: COMMANDER_ZONE_LABEL_TEXT_HEIGHT_PX + padding * 2,
+    padding,
+  };
+};
 
 export const getDesktopHandHeights = ({
   seatWidth,

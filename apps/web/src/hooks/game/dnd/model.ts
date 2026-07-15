@@ -33,6 +33,7 @@ export type GroupGhostCardState = {
 export type DragMoveUiState = {
   ghostCard: GhostCardState | null;
   overCardScale: number;
+  dragOverlayScale?: number;
   debug?: {
     activeRect?: RectLike | null;
     centerScreen: { x: number; y: number };
@@ -76,12 +77,19 @@ export const computeDragMoveUiState = (params: {
       cardBaseHeight?: number;
       cardBaseWidth?: number;
       mirrorY?: boolean;
+      dragOverlayScale?: number;
     };
 }): DragMoveUiState => {
   if (!params.over) return { ghostCard: null, overCardScale: 1 };
 
   if (params.over.type !== ZONE.BATTLEFIELD) {
-    return { ghostCard: null, overCardScale: 1 };
+    return {
+      ghostCard: null,
+      overCardScale: 1,
+      ...(params.over.dragOverlayScale !== undefined
+        ? { dragOverlayScale: params.over.dragOverlayScale }
+        : {}),
+    };
   }
 
   const activeCard = params.activeCardId
@@ -152,6 +160,9 @@ export const computeDragMoveUiState = (params: {
       size: { width: placement.cardWidth, height: placement.cardHeight },
     },
     overCardScale,
+    ...(params.over.dragOverlayScale !== undefined
+      ? { dragOverlayScale: params.over.dragOverlayScale }
+      : {}),
     debug: {
       activeRect: params.activeRect,
       centerScreen: liveCenterScreen,
@@ -293,6 +304,7 @@ export type DragEndPlan =
       cardId: CardId;
       toZoneId: ZoneId;
       position: { x: number; y: number } | undefined;
+      targetIndex?: number;
     };
 
 export const isPointInsideRect = (
@@ -311,6 +323,38 @@ export const isPointInsideRectVerticalBand = (
 
 export const getHandEdgeInset = (rect: Pick<RectLike, "width" | "height">) =>
   Math.max(24, Math.min(rect.width / 4, rect.height / 2));
+
+export const computeHandDropPreviewTargetIndex = (params: {
+  targetZone: Pick<Zone, "type" | "cardIds"> | null | undefined;
+  activeCardId: CardId;
+  overCardId?: CardId;
+  pointerScreen?: { x: number; y: number } | null;
+  handRect?: RectLike | null;
+}) => {
+  if (params.targetZone?.type !== ZONE.HAND) return null;
+
+  const overIndex = params.overCardId
+    ? params.targetZone.cardIds.indexOf(params.overCardId)
+    : -1;
+  if (overIndex >= 0) return overIndex;
+
+  const isAlreadyInHand = params.targetZone.cardIds.includes(params.activeCardId);
+  if (!params.pointerScreen || !params.handRect) {
+    return isAlreadyInHand ? null : params.targetZone.cardIds.length;
+  }
+
+  const ratio = Math.max(
+    0,
+    Math.min(
+      1,
+      (params.pointerScreen.x - params.handRect.left) / params.handRect.width,
+    ),
+  );
+  const lastIndex = isAlreadyInHand
+    ? Math.max(0, params.targetZone.cardIds.length - 1)
+    : params.targetZone.cardIds.length;
+  return Math.round(ratio * lastIndex);
+};
 
 export const computeSameHandEdgePreviewIndex = (params: {
   sourceZone: Pick<Zone, "type"> | null | undefined;
@@ -431,6 +475,18 @@ export const computeDragEndPlan = (params: {
       cardId: params.cardId,
       toZoneId: targetZone.id,
       position: undefined,
+      ...(targetZone.type === ZONE.HAND
+        ? {
+            targetIndex:
+              computeHandDropPreviewTargetIndex({
+                targetZone,
+                activeCardId: params.cardId,
+                overCardId: params.overCardId,
+                pointerScreen: params.pointerScreen,
+                handRect: params.handZoneRect ?? params.overRect,
+              }) ?? targetZone.cardIds.length,
+          }
+        : {}),
     };
   }
 

@@ -40,8 +40,39 @@ describe("Hand visual ownership", () => {
       handDragPreview: null,
       isGroupDragging: false,
       overCardScale: 1,
+      dragOverlayScale: 1,
+      dragOverlayCue: null,
       pendingDropVisualClaims: [],
     } as Partial<ReturnType<typeof useDragStore.getState>>);
+  });
+
+  it("shows the context-menu cursor on an actionable hand background", () => {
+    const card = buildCard("c1", "p1-hand");
+    const zone = buildHandZone("p1-hand", "p1", [card.id]);
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Hand
+            zone={zone}
+            cards={[card]}
+            isTop={false}
+            isRight={false}
+            isMe
+            viewerPlayerId="p1"
+            viewerRole="player"
+            onHandContextMenu={vi.fn()}
+            showLabel={false}
+          />
+        </CardPreviewProvider>
+      </DndContext>,
+    );
+
+    expect(
+      container
+        .querySelector('[data-zone-id="p1-hand"]')
+        ?.classList.contains("cursor-context-menu"),
+    ).toBe(true);
   });
 
   it("keeps a source-zone card visually suppressed while drop ownership is pending", () => {
@@ -129,9 +160,7 @@ describe("Hand visual ownership", () => {
           '[data-dnd-hand-card-frame-id="c1"]'
         ) as HTMLElement
       ).style.opacity
-    ).toBe(
-      "0.45"
-    );
+    ).toBe("0.45");
     expect(
       container
         .querySelector('[data-card-id="c1"]')
@@ -192,9 +221,7 @@ describe("Hand visual ownership", () => {
           '[data-dnd-hand-card-frame-id="c3"]'
         ) as HTMLElement
       ).style.opacity
-    ).toBe(
-      "0.45"
-    );
+    ).toBe("0.45");
   });
 
   it("allows native horizontal touch panning when the custom scrollbar is disabled", () => {
@@ -302,7 +329,9 @@ describe("Hand visual ownership", () => {
             baseCardHeight={120}
             cardScale={1.25}
             fitCards
+            flipCards
             labelPlacement="bottom-center"
+            cardTopGapPx={0}
           />
         </CardPreviewProvider>
       </DndContext>
@@ -311,20 +340,39 @@ describe("Hand visual ownership", () => {
     const frame = container.querySelector(
       '[data-dnd-hand-card-frame-id="c1"]',
     ) as HTMLElement | null;
+    const sortableSlot = container.querySelector(
+      '[data-dnd-hand-sortable-card-id="c1"]',
+    );
     const card = container.querySelector('[data-card-id="c1"]') as HTMLElement | null;
     const label = getByText("Hand - 2");
+    const handZone = container.querySelector('[data-zone-id="p1-hand"]');
 
     expect(frame?.style.width).toBe("100px");
     expect(frame?.style.height).toBe("150px");
+    expect(frame?.classList.contains("rotate-180")).toBe(true);
+    expect(frame?.classList.contains("ds-seat-upright")).toBe(true);
+    expect(sortableSlot?.classList.contains("ds-seat-upright")).toBe(false);
     expect(card?.style.transformOrigin).toBe("top left");
     expect(label.classList.contains("bottom-1")).toBe(true);
     expect(label.classList.contains("ds-edge-zone-label")).toBe(true);
     expect(label.classList.contains("invisible")).toBe(true);
     expect(label.classList.contains("group-hover/hand-zone:visible")).toBe(true);
+    expect(handZone?.classList.contains("overflow-x-clip")).toBe(true);
+    expect(handZone?.classList.contains("overflow-y-visible")).toBe(true);
+    expect(handZone?.classList.contains("overflow-y-hidden")).toBe(false);
+    expect(
+      (container.querySelector("[data-dnd-hand-card-strip]") as HTMLElement)
+        .style.getPropertyValue("--hand-card-top-gap"),
+    ).toBe("0px");
     expect(
       container
         .querySelector('[data-hand-fit-cards="true"]')
         ?.classList.contains("group"),
+    ).toBe(false);
+    expect(
+      container
+        .querySelector('[data-hand-fit-cards="true"]')
+        ?.classList.contains("backdrop-blur-sm"),
     ).toBe(false);
   });
 
@@ -610,5 +658,38 @@ describe("Hand visual ownership", () => {
     expect(card?.classList.contains("group-hover:ring-cyan-200/90")).toBe(true);
     expect(card?.classList.contains("hover:ring-2")).toBe(true);
     expect(card?.getAttribute("style")).toContain("transform 300ms");
+  });
+
+  it("removes hover affordances from opponent hand cards", () => {
+    const card = buildCard("c1", "opponent-hand");
+    const zone = buildHandZone("opponent-hand", "opponent", [card.id]);
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Hand
+            zone={zone}
+            cards={[card]}
+            isTop
+            isRight={false}
+            isMe={false}
+            viewerPlayerId="viewer"
+            viewerRole="player"
+            showLabel={false}
+          />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+
+    const slot = container.querySelector(
+      '[data-dnd-hand-sortable-card-id="c1"]',
+    );
+    const cardFace = container.querySelector('[data-card-id="c1"]');
+
+    expect(slot?.classList.contains("hover:-translate-y-3")).toBe(false);
+    expect(cardFace?.classList.contains("hover:scale-105")).toBe(false);
+    expect(cardFace?.classList.contains("group-hover:ring-2")).toBe(false);
+    expect(cardFace?.classList.contains("hover:ring-2")).toBe(false);
+    expect(cardFace?.classList.contains("cursor-grab")).toBe(false);
   });
 });

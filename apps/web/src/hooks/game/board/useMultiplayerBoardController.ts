@@ -85,6 +85,8 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const activeModal = useGameStore((state) => state.activeModal);
   const setActiveModal = useGameStore((state) => state.setActiveModal);
   const overCardScale = useDragStore((state) => state.overCardScale);
+  const dragOverlayScale = useDragStore((state) => state.dragOverlayScale);
+  const dragOverlayCue = useDragStore((state) => state.dragOverlayCue);
   const activeCardId = useDragStore((state) => state.activeCardId);
   const activeCardScale = useDragStore((state) => state.activeCardScale);
   const activeCardTransformOrigin = useDragStore(
@@ -542,6 +544,8 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     activeModal,
     setActiveModal,
     overCardScale,
+    dragOverlayScale,
+    dragOverlayCue,
     activeCardId,
     activeCardScale,
     activeCardTransformOrigin,

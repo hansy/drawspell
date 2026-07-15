@@ -7,6 +7,7 @@ import { useDragStore } from '@/store/dragStore';
 
 import { useGameStore } from '@/store/gameStore';
 import { canMoveCard } from '@/rules/permissions';
+import { ZONE_DRAG_OVERLAY_SCALE } from '@/lib/dndDragCue';
 import {
     debugLog,
     isDebugEnabled,
@@ -67,6 +68,8 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, style, children, layo
             cardBaseHeight,
             cardBaseWidth,
             mirrorY,
+            dragOverlayScale: ZONE_DRAG_OVERLAY_SCALE,
+            dragOverlayCue: "zone",
         },
     });
     const setRefs = React.useCallback((node: HTMLDivElement | null) => {
@@ -74,7 +77,12 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, style, children, layo
         innerRef?.(node);
     }, [innerRef, setNodeRef]);
 
-    const { active } = useDndContext();
+    const { active, over } = useDndContext();
+    const isActiveDropTarget = Boolean(
+        isOver ||
+        (over &&
+            (over.id === zone.id || over.data.current?.zoneId === zone.id))
+    );
 
     React.useEffect(() => {
         if (!ghostCard) return;
@@ -106,7 +114,7 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, style, children, layo
     // Optimized: only check validity when dragging over this zone
     const isValidDrop = React.useMemo(() => {
         if (disabled) return false;
-        if (!active || !isOver) return false;
+        if (!active || !isActiveDropTarget) return false;
 
         const cardId = active.data.current?.cardId as string | undefined;
         if (!cardId) return false;
@@ -128,16 +136,16 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, style, children, layo
         });
 
         return permission.allowed;
-    }, [active?.id, active?.data.current?.cardId, disabled, isOver, myPlayerId, viewerRole, zone.id, zone.type, zone.ownerId]);
+    }, [active?.id, active?.data.current?.cardId, disabled, isActiveDropTarget, myPlayerId, viewerRole, zone.id, zone.type, zone.ownerId]);
 
     return (
         <div
             ref={setRefs}
             data-zone-id={zone.id}
+            data-zone-drop-disabled={disabled ? "true" : "false"}
             style={style}
             className={cn(
-                "transition-colors duration-200",
-                isValidDrop && "bg-indigo-500/10 ring-2 ring-indigo-500/50",
+                "relative transition-colors duration-200",
                 className
             )}
             onContextMenu={onContextMenu}
@@ -151,6 +159,12 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, style, children, layo
             onMouseLeave={onMouseLeave}
         >
             {children}
+            {isValidDrop && (
+                <div
+                    data-zone-drop-highlight
+                    className="pointer-events-none absolute inset-0 z-50 rounded-[inherit] bg-indigo-400/20 ring-2 ring-inset ring-indigo-200 shadow-[inset_0_0_28px_rgba(129,140,248,0.42)]"
+                />
+            )}
             {ghostPosition && (() => {
                 const resolvedBaseHeight = cardBaseHeight ?? BASE_CARD_HEIGHT;
                 const resolvedBaseWidth = cardBaseWidth ?? resolvedBaseHeight * CARD_ASPECT_RATIO;

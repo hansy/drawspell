@@ -103,7 +103,7 @@ export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewP
                 </div>
               }
             >
-              <div className="p-1.5 bg-zinc-950/90 hover:bg-zinc-800 rounded-full text-zinc-300 hover:text-white transition-colors border border-zinc-700 shadow-lg cursor-help">
+              <div className="p-0.5 bg-zinc-950/90 hover:bg-zinc-800 rounded-full text-zinc-300 hover:text-white transition-colors border border-zinc-700 shadow-lg cursor-help">
                 <Eye size={16} strokeWidth={2} />
               </div>
             </Tooltip>

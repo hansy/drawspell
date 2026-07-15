@@ -12,6 +12,7 @@ import {
   computeBattlefieldGroupGhostCards,
   computeDragEndPlan,
   computeDragMoveUiState,
+  computeHandDropPreviewTargetIndex,
   computeSameHandEdgePreviewIndex,
   shouldUseSameHandDropFallback,
 } from "../model";
@@ -110,6 +111,93 @@ const gridAlignedCenter = (params: {
 });
 
 describe("game DnD movement contracts", () => {
+  it("uses a droppable's overlay scale cue outside the battlefield", () => {
+    const state = computeDragMoveUiState({
+      myPlayerId: "p1",
+      cards: {},
+      zones: {},
+      over: {
+        id: "p1-commander",
+        type: ZONE.COMMANDER,
+        rect: rect({ left: 0, top: 0, width: 36, height: 80 }),
+        dragOverlayScale: 0.2,
+      },
+    });
+
+    expect(state).toEqual({
+      ghostCard: null,
+      overCardScale: 1,
+      dragOverlayScale: 0.2,
+    });
+  });
+
+  it("moves a released card into its owner's commander zone", () => {
+    const battlefield = createBattlefield("p1");
+    const commander: Zone = {
+      id: "p1-commander",
+      type: ZONE.COMMANDER,
+      ownerId: "p1",
+      cardIds: [],
+    };
+    const card = createCard("c1", { zoneId: battlefield.id });
+
+    expect(
+      computeDragEndPlan({
+        myPlayerId: "p1",
+        cards: { c1: card },
+        zones: {
+          [battlefield.id]: battlefield,
+          [commander.id]: commander,
+        },
+        cardId: card.id,
+        toZoneId: commander.id,
+      }),
+    ).toEqual({
+      kind: "moveCard",
+      cardId: "c1",
+      toZoneId: "p1-commander",
+      position: undefined,
+    });
+  });
+
+  it("targets an insertion point when moving an external card into a hand", () => {
+    const hand = createHand(["h1", "h2", "h3"]);
+    expect(
+      computeHandDropPreviewTargetIndex({
+        targetZone: hand,
+        activeCardId: "c1",
+        overCardId: "h2",
+      }),
+    ).toBe(1);
+    expect(
+      computeHandDropPreviewTargetIndex({
+        targetZone: hand,
+        activeCardId: "c1",
+        pointerScreen: { x: 690, y: 500 },
+        handRect: rect({ left: 100, top: 420, width: 600, height: 180 }),
+      }),
+    ).toBe(3);
+
+    const battlefield = createBattlefield("p1");
+    const card = createCard("c1", { zoneId: battlefield.id });
+    expect(
+      computeDragEndPlan({
+        myPlayerId: "p1",
+        cards: { c1: card },
+        zones: { [battlefield.id]: battlefield, [hand.id]: hand },
+        cardId: card.id,
+        toZoneId: hand.id,
+        overCardId: "h2",
+      }),
+    ).toEqual({
+      kind: "moveCard",
+      cardId: "c1",
+      toZoneId: hand.id,
+      position: undefined,
+      targetIndex: 1,
+    });
+  });
+
   it("does not produce a battlefield preview when the drop is not valid", () => {
     const zones: Record<string, Zone> = {
       "p2-battlefield": createBattlefield("p2"),

@@ -108,6 +108,24 @@ describe("BottomBar", () => {
   });
 
   describe("Mouse Interactions", () => {
+    it("only reveals the resize grip while the bottom bar is hovered", () => {
+      const { container } = render(
+        <BottomBar isTop={false} isRight={false} onHeightChange={onHeightChange}>
+          <div>Content</div>
+        </BottomBar>
+      );
+
+      const bottomBar = container.querySelector("[data-bottom-bar]");
+      const grip = container.querySelector("[data-bottom-bar-handle-grip]");
+      expect(grip?.classList.contains("opacity-0")).toBe(true);
+
+      fireEvent.mouseEnter(bottomBar as Element);
+      expect(grip?.classList.contains("opacity-100")).toBe(true);
+
+      fireEvent.mouseLeave(bottomBar as Element);
+      expect(grip?.classList.contains("opacity-0")).toBe(true);
+    });
+
     it("changes cursor to ns-resize when hovering over resize handle", () => {
       const { container } = render(
         <BottomBar isTop={false} isRight={false} onHeightChange={onHeightChange}>

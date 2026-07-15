@@ -1,5 +1,18 @@
 import React from "react";
 import { Minus, Plus } from "lucide-react";
+import {
+  autoUpdate,
+  flip,
+  FloatingPortal,
+  offset,
+  safePolygon,
+  shift,
+  useFloating,
+  useFocus,
+  useHover,
+  useInteractions,
+  useRole,
+} from "@floating-ui/react";
 
 import { Tooltip } from "@/components/ui/tooltip";
 import { MAX_PLAYER_LIFE, MIN_PLAYER_LIFE } from "@/lib/limits";
@@ -49,6 +62,35 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
   );
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const [touchExpanded, setTouchExpanded] = React.useState(false);
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const sidebarDisclosureOpen =
+    variant === "sidebar" && (touchExpanded || sidebarOpen);
+  const {
+    refs: sidebarFloatingRefs,
+    floatingStyles: sidebarFloatingStyles,
+    context: sidebarFloatingContext,
+  } = useFloating({
+    open: sidebarDisclosureOpen,
+    onOpenChange: setSidebarOpen,
+    placement: isRight ? "left-start" : "right-start",
+    strategy: "fixed",
+    whileElementsMounted: autoUpdate,
+    middleware: [offset(8), flip({ padding: 8 }), shift({ padding: 8 })],
+  });
+  const sidebarHover = useHover(sidebarFloatingContext, {
+    enabled: variant === "sidebar",
+    delay: { close: 80 },
+    handleClose: safePolygon(),
+  });
+  const sidebarFocus = useFocus(sidebarFloatingContext, {
+    enabled: variant === "sidebar",
+  });
+  const sidebarRole = useRole(sidebarFloatingContext, { role: "dialog" });
+  const { getReferenceProps, getFloatingProps } = useInteractions([
+    sidebarHover,
+    sidebarFocus,
+    sidebarRole,
+  ]);
   const touchPressTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
@@ -150,13 +192,14 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
       const target = event.target;
       if (!(target instanceof Node)) return;
       if (rootRef.current?.contains(target)) return;
+      if (sidebarFloatingRefs.floating.current?.contains(target)) return;
       setTouchExpanded(false);
     };
     document.addEventListener("pointerdown", handlePointerDown, true);
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown, true);
     };
-  }, [touchExpanded]);
+  }, [sidebarFloatingRefs.floating, touchExpanded]);
 
   const handleTouchExpand = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
@@ -174,42 +217,63 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
     : "opacity-0 invisible group-hover:opacity-100 group-hover:visible";
 
   if (variant === "sidebar") {
-    const sidebarDisclosureVisibility = touchExpanded
+    const sidebarDisclosureVisibility = sidebarDisclosureOpen
       ? "visible opacity-100"
-      : "invisible opacity-0 group-hover/life:visible group-hover/life:opacity-100 group-focus-within/life:visible group-focus-within/life:opacity-100";
+      : "invisible opacity-0";
 
     return (
-      <div
-        ref={rootRef}
-        data-life-box-variant="sidebar"
-        className={cn(
-          "group/life pointer-events-auto relative flex h-12 w-full shrink-0 items-center justify-center border-b border-white/10 bg-zinc-900/60",
-          className,
-        )}
-        onPointerDown={handleTouchExpand}
-      >
+      <>
         <div
-          data-desktop-life-total
-          tabIndex={canEditLife || showCommanderDamageDrawer ? 0 : undefined}
-          aria-label={`${player.name || "Player"} life total ${player.life}`}
-          className="ds-seat-upright cursor-default select-none font-mono text-xl font-bold leading-none text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
-          onContextMenu={canEditLife ? onContextMenu : undefined}
-          onPointerDown={handleTouchContextMenuStart}
-          onPointerMove={handleTouchContextMenuMove}
-          onPointerUp={handleTouchContextMenuEnd}
-          onPointerCancel={handleTouchContextMenuEnd}
-          onPointerLeave={handleTouchContextMenuEnd}
+          ref={(node) => {
+            rootRef.current = node;
+            sidebarFloatingRefs.setReference(node);
+          }}
+          data-life-box-variant="sidebar"
+          className={cn(
+            "group/life pointer-events-auto relative flex h-12 w-full shrink-0 items-center justify-center border-b border-white/10 bg-zinc-950/55 backdrop-blur-[1px]",
+            className,
+          )}
+          {...getReferenceProps({ onPointerDown: handleTouchExpand })}
         >
-          {player.life}
+          <div
+            data-desktop-life-total
+            tabIndex={canEditLife || showCommanderDamageDrawer ? 0 : undefined}
+            aria-label={`${player.name || "Player"} life total ${player.life}`}
+            className={cn(
+              "ds-seat-upright select-none font-mono text-xl font-bold leading-none text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70",
+              canEditLife && onContextMenu
+                ? "cursor-context-menu"
+                : "cursor-default",
+            )}
+            onContextMenu={canEditLife ? onContextMenu : undefined}
+            onPointerDown={handleTouchContextMenuStart}
+            onPointerMove={handleTouchContextMenuMove}
+            onPointerUp={handleTouchContextMenuEnd}
+            onPointerCancel={handleTouchContextMenuEnd}
+            onPointerLeave={handleTouchContextMenuEnd}
+          >
+            {player.life}
+          </div>
         </div>
 
-        <div
-          data-life-sidebar-disclosure
-          className={cn(
-            "ds-seat-upright absolute left-full top-1/2 z-50 ml-2 w-48 -translate-y-1/2 rounded-lg border border-zinc-700 bg-zinc-900 p-3 shadow-xl transition-[opacity,visibility] duration-150 ease-out motion-reduce:transition-none",
-            sidebarDisclosureVisibility,
-          )}
-        >
+        <FloatingPortal>
+          <div
+            ref={sidebarFloatingRefs.setFloating}
+            data-life-sidebar-disclosure
+            data-life-sidebar-placement={isRight ? "left" : "right"}
+            style={sidebarFloatingStyles}
+            className={cn(
+              "z-50 w-48 rounded-lg border border-zinc-700 bg-zinc-900 p-3 shadow-xl transition-[opacity,visibility] duration-150 ease-out motion-reduce:transition-none",
+              sidebarDisclosureVisibility,
+            )}
+            {...getFloatingProps()}
+          >
+          <div
+            data-life-controls-label
+            className="mb-2 text-center text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400"
+          >
+            Life Total
+          </div>
           <div className="flex items-center justify-center gap-2">
             {canEditLife && (
               <button
@@ -289,8 +353,9 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
               </div>
             </div>
           )}
-        </div>
-      </div>
+          </div>
+        </FloatingPortal>
+      </>
     );
   }
 
@@ -367,7 +432,10 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
             aria-label={`${player.name || "Player"} life total ${player.life}`}
             className={cn(
               "ds-seat-life-total text-center font-mono leading-none text-zinc-100 select-none",
-              hasDisclosure && "cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900",
+              hasDisclosure && "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900",
+              canEditLife && onContextMenu
+                ? "cursor-context-menu"
+                : hasDisclosure && "cursor-default",
             )}
             onContextMenu={canEditLife ? onContextMenu : undefined}
             onPointerDown={handleTouchContextMenuStart}
@@ -525,7 +593,10 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
           )}
 
           <div
-            className="text-3xl font-bold font-mono text-center leading-none select-none lg:text-[clamp(18px,calc(var(--sidezone-h)*0.45),46px)]"
+            className={cn(
+              "text-3xl font-bold font-mono text-center leading-none select-none lg:text-[clamp(18px,calc(var(--sidezone-h)*0.45),46px)]",
+              canEditLife && onContextMenu && "cursor-context-menu",
+            )}
             onContextMenu={canEditLife ? onContextMenu : undefined}
             onPointerDown={handleTouchContextMenuStart}
             onPointerMove={handleTouchContextMenuMove}

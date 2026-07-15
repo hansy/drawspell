@@ -4,6 +4,7 @@ import { Zone } from "../zone/Zone";
 import { Card } from "../card/Card";
 import { cn } from "@/lib/utils";
 import { CARD_ASPECT_RATIO, ZONE_SIDEWAYS_CLASSES } from "@/lib/constants";
+import { ZONE } from "@/constants/zones";
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_DOUBLE_TAP_MS = 280;
@@ -41,6 +42,7 @@ interface SideZoneProps {
   variant?: "side" | "edge";
   cardHeight?: number;
   visibleHeight?: number;
+  flipCard?: boolean;
 }
 
 // Shared rendering for vertical sidebar zones (library/graveyard/exile).
@@ -64,6 +66,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
   variant = "side",
   cardHeight,
   visibleHeight,
+  flipCard = false,
 }) => {
   const touchPressTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
@@ -278,7 +281,9 @@ export const SideZone: React.FC<SideZoneProps> = ({
             "group absolute left-1/2 -translate-x-1/2 overflow-hidden rounded-lg bg-zinc-900/25 transition-colors duration-150",
             cardHeight === undefined && "top-2 aspect-[11/15] w-[104%] max-w-44",
             cardHeight !== undefined && "top-0",
-            !card && "border-2 border-dotted border-zinc-700/80 hover:border-zinc-500/80",
+            !card &&
+              zone.type !== ZONE.LIBRARY &&
+              "border-2 border-dotted border-zinc-700/80 hover:border-zinc-500/80",
             "hover:bg-zinc-800/40",
             showContextMenuCursor
               ? "cursor-context-menu"
@@ -309,7 +314,11 @@ export const SideZone: React.FC<SideZoneProps> = ({
               disableDrag={disableCardDrag}
               disableInteractions
               disableHoverAnimation
-              className={cn("ds-seat-upright h-full w-full", cardClassName)}
+              className={cn(
+                "ds-seat-upright h-full w-full",
+                flipCard && "rotate-180",
+                cardClassName,
+              )}
             />
           ) : (
             <div

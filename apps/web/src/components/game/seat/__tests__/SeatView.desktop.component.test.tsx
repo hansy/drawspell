@@ -317,6 +317,7 @@ describe("SeatView desktop side-zone previews", () => {
             opponentColors={{ p1: "sky" }}
             model={model as any}
             onEditUsername={onEditUsername}
+            onZoneContextMenu={vi.fn()}
           />
         </DndContext>
       </CardPreviewProvider>,
@@ -350,12 +351,30 @@ describe("SeatView desktop side-zone previews", () => {
     ).toBe(true);
     expect(container.querySelector("[data-desktop-side-player-name]")?.textContent).toBe("Player One");
     expect(container.querySelector("[data-desktop-side-column]")?.classList.contains("flex-col")).toBe(true);
+    expect(
+      (container.querySelector("[data-desktop-side-column]") as HTMLElement)
+        .style.top,
+    ).toBe("0px");
     expect(container.querySelector("[data-desktop-side-player-slot]")?.classList.contains("items-start")).toBe(true);
     expect(container.querySelector("[data-commander-zone-panel]")?.classList.contains("bottom-0")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Edit player name" }));
     expect(onEditUsername).toHaveBeenCalledTimes(1);
     expect(container.querySelector('[data-hand-fit-cards="true"]')).not.toBeNull();
+    expect(
+      (
+        container.querySelector(
+          "[data-dnd-hand-card-strip]",
+        ) as HTMLElement
+      ).style.getPropertyValue("--hand-card-top-gap"),
+    ).toBe("0px");
     expect(container.querySelectorAll('[data-side-zone-variant="edge"]')).toHaveLength(3);
+    expect(
+      [libraryZone.id, graveyardZone.id, exileZone.id].every((zoneId) =>
+        container
+          .querySelector(`[data-zone-id="${zoneId}"]`)
+          ?.classList.contains("cursor-context-menu"),
+      ),
+    ).toBe(true);
     expect(container.textContent).toContain("Hand - 1");
     expect(container.textContent).toContain("Library - 1");
     expect(container.textContent).toContain("Graveyard - 1");
@@ -424,6 +443,7 @@ describe("SeatView desktop side-zone previews", () => {
       container.querySelector("[data-desktop-side-player-slot]"),
     );
     expect((sideColumn as HTMLElement | null)?.style.top).not.toBe("");
+    expect((sideColumn as HTMLElement).style.top).toBe("0px");
     expect((sideColumn as HTMLElement | null)?.style.bottom).not.toBe("");
     expect(overlay?.classList.contains("rotate-180")).toBe(false);
     expect(sideColumn?.classList.contains("left-0")).toBe(true);

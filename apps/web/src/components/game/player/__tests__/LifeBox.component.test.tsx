@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { useGameStore } from "@/store/gameStore";
 import { MAX_PLAYER_LIFE, MIN_PLAYER_LIFE } from "@/lib/limits";
@@ -66,6 +66,7 @@ describe("LifeBox", () => {
 
     fireEvent.contextMenu(screen.getByText("25"));
     expect(onContextMenu).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("25").classList.contains("cursor-context-menu")).toBe(true);
   });
 
   it("disables decrement at minimum life", () => {
@@ -123,6 +124,7 @@ describe("LifeBox", () => {
         color="sky"
         variant="hand-edge"
         opponentColors={{ me: "sky", opponent: "rose" }}
+        onContextMenu={vi.fn()}
       />
     );
 
@@ -142,6 +144,11 @@ describe("LifeBox", () => {
         .getByLabelText("Jace life total 38")
         .classList.contains("ds-seat-life-total"),
     ).toBe(true);
+    expect(
+      screen
+        .getByLabelText("Jace life total 38")
+        .classList.contains("cursor-context-menu"),
+    ).toBe(true);
     expect(container.querySelector("[data-life-edge-disclosure]")).not.toBeNull();
     expect(container.querySelector("[data-commander-damage-controls]")).not.toBeNull();
     const decreaseLife = screen.getByRole("button", { name: "Decrease life" });
@@ -150,7 +157,7 @@ describe("LifeBox", () => {
     expect(screen.getByRole("button", { name: "Increase life" })).toBeTruthy();
   });
 
-  it("renders a narrow sidebar trigger with hover life and commander controls", () => {
+  it("renders viewport-aware sidebar life and commander controls", async () => {
     const { container } = render(
       <LifeBox
         player={{
@@ -165,16 +172,32 @@ describe("LifeBox", () => {
         color="sky"
         variant="sidebar"
         opponentColors={{ me: "sky", opponent: "rose" }}
+        onContextMenu={vi.fn()}
       />
     );
 
     const lifeBox = container.querySelector('[data-life-box-variant="sidebar"]');
-    const disclosure = container.querySelector("[data-life-sidebar-disclosure]");
+    const disclosure = document.querySelector("[data-life-sidebar-disclosure]");
     expect(lifeBox).not.toBeNull();
     expect(lifeBox?.classList.contains("w-full")).toBe(true);
+    expect(lifeBox?.classList.contains("bg-zinc-950/55")).toBe(true);
     expect(screen.getByLabelText("Jace life total 38")).toBeTruthy();
-    expect(disclosure?.classList.contains("group-hover/life:visible")).toBe(true);
-    expect(container.querySelector("[data-commander-damage-controls]")).not.toBeNull();
+    expect(
+      screen
+        .getByLabelText("Jace life total 38")
+        .classList.contains("cursor-context-menu"),
+    ).toBe(true);
+    expect(disclosure?.classList.contains("invisible")).toBe(true);
+    expect(document.body.contains(disclosure)).toBe(true);
+    expect(container.contains(disclosure)).toBe(false);
+    expect((disclosure as HTMLElement | null)?.style.position).toBe("fixed");
+    fireEvent.mouseEnter(lifeBox as Element);
+    await waitFor(() =>
+      expect(disclosure?.classList.contains("visible")).toBe(true),
+    );
+    expect(screen.getByText("Life Total")).toBeTruthy();
+    expect(document.querySelector("[data-life-controls-label]")).not.toBeNull();
+    expect(document.querySelector("[data-commander-damage-controls]")).not.toBeNull();
     expect(screen.getByRole("button", { name: "Decrease life" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Increase life" })).toBeTruthy();
     expect(

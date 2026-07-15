@@ -30,9 +30,12 @@ import {
   HAND_DEFAULT_HEIGHT,
   HAND_MAX_HEIGHT,
   HAND_MIN_HEIGHT,
+  getCommanderDrawerHeight,
+  getCommanderZoneLabelSizing,
 } from "./handSizing";
 import { BASE_CARD_HEIGHT } from "@/lib/constants";
 import { useSeatSizing } from "@/hooks/game/seat/useSeatSizing";
+import { ZONE_DRAG_OVERLAY_SCALE } from "@/lib/dndDragCue";
 
 const MOBILE_HAND_CARD_BASE_HEIGHT_PX = 120;
 const MOBILE_HAND_SCROLLBAR_RESERVED_PX = 14;
@@ -142,6 +145,12 @@ export const SeatView: React.FC<SeatViewProps> = ({
     opponentLibraryRevealCount,
   } = model;
   const showLoadDeckAction = Boolean(isMe && onLoadDeck && !player.deckLoaded);
+  const showPublicZoneContextMenuCursor = Boolean(
+    onZoneContextMenu && viewerRole !== "spectator" && player.deckLoaded,
+  );
+  const showLibraryContextMenuCursor = Boolean(
+    showPublicZoneContextMenuCursor && isMe,
+  );
   const { hand, library, graveyard, exile, battlefield, commander } =
     model.zones;
   const {
@@ -184,6 +193,11 @@ export const SeatView: React.FC<SeatViewProps> = ({
     if (!resolvedBaseHeight) return 1;
     return desktopHandHeights.cardHeight / resolvedBaseHeight;
   }, [baseCardHeightPx, desktopHandHeights, handCardScale]);
+  const commanderDrawerHeight = getCommanderDrawerHeight({
+    battlefieldCardHeight: baseCardHeightPx,
+    handHeight: effectiveHandHeight,
+  });
+  const commanderZoneLabelSizing = getCommanderZoneLabelSizing(scale);
   const libraryCount = player.libraryCount ?? library?.cardIds.length ?? 0;
   const libraryPlaceholder = React.useMemo(
     () =>
@@ -310,7 +324,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               onContextMenu={onZoneContextMenu}
               faceDown={libraryFaceDown}
               disableCardDrag={libraryTopIsPlaceholder}
-              showContextMenuCursor={player.deckLoaded}
+              showContextMenuCursor={showLibraryContextMenuCursor}
               indicatorSide={isRight ? "left" : "right"}
               onClick={
                 isMe
@@ -367,7 +381,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                   : undefined
               }
               faceDown={graveyardCards[graveyardCards.length - 1]?.faceDown}
-              showContextMenuCursor={false}
+              showContextMenuCursor={showPublicZoneContextMenuCursor}
               {...getSideZonePreviewProps(graveyardPreviewCard)}
             />
           ) : (
@@ -389,7 +403,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               }
               cardClassName="opacity-60 grayscale"
               faceDown={exileCards[exileCards.length - 1]?.faceDown}
-              showContextMenuCursor={false}
+              showContextMenuCursor={showPublicZoneContextMenuCursor}
               {...getSideZonePreviewProps(exilePreviewCard)}
             />
           ) : (
@@ -418,6 +432,8 @@ export const SeatView: React.FC<SeatViewProps> = ({
       opponentLibraryRevealCount,
       player.deckLoaded,
       player.id,
+      showLibraryContextMenuCursor,
+      showPublicZoneContextMenuCursor,
       getSideZonePreviewProps,
       libraryPreviewCard,
       graveyardPreviewCard,
@@ -432,6 +448,8 @@ export const SeatView: React.FC<SeatViewProps> = ({
       ? {
           zoneId: commander.id,
           type: commander.type,
+          dragOverlayScale: ZONE_DRAG_OVERLAY_SCALE,
+          dragOverlayCue: "zone",
         }
       : undefined,
   });
@@ -610,17 +628,20 @@ export const SeatView: React.FC<SeatViewProps> = ({
         <div
           data-desktop-side-column
           className={cn(
-            "pointer-events-auto absolute z-10 flex w-[var(--seat-side-column-w)] bg-zinc-950/80 backdrop-blur-sm",
+            "pointer-events-auto absolute z-10 flex w-[var(--seat-side-column-w)]",
             "left-0 flex-col border-r border-white/10",
           )}
           style={{
             top: 0,
             bottom: effectiveHandHeight,
-            "--commander-zone-height": `${Math.min(
-              168,
-              Math.max(104, effectiveHandHeight * 0.85),
-            )}px`,
-          } as React.CSSProperties & { "--commander-zone-height": string }}
+            "--commander-zone-label-height": `${commanderZoneLabelSizing.height}px`,
+            "--commander-zone-label-padding": `${commanderZoneLabelSizing.padding}px`,
+            "--commander-drawer-height": `${commanderDrawerHeight}px`,
+          } as React.CSSProperties & {
+            "--commander-zone-label-height": string;
+            "--commander-zone-label-padding": string;
+            "--commander-drawer-height": string;
+          }}
         >
           <LifeBox
             player={player}
@@ -628,6 +649,8 @@ export const SeatView: React.FC<SeatViewProps> = ({
             isMe={isMe}
             opponentColors={opponentColors}
             variant="sidebar"
+            isTop={isTop}
+            isRight={isRight}
             onContextMenu={
               onLifeContextMenu
                 ? (event) => onLifeContextMenu(event, player)
@@ -638,7 +661,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
           <div
             data-desktop-side-player-slot
             className={cn(
-              "flex min-h-0 flex-1 justify-center overflow-hidden py-3",
+              "flex min-h-0 flex-1 justify-center overflow-hidden bg-zinc-950/80 py-3 backdrop-blur-sm",
               "items-start",
             )}
           >
@@ -684,6 +707,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               isRight={false}
               onZoneContextMenu={onZoneContextMenu}
               scale={scale}
+              color={color}
             />
           )}
         </div>
@@ -697,6 +721,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
           minHeight={handMinHeightPx}
           maxHeight={handMaxHeightPx}
           onHeightChange={isMe ? handleHandHeightChange : undefined}
+          dropBlockerId={`bottom-bar-drop-blocker:${player.id}`}
           className={cn(
             "pointer-events-auto absolute inset-x-0 bg-transparent",
             "bottom-0",
@@ -723,6 +748,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 cardScale={desktopHandCardScale}
                 baseCardHeight={baseCardHeightPx}
                 fitCards
+                flipCards={isTop}
                 labelPlacement="bottom-center"
                 cardTopGapPx={0}
                 className="!w-1/2 !flex-none !border-0 !bg-transparent !px-2"
@@ -733,6 +759,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               {library && (
                 <SideZone
                   variant="edge"
+                  flipCard={isTop}
                   cardHeight={desktopHandHeights?.cardHeight}
                   visibleHeight={effectiveHandHeight}
                   zone={library}
@@ -742,7 +769,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                   onContextMenu={onZoneContextMenu}
                   faceDown={libraryFaceDown}
                   disableCardDrag={libraryTopIsPlaceholder}
-                  showContextMenuCursor={player.deckLoaded}
+                  showContextMenuCursor={showLibraryContextMenuCursor}
                   onClick={
                     !isMe &&
                     opponentLibraryRevealCount > 0 &&
@@ -798,6 +825,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               {graveyard && (
                 <SideZone
                   variant="edge"
+                  flipCard={isTop}
                   cardHeight={desktopHandHeights?.cardHeight}
                   visibleHeight={effectiveHandHeight}
                   zone={graveyard}
@@ -811,7 +839,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                       : undefined
                   }
                   faceDown={graveyardTopCard?.faceDown}
-                  showContextMenuCursor={false}
+                  showContextMenuCursor={showPublicZoneContextMenuCursor}
                   {...getSideZonePreviewProps(graveyardPreviewCard)}
                 />
               )}
@@ -819,6 +847,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               {exile && (
                 <SideZone
                   variant="edge"
+                  flipCard={isTop}
                   cardHeight={desktopHandHeights?.cardHeight}
                   visibleHeight={effectiveHandHeight}
                   zone={exile}
@@ -833,7 +862,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                   }
                   cardClassName="opacity-60 grayscale"
                   faceDown={exileTopCard?.faceDown}
-                  showContextMenuCursor={false}
+                  showContextMenuCursor={showPublicZoneContextMenuCursor}
                   {...getSideZonePreviewProps(exilePreviewCard)}
                 />
               )}

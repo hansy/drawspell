@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import type { PendingDropVisualClaim } from "@/lib/dndVisualOwnership";
+import type { DragOverlayCue } from "@/lib/dndDragCue";
 
 interface GhostCardState {
     cardId: string;
@@ -30,6 +31,8 @@ interface DragStore {
     pendingDropVisualClaims: PendingDropVisualClaim[];
     isGroupDragging: boolean;
     overCardScale: number;
+    dragOverlayScale: number;
+    dragOverlayCue: DragOverlayCue | null;
     setGhostCards: (ghostCards: GhostCardState[] | null) => void;
     setActiveCardId: (activeCardId: string | null) => void;
     setHandDragPreview: (
@@ -54,6 +57,8 @@ interface DragStore {
     clearPendingDropVisualClaims: () => void;
     setIsGroupDragging: (isGroupDragging: boolean) => void;
     setOverCardScale: (scale: number) => void;
+    setDragOverlayScale: (scale: number) => void;
+    setDragOverlayCue: (cue: DragOverlayCue | null) => void;
 }
 
 export const useDragStore = create<DragStore>((set) => ({
@@ -67,6 +72,8 @@ export const useDragStore = create<DragStore>((set) => ({
     pendingDropVisualClaims: [],
     isGroupDragging: false,
     overCardScale: 1,
+    dragOverlayScale: 1,
+    dragOverlayCue: null,
     setGhostCards: (ghostCards) => set({ ghostCards }),
     setActiveCardId: (activeCardId) => set({ activeCardId }),
     setHandDragPreview: (handDragPreview) => set({ handDragPreview }),
@@ -82,4 +89,6 @@ export const useDragStore = create<DragStore>((set) => ({
     clearPendingDropVisualClaims: () => set({ pendingDropVisualClaims: [] }),
     setIsGroupDragging: (isGroupDragging) => set({ isGroupDragging }),
     setOverCardScale: (overCardScale) => set({ overCardScale }),
+    setDragOverlayScale: (dragOverlayScale) => set({ dragOverlayScale }),
+    setDragOverlayCue: (dragOverlayCue) => set({ dragOverlayCue }),
 }));

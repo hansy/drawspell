@@ -26,6 +26,7 @@ import {
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { ZONE_DRAG_OVERLAY_SCALE } from "@/lib/dndDragCue";
 
 interface HandProps {
   zone: ZoneType;
@@ -48,6 +49,7 @@ interface HandProps {
   fitCards?: boolean;
   labelPlacement?: "seat-edge" | "top-left" | "top-center" | "bottom-center";
   cardTopGapPx?: number;
+  flipCards?: boolean;
 }
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
@@ -78,6 +80,7 @@ const SortableCard = React.memo(
     useFullSlotWidth,
     alignVisualBounds,
     renderedZoneId,
+    flipCard,
   }: {
     card: CardType;
     isMe: boolean;
@@ -90,6 +93,7 @@ const SortableCard = React.memo(
     useFullSlotWidth: boolean;
     alignVisualBounds: boolean;
     renderedZoneId: string;
+    flipCard: boolean;
   }) => {
     const {
       attributes,
@@ -106,6 +110,8 @@ const SortableCard = React.memo(
         ownerId: card.ownerId,
         tapped: card.tapped,
         cardScale,
+        dragOverlayScale: ZONE_DRAG_OVERLAY_SCALE,
+        dragOverlayCue: "zone",
       },
       disabled: !isMe,
     });
@@ -190,8 +196,8 @@ const SortableCard = React.memo(
         data-dnd-hand-sortable-card-id={card.id}
         data-dnd-hand-card-scale={cardScale}
         className={cn(
-          "ds-seat-upright relative flex shrink-0 h-full w-[var(--hand-card-slot-width)] items-center lg:items-start touch-none transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group",
-          "hover:-translate-y-3",
+          "relative flex shrink-0 h-full w-[var(--hand-card-slot-width)] items-center lg:items-start touch-none transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group",
+          isMe && "hover:-translate-y-3",
           isActiveDragSource && "z-50",
           isPendingDrop && "z-50 opacity-0",
         )}
@@ -204,7 +210,8 @@ const SortableCard = React.memo(
           }
           data-dnd-hand-card-frame-id={card.id}
           className={cn(
-            "w-auto aspect-[11/15] transition-transform duration-200",
+            "ds-seat-upright w-auto aspect-[11/15] transition-transform duration-200",
+            flipCard && "rotate-180",
           )}
           style={{
             width: alignVisualBounds ? cardWidth : undefined,
@@ -218,9 +225,12 @@ const SortableCard = React.memo(
             className={cn(
               "origin-top shadow-xl transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
               "origin-center lg:origin-top",
-              "group-hover:ring-2 group-hover:ring-cyan-200/90 group-hover:ring-offset-2 group-hover:ring-offset-zinc-950",
-              "hover:ring-2 hover:ring-cyan-200/90 hover:ring-offset-2 hover:ring-offset-zinc-950",
-              "group-hover:shadow-[0_16px_36px_rgba(103,232,249,0.3)]",
+              isMe &&
+                "group-hover:ring-2 group-hover:ring-cyan-200/90 group-hover:ring-offset-2 group-hover:ring-offset-zinc-950",
+              isMe &&
+                "hover:ring-2 hover:ring-cyan-200/90 hover:ring-offset-2 hover:ring-offset-zinc-950",
+              isMe &&
+                "group-hover:shadow-[0_16px_36px_rgba(103,232,249,0.3)]",
               isActiveDragSource &&
                 "ring-2 ring-cyan-200/90 ring-offset-2 ring-offset-zinc-950 shadow-[0_16px_36px_rgba(103,232,249,0.25)]",
             )}
@@ -237,6 +247,7 @@ const SortableCard = React.memo(
             )}
             onContextMenu={handleContextMenu}
             disableDrag // We use Sortable's drag handle
+            disableHoverAnimation={!isMe}
             isDragging={isPendingDrop}
             scale={cardScale}
           />
@@ -267,6 +278,7 @@ const HandInner: React.FC<HandProps> = ({
   fitCards = false,
   labelPlacement = "seat-edge",
   cardTopGapPx = HAND_CARD_TOP_GAP_PX,
+  flipCards = false,
 }) => {
   const handDragPreview = useDragStore((state) => state.handDragPreview);
   const displayCards = React.useMemo(() => {
@@ -285,7 +297,7 @@ const HandInner: React.FC<HandProps> = ({
     () => displayCards.map((card) => card.id),
     [displayCards]
   );
-  const isSingleCardHand = cards.length === 1;
+  const isSingleCardHand = displayCards.length === 1;
   const touchPressTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchPressRef = React.useRef<TouchPressState | null>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
@@ -506,7 +518,7 @@ const HandInner: React.FC<HandProps> = ({
       className={cn(
         "group/hand-zone h-full flex-1 relative min-w-0 w-0", // w-0 enforces flex width constraint
         // Distinct background for hand area
-        "bg-zinc-900/60 backdrop-blur-sm",
+        "bg-zinc-900/60",
         isTop ? "border-b border-white/10" : "border-t border-white/10",
         // Padding to prevent bleeding into adjacent seats
         "px-4",
@@ -558,8 +570,12 @@ const HandInner: React.FC<HandProps> = ({
         onPointerLeave={handleTouchContextMenuEnd}
         onScroll={syncScrollbarState}
         className={cn(
-          "w-full h-full flex overflow-y-hidden scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent overscroll-x-none",
-          fitCards ? "overflow-x-hidden touch-none" : "overflow-x-auto",
+          "w-full h-full flex scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent overscroll-x-none",
+          isMe && viewerRole !== "spectator" && onHandContextMenu && cards.length > 0 &&
+            "cursor-context-menu",
+          fitCards
+            ? "overflow-x-clip overflow-y-visible touch-none"
+            : "overflow-x-auto overflow-y-hidden",
           !fitCards && (showCustomScrollbar ? "touch-none" : "touch-pan-x"),
         )}
       >
@@ -605,6 +621,7 @@ const HandInner: React.FC<HandProps> = ({
                 }
                 alignVisualBounds={fitCards}
                 renderedZoneId={zone.id}
+                flipCard={flipCards}
               />
             ))}
           </div>

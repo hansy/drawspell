@@ -379,6 +379,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
   );
   const setIsGroupDragging = useDragStore((state) => state.setIsGroupDragging);
   const setOverCardScale = useDragStore((state) => state.setOverCardScale);
+  const setDragOverlayScale = useDragStore((state) => state.setDragOverlayScale);
+  const setDragOverlayCue = useDragStore((state) => state.setDragOverlayCue);
   const myPlayerId = useGameStore((state) => state.myPlayerId);
   const clearSelection = useSelectionStore((state) => state.clearSelection);
   const isSpectator = params.viewerRole === "spectator";
@@ -479,6 +481,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     setActiveCardDragAnchor(null);
     setActiveCardSourceSize(null);
     setIsGroupDragging(false);
+    setDragOverlayScale(1);
+    setDragOverlayCue(null);
     if (event.active.data.current?.cardId) {
       const cardId = event.active.data.current.cardId as CardId;
       setActiveCardId(cardId);
@@ -631,6 +635,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       setGhostCards,
       setHandDragPreview,
       setOverCardScale,
+      setDragOverlayScale,
+      setDragOverlayCue,
     ]
   );
 
@@ -638,6 +644,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     if (isSpectator) {
       setGhostCards(null);
       setOverCardScale(1);
+      setDragOverlayScale(1);
+      setDragOverlayCue(null);
       return;
     }
     if (currentDragSeq.current == null) {
@@ -646,6 +654,9 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
 
     const state = useGameStore.getState();
     const { active, over } = event;
+    setDragOverlayCue(
+      over?.data.current?.dragOverlayCue === "zone" ? "zone" : null,
+    );
 
     const activeCardId = active.data.current?.cardId as CardId | undefined;
     const activeCard = activeCardId ? state.cards[activeCardId] : undefined;
@@ -667,13 +678,15 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       cardCount: activeSourceZone?.cardIds.length ?? 0,
     });
     setHandDragPreview(
-      activeCardId && activeSourceZone?.type === ZONE.HAND && handPreviewTargetIndex !== null
+      activeCardId &&
+        activeSourceZone?.type === ZONE.HAND &&
+        handPreviewTargetIndex !== null
         ? {
             cardId: activeCardId,
             zoneId: activeSourceZone.id,
             targetIndex: handPreviewTargetIndex,
           }
-        : null
+        : null,
     );
     if (activeCardId && activeSourceZone?.type === ZONE.HAND) {
       const scrollElement = summarizeHandScrollElement(activeSourceZone.id);
@@ -758,6 +771,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
             cardBaseHeight: over.data.current?.cardBaseHeight,
             cardBaseWidth: over.data.current?.cardBaseWidth,
             mirrorY: Boolean(over.data.current?.mirrorY),
+            dragOverlayScale: over.data.current?.dragOverlayScale,
           }
         : null,
     });
@@ -905,6 +919,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     const group = dragSelectionRef.current;
     const isGroupDragging = Boolean(group && group.groupCardIds.length > 1);
     setOverCardScale(result.overCardScale);
+    setDragOverlayScale(result.dragOverlayScale ?? 1);
 
     if (!isGroupDragging) {
       if (result.ghostCard && activeCardId) {
@@ -1022,6 +1037,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     setHandDragPreview(null);
     setIsGroupDragging(false);
     setOverCardScale(1);
+    setDragOverlayScale(1);
+    setDragOverlayCue(null);
     currentDragSeq.current = null;
     dragSelectionRef.current = null;
     dragAnchorRef.current = null;
@@ -1037,6 +1054,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     setHandDragPreview,
     setIsGroupDragging,
     setOverCardScale,
+    setDragOverlayScale,
+    setDragOverlayCue,
   ]);
 
   const claimPendingDropVisualOwnership = React.useCallback(
@@ -1425,6 +1444,23 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
           myPlayerId,
           undefined
         );
+        if (plan.targetIndex !== undefined) {
+          const movedZone = useGameStore.getState().zones[plan.toZoneId];
+          const currentIndex = movedZone?.cardIds.indexOf(plan.cardId) ?? -1;
+          if (movedZone && currentIndex >= 0) {
+            const targetIndex = Math.max(
+              0,
+              Math.min(movedZone.cardIds.length - 1, plan.targetIndex),
+            );
+            if (currentIndex !== targetIndex) {
+              reorderZoneCards(
+                plan.toZoneId,
+                arrayMove(movedZone.cardIds, currentIndex, targetIndex),
+                myPlayerId,
+              );
+            }
+          }
+        }
         queueDebugFrame("drag-end-landed", () => {
           const landedCard = useGameStore.getState().cards[plan.cardId];
           return {

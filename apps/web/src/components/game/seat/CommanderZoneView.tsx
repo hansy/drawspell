@@ -1,10 +1,14 @@
 import React from "react";
+import { useDndContext, useDroppable } from "@dnd-kit/core";
+import { MAX_COMMANDER_ZONE_CARDS } from "@mtg/shared/constants/limits";
 
 import { cn } from "@/lib/utils";
 import type { Zone as ZoneType, Card as CardType, ZoneId } from "@/types";
 import { Tooltip } from "@/components/ui/tooltip";
+import { ZONE_DRAG_OVERLAY_SCALE } from "@/lib/dndDragCue";
 import { Card } from "../card/Card";
 import { Zone } from "../zone/Zone";
+import { COMMANDER_DRAWER_PADDING_PX } from "./handSizing";
 
 import type { CommanderZoneController } from "@/hooks/game/seat/useCommanderZoneController";
 
@@ -28,7 +32,25 @@ export interface CommanderZoneViewProps extends CommanderZoneController {
   isRight: boolean;
   onZoneContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   scale?: number;
+  color?: string;
 }
+
+const COMMANDER_LIGHT_BY_SEAT_COLOR: Record<string, string> = {
+  rose: "rgba(251, 113, 133, 0.95)",
+  violet: "rgba(167, 139, 250, 0.95)",
+  sky: "rgba(56, 189, 248, 0.95)",
+  amber: "rgba(251, 191, 36, 0.95)",
+};
+
+const getCommanderPresenceGradient = (cardCount: number, color?: string) => {
+  const white = "rgba(255, 255, 255, 0.96)";
+  if (cardCount < 2) {
+    return `linear-gradient(to bottom, ${white}, ${white})`;
+  }
+  const partner = COMMANDER_LIGHT_BY_SEAT_COLOR[color ?? ""] ??
+    COMMANDER_LIGHT_BY_SEAT_COLOR.violet;
+  return `linear-gradient(to bottom, ${white} 0%, ${white} 50%, ${partner} 50%, ${partner} 100%)`;
+};
 
 export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
   zone,
@@ -37,12 +59,24 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
   isRight,
   onZoneContextMenu,
   scale = 1,
+  color,
   isOwner,
   handleTaxDelta,
 }) => {
   const rootRef = React.useRef<HTMLDivElement | null>(null);
+  const { active } = useDndContext();
   const [activeTaxCardId, setActiveTaxCardId] = React.useState<string | null>(null);
   const [touchExpanded, setTouchExpanded] = React.useState(false);
+  const commanderDrop = useDroppable({
+    id: `commander-drop-trigger:${zone.id}`,
+    disabled: !isOwner || cards.length >= MAX_COMMANDER_ZONE_CARDS,
+    data: {
+      zoneId: zone.id,
+      type: zone.type,
+      dragOverlayScale: ZONE_DRAG_OVERLAY_SCALE,
+      dragOverlayCue: "zone",
+    },
+  });
   const touchPressTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
@@ -167,16 +201,41 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
       className="group/commander-zone relative z-30 flex w-full items-center justify-center"
     >
       <button
+        ref={commanderDrop.setNodeRef}
         type="button"
         data-commander-zone-label
+        data-commander-drop-target="true"
+        data-drag-overlay-scale={ZONE_DRAG_OVERLAY_SCALE}
+        data-drop-active={commanderDrop.isOver ? "true" : "false"}
         aria-label="Open commander zone"
         aria-expanded={touchExpanded}
         onClick={() => setTouchExpanded((expanded) => !expanded)}
         className={cn(
-          "relative z-40 flex w-full shrink-0 items-center justify-center border-y border-white/10 bg-zinc-900/85 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400/70",
+          "relative z-40 flex h-[var(--commander-zone-label-height)] w-full shrink-0 items-center justify-center border-y border-white/10 bg-zinc-900/85 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400/70",
           touchExpanded && "bg-zinc-800 text-white",
+          commanderDrop.isOver &&
+            "border-indigo-300 bg-indigo-500/30 text-indigo-50 ring-2 ring-inset ring-indigo-300 shadow-[0_0_16px_rgba(129,140,248,0.55)]",
         )}
+        style={{ paddingBlock: "var(--commander-zone-label-padding)" }}
       >
+        {cards.length > 0 && (
+          <div
+            aria-hidden="true"
+            data-commander-presence-light
+            data-commander-presence-segments={cards.length > 1 ? "2" : "1"}
+            className="pointer-events-none absolute inset-y-0 right-0 z-10 w-px"
+            style={{
+              backgroundImage: getCommanderPresenceGradient(cards.length, color),
+            }}
+          >
+            <div
+              className="absolute -inset-x-1 inset-y-0 opacity-60 blur-[3px]"
+              style={{
+                backgroundImage: getCommanderPresenceGradient(cards.length, color),
+              }}
+            />
+          </div>
+        )}
         <span
           className={cn(
             "ds-seat-upright ds-seat-vertical-label whitespace-nowrap leading-none [writing-mode:vertical-rl]",
@@ -189,7 +248,7 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
       <div
         data-commander-zone-panel
         className={cn(
-          "absolute z-30 h-[var(--commander-zone-height)] w-max transition-[clip-path,visibility] duration-200 ease-out motion-reduce:transition-none",
+          "absolute z-30 h-[var(--commander-drawer-height)] w-max transition-[clip-path,visibility] duration-200 ease-out motion-reduce:transition-none",
           isTop ? "top-0" : "bottom-0",
           isRight ? "right-full" : "left-full",
           touchExpanded
@@ -210,7 +269,12 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
       >
         <Zone
           zone={zone}
-          className="flex h-full w-max min-w-[calc(var(--commander-zone-height)*0.733)] items-stretch gap-2 overflow-visible rounded-lg border border-zinc-700/90 bg-zinc-900/95 p-2 shadow-lg"
+          disabled={Boolean(active)}
+          className={cn(
+            "flex h-full w-max min-w-[calc(var(--commander-drawer-height)*0.733)] items-stretch gap-2 overflow-visible border border-zinc-700/90 bg-zinc-900/95 shadow-lg",
+            isRight ? "rounded-l-lg" : "rounded-r-lg",
+          )}
+          style={{ padding: COMMANDER_DRAWER_PADDING_PX }}
           scale={scale}
         >
           {cards.length > 0 ? (
@@ -228,7 +292,8 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
                     card={card}
                     rotateLabel={isTop}
                     style={isTop ? { transform: "rotate(180deg)" } : undefined}
-                    className="h-full w-full lg:!h-full lg:!w-full"
+                    disableHoverAnimation
+                    className="h-full w-full cursor-grab active:cursor-grabbing lg:!h-full lg:!w-full"
                   />
                   <div className="pointer-events-auto absolute right-1 top-1 z-40">
                     <div
@@ -298,7 +363,7 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
           ) : (
             <div
               data-commander-zone-empty
-              className="ds-seat-upright flex h-full min-w-[calc(var(--commander-zone-height)*0.733)] items-center justify-center px-5 text-xs font-medium uppercase tracking-widest text-zinc-600"
+              className="ds-seat-upright flex h-full min-w-[calc(var(--commander-drawer-height)*0.733)] items-center justify-center px-5 text-xs font-medium uppercase tracking-widest text-zinc-600"
             >
               Empty
             </div>

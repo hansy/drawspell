@@ -15,6 +15,7 @@ export interface CommanderZoneProps {
   isRight: boolean;
   onZoneContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   scale?: number;
+  color?: string;
 }
 
 export type CommanderZoneControllerProps = CommanderZoneControllerInput;

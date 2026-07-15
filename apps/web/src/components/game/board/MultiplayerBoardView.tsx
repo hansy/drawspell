@@ -4,7 +4,6 @@ import {
   DndContext,
   DragOverlay,
   getClientRect,
-  pointerWithin,
 } from "@dnd-kit/core";
 
 import { ZONE } from "@/constants/zones";
@@ -18,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { CardPreviewProvider } from "../card/CardPreviewProvider";
 import { shouldRenderFaceDown } from "@/lib/reveal";
 import { CardDragOverlayView } from "./CardDragOverlayView";
+import { ZONE_DRAG_OVERLAY_POINTER_OFFSET_PX } from "@/lib/dndDragCue";
+import { bottomBarAwarePointerWithin } from "@/lib/bottomBarCollision";
 import { Seat } from "../seat/Seat";
 import { ContextMenu } from "../context-menu/ContextMenu";
 import { AddCounterModal } from "../add-counter/AddCounterModal";
@@ -332,6 +333,8 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   activeModal,
   setActiveModal,
   overCardScale,
+  dragOverlayScale,
+  dragOverlayCue,
   activeCardId,
   activeCardScale,
   activeCardTransformOrigin,
@@ -440,7 +443,8 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
         ["--card-w" as string]: `${overlayBaseWidth}px`,
       } as React.CSSProperties)
     : undefined;
-  const activeOverlayTargetScale = overCardScale || activeViewScale;
+  const activeOverlayTargetScale =
+    dragOverlayScale !== 1 ? dragOverlayScale : overCardScale || activeViewScale;
   const activeOverlayScale =
     scale * activeOverlayTargetScale * (hasActiveBaseSizing ? 1 : dragBaseScale);
 
@@ -471,14 +475,17 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
             })
           : { x: 0, y: 0 };
 
+      const pointerOffset =
+        dragOverlayCue === "zone" ? ZONE_DRAG_OVERLAY_POINTER_OFFSET_PX : 0;
+
       return {
-        transform: `translate(${offset.x}px, ${offset.y}px) scale(${overlayScale})`,
+        transform: `translate(${offset.x + pointerOffset}px, ${offset.y + pointerOffset}px) scale(${overlayScale})`,
         transformOrigin: "top left",
         offset,
         visualSize,
       };
     },
-    [activeCardDragAnchor, activeCardSourceSize, getOverlayVisualSize]
+    [activeCardDragAnchor, activeCardSourceSize, dragOverlayCue, getOverlayVisualSize]
   );
 
   React.useEffect(() => {
@@ -890,7 +897,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
         autoScroll={{
           layoutShiftCompensation: { x: false, y: true },
         }}
-        collisionDetection={pointerWithin}
+        collisionDetection={bottomBarAwarePointerWithin}
       >
         <div
           className="ds-app-shell bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500/30"
@@ -1132,7 +1139,10 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                   overlayZone?.type === ZONE.BATTLEFIELD
                     ? (battlefieldViewScale[overlayZone.ownerId] ?? 1)
                     : 1;
-                const targetScale = overCardScale || viewScale;
+                const targetScale =
+                  dragOverlayScale !== 1
+                    ? dragOverlayScale
+                    : overCardScale || viewScale;
                 const overlayScale =
                   scale * targetScale * (hasActiveBaseSizing ? 1 : dragBaseScale);
                 const anchoredOverlay = getAnchoredOverlayTransform(
@@ -1162,6 +1172,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                   <div
                     data-dnd-drag-overlay-card-id={overlayCard.id}
                     data-dnd-drag-overlay-kind="group"
+                    className="transition-transform duration-150 ease-out motion-reduce:transition-none"
                     style={{
                       ...(overlayCardVars ?? {}),
                       transform: anchoredOverlay.transform,
@@ -1220,7 +1231,10 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                     overlayZone?.type === ZONE.BATTLEFIELD
                       ? (battlefieldViewScale[overlayZone.ownerId] ?? 1)
                       : 1;
-                  const targetScale = overCardScale || viewScale;
+                  const targetScale =
+                    dragOverlayScale !== 1
+                      ? dragOverlayScale
+                      : overCardScale || viewScale;
                   const overlayScale =
                     scale * targetScale * (hasActiveBaseSizing ? 1 : dragBaseScale);
                   const anchoredOverlay = getAnchoredOverlayTransform(
@@ -1240,6 +1254,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                     <div
                       data-dnd-drag-overlay-card-id={overlayCard.id}
                       data-dnd-drag-overlay-kind="single"
+                      className="transition-transform duration-150 ease-out motion-reduce:transition-none"
                       style={{
                         ...(overlayCardVars ?? {}),
                         transform: anchoredOverlay.transform,

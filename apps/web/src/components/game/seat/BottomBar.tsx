@@ -1,4 +1,5 @@
 import React from "react";
+import { useDroppable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 import {
   HAND_DEFAULT_HEIGHT,
@@ -19,6 +20,7 @@ interface BottomBarProps {
   maxHeight?: number;
   defaultHeight?: number;
   invertResizeDirection?: boolean;
+  dropBlockerId?: string;
 }
 
 export const BottomBar: React.FC<BottomBarProps> = ({
@@ -32,7 +34,13 @@ export const BottomBar: React.FC<BottomBarProps> = ({
   maxHeight: maxHeightProp,
   defaultHeight: defaultHeightProp,
   invertResizeDirection: invertResizeDirectionProp,
+  dropBlockerId,
 }) => {
+  const bottomBarDropBlocker = useDroppable({
+    id: dropBlockerId ?? "bottom-bar-drop-blocker-disabled",
+    disabled: !dropBlockerId,
+    data: { dropSurface: "bottom-bar" },
+  });
   const canResize = Boolean(onHeightChange);
   const invertResizeDirection = invertResizeDirectionProp ?? isTop;
   const minHeight = minHeightProp ?? HAND_MIN_HEIGHT;
@@ -119,8 +127,14 @@ export const BottomBar: React.FC<BottomBarProps> = ({
 
   return (
     <div
-      ref={containerRef}
+      ref={(node) => {
+        containerRef.current = node;
+        bottomBarDropBlocker.setNodeRef(node);
+      }}
       data-bottom-bar
+      data-bottom-bar-drop-blocker={dropBlockerId ? "true" : undefined}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className={cn(
         "flex w-full shrink-0 relative z-20",
         isRight ? "flex-row-reverse" : "flex-row",
@@ -143,8 +157,10 @@ export const BottomBar: React.FC<BottomBarProps> = ({
             )}
           />
           <div
+            data-bottom-bar-handle-grip
             className={cn(
-              "absolute left-1/2 -translate-x-1/2 pointer-events-none z-20",
+              "absolute left-1/2 -translate-x-1/2 pointer-events-none z-20 transition-opacity duration-150 motion-reduce:transition-none",
+              isDragging || isHovering ? "opacity-100" : "opacity-0",
               isTop ? "bottom-0 translate-y-1/2" : "top-0 -translate-y-1/2"
             )}
           >
@@ -192,8 +208,6 @@ export const BottomBar: React.FC<BottomBarProps> = ({
               transform: isTop ? "translateY(50%)" : "translateY(-50%)",
             }}
             onMouseDown={handleMouseDown}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
           />
         </>
       )}

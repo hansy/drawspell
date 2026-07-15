@@ -40,7 +40,7 @@ describe("SideZone touch gestures", () => {
     vi.useRealTimers();
   });
 
-  it("shows a dotted outline and a single bottom label when the edge zone is empty", () => {
+  it("shows no dotted outline around an empty library edge zone", () => {
     const { container, getByText } = render(
       <SideZone
         variant="edge"
@@ -58,7 +58,7 @@ describe("SideZone touch gestures", () => {
     const emptyLabel = container.querySelector("[data-edge-zone-empty-label]");
 
     expect(edgeZone).not.toBeNull();
-    expect(dropZone?.classList.contains("border-dotted")).toBe(true);
+    expect(dropZone?.classList.contains("border-dotted")).toBe(false);
     expect((emptyContent as HTMLElement | null)?.style.height).toBe("150px");
     expect(emptyLabel?.classList.contains("top-1/4")).toBe(true);
     expect(emptyLabel?.textContent).toBe("Library");
@@ -68,6 +68,23 @@ describe("SideZone touch gestures", () => {
     expect(label.classList.contains("invisible")).toBe(true);
     expect(label.classList.contains("group-hover/edge-zone:visible")).toBe(true);
     expect(label.classList.contains("ds-seat-upright")).toBe(true);
+  });
+
+  it("keeps the dotted outline around other empty edge zones", () => {
+    const { container } = render(
+      <SideZone
+        variant="edge"
+        zone={{ ...zone, id: "graveyard-me", type: ZONE.GRAVEYARD } as any}
+        label="Graveyard"
+        count={0}
+      />
+    );
+
+    expect(
+      container
+        .querySelector('[data-zone-id="graveyard-me"]')
+        ?.classList.contains("border-dotted"),
+    ).toBe(true);
   });
 
   it("removes the dotted outline when the edge zone contains a card", () => {
@@ -91,6 +108,7 @@ describe("SideZone touch gestures", () => {
             } as any}
             label="Library"
             count={1}
+            flipCard
             disableCardDrag
           />
         </CardPreviewProvider>
@@ -98,7 +116,9 @@ describe("SideZone touch gestures", () => {
     );
 
     const dropZone = container.querySelector('[data-zone-id="library-me"]');
+    const card = container.querySelector('[data-card-id="card-1"]');
     expect(dropZone?.classList.contains("border-dotted")).toBe(false);
+    expect(card?.classList.contains("rotate-180")).toBe(true);
   });
 
   it("maps touch double tap to onDoubleClick", () => {
