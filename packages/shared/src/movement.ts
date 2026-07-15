@@ -377,6 +377,12 @@ const enforceZoneCounterRulesForMove = (
   zone: Pick<Zone, "type">
 ): Card["counters"] => (zone.type === ZONE.BATTLEFIELD ? counters : []);
 
+const isLibraryMoveTo = (
+  fromZone: Pick<Zone, "type">,
+  toZone: Pick<Zone, "type">,
+  toZoneType: Zone["type"]
+) => fromZone.type === ZONE.LIBRARY && toZone.type === toZoneType;
+
 const resolveMoveLogFacts = (params: {
   card: Pick<Card, "id" | "name" | "faceDown">;
   fromZone: Zone;
@@ -389,10 +395,10 @@ const resolveMoveLogFacts = (params: {
   cardNameForLog?: string;
 }): CardMovementLogFacts => {
   if (params.opts?.suppressLog) {
-    if (params.fromZone.type === ZONE.LIBRARY && params.toZone.type === ZONE.HAND) {
+    if (isLibraryMoveTo(params.fromZone, params.toZone, ZONE.HAND)) {
       return { event: "draw", playerId: params.fromZone.ownerId, count: 1 };
     }
-    if (params.fromZone.type === ZONE.LIBRARY && params.toZone.type === ZONE.GRAVEYARD) {
+    if (isLibraryMoveTo(params.fromZone, params.toZone, ZONE.GRAVEYARD)) {
       return { event: "discard", playerId: params.fromZone.ownerId, count: 1 };
     }
     return { event: "none" };
