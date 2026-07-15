@@ -361,6 +361,33 @@ describe("SeatView desktop side-zone previews", () => {
     expect(onEditUsername).toHaveBeenCalledTimes(1);
     expect(container.querySelector('[data-hand-fit-cards="true"]')).not.toBeNull();
     expect(
+      container
+        .querySelector('[data-hand-fit-cards="true"]')
+        ?.classList.contains("!flex-1"),
+    ).toBe(true);
+    expect(
+      container
+        .querySelector('[data-hand-fit-cards="true"]')
+        ?.classList.contains("!w-1/2"),
+    ).toBe(false);
+    const zoneCluster = container.querySelector(
+      "[data-desktop-bottom-zone-cluster]",
+    ) as HTMLElement | null;
+    expect(zoneCluster?.classList.contains("ml-auto")).toBe(true);
+    expect(
+      zoneCluster?.classList.contains(
+        "pr-[var(--seat-rail-edge-inset)]",
+      ),
+    ).toBe(true);
+    expect(
+      zoneCluster?.classList.contains(
+        "gap-[var(--desktop-bottom-zone-gap)]",
+      ),
+    ).toBe(true);
+    expect(zoneCluster?.style.gridTemplateColumns).toMatch(
+      /^repeat\(3, [\d.]+px\)$/,
+    );
+    expect(
       (
         container.querySelector(
           "[data-dnd-hand-card-strip]",

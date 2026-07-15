@@ -33,7 +33,7 @@ import {
   getCommanderDrawerHeight,
   getCommanderZoneLabelSizing,
 } from "./handSizing";
-import { BASE_CARD_HEIGHT } from "@/lib/constants";
+import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from "@/lib/constants";
 import { useSeatSizing } from "@/hooks/game/seat/useSeatSizing";
 import { ZONE_DRAG_OVERLAY_SCALE } from "@/lib/dndDragCue";
 
@@ -193,6 +193,10 @@ export const SeatView: React.FC<SeatViewProps> = ({
     if (!resolvedBaseHeight) return 1;
     return desktopHandHeights.cardHeight / resolvedBaseHeight;
   }, [baseCardHeightPx, desktopHandHeights, handCardScale]);
+  const desktopBottomZoneWidth =
+    (desktopHandHeights?.cardHeight ??
+      (baseCardHeightPx ?? BASE_CARD_HEIGHT) * desktopHandCardScale) *
+    CARD_ASPECT_RATIO;
   const commanderDrawerHeight = getCommanderDrawerHeight({
     battlefieldCardHeight: baseCardHeightPx,
     handHeight: effectiveHandHeight,
@@ -751,11 +755,17 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 flipCards={isTop}
                 labelPlacement="bottom-center"
                 cardTopGapPx={0}
-                className="!w-1/2 !flex-none !border-0 !bg-transparent !px-2"
+                className="!w-auto !flex-1 !border-0 !bg-transparent !px-2"
               />
             )}
 
-            <div className="grid h-full w-1/2 shrink-0 grid-cols-3">
+            <div
+              data-desktop-bottom-zone-cluster
+              className="ml-auto grid h-full shrink-0 grid-cols-3 gap-[var(--desktop-bottom-zone-gap)] pr-[var(--seat-rail-edge-inset)]"
+              style={{
+                gridTemplateColumns: `repeat(3, ${desktopBottomZoneWidth}px)`,
+              }}
+            >
               {library && (
                 <SideZone
                   variant="edge"
