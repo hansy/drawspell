@@ -28,3 +28,36 @@ export const createSafeStorage = (): Storage => {
     return createMemoryStorage();
   }
 };
+
+export const createGameStoreStorage = (storage: Storage = createSafeStorage()): Storage => {
+  const lastValues = new Map<string, string>();
+
+  return {
+    getItem: (key) => {
+      const value = storage.getItem(key);
+      if (value === null) {
+        lastValues.delete(key);
+      } else {
+        lastValues.set(key, value);
+      }
+      return value;
+    },
+    setItem: (key, value) => {
+      if (lastValues.get(key) === value) return;
+      storage.setItem(key, value);
+      lastValues.set(key, value);
+    },
+    removeItem: (key) => {
+      storage.removeItem(key);
+      lastValues.delete(key);
+    },
+    clear: () => {
+      storage.clear();
+      lastValues.clear();
+    },
+    key: (index) => storage.key(index),
+    get length() {
+      return storage.length;
+    },
+  };
+};

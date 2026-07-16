@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
 
@@ -34,6 +34,11 @@ export function GameRoute() {
   const { sessionId } = Route.useParams();
   const hasHydrated = useClientPrefsStore((state) => state.hasHydrated);
   const username = useClientPrefsStore((state) => state.username);
+
+  useEffect(() => {
+    (window as Window & { __drawspellGameRuntimeLoaded?: boolean })
+      .__drawspellGameRuntimeLoaded = true;
+  }, []);
 
   if (!hasHydrated) return <RoomRouteLoadingScreen />;
 

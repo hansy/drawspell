@@ -24,17 +24,11 @@ import { ContextMenu } from "../context-menu/ContextMenu";
 import { AddCounterModal } from "../add-counter/AddCounterModal";
 import { CoinFlipDialog } from "../coin/CoinFlipDialog";
 import { DiceRollDialog } from "../dice/DiceRollDialog";
-import { LoadDeckModal } from "../load-deck/LoadDeckModal";
 import { LogDrawer } from "../log-drawer/LogDrawer";
 import { NumberPromptDialog } from "../prompts/NumberPromptDialog";
-import { OpponentLibraryRevealsModal } from "../opponent-library-reveals/OpponentLibraryRevealsModal";
-import { ShortcutsDrawer } from "../shortcuts/ShortcutsDrawer";
 import { Sidenav } from "../sidenav/Sidenav";
 import { TextPromptDialog } from "../prompts/TextPromptDialog";
-import { TokenCreationModal } from "../token-creation/TokenCreationModal";
-import { ZoneViewerModal } from "../zone-viewer/ZoneViewerModal";
 import { EditUsernameDialog } from "@/components/username/EditUsernameDialog";
-import { ShareRoomDialog } from "@/components/game/share/ShareRoomDialog";
 import {
   COARSE_POINTER_QUERY,
   getPortraitViewportMatch,
@@ -43,6 +37,31 @@ import {
 } from "@/models/game/board/viewportModel";
 
 import type { MultiplayerBoardController } from "@/hooks/game/board/useMultiplayerBoardController";
+
+const LoadDeckModal = React.lazy(() =>
+  import("../load-deck/LoadDeckModal").then((module) => ({ default: module.LoadDeckModal })),
+);
+const OpponentLibraryRevealsModal = React.lazy(() =>
+  import("../opponent-library-reveals/OpponentLibraryRevealsModal").then((module) => ({
+    default: module.OpponentLibraryRevealsModal,
+  })),
+);
+const ShortcutsDrawer = React.lazy(() =>
+  import("../shortcuts/ShortcutsDrawer").then((module) => ({ default: module.ShortcutsDrawer })),
+);
+const TokenCreationModal = React.lazy(() =>
+  import("../token-creation/TokenCreationModal").then((module) => ({
+    default: module.TokenCreationModal,
+  })),
+);
+const ZoneViewerModal = React.lazy(() =>
+  import("../zone-viewer/ZoneViewerModal").then((module) => ({ default: module.ZoneViewerModal })),
+);
+const ShareRoomDialog = React.lazy(() =>
+  import("@/components/game/share/ShareRoomDialog").then((module) => ({
+    default: module.ShareRoomDialog,
+  })),
+);
 
 type MultiplayerBoardViewProps = Omit<
   MultiplayerBoardController,
@@ -1068,11 +1087,15 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           onSubmit={(value) => textPrompt?.onSubmit(value)}
           onClose={closeTextPrompt}
         />
-        <LoadDeckModal
-          isOpen={isLoadDeckModalOpen}
-          onClose={() => setIsLoadDeckModalOpen(false)}
-          playerId={myPlayerId}
-        />
+        <React.Suspense fallback={null}>
+          {isLoadDeckModalOpen && (
+            <LoadDeckModal
+              isOpen
+              onClose={() => setIsLoadDeckModalOpen(false)}
+              playerId={myPlayerId}
+            />
+          )}
+        </React.Suspense>
         <CoinFlipDialog
           open={isCoinFlipperOpen}
           onClose={() => setIsCoinFlipperOpen(false)}
@@ -1083,11 +1106,15 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           onClose={() => setIsDiceRollerOpen(false)}
           onRoll={handleRollDice}
         />
-        <TokenCreationModal
-          isOpen={isTokenModalOpen}
-          onClose={() => setIsTokenModalOpen(false)}
-          playerId={myPlayerId}
-        />
+        <React.Suspense fallback={null}>
+          {isTokenModalOpen && (
+            <TokenCreationModal
+              isOpen
+              onClose={() => setIsTokenModalOpen(false)}
+              playerId={myPlayerId}
+            />
+          )}
+        </React.Suspense>
         <AddCounterModal
           isOpen={activeModal?.type === "ADD_COUNTER"}
           onClose={() => setActiveModal(null)}
@@ -1095,39 +1122,48 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
             activeModal?.type === "ADD_COUNTER" ? activeModal.cardIds : []
           }
         />
-        <ZoneViewerModal
-          isOpen={zoneViewerState.isOpen}
-          onClose={() =>
-            setZoneViewerState((prev) => ({ ...prev, isOpen: false }))
-          }
-          zoneId={zoneViewerState.zoneId}
-          count={zoneViewerState.count}
-        />
-        <OpponentLibraryRevealsModal
-          isOpen={Boolean(revealedLibraryZoneId)}
-          onClose={() => setRevealedLibraryZoneId(null)}
-          zoneId={revealedLibraryZoneId}
-        />
-        <ShortcutsDrawer
-          isOpen={isShortcutsOpen}
-          onClose={() => setIsShortcutsOpen(false)}
-        />
+        <React.Suspense fallback={null}>
+          {zoneViewerState.isOpen && (
+            <ZoneViewerModal
+              isOpen
+              onClose={() =>
+                setZoneViewerState((prev) => ({ ...prev, isOpen: false }))
+              }
+              zoneId={zoneViewerState.zoneId}
+              count={zoneViewerState.count}
+            />
+          )}
+          {revealedLibraryZoneId && (
+            <OpponentLibraryRevealsModal
+              isOpen
+              onClose={() => setRevealedLibraryZoneId(null)}
+              zoneId={revealedLibraryZoneId}
+            />
+          )}
+          {isShortcutsOpen && (
+            <ShortcutsDrawer isOpen onClose={() => setIsShortcutsOpen(false)} />
+          )}
+        </React.Suspense>
         <EditUsernameDialog
           open={isEditUsernameOpen}
           onClose={() => setIsEditUsernameOpen(false)}
           initialValue={players[myPlayerId]?.name ?? preferredUsername ?? ""}
           onSubmit={handleUsernameSubmit}
         />
-        <ShareRoomDialog
-          open={isShareDialogOpen}
-          onClose={() => setIsShareDialogOpen(false)}
-          playerLink={shareLinks.players}
-          spectatorLink={shareLinks.spectators}
-          resumeLink={shareLinks.resume}
-          linksReady={shareLinksReady}
-          errorMessage={shareDialogError}
-          players={players}
-        />
+        <React.Suspense fallback={null}>
+          {isShareDialogOpen && (
+            <ShareRoomDialog
+              open
+              onClose={() => setIsShareDialogOpen(false)}
+              playerLink={shareLinks.players}
+              spectatorLink={shareLinks.spectators}
+              resumeLink={shareLinks.resume}
+              linksReady={shareLinksReady}
+              errorMessage={shareDialogError}
+              players={players}
+            />
+          )}
+        </React.Suspense>
         <DragOverlay dropAnimation={null}>
           {showGroupDragOverlay
             ? (() => {

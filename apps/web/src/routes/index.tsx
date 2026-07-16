@@ -10,10 +10,7 @@ import {
   readRoomTokensFromStorage,
   writeRoomTokensToStorage,
 } from "@/lib/partyKitToken";
-import { clearIntentTransport } from "@/partykit/intentTransport";
-import { destroyAllSessions } from "@/yjs/docManager";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
-import { useGameStore } from "@/store/gameStore";
 import { FooterLinks } from "@/components/landing/FooterLinks";
 import { LandingBackground } from "@/components/landing/LandingBackground";
 import { LandingHero } from "@/components/landing/LandingHero";
@@ -23,6 +20,19 @@ import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
 import { getRoomStatus } from "@/server/roomStatus";
 
 const origins = resolveOriginsForEnv(import.meta.env.VITE_ENV);
+type GameRuntimeWindow = Window & { __drawspellGameRuntimeLoaded?: boolean };
+
+const cleanupGameRuntime = async () => {
+  const [{ clearIntentTransport }, { destroyAllSessions }] = await Promise.all([
+    import("@/partykit/intentTransport"),
+    import("@/yjs/docManager"),
+  ]);
+  destroyAllSessions();
+  clearIntentTransport();
+  if (typeof window !== "undefined") {
+    (window as GameRuntimeWindow).__drawspellGameRuntimeLoaded = false;
+  }
+};
 
 export const LandingPage = () => {
   const navigate = useNavigate();
@@ -37,8 +47,26 @@ export const LandingPage = () => {
   const showCtaWithReconnect = false;
 
   useEffect(() => {
-    destroyAllSessions();
-    clearIntentTransport();
+    if (!(window as GameRuntimeWindow).__drawspellGameRuntimeLoaded) return;
+
+    let cancelled = false;
+    const cleanup = () => {
+      if (!cancelled) void cleanupGameRuntime();
+    };
+
+    if (typeof window.requestIdleCallback === "function") {
+      const idleId = window.requestIdleCallback(cleanup, { timeout: 1_000 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(idleId);
+      };
+    }
+
+    const timeoutId = window.setTimeout(cleanup, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
   }, []);
 
   useEffect(() => {
@@ -69,7 +97,7 @@ export const LandingPage = () => {
     let cancelled = false;
     setResumeSessionId(null);
     void getRoomStatus({ data: { roomId: lastSessionId, accessToken } })
-      .then(({ exists }) => {
+      .then(async ({ exists }) => {
         if (cancelled) return;
         if (exists) {
           setResumeSessionId(lastSessionId);
@@ -77,8 +105,9 @@ export const LandingPage = () => {
         }
         clearRoomHostPending(lastSessionId);
         writeRoomTokensToStorage(lastSessionId, null);
-        useGameStore.getState().forgetSessionIdentity(lastSessionId);
         clearLastSessionId();
+        const { useGameStore } = await import("@/store/gameStore");
+        useGameStore.getState().forgetSessionIdentity(lastSessionId);
       })
       .catch(() => {
         // A transient status outage should not discard a valid saved room.
@@ -115,14 +144,16 @@ export const LandingPage = () => {
     if (!resumeSessionId) return;
     clearRoomHostPending(resumeSessionId);
     writeRoomTokensToStorage(resumeSessionId, null);
-    const store = useGameStore.getState();
-    store.setRoomTokens(null);
-    store.forgetSessionIdentity(resumeSessionId);
-    store.resetSession();
     clearLastSessionId();
-    destroyAllSessions();
-    clearIntentTransport();
     setResumeSessionId(null);
+
+    void import("@/store/gameStore").then(({ useGameStore }) => {
+      const store = useGameStore.getState();
+      store.setRoomTokens(null);
+      store.forgetSessionIdentity(resumeSessionId);
+      store.resetSession();
+    });
+    void cleanupGameRuntime();
   };
 
   return (

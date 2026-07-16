@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 import type { GameState } from '@/types';
-import { createSafeStorage } from '@/lib/safeStorage';
+import { createGameStoreStorage } from '@/lib/safeStorage';
 import { createIntentDispatcher } from './gameStore/dispatchIntent';
 
 import { createCardActions } from './gameStore/actions/cards';
@@ -89,7 +89,7 @@ export const useGameStore = create<GameStore>()(
                 playerIdsBySession: state.playerIdsBySession,
                 sessionVersions: state.sessionVersions,
             }),
-            storage: createJSONStorage(createSafeStorage),
+            storage: createJSONStorage(createGameStoreStorage),
             onRehydrateStorage: () => (state) => {
                 if (!state) return;
 

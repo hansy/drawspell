@@ -74,29 +74,41 @@ export function sanitizeSharedSnapshot(snapshot: SharedSnapshotLike) {
 
   const safeHandRevealsToAll: HandRevealsToAll = {};
   const handRevealEntries = Object.entries(snapshot.handRevealsToAll ?? {});
+  let handRevealCount = 0;
   handRevealEntries.forEach(([slotId, value]) => {
-    if (Object.keys(safeHandRevealsToAll).length >= MAX_CARDS) return;
+    if (handRevealCount >= MAX_CARDS) return;
     if (typeof slotId !== "string") return;
     const identity = sanitizeCardIdentity(value);
-    if (identity) safeHandRevealsToAll[slotId] = identity;
+    if (identity) {
+      safeHandRevealsToAll[slotId] = identity;
+      handRevealCount += 1;
+    }
   });
 
   const safeLibraryRevealsToAll: LibraryRevealsToAll = {};
   const libraryRevealEntries = Object.entries(snapshot.libraryRevealsToAll ?? {});
+  let libraryRevealCount = 0;
   libraryRevealEntries.forEach(([revealId, value]) => {
-    if (Object.keys(safeLibraryRevealsToAll).length >= MAX_CARDS) return;
+    if (libraryRevealCount >= MAX_CARDS) return;
     if (typeof revealId !== "string") return;
     const entry = sanitizeLibraryRevealEntry(value);
-    if (entry) safeLibraryRevealsToAll[revealId] = entry;
+    if (entry) {
+      safeLibraryRevealsToAll[revealId] = entry;
+      libraryRevealCount += 1;
+    }
   });
 
   const safeFaceDownRevealsToAll: FaceDownRevealsToAll = {};
   const faceDownEntries = Object.entries(snapshot.faceDownRevealsToAll ?? {});
+  let faceDownRevealCount = 0;
   faceDownEntries.forEach(([cardId, value]) => {
-    if (Object.keys(safeFaceDownRevealsToAll).length >= MAX_CARDS) return;
+    if (faceDownRevealCount >= MAX_CARDS) return;
     if (typeof cardId !== "string") return;
     const identity = sanitizeCardIdentity(value);
-    if (identity) safeFaceDownRevealsToAll[cardId] = identity;
+    if (identity) {
+      safeFaceDownRevealsToAll[cardId] = identity;
+      faceDownRevealCount += 1;
+    }
   });
 
   Object.values(safeZones).forEach((zone) => {
@@ -118,6 +130,11 @@ export function sanitizeSharedSnapshot(snapshot: SharedSnapshotLike) {
     });
   });
 
+  const zoneCardIdSets = new Map<string, Set<string>>();
+  Object.values(safeZones).forEach((zone) => {
+    zoneCardIdSets.set(zone.id, new Set(zone.cardIds));
+  });
+
   Object.values(safeCards).forEach((card) => {
     const zone = safeZones[card.zoneId];
     if (!zone) return;
@@ -126,10 +143,13 @@ export function sanitizeSharedSnapshot(snapshot: SharedSnapshotLike) {
       return;
     }
 
-    if (!zone.cardIds.includes(card.id)) {
+    const zoneCardIds = zoneCardIdSets.get(zone.id);
+    if (!zoneCardIds?.has(card.id)) {
       zone.cardIds.push(card.id);
+      zoneCardIds?.add(card.id);
       if (zone.cardIds.length > MAX_CARDS_PER_ZONE) {
         zone.cardIds = zone.cardIds.slice(0, MAX_CARDS_PER_ZONE);
+        zoneCardIdSets.set(zone.id, new Set(zone.cardIds));
       }
     }
 
@@ -139,6 +159,7 @@ export function sanitizeSharedSnapshot(snapshot: SharedSnapshotLike) {
     }
   });
 
+  const battlefieldPlacementStepY = getCanonicalBattlefieldPlacementGridSteps().stepY;
   Object.values(safeZones).forEach((zone) => {
     if (zone.type !== "battlefield") return;
 
@@ -151,7 +172,7 @@ export function sanitizeSharedSnapshot(snapshot: SharedSnapshotLike) {
         targetPosition: card.position,
         occupied,
         maxAttempts: MAX_CARDS_PER_ZONE,
-        stepY: getCanonicalBattlefieldPlacementGridSteps().stepY,
+        stepY: battlefieldPlacementStepY,
       });
 
       occupied.add(normalizedPositionKey(resolved));

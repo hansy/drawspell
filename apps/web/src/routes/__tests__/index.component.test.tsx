@@ -76,7 +76,9 @@ describe("landing page reconnect card", () => {
       expect(useClientPrefsStore.getState().lastSessionId).toBeNull();
     });
     expect(screen.queryByRole("button", { name: "Reconnect" })).toBeNull();
-    expect(mocks.forgetSessionIdentity).toHaveBeenCalledWith("room-1");
+    await waitFor(() => {
+      expect(mocks.forgetSessionIdentity).toHaveBeenCalledWith("room-1");
+    });
   });
 
   it("keeps reconnect available when the existence check is temporarily unavailable", async () => {

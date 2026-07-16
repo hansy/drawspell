@@ -1,6 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { Toaster } from "sonner";
-import { PostHogProvider } from "posthog-js/react";
 import appCss from "../styles.css?url";
 
 export const RootDocument = ({ children }: { children: React.ReactNode }) => {
@@ -13,7 +13,7 @@ export const RootDocument = ({ children }: { children: React.ReactNode }) => {
         <HeadContent />
       </head>
       <body style={{ backgroundColor: "#09090b" }}>
-        <PHProvider>{children}</PHProvider>
+        <AnalyticsInitializer>{children}</AnalyticsInitializer>
         <Toaster />
         <Scripts />
       </body>
@@ -44,20 +44,23 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 });
 
-const PHProvider = ({ children }: { children: React.ReactNode }) => {
-  if (import.meta.env.VITE_ENV !== "production") {
-    return children;
-  }
+const AnalyticsInitializer = ({ children }: { children: React.ReactNode }) => {
+  useEffect(() => {
+    if (import.meta.env.VITE_ENV !== "production") return;
 
-  return (
-    <PostHogProvider
-      apiKey={"phc_oYFcMPG9V4ARE4INIzfQQnLmADFN2GRLaYfDFiLSaQ6"}
-      options={{
-        api_host: "https://us.i.posthog.com",
-        defaults: "2025-11-30",
-      }}
-    >
-      {children}
-    </PostHogProvider>
-  );
+    let cancelled = false;
+    const initialize = () => {
+      void import("../lib/posthog").then(({ initializePostHog }) => {
+        if (!cancelled) initializePostHog();
+      });
+    };
+
+    const timeoutId = window.setTimeout(initialize, 2_000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
+
+  return children;
 };
