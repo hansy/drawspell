@@ -23,6 +23,7 @@ import {
   cancelDebouncedTimeout,
   scheduleDebouncedTimeout,
 } from "./debouncedTimeout";
+import { createFrameBatchScheduler } from "./frameBatchScheduler";
 import {
   setupSessionResources,
   teardownSessionResources,
@@ -72,7 +73,6 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
     useState<JoinBlockedReason>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [connectEpoch, setConnectEpoch] = useState(0);
-  const fullSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const postSyncFullSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const postSyncInitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -691,9 +691,9 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         attemptJoin();
       }
 
-      const SYNC_DEBOUNCE_MS = 50;
+      const fullSyncScheduler = createFrameBatchScheduler();
       const scheduleFullSync = () => {
-        scheduleDebouncedTimeout(fullSyncTimer, SYNC_DEBOUNCE_MS, fullSyncToStore);
+        fullSyncScheduler.schedule(fullSyncToStore);
       };
 
       const handleDocUpdate = () => {
@@ -742,7 +742,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
         clearConnectAttemptTimer();
 
         doc.off("update", handleDocUpdate);
-        cancelDebouncedTimeout(fullSyncTimer);
+        fullSyncScheduler.cancel();
         cancelDebouncedTimeout(postSyncFullSyncTimer);
         cancelDebouncedTimeout(postSyncInitTimer);
 
