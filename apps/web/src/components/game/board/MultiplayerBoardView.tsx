@@ -20,15 +20,8 @@ import { CardDragOverlayView } from "./CardDragOverlayView";
 import { ZONE_DRAG_OVERLAY_POINTER_OFFSET_PX } from "@/lib/dndDragCue";
 import { bottomBarAwarePointerWithin } from "@/lib/bottomBarCollision";
 import { Seat } from "../seat/Seat";
-import { ContextMenu } from "../context-menu/ContextMenu";
-import { AddCounterModal } from "../add-counter/AddCounterModal";
-import { CoinFlipDialog } from "../coin/CoinFlipDialog";
-import { DiceRollDialog } from "../dice/DiceRollDialog";
 import { LogDrawer } from "../log-drawer/LogDrawer";
-import { NumberPromptDialog } from "../prompts/NumberPromptDialog";
 import { Sidenav } from "../sidenav/Sidenav";
-import { TextPromptDialog } from "../prompts/TextPromptDialog";
-import { EditUsernameDialog } from "@/components/username/EditUsernameDialog";
 import {
   COARSE_POINTER_QUERY,
   getPortraitViewportMatch,
@@ -38,6 +31,41 @@ import {
 
 import type { MultiplayerBoardController } from "@/hooks/game/board/useMultiplayerBoardController";
 
+const AddCounterModal = React.lazy(() =>
+  import("../add-counter/AddCounterModal").then((module) => ({
+    default: module.AddCounterModal,
+  })),
+);
+const CoinFlipDialog = React.lazy(() =>
+  import("../coin/CoinFlipDialog").then((module) => ({
+    default: module.CoinFlipDialog,
+  })),
+);
+const ContextMenu = React.lazy(() =>
+  import("../context-menu/ContextMenu").then((module) => ({
+    default: module.ContextMenu,
+  })),
+);
+const DiceRollDialog = React.lazy(() =>
+  import("../dice/DiceRollDialog").then((module) => ({
+    default: module.DiceRollDialog,
+  })),
+);
+const EditUsernameDialog = React.lazy(() =>
+  import("@/components/username/EditUsernameDialog").then((module) => ({
+    default: module.EditUsernameDialog,
+  })),
+);
+const NumberPromptDialog = React.lazy(() =>
+  import("../prompts/NumberPromptDialog").then((module) => ({
+    default: module.NumberPromptDialog,
+  })),
+);
+const TextPromptDialog = React.lazy(() =>
+  import("../prompts/TextPromptDialog").then((module) => ({
+    default: module.TextPromptDialog,
+  })),
+);
 const LoadDeckModal = React.lazy(() =>
   import("../load-deck/LoadDeckModal").then((module) => ({ default: module.LoadDeckModal })),
 );
@@ -1057,37 +1085,41 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
             </div>
           )}
         </div>
-        {contextMenu && (
-          <ContextMenu
-            x={contextMenu.x}
-            y={contextMenu.y}
-            items={contextMenu.items}
-            onClose={closeContextMenu}
-            title={contextMenu.title}
-          />
-        )}
-        <NumberPromptDialog
-          open={Boolean(countPrompt)}
-          title={countPrompt?.title || ""}
-          message={countPrompt?.message}
-          onSubmit={(value) => countPrompt?.onSubmit(value)}
-          onClose={closeCountPrompt}
-          initialValue={countPrompt?.initialValue ?? 1}
-          minValue={countPrompt?.minValue}
-          maxValue={countPrompt?.maxValue}
-          inputLabel={countPrompt?.inputLabel}
-          showMaxButton={countPrompt?.showMaxButton}
-          confirmLabel={countPrompt?.confirmLabel}
-        />
-        <TextPromptDialog
-          open={Boolean(textPrompt)}
-          title={textPrompt?.title || ""}
-          message={textPrompt?.message}
-          initialValue={textPrompt?.initialValue}
-          onSubmit={(value) => textPrompt?.onSubmit(value)}
-          onClose={closeTextPrompt}
-        />
         <React.Suspense fallback={null}>
+          {contextMenu && (
+            <ContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              items={contextMenu.items}
+              onClose={closeContextMenu}
+              title={contextMenu.title}
+            />
+          )}
+          {countPrompt && (
+            <NumberPromptDialog
+              open
+              title={countPrompt.title || ""}
+              message={countPrompt.message}
+              onSubmit={(value) => countPrompt.onSubmit(value)}
+              onClose={closeCountPrompt}
+              initialValue={countPrompt.initialValue ?? 1}
+              minValue={countPrompt.minValue}
+              maxValue={countPrompt.maxValue}
+              inputLabel={countPrompt.inputLabel}
+              showMaxButton={countPrompt.showMaxButton}
+              confirmLabel={countPrompt.confirmLabel}
+            />
+          )}
+          {textPrompt && (
+            <TextPromptDialog
+              open
+              title={textPrompt.title || ""}
+              message={textPrompt.message}
+              initialValue={textPrompt.initialValue}
+              onSubmit={(value) => textPrompt.onSubmit(value)}
+              onClose={closeTextPrompt}
+            />
+          )}
           {isLoadDeckModalOpen && (
             <LoadDeckModal
               isOpen
@@ -1095,18 +1127,20 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
               playerId={myPlayerId}
             />
           )}
-        </React.Suspense>
-        <CoinFlipDialog
-          open={isCoinFlipperOpen}
-          onClose={() => setIsCoinFlipperOpen(false)}
-          onFlip={handleFlipCoin}
-        />
-        <DiceRollDialog
-          open={isDiceRollerOpen}
-          onClose={() => setIsDiceRollerOpen(false)}
-          onRoll={handleRollDice}
-        />
-        <React.Suspense fallback={null}>
+          {isCoinFlipperOpen && (
+            <CoinFlipDialog
+              open
+              onClose={() => setIsCoinFlipperOpen(false)}
+              onFlip={handleFlipCoin}
+            />
+          )}
+          {isDiceRollerOpen && (
+            <DiceRollDialog
+              open
+              onClose={() => setIsDiceRollerOpen(false)}
+              onRoll={handleRollDice}
+            />
+          )}
           {isTokenModalOpen && (
             <TokenCreationModal
               isOpen
@@ -1114,15 +1148,13 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
               playerId={myPlayerId}
             />
           )}
-        </React.Suspense>
-        <AddCounterModal
-          isOpen={activeModal?.type === "ADD_COUNTER"}
-          onClose={() => setActiveModal(null)}
-          cardIds={
-            activeModal?.type === "ADD_COUNTER" ? activeModal.cardIds : []
-          }
-        />
-        <React.Suspense fallback={null}>
+          {activeModal?.type === "ADD_COUNTER" && (
+            <AddCounterModal
+              isOpen
+              onClose={() => setActiveModal(null)}
+              cardIds={activeModal.cardIds}
+            />
+          )}
           {zoneViewerState.isOpen && (
             <ZoneViewerModal
               isOpen
@@ -1143,14 +1175,14 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           {isShortcutsOpen && (
             <ShortcutsDrawer isOpen onClose={() => setIsShortcutsOpen(false)} />
           )}
-        </React.Suspense>
-        <EditUsernameDialog
-          open={isEditUsernameOpen}
-          onClose={() => setIsEditUsernameOpen(false)}
-          initialValue={players[myPlayerId]?.name ?? preferredUsername ?? ""}
-          onSubmit={handleUsernameSubmit}
-        />
-        <React.Suspense fallback={null}>
+          {isEditUsernameOpen && (
+            <EditUsernameDialog
+              open
+              onClose={() => setIsEditUsernameOpen(false)}
+              initialValue={players[myPlayerId]?.name ?? preferredUsername ?? ""}
+              onSubmit={handleUsernameSubmit}
+            />
+          )}
           {isShareDialogOpen && (
             <ShareRoomDialog
               open
