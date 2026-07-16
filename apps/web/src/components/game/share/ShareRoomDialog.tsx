@@ -195,7 +195,7 @@ export const ShareRoomDialog: React.FC<ShareRoomDialogProps> = ({
             ) : (
               <div className="flex min-h-28 flex-col items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/50 px-4 py-6 text-center">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-400">
-                  <Loader2 size={17} className="animate-spin" />
+                  <Loader2 size={17} className="motion-safe:animate-spin" />
                 </div>
                 <div className="text-sm font-medium text-zinc-300">
                   Generating invite links

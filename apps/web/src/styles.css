@@ -3,6 +3,12 @@
 
 @custom-variant dark (&:is(.dark *));
 
+html,
+body {
+  min-height: 100%;
+  background-color: #09090b;
+}
+
 body {
   @apply m-0;
   font-family:

@@ -1,4 +1,5 @@
 import React from "react";
+import { Loader2 } from "lucide-react";
 
 import {
   Dialog,
@@ -17,6 +18,25 @@ const CuratedDeckPicker = React.lazy(() =>
   import("./CuratedDeckPicker").then((module) => ({
     default: module.CuratedDeckPicker,
   }))
+);
+
+export const CuratedDeckPickerLoading = () => (
+  <section
+    role="status"
+    aria-label="Loading curated decks"
+    className="grid h-[min(18rem,42dvh)] grid-rows-[auto_minmax(0,1fr)] gap-3 sm:h-64"
+  >
+    <div className="h-5 w-28 rounded bg-zinc-800 motion-safe:animate-pulse" />
+    <div className="grid min-h-0 content-start gap-3 pt-2">
+      {[0, 1, 2].map((index) => (
+        <div
+          key={index}
+          aria-hidden="true"
+          className="h-[3.75rem] rounded-md bg-zinc-900 motion-safe:animate-pulse"
+        />
+      ))}
+    </div>
+  </section>
 );
 
 export const LoadDeckModalView: React.FC<LoadDeckController> = ({
@@ -83,7 +103,7 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
             </div>
 
             {curatedDecks.length > 0 && (
-              <React.Suspense fallback={null}>
+              <React.Suspense fallback={<CuratedDeckPickerLoading />}>
                 <CuratedDeckPicker
                   decks={curatedDecks}
                   activeDeckId={activeCuratedDeckId}
@@ -116,8 +136,19 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
           <GameDialogActionButton
             onClick={handleImport}
             disabled={isImporting || !importText.trim()}
+            aria-busy={isImporting}
           >
-            {isImporting ? "Loading..." : "Load Deck"}
+            {isImporting ? (
+              <>
+                <Loader2
+                  aria-hidden="true"
+                  className="motion-safe:animate-spin"
+                />
+                Loading deck
+              </>
+            ) : (
+              "Load Deck"
+            )}
           </GameDialogActionButton>
         </DialogFooter>
       </DialogContent>

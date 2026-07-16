@@ -3,13 +3,16 @@ import { Toaster } from "sonner";
 import { PostHogProvider } from "posthog-js/react";
 import appCss from "../styles.css?url";
 
-const RootDocument = ({ children }: { children: React.ReactNode }) => {
+export const RootDocument = ({ children }: { children: React.ReactNode }) => {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      style={{ backgroundColor: "#09090b", colorScheme: "dark" }}
+    >
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body style={{ backgroundColor: "#09090b" }}>
         <PHProvider>{children}</PHProvider>
         <Toaster />
         <Scripts />

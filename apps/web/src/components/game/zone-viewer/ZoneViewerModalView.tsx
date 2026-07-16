@@ -112,7 +112,7 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
               <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-400">
                   {isLoading ? (
-                    <Loader2 size={17} className="animate-spin" />
+                    <Loader2 size={17} className="motion-safe:animate-spin" />
                   ) : (
                     <Search size={17} />
                   )}

@@ -292,9 +292,9 @@ export const SidenavView: React.FC<SidenavController> = ({
                       <>
                         <Loader2
                           size={16}
-                          className="text-amber-400 animate-spin"
+                          className="text-amber-400 motion-safe:animate-spin"
                         />
-                        <span className="text-amber-400">Connecting...</span>
+                        <span className="text-amber-400">Connecting</span>
                       </>
                     )}
                   </div>

@@ -909,8 +909,8 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
               aria-live="polite"
               className="pointer-events-none absolute left-1/2 top-4 z-[70] flex -translate-x-1/2 items-center gap-2 rounded-full border border-amber-500/40 bg-zinc-950/80 px-3 py-1.5 text-sm text-amber-200 shadow-lg backdrop-blur"
             >
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Connecting...
+              <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+              Connecting
             </div>
           )}
           {seatSwitchBanner && (

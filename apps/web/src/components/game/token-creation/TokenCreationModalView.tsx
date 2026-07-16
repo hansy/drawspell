@@ -51,7 +51,7 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
               onChange={(e) => setQuery(e.target.value)}
               className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-100 placeholder:text-zinc-500"
             />
-            {isLoading && <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />}
+            {isLoading && <Loader2 className="h-4 w-4 text-zinc-400 motion-safe:animate-spin" />}
           </div>
         </div>
 
@@ -60,7 +60,7 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
             {query.length > 0 && (
               <>
                 {isLoading
-                  ? "Searching..."
+                  ? "Searching"
                   : `${results.length} result${results.length !== 1 ? "s" : ""} found`}
               </>
             )}
@@ -69,8 +69,8 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
           <div className="min-h-[240px]">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-full gap-4">
-                <Loader2 className="h-8 w-8 animate-spin text-indigo-400" />
-                <div className="text-zinc-400">Searching tokens...</div>
+                <Loader2 className="h-8 w-8 text-indigo-400 motion-safe:animate-spin" />
+                <div className="text-zinc-400">Searching tokens</div>
               </div>
             ) : results.length > 0 ? (
               <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3 xs:gap-4 items-start">

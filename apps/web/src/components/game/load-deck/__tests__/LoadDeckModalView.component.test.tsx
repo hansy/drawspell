@@ -5,7 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 import { curatedDecks } from "@/data/curatedDecks";
 import type { LoadDeckController } from "@/hooks/game/load-deck/useLoadDeckController";
 
-import { LoadDeckModalView } from "../LoadDeckModalView";
+import {
+  CuratedDeckPickerLoading,
+  LoadDeckModalView,
+} from "../LoadDeckModalView";
 
 const controller = (overrides: Partial<LoadDeckController> = {}) =>
   ({
@@ -39,5 +42,31 @@ describe("LoadDeckModalView", () => {
     expect(document.body.querySelector(".ms.ms-cost.ms-w")).not.toBeNull();
     expect(document.body.querySelector(".ms.ms-cost.ms-u")).not.toBeNull();
     expect(document.body.querySelector(".ms.ms-cost.ms-r")).not.toBeNull();
+  });
+
+  it("shows animated progress while importing a deck", () => {
+    render(
+      <LoadDeckModalView
+        {...controller({ importText: "20 Mountain", isImporting: true })}
+      />,
+    );
+
+    const loadingButton = screen.getByRole("button", { name: "Loading deck" });
+    expect(loadingButton.getAttribute("aria-busy")).toBe("true");
+    expect(loadingButton.querySelector("svg")?.className.baseVal).toContain(
+      "motion-safe:animate-spin",
+    );
+    expect(screen.queryByText("Loading...")).toBeNull();
+  });
+
+  it("shows an animated skeleton while curated decks load", () => {
+    render(<CuratedDeckPickerLoading />);
+
+    const loadingState = screen.getByRole("status", {
+      name: "Loading curated decks",
+    });
+    expect(
+      loadingState.querySelectorAll(".motion-safe\\:animate-pulse").length,
+    ).toBeGreaterThan(0);
   });
 });

@@ -30,7 +30,7 @@ export const Route = createFileRoute("/rooms/$sessionId")({
   }),
 });
 
-function GameRoute() {
+export function GameRoute() {
   const { sessionId } = Route.useParams();
   const hasHydrated = useClientPrefsStore((state) => state.hasHydrated);
   const username = useClientPrefsStore((state) => state.username);
@@ -39,14 +39,14 @@ function GameRoute() {
 
   if (!username) {
     return (
-      <Suspense fallback={null}>
+      <Suspense fallback={<RoomRouteLoadingScreen />}>
         <UsernamePromptScreen />
       </Suspense>
     );
   }
 
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<RoomRouteLoadingScreen />}>
       <MultiplayerBoard sessionId={sessionId} />
     </Suspense>
   );
@@ -55,8 +55,16 @@ function GameRoute() {
 function RoomRouteLoadingScreen() {
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center bg-zinc-950 text-zinc-100">
-      <div className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-300">
-        <Loader2 size={16} className="animate-spin text-zinc-400" />
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-300"
+      >
+        <Loader2
+          aria-hidden="true"
+          size={16}
+          className="text-zinc-400 motion-safe:animate-spin"
+        />
         <span>Loading game</span>
       </div>
     </div>
