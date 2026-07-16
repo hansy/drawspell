@@ -1,4 +1,5 @@
 import React from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { Zone as ZoneType, Card as CardType, Player, ViewerRole } from '@/types';
 import { Card } from '../card/Card';
@@ -47,6 +48,7 @@ interface BattlefieldProps {
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
 const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
+const EMPTY_SELECTED_CARD_IDS: string[] = [];
 
 type TouchPressState = {
     pointerId: number;
@@ -177,8 +179,18 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     const ghostCards = useDragStore((state) => state.ghostCards);
     const isGroupDragging = useDragStore((state) => state.isGroupDragging);
     const showGrid = Boolean(activeCardId);
-    const cardsById = useGameStore((state) => state.cards);
-    const activeCard = activeCardId ? cardsById[activeCardId] : undefined;
+    const groupGhostForZone = React.useMemo(() => {
+        if (!ghostCards || ghostCards.length < 2) return [];
+        return ghostCards.filter((ghost) => ghost.zoneId === zone.id);
+    }, [ghostCards, zone.id]);
+    const activeCard = useGameStore((state) =>
+        activeCardId ? state.cards[activeCardId] : undefined
+    );
+    const ghostSourceCards = useGameStore(
+        useShallow((state) =>
+            groupGhostForZone.map((ghost) => state.cards[ghost.cardId])
+        )
+    );
     const { ref: zoneSizeRef, size: zoneSize } = useElementSize<HTMLDivElement>();
     const {
         gridStepX,
@@ -204,8 +216,13 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
         setZoneNode(node);
     }, [zoneSizeRef]);
     const isSelectionEnabled = Boolean(isMe && zone.ownerId === viewerPlayerId);
-    const selectedCardIds = useSelectionStore((state) => state.selectedCardIds);
-    const selectionZoneId = useSelectionStore((state) => state.selectionZoneId);
+    const selectedCardIds = useSelectionStore(
+        useShallow((state) =>
+            isGroupDragging && state.selectionZoneId === zone.id
+                ? state.selectedCardIds
+                : EMPTY_SELECTED_CARD_IDS
+        )
+    );
     const { cardWidth: baseCardWidthPx, cardHeight: baseCardHeightPx } = getCardPixelSize({
         viewScale: 1,
         isTapped: false,
@@ -442,24 +459,17 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
         };
     }, [clearTouchPress]);
 
-    const groupGhostForZone = React.useMemo(() => {
-        if (!ghostCards || ghostCards.length < 2) return [];
-        return ghostCards.filter((ghost) => ghost.zoneId === zone.id);
-    }, [ghostCards, zone.id]);
     const ghostCardsForZone = React.useMemo(() => {
         if (groupGhostForZone.length === 0) return [];
         return groupGhostForZone
-            .map((ghost) => {
-                const card = cardsById[ghost.cardId];
+            .map((ghost, index) => {
+                const card = ghostSourceCards[index];
                 if (!card) return null;
                 return { card, position: ghost.position, tapped: ghost.tapped ?? card.tapped };
             })
             .filter((value): value is { card: CardType; position: { x: number; y: number }; tapped: boolean } => Boolean(value));
-    }, [cardsById, groupGhostForZone]);
-    const hideSelectedForGroupDrag = Boolean(
-        isGroupDragging &&
-        selectionZoneId === zone.id
-    );
+    }, [ghostSourceCards, groupGhostForZone]);
+    const hideSelectedForGroupDrag = selectedCardIds.length > 0;
 
     return (
         <div
@@ -528,8 +538,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                                 : undefined
                         }
                         disableInteractions={
-                            isGroupDragging &&
-                            selectionZoneId === zone.id &&
+                            hideSelectedForGroupDrag &&
                             selectedCardIds.includes(card.id)
                         }
                     />

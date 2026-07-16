@@ -1,5 +1,6 @@
 import { DndContext } from "@dnd-kit/core";
-import { render } from "@testing-library/react";
+import { Profiler } from "react";
+import { act, render } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { ZONE } from "@/constants/zones";
@@ -154,5 +155,115 @@ describe("Battlefield ghost rendering", () => {
 
     expect(sourceCard).not.toBeNull();
     expect(sourceCard?.classList.contains("opacity-0")).toBe(true);
+  });
+
+  it("resolves only the source cards needed by a group-drag ghost overlay", () => {
+    const zone = buildZone("p1-battlefield", "p1", ["c1", "c2"]);
+    const cards = [buildCard("c1", zone.id), buildCard("c2", zone.id)];
+    const player = buildPlayer("p1");
+
+    useGameStore.setState({
+      zones: { [zone.id]: zone },
+      cards: Object.fromEntries(cards.map((card) => [card.id, card])),
+      players: { [player.id]: player },
+      myPlayerId: "p1",
+      viewerRole: "player",
+    });
+    useSelectionStore.getState().setSelection(cards.map((card) => card.id), zone.id);
+    useDragStore.setState({
+      activeCardId: cards[0].id,
+      isGroupDragging: true,
+      ghostCards: cards.map((card, index) => ({
+        cardId: card.id,
+        zoneId: zone.id,
+        position: { x: 200 + index * 100, y: 150 },
+        tapped: false,
+      })),
+    });
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Battlefield
+            zone={zone}
+            cards={cards}
+            player={player}
+            isTop={false}
+            isMe
+            viewerPlayerId="p1"
+            viewerRole="player"
+            mirrorBattlefieldY={false}
+            playerColors={{ p1: "sky" }}
+          />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+
+    const ghosts = container.querySelectorAll(
+      '[data-dnd-ghost-kind="battlefield-group"]'
+    );
+    expect(ghosts).toHaveLength(2);
+  });
+
+  it("does not re-render when unrelated card or selection state changes", () => {
+    const zone = buildZone("p1-battlefield", "p1", ["c1"]);
+    const card = buildCard("c1", zone.id);
+    const unrelatedCard = buildCard("c2", "p1-hand");
+    const player = buildPlayer("p1");
+    let updateCommits = 0;
+
+    useGameStore.setState({
+      zones: { [zone.id]: zone },
+      cards: { [card.id]: card, [unrelatedCard.id]: unrelatedCard },
+      players: { [player.id]: player },
+      myPlayerId: "p1",
+      viewerRole: "player",
+    });
+
+    render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Profiler
+            id="battlefield"
+            onRender={(_id, phase) => {
+              if (phase === "update") updateCommits += 1;
+            }}
+          >
+            <Battlefield
+              zone={zone}
+              cards={[card]}
+              player={player}
+              isTop={false}
+              isMe
+              viewerPlayerId="p1"
+              viewerRole="player"
+              mirrorBattlefieldY={false}
+              playerColors={{ p1: "sky" }}
+            />
+          </Profiler>
+        </CardPreviewProvider>
+      </DndContext>
+    );
+
+    updateCommits = 0;
+    act(() => {
+      useGameStore.setState((state) => ({
+        cards: {
+          ...state.cards,
+          [unrelatedCard.id]: {
+            ...unrelatedCard,
+            tapped: true,
+          },
+        },
+      }));
+    });
+
+    expect(updateCommits).toBe(0);
+
+    act(() => {
+      useSelectionStore.getState().selectOnly(unrelatedCard.id, unrelatedCard.zoneId);
+    });
+
+    expect(updateCommits).toBe(0);
   });
 });
