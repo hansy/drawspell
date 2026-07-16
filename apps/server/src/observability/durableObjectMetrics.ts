@@ -59,6 +59,11 @@ type TotalsAccumulator = {
   byType: Record<string, number>;
 };
 
+type DurableObjectRoomSummaryDraft = Omit<
+  DurableObjectRoomSummary,
+  "sharePct"
+>;
+
 export type DurableObjectMetricTotals = {
   minutes: number;
   buckets: number;
@@ -468,6 +473,30 @@ const compactTotals = (
   };
 };
 
+const createRoomSummaryDraft = (
+  room: string,
+  namespaceId: string | null | undefined,
+): DurableObjectRoomSummaryDraft => ({
+  room,
+  namespaceId: namespaceId ?? null,
+  firstBucket: null,
+  lastBucket: null,
+  buckets: 0,
+  durationSec: 0,
+  preDurationSec: 0,
+  postDurationSec: 0,
+  inbound: 0,
+  outbound: 0,
+  subrequests: 0,
+  storageReadUnits: 0,
+  storageWriteUnits: 0,
+  rowsRead: 0,
+  rowsWritten: 0,
+  invocations: 0,
+  errors: 0,
+  invocationTypes: {},
+});
+
 const buildComparison = (
   pre: DurableObjectMetricTotals,
   post: DurableObjectMetricTotals,
@@ -535,7 +564,7 @@ export const summarizeDurableObjectMetrics = ({
     pre: emptyTotals(),
     post: emptyTotals(),
   };
-  const rooms = new Map<string, Omit<DurableObjectRoomSummary, "sharePct">>();
+  const rooms = new Map<string, DurableObjectRoomSummaryDraft>();
 
   const roomKey = (room: string, rowNamespaceId: string | null | undefined) =>
     `${rowNamespaceId ?? ""}\u0000${room}`;
@@ -546,26 +575,7 @@ export const summarizeDurableObjectMetrics = ({
     const key = roomKey(room, rowNamespaceId);
     const existing = rooms.get(key);
     if (existing) return existing;
-    const next: Omit<DurableObjectRoomSummary, "sharePct"> = {
-      room,
-      namespaceId: rowNamespaceId ?? null,
-      firstBucket: null,
-      lastBucket: null,
-      buckets: 0,
-      durationSec: 0,
-      preDurationSec: 0,
-      postDurationSec: 0,
-      inbound: 0,
-      outbound: 0,
-      subrequests: 0,
-      storageReadUnits: 0,
-      storageWriteUnits: 0,
-      rowsRead: 0,
-      rowsWritten: 0,
-      invocations: 0,
-      errors: 0,
-      invocationTypes: {},
-    };
+    const next = createRoomSummaryDraft(room, rowNamespaceId);
     rooms.set(key, next);
     return next;
   };
