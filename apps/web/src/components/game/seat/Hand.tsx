@@ -27,6 +27,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ZONE_DRAG_OVERLAY_SCALE } from "@/lib/dndDragCue";
+import { hasPendingDropVisualClaim } from "@/lib/dndVisualOwnership";
 
 interface HandProps {
   zone: ZoneType;
@@ -116,9 +117,10 @@ const SortableCard = React.memo(
       disabled: !isMe,
     });
     const isPendingDrop = useDragStore((state) =>
-      state.pendingDropVisualClaims.some(
-        (claim) =>
-          claim.cardId === card.id && claim.sourceZoneId === renderedZoneId,
+      hasPendingDropVisualClaim(
+        state.pendingDropVisualClaims,
+        card.id,
+        renderedZoneId,
       ),
     );
     const isActiveDragSource = useDragStore(

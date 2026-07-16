@@ -24,6 +24,7 @@ import {
     summarizeZoneElement,
     type DebugFlagKey,
 } from "@/lib/debug";
+import { hasPendingDropVisualClaim } from "@/lib/dndVisualOwnership";
 
 interface BattlefieldProps {
     zone: ZoneType;
@@ -113,10 +114,10 @@ const BattlefieldCard = React.memo<{
             selectIsCardSelected(state, card.id, card.zoneId)
         );
         const isPendingDropSource = useDragStore((state) =>
-            state.pendingDropVisualClaims.some(
-                (claim) =>
-                    claim.cardId === card.id &&
-                    claim.sourceZoneId === renderedZoneId
+            hasPendingDropVisualClaim(
+                state.pendingDropVisualClaims,
+                card.id,
+                renderedZoneId
             )
         );
         const isSourceVisualSuppressed =

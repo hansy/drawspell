@@ -91,7 +91,7 @@ export function useScryfallCards(
     );
     unique.sort();
     return unique.join("|");
-  }, [scryfallIds.join("|")]);
+  }, [scryfallIds]);
   useEffect(() => {
     const deduped = idsKey ? idsKey.split("|").filter(Boolean) : [];
     if (!deduped.length) {

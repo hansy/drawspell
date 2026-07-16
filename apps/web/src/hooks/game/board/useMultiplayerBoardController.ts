@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { useShallow } from "zustand/react/shallow";
 
 import { useDragStore } from "@/store/dragStore";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
@@ -60,12 +61,12 @@ export const useMultiplayerBoardController = (sessionId: string) => {
 
   const zones = useGameStore((state) => state.zones);
   const cards = useGameStore((state) => state.cards);
-  const scryfallIds = React.useMemo(
-    () =>
-      Object.values(cards)
+  const scryfallIds = useGameStore(
+    useShallow((state) =>
+      Object.values(state.cards)
         .map((card) => card.scryfallId)
         .filter((id): id is string => Boolean(id)),
-    [cards],
+    ),
   );
   useScryfallCards(scryfallIds);
   const players = useGameStore((state) => state.players);
