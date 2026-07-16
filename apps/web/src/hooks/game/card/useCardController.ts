@@ -11,7 +11,10 @@ import {
   canViewerSeeLibraryTopCard,
 } from "@/lib/reveal";
 import { getFlipRotation } from "@/lib/cardDisplay";
-import { useSelectionStore } from "@/store/selectionStore";
+import {
+  selectIsCardSelected,
+  useSelectionStore,
+} from "@/store/selectionStore";
 import { useDragStore } from "@/store/dragStore";
 import {
   canToggleCardPreviewLock,
@@ -154,8 +157,9 @@ export const useCardController = (props: CardProps): CardController => {
   const useArtCrop = preferArtCrop ?? false;
   const isSelected = useSelectionStore(
     (state) =>
-      state.selectionZoneId === card.zoneId &&
-      state.selectedCardIds.includes(card.id)
+      propIsSelected ??
+      (zoneType === ZONE.BATTLEFIELD &&
+        selectIsCardSelected(state, card.id, card.zoneId))
   );
   const toggleCardSelection = useSelectionStore((state) => state.toggleCard);
   const selectOnly = useSelectionStore((state) => state.selectOnly);

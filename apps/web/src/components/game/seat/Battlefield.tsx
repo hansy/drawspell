@@ -6,7 +6,7 @@ import { Card } from '../card/Card';
 import { Zone } from '../zone/Zone';
 import { useDragStore } from '@/store/dragStore';
 import { useGameStore } from '@/store/gameStore';
-import { useSelectionStore } from '@/store/selectionStore';
+import { selectIsCardSelected, useSelectionStore } from '@/store/selectionStore';
 import {
     computeBattlefieldCardLayout,
     computeBattlefieldGridProjection,
@@ -110,7 +110,7 @@ const BattlefieldCard = React.memo<{
         });
         const spectatorDragDisabled = viewerRole === "spectator";
         const isSelected = useSelectionStore((state) =>
-            state.selectionZoneId === card.zoneId && state.selectedCardIds.includes(card.id)
+            selectIsCardSelected(state, card.id, card.zoneId)
         );
         const isPendingDropSource = useDragStore((state) =>
             state.pendingDropVisualClaims.some(
@@ -222,6 +222,10 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                 ? state.selectedCardIds
                 : EMPTY_SELECTED_CARD_IDS
         )
+    );
+    const selectedCardIdSet = React.useMemo(
+        () => new Set(selectedCardIds),
+        [selectedCardIds]
     );
     const { cardWidth: baseCardWidthPx, cardHeight: baseCardHeightPx } = getCardPixelSize({
         viewScale: 1,
@@ -533,13 +537,13 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                         renderedZoneId={zone.id}
                         zoneOwnerId={zone.ownerId}
                         overrideIsDragging={
-                            hideSelectedForGroupDrag && selectedCardIds.includes(card.id)
+                            hideSelectedForGroupDrag && selectedCardIdSet.has(card.id)
                                 ? true
                                 : undefined
                         }
                         disableInteractions={
                             hideSelectedForGroupDrag &&
-                            selectedCardIds.includes(card.id)
+                            selectedCardIdSet.has(card.id)
                         }
                     />
                 ))}

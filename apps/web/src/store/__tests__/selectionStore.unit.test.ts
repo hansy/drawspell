@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { useSelectionStore } from "../selectionStore";
+import {
+  getSelectedCardIdSet,
+  selectIsCardSelected,
+  useSelectionStore,
+} from "../selectionStore";
 
 describe("selectionStore", () => {
   beforeEach(() => {
@@ -40,5 +44,20 @@ describe("selectionStore", () => {
       selectedCardIds: [],
       selectionZoneId: null,
     });
+  });
+
+  it("reuses an indexed membership lookup for a selection snapshot", () => {
+    const selectedCardIds = ["c1", "c2"];
+    const state = {
+      selectedCardIds,
+      selectionZoneId: "zone-a",
+    };
+
+    expect(getSelectedCardIdSet(selectedCardIds)).toBe(
+      getSelectedCardIdSet(selectedCardIds)
+    );
+    expect(selectIsCardSelected(state, "c2", "zone-a")).toBe(true);
+    expect(selectIsCardSelected(state, "c3", "zone-a")).toBe(false);
+    expect(selectIsCardSelected(state, "c2", "zone-b")).toBe(false);
   });
 });

@@ -2,6 +2,7 @@ import type { Card, Player, Zone } from "@mtg/shared/types";
 import { createJSONStorage } from "zustand/middleware";
 
 import { createGameStoreStorage } from "../src/lib/safeStorage";
+import { selectIsCardSelected } from "../src/store/selectionStore";
 import { mergePrivateOverlay } from "../src/store/gameStore/overlay";
 import { sanitizeSharedSnapshot } from "../src/yjs/sanitizeSharedSnapshot";
 
@@ -11,6 +12,11 @@ const TOTAL_CARDS = PLAYERS * CARDS_PER_PLAYER;
 const WARMUP_ROUNDS = 8;
 const SAMPLE_ROUNDS = 30;
 const ITERATIONS_PER_SAMPLE = 5;
+const SELECTION_CARD_IDS = Array.from(
+  { length: TOTAL_CARDS },
+  (_, index) => `selection-card-${index}`,
+);
+const SELECTED_CARD_IDS = SELECTION_CARD_IDS.slice(0, TOTAL_CARDS / 2);
 
 type BenchmarkResult = {
   name: string;
@@ -78,6 +84,28 @@ const createSlowCountingStorage = () => {
     },
   };
   return { storage, getWrites: () => writes };
+};
+
+const countSelectedLinear = () => {
+  let selectedCount = 0;
+  for (const cardId of SELECTION_CARD_IDS) {
+    if (SELECTED_CARD_IDS.includes(cardId)) selectedCount += 1;
+  }
+  return selectedCount;
+};
+
+const countSelectedIndexed = () => {
+  const selectionState = {
+    selectedCardIds: [...SELECTED_CARD_IDS],
+    selectionZoneId: "benchmark-zone",
+  };
+  let selectedCount = 0;
+  for (const cardId of SELECTION_CARD_IDS) {
+    if (selectIsCardSelected(selectionState, cardId, "benchmark-zone")) {
+      selectedCount += 1;
+    }
+  }
+  return selectedCount;
 };
 
 const benchmarkPersistedUpdates = () => {
@@ -199,12 +227,19 @@ const overlay = {
 
 const memoryBefore = process.memoryUsage();
 const persistedUpdates = benchmarkPersistedUpdates();
+let selectionCountSink = 0;
 const results = [
   benchmark("sanitizeSharedSnapshot:max-room", () => {
     sanitizeSharedSnapshot(snapshot);
   }),
   benchmark("mergePrivateOverlay:half-room", () => {
     mergePrivateOverlay(baseState, overlay);
+  }),
+  benchmark("selectionMembership:linear-800x400", () => {
+    selectionCountSink += countSelectedLinear();
+  }),
+  benchmark("selectionMembership:indexed-800x400", () => {
+    selectionCountSink += countSelectedIndexed();
   }),
 ];
 const memoryAfter = process.memoryUsage();
@@ -216,6 +251,7 @@ const report = {
     cards: TOTAL_CARDS,
     revealEntriesPerCollection: TOTAL_CARDS,
     overlayCards: overlay.cards.length,
+    selectedCards: SELECTED_CARD_IDS.length,
   },
   benchmark: {
     warmupRounds: WARMUP_ROUNDS,
@@ -228,6 +264,7 @@ const report = {
     heapUsedDeltaBytes: memoryAfter.heapUsed - memoryBefore.heapUsed,
     rssDeltaBytes: memoryAfter.rss - memoryBefore.rss,
   },
+  selectionCountSink,
 };
 
 if (process.argv.includes("--json")) {

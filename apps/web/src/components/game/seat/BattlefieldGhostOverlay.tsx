@@ -41,6 +41,11 @@ export const BattlefieldGhostOverlay = React.memo(
     selectedCardIds,
     isTop = false,
   }: BattlefieldGhostOverlayProps) => {
+    const selectedCardIdSet = React.useMemo(
+      () => new Set(selectedCardIds),
+      [selectedCardIds],
+    );
+
     React.useEffect(() => {
       if (!isDebugEnabled(BATTLEFIELD_DND_DEBUG_KEY)) return;
       if (typeof requestAnimationFrame === "undefined") return;
@@ -100,7 +105,7 @@ export const BattlefieldGhostOverlay = React.memo(
                 flipRotation ? `rotate(${flipRotation}deg)` : undefined
               }
               highlightColor={highlightColor}
-              isSelected={selectedCardIds.includes(card.id)}
+              isSelected={selectedCardIdSet.has(card.id)}
               disableHoverAnimation
             />
           );

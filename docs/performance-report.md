@@ -10,10 +10,10 @@ The audit found two distinct critical paths: cold landing startup and full Yjs s
 
 | Metric | Before | After | Change |
 | --- | ---: | ---: | ---: |
-| Landing main JavaScript (decoded) | 742.19 kB | 392.78 kB | -47.1% |
-| Landing main JavaScript (gzip) | 238.10 kB | 126.55 kB | -46.9% |
-| Initial game-board chunk (decoded) | 492.45 kB | 426.74 kB | -13.3% |
-| Initial game-board chunk (gzip) | 154.14 kB | 131.53 kB | -14.7% |
+| Landing main JavaScript (decoded) | 742.19 kB | 392.74 kB | -47.1% |
+| Landing main JavaScript (gzip) | 238.10 kB | 126.54 kB | -46.9% |
+| Initial game-board chunk (decoded) | 492.45 kB | 426.92 kB | -13.3% |
+| Initial game-board chunk (gzip) | 154.14 kB | 131.64 kB | -14.6% |
 | Max-room snapshot sanitize, median | 43.66 ms | 2.75 ms | -93.7% |
 | Max-room snapshot sanitize, median p95 across runs | 49.84 ms | 3.87 ms | -92.2% |
 | 1,000 unchanged persistence updates | 1,000 writes / 53.05 ms | 1 write / 1.94 ms | -99.9% writes / -96.3% modeled time |
@@ -25,6 +25,7 @@ The audit found two distinct critical paths: cold landing startup and full Yjs s
 | Cold landing long tasks, median | 1 / 79 ms | 0 / 0 ms | eliminated at median |
 | Battlefield commits per unrelated card update | 1 | 0 | eliminated |
 | Battlefield commits per unrelated-zone selection | 1 | 0 | eliminated |
+| 800-card / 400-selected membership pass, median | 1.1101 ms | 0.0645 ms | -94.2% |
 
 Browser metrics are medians from five fresh Chrome contexts against local production previews. Local server and machine scheduling introduce normal run-to-run variance; bundle sizes and algorithmic benchmarks are the more deterministic gates.
 
@@ -36,6 +37,7 @@ Browser metrics are medians from five fresh Chrome contexts against local produc
 4. **Decoupled the landing route from game/Yjs code.** Game-store and session cleanup modules load only for a prior in-page game runtime or a resume/leave edge case. Fresh visitors do not download them.
 5. **Lazy-loaded closed game tools.** Deck import, token creation, zone browsing, opponent reveals, shortcuts, and sharing are separate chunks loaded when opened.
 6. **Narrowed battlefield subscriptions.** Each battlefield now observes only the active drag card and source cards needed for its current group-drag ghosts. Ordinary selection changes stay within per-card boolean subscriptions; the parent observes selected IDs only while its own group drag is active. A React Profiler regression test records zero subtree commits for unrelated card and selection updates, down from one commit per update for each path.
+7. **Indexed selection membership.** Selection arrays now acquire a weakly cached `Set` on first membership lookup. An 800-card render pass with 400 selected cards falls from 1.1101 ms median with repeated linear scans to 0.0645 ms with the production selector. Battlefield group-drag and ghost rendering also reuse indexed membership, and the inner card controller skips its duplicate lookup when selection state is already supplied by the wrapper.
 
 ## Benchmark commands
 
@@ -80,13 +82,13 @@ Next experiment: collect changed Yjs keys per transaction, sanitize only affecte
 
 ### 2. Zustand subscription fan-out
 
-The broad `Battlefield` card and selection subscriptions are now eliminated. The board controller still observes whole `cards` and `zones` records, and individual card wrappers scan selection arrays with `includes` and pending-drop arrays with `some`. A single card update can therefore still invalidate the board controller and repeat linear membership work per rendered card on selection or pending-drop changes.
+The broad `Battlefield` card and selection subscriptions and repeated selection-array scans are now eliminated. The board controller still observes whole `cards` and `zones` records, and individual card wrappers scan pending-drop arrays with `some`. A single card update can therefore still invalidate the board controller, while pending-drop changes can repeat linear membership work per rendered card.
 
-Next experiment: use per-card/per-zone selectors, pass stable IDs rather than reconstructed collections, and expose selection/pending IDs as sets or boolean selectors. Measure React commit counts and input-to-paint time for dragging one card in 100-, 300-, and 800-card fixtures.
+Next experiment: split controller subscriptions by board concern, pass stable IDs rather than reconstructed collections, and expose pending-drop claims as an indexed lookup. Measure React commit counts and input-to-paint time for dragging one card in 100-, 300-, and 800-card fixtures.
 
 ### 3. Board feature splitting and prefetch policy
 
-The board entry is still 426.74 kB decoded / 131.53 kB gzip. DnD, realtime sync, card rendering, and the always-visible board shell are legitimately substantial, but several smaller dialogs and desktop-only surfaces remain eager.
+The board entry is still 426.92 kB decoded / 131.64 kB gzip. DnD, realtime sync, card rendering, and the always-visible board shell are legitimately substantial, but several smaller dialogs and desktop-only surfaces remain eager.
 
 Next experiment: capture a module graph with sourcemaps, split the remaining optional dialogs, then prefetch likely tools after the board becomes interactive so first-open latency remains low.
 
