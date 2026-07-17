@@ -1,8 +1,6 @@
 import type { LogContext, LogEventId, LogMessage, LogMessagePart } from "@/logging/types";
-import { getCardDisplayName } from "@/logging/helpers";
+import { getCardDisplayName, isPublicLogZoneType } from "@/logging/helpers";
 import type { Zone, ZoneType } from "@/types";
-
-const HIDDEN_ZONE_TYPES = new Set(["hand", "library"]);
 
 export type LogCardContext = {
   fromZone?: Zone;
@@ -142,10 +140,7 @@ export const formatTimeAgo = (timestamp: number, nowMs: number = Date.now()): st
   return "long ago";
 };
 
-export const isPublicZoneType = (zoneType?: string): boolean => {
-  if (!zoneType) return false;
-  return !HIDDEN_ZONE_TYPES.has(zoneType);
-};
+export const isPublicZoneType = (zoneType?: string): boolean => isPublicLogZoneType(zoneType);
 
 export const computeVisibleCardName = (params: {
   computedName: string;

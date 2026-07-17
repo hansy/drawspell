@@ -4,10 +4,14 @@ import { LogContext, LogMessagePart } from './types';
 
 type ZoneLike = Pick<Zone, 'type'> | undefined;
 
-const HIDDEN_ZONE_TYPES: ZoneType[] = ['library', 'hand'];
+const HIDDEN_LOG_ZONE_TYPES = new Set<string>(['library', 'hand']);
 
-const isHiddenZone = (zone?: ZoneLike) => zone ? HIDDEN_ZONE_TYPES.includes(zone.type) : false;
-export const isPublicLogZone = (zone?: ZoneLike) => (zone ? !isHiddenZone(zone) : false);
+export const isPublicLogZoneType = (zoneType?: string): boolean => {
+  if (!zoneType) return false;
+  return !HIDDEN_LOG_ZONE_TYPES.has(zoneType);
+};
+
+export const isPublicLogZone = (zone?: ZoneLike) => (zone ? isPublicLogZoneType(zone.type) : false);
 
 const isFaceDownInBattlefield = (card?: Card, zone?: ZoneLike) => zone?.type === 'battlefield' && card?.faceDown;
 
