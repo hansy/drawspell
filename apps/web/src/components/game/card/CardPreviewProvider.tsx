@@ -23,6 +23,7 @@ interface CardPreviewContextValue {
   toggleLock: (card: CardType, anchorEl: HTMLElement) => void;
   unlockPreview: () => void;
   isLocked: boolean;
+  previewCardId: string | null;
 }
 
 const CardPreviewContext = React.createContext<CardPreviewContextValue | null>(
@@ -145,8 +146,17 @@ export const CardPreviewProvider: React.FC<{ children: React.ReactNode }> = ({
       toggleLock,
       unlockPreview,
       isLocked: !!preview?.locked,
+      previewCardId: preview?.card.id ?? null,
     }),
-    [showPreview, hidePreview, lockPreview, toggleLock, unlockPreview, preview?.locked]
+    [
+      showPreview,
+      hidePreview,
+      lockPreview,
+      toggleLock,
+      unlockPreview,
+      preview?.card.id,
+      preview?.locked,
+    ]
   );
 
   return (

@@ -38,10 +38,8 @@ import { useSeatSizing } from "@/hooks/game/seat/useSeatSizing";
 import { ZONE_DRAG_OVERLAY_SCALE } from "@/lib/dndDragCue";
 
 const MOBILE_HAND_CARD_BASE_HEIGHT_PX = 120;
-const MOBILE_HAND_SCROLLBAR_RESERVED_PX = 14;
-const MOBILE_HAND_VERTICAL_PADDING_PX = 6;
-const MOBILE_HAND_CARD_HEIGHT_RATIO = 1;
-const MOBILE_HAND_CARD_OVERLAP_RATIO = 0.98;
+const MOBILE_HAND_VERTICAL_PADDING_PX = 18;
+const MOBILE_HAND_CARD_HEIGHT_RATIO = 0.94;
 
 interface SeatViewProps {
   player: Player;
@@ -66,7 +64,7 @@ interface SeatViewProps {
   zoomControlsDisabled?: boolean;
   onLifeContextMenu?: (e: React.MouseEvent, player: Player) => void;
   layoutVariant?: "default" | "portrait-viewport";
-  onPortraitCommanderDrawerOpenChange?: (open: boolean) => void;
+  portraitSeatSwitcher?: React.ReactNode;
 }
 
 export const SeatView: React.FC<SeatViewProps> = ({
@@ -92,7 +90,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
   zoomControlsDisabled,
   onLifeContextMenu,
   layoutVariant = "default",
-  onPortraitCommanderDrawerOpenChange,
+  portraitSeatSwitcher,
 }) => {
   const { showPreview, hidePreview } = useCardPreview();
   const [handHeight, setHandHeight] = React.useState(HAND_DEFAULT_HEIGHT);
@@ -165,12 +163,9 @@ export const SeatView: React.FC<SeatViewProps> = ({
   } = model.cards;
   const handCardScale = React.useMemo(() => {
     if (layoutVariant === "portrait-viewport" && portraitHandHeight > 0) {
-      const reservedScrollbarSpace =
-        handCards.length > 1 ? MOBILE_HAND_SCROLLBAR_RESERVED_PX : 0;
       const availableCardHeight = Math.max(
         MOBILE_HAND_CARD_BASE_HEIGHT_PX,
         (portraitHandHeight -
-          reservedScrollbarSpace -
           MOBILE_HAND_VERTICAL_PADDING_PX) *
           MOBILE_HAND_CARD_HEIGHT_RATIO,
       );
@@ -445,6 +440,9 @@ export const SeatView: React.FC<SeatViewProps> = ({
     ],
   );
   const [isCommanderDrawerOpen, setIsCommanderDrawerOpen] = React.useState(false);
+  React.useEffect(() => {
+    setIsCommanderDrawerOpen(false);
+  }, [player.id]);
   const commanderButtonDrop = useDroppable({
     id: commander ? `mobile-drop:cmdr-btn:${commander.id}` : "mobile-drop:cmdr-btn:none",
     disabled: !commander,
@@ -457,15 +455,6 @@ export const SeatView: React.FC<SeatViewProps> = ({
         }
       : undefined,
   });
-  React.useEffect(() => {
-    if (layoutVariant !== "portrait-viewport") return;
-    onPortraitCommanderDrawerOpenChange?.(isCommanderDrawerOpen);
-  }, [
-    isCommanderDrawerOpen,
-    layoutVariant,
-    onPortraitCommanderDrawerOpenChange,
-  ]);
-
   if (layoutVariant === "portrait-viewport") {
     return (
       <div
@@ -506,12 +495,12 @@ export const SeatView: React.FC<SeatViewProps> = ({
             showLoadLibraryAction={showLoadDeckAction}
           />
           <div className="relative min-h-0 flex-1 flex flex-col bg-zinc-900/55 backdrop-blur-sm border-t border-white/10 overflow-hidden">
-            <div className="h-8 shrink-0 px-2 flex items-center justify-between border-b border-zinc-800/70 bg-zinc-900/70">
+            <div className="grid h-11 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-zinc-800/70 bg-zinc-900/70 px-2">
               <button
                 ref={commanderButtonDrop.setNodeRef}
                 type="button"
                 className={cn(
-                  "h-6 rounded-md border border-zinc-700 bg-zinc-900/80 px-2 text-[10px] font-semibold uppercase tracking-widest text-zinc-300 hover:bg-zinc-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+                  "h-full rounded-md px-2 text-[10px] font-semibold uppercase tracking-widest text-zinc-300 hover:bg-zinc-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
                   isCommanderDrawerOpen && "border-indigo-400/70 bg-indigo-500/15 text-indigo-100",
                   commanderButtonDrop.isOver && "ring-2 ring-indigo-400/80 bg-indigo-500/20",
                 )}
@@ -525,11 +514,12 @@ export const SeatView: React.FC<SeatViewProps> = ({
               >
                 CMDR
               </button>
+              <div className="h-full min-w-0">{portraitSeatSwitcher}</div>
               <span
-                className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-600/80 select-none"
+                className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500 select-none"
                 style={{ textShadow: "0 1px 0 rgba(0,0,0,0.55)" }}
               >
-                HAND - {handCards.length}
+                HAND · {handCards.length}
               </span>
             </div>
             <div ref={portraitHandRef} className="min-h-0 flex-1 flex">
@@ -546,9 +536,8 @@ export const SeatView: React.FC<SeatViewProps> = ({
                   onHandContextMenu={onHandContextMenu}
                   scale={scale}
                   cardScale={handCardScale}
-                  cardOverlapRatio={MOBILE_HAND_CARD_OVERLAP_RATIO}
                   baseCardHeight={baseCardHeightPx}
-                  showCustomScrollbar
+                  coverFlow
                   showLabel={false}
                   dropDisabled={isCommanderDrawerOpen}
                   className="!w-full !flex-none !border-0 !bg-transparent"

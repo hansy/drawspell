@@ -41,7 +41,7 @@ export interface SeatProps {
   zoomControlsDisabled?: boolean;
   onLifeContextMenu?: (e: React.MouseEvent, player: Player) => void;
   layoutVariant?: "default" | "portrait-viewport";
-  onPortraitCommanderDrawerOpenChange?: (open: boolean) => void;
+  portraitSeatSwitcher?: React.ReactNode;
 }
 
 const SeatInner: React.FC<SeatProps> = ({
@@ -70,7 +70,7 @@ const SeatInner: React.FC<SeatProps> = ({
   zoomControlsDisabled,
   onLifeContextMenu,
   layoutVariant = "default",
-  onPortraitCommanderDrawerOpenChange,
+  portraitSeatSwitcher,
 }) => {
   const model = React.useMemo(
     () =>
@@ -124,7 +124,7 @@ const SeatInner: React.FC<SeatProps> = ({
       model={model}
       zoomControlsDisabled={zoomControlsDisabled}
       layoutVariant={layoutVariant}
-      onPortraitCommanderDrawerOpenChange={onPortraitCommanderDrawerOpenChange}
+      portraitSeatSwitcher={portraitSeatSwitcher}
     />
   );
 };

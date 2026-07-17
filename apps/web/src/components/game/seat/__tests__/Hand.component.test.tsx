@@ -1,9 +1,11 @@
 import { DndContext } from "@dnd-kit/core";
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ZONE } from "@/constants/zones";
 import { useDragStore } from "@/store/dragStore";
+import { useGameStore } from "@/store/gameStore";
+import { requestCardPreviewLock } from "@/lib/cardPreviewLock";
 import type { Card, Zone } from "@/types";
 import { CardPreviewProvider } from "../../card/CardPreviewProvider";
 import { Hand } from "../Hand";
@@ -691,5 +693,100 @@ describe("Hand visual ownership", () => {
     expect(cardFace?.classList.contains("group-hover:ring-2")).toBe(false);
     expect(cardFace?.classList.contains("hover:ring-2")).toBe(false);
     expect(cardFace?.classList.contains("cursor-grab")).toBe(false);
+  });
+
+  it("uses a non-scrolling cover flow and swipes between focused cards", () => {
+    const cards = [
+      buildCard("c1", "p1-hand"),
+      buildCard("c2", "p1-hand"),
+      buildCard("c3", "p1-hand"),
+    ];
+    const zone = buildHandZone("p1-hand", "p1", cards.map((card) => card.id));
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Hand
+            zone={zone}
+            cards={cards}
+            isTop={false}
+            isRight={false}
+            isMe
+            viewerPlayerId="p1"
+            viewerRole="player"
+            showLabel={false}
+            coverFlow
+          />
+        </CardPreviewProvider>
+      </DndContext>,
+    );
+
+    const root = container.querySelector('[data-hand-cover-flow="true"]');
+    const handZone = container.querySelector('[data-zone-id="p1-hand"]');
+    const thirdFrame = container.querySelector('[data-dnd-hand-card-frame-id="c3"]');
+
+    expect(root).not.toBeNull();
+    expect(handZone?.classList.contains("overflow-hidden")).toBe(true);
+    expect(handZone?.classList.contains("overflow-x-auto")).toBe(false);
+    expect(container.querySelector("[data-dnd-hand-scrollbar]")).toBeNull();
+    expect(thirdFrame?.getAttribute("style")).toContain("translate3d(0,-4px,0)");
+
+    fireEvent.pointerDown(root as Element, {
+      pointerType: "touch",
+      pointerId: 1,
+      button: 0,
+      clientX: 120,
+      clientY: 80,
+    });
+    fireEvent.pointerUp(root as Element, {
+      pointerType: "touch",
+      pointerId: 1,
+      button: 0,
+      clientX: 200,
+      clientY: 82,
+    });
+
+    const secondFrame = container.querySelector('[data-dnd-hand-card-frame-id="c2"]');
+    expect(secondFrame?.getAttribute("style")).toContain("translate3d(0,-4px,0)");
+  });
+
+  it("highlights an own-hand card while its preview is open", () => {
+    const card = buildCard("c1", "p1-hand");
+    const zone = buildHandZone("p1-hand", "p1", [card.id]);
+    useGameStore.setState({
+      myPlayerId: "p1",
+      viewerRole: "player",
+      zones: { [zone.id]: zone },
+      cards: { [card.id]: card },
+    } as any);
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Hand
+            zone={zone}
+            cards={[card]}
+            isTop={false}
+            isRight={false}
+            isMe
+            viewerPlayerId="p1"
+            viewerRole="player"
+            showLabel={false}
+            coverFlow
+          />
+        </CardPreviewProvider>
+      </DndContext>,
+    );
+
+    const cardElement = container.querySelector('[data-card-id="c1"]') as HTMLElement;
+    act(() => {
+      requestCardPreviewLock({ cardId: card.id, anchorEl: cardElement });
+    });
+
+    expect(
+      container
+        .querySelector('[data-dnd-hand-sortable-card-id="c1"]')
+        ?.getAttribute("data-hand-card-previewed"),
+    ).toBe("true");
   });
 });

@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MultiplayerBoardView } from "../MultiplayerBoardView";
@@ -191,7 +191,7 @@ const renderBoard = (
   );
 };
 
-describe("MultiplayerBoardView portrait seat indicator", () => {
+describe("MultiplayerBoardView portrait seat switcher", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     Object.defineProperty(window, "matchMedia", {
@@ -231,34 +231,25 @@ describe("MultiplayerBoardView portrait seat indicator", () => {
       { id: "p1", name: "Player One", color: "sky", position: "bottom-left" },
     ]);
 
-    expect(screen.getByTestId("portrait-seat-indicator")).toBeTruthy();
+    expect(screen.getByTestId("portrait-seat-switcher-trigger")).toBeTruthy();
   });
 
-  it("uses a vertical mini-map for two-player portrait games", () => {
+  it("shows the current player name and both seats in a two-player game", () => {
     renderBoard([
       { id: "p2", name: "Player Two", color: "violet", position: "top-left" },
       { id: "p1", name: "Player One", color: "sky", position: "bottom-left" },
     ]);
 
-    const indicator = screen.getByTestId("portrait-seat-indicator");
-    expect(indicator.getAttribute("data-layout")).toBe("vertical");
-    expect(indicator.getAttribute("data-state")).toBe("collapsed");
+    const trigger = screen.getByTestId("portrait-seat-switcher-trigger");
+    expect(trigger.textContent).toContain("You");
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
 
-    fireEvent.click(screen.getByLabelText("Expand seat picker"));
+    fireEvent.click(trigger);
 
-    expect(screen.getByTestId("portrait-seat-indicator").getAttribute("data-state")).toBe(
-      "expanded",
-    );
-    const options = screen.getAllByTestId("portrait-seat-option");
-    expect(options).toHaveLength(1);
-    expect(
-      screen.getByLabelText("Switch to Player Two's seat").getAttribute(
-        "data-seat-position",
-      ),
-    ).toBe("top-left");
-    expect(within(options[0]).getByTestId("portrait-seat-option-color")).toBeTruthy();
-    expect(screen.queryByLabelText("Switch to your seat")).toBeNull();
-    expect(screen.queryByText("You")).toBeNull();
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getAllByRole("menuitemradio")).toHaveLength(2);
+    expect(screen.getByLabelText("Switch to Player Two")).toBeTruthy();
+    expect(screen.getByLabelText("Currently viewing You")).toBeTruthy();
   });
 
   it("hides the portrait seat indicator when only one player is connected", () => {
@@ -270,7 +261,7 @@ describe("MultiplayerBoardView portrait seat indicator", () => {
       { livePlayerCount: 1 },
     );
 
-    expect(screen.queryByTestId("portrait-seat-indicator")).toBeNull();
+    expect(screen.queryByTestId("portrait-seat-switcher-trigger")).toBeNull();
   });
 
   it("shows the other seats in shared layout order when expanded", () => {
@@ -281,29 +272,16 @@ describe("MultiplayerBoardView portrait seat indicator", () => {
       { id: "p4", name: "Player Four", color: "rose", position: "bottom-right" },
     ]);
 
-    const indicator = screen.getByTestId("portrait-seat-indicator");
-    expect(indicator.getAttribute("data-layout")).toBe("square");
-    expect(indicator.getAttribute("data-state")).toBe("collapsed");
+    fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
 
-    fireEvent.click(screen.getByLabelText("Expand seat picker"));
-
-    const options = screen.getAllByTestId("portrait-seat-option");
-    expect(options.map((option) => option.getAttribute("data-seat-position"))).toEqual([
-      "top-left",
-      "top-right",
-      "bottom-right",
-    ]);
+    const options = screen.getAllByRole("menuitemradio");
     expect(options.map((option) => option.textContent)).toEqual([
       "Player Two",
       "Player Three",
+      "You",
       "Player Four",
     ]);
-    expect(
-      options.every((option) =>
-        Boolean(within(option).getByTestId("portrait-seat-option-color")),
-      ),
-    ).toBe(true);
-    expect(screen.queryByLabelText("Switch to your seat")).toBeNull();
+    expect(options[2].getAttribute("aria-label")).toBe("Currently viewing You");
   });
 
   it("collapses the expanded picker when you tap outside it", () => {
@@ -314,17 +292,13 @@ describe("MultiplayerBoardView portrait seat indicator", () => {
       { id: "p4", name: "Player Four", color: "rose", position: "bottom-right" },
     ]);
 
-    fireEvent.click(screen.getByLabelText("Expand seat picker"));
-    expect(screen.getByTestId("portrait-seat-indicator").getAttribute("data-state")).toBe(
-      "expanded",
-    );
+    fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
+    expect(screen.getByTestId("portrait-seat-switcher-menu")).toBeTruthy();
 
-    fireEvent.click(screen.getByTestId("portrait-seat-indicator-backdrop"));
+    fireEvent.pointerDown(document.body);
 
-    expect(screen.getByTestId("portrait-seat-indicator").getAttribute("data-state")).toBe(
-      "collapsed",
-    );
-    expect(screen.queryByLabelText("Switch to Player Two's seat")).toBeNull();
+    expect(screen.queryByTestId("portrait-seat-switcher-menu")).toBeNull();
+    expect(screen.queryByLabelText("Switch to Player Two")).toBeNull();
   });
 
   it("collapses the expanded picker on outside pointer down from seat content", () => {
@@ -335,16 +309,12 @@ describe("MultiplayerBoardView portrait seat indicator", () => {
       { id: "p4", name: "Player Four", color: "rose", position: "bottom-right" },
     ]);
 
-    fireEvent.click(screen.getByLabelText("Expand seat picker"));
-    expect(screen.getByTestId("portrait-seat-indicator").getAttribute("data-state")).toBe(
-      "expanded",
-    );
+    fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
+    expect(screen.getByTestId("portrait-seat-switcher-menu")).toBeTruthy();
 
     fireEvent.pointerDown(screen.getByLabelText("Open life details"));
 
-    expect(screen.getByTestId("portrait-seat-indicator").getAttribute("data-state")).toBe(
-      "collapsed",
-    );
+    expect(screen.queryByTestId("portrait-seat-switcher-menu")).toBeNull();
   });
 
   it("hides the portrait seat indicator while the mobile menu is open", () => {
@@ -355,20 +325,17 @@ describe("MultiplayerBoardView portrait seat indicator", () => {
       { id: "p4", name: "Player Four", color: "rose", position: "bottom-right" },
     ]);
 
-    fireEvent.click(screen.getByLabelText("Expand seat picker"));
-    expect(screen.getByTestId("portrait-seat-indicator").getAttribute("data-state")).toBe(
-      "expanded",
-    );
+    fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
+    expect(screen.getByTestId("portrait-seat-switcher-menu")).toBeTruthy();
 
     fireEvent.click(screen.getByLabelText("Open menu"));
 
-    expect(screen.queryByTestId("portrait-seat-indicator")).toBeNull();
+    expect(screen.queryByTestId("portrait-seat-switcher-trigger")).toBeNull();
 
     fireEvent.click(screen.getByLabelText("Open menu"));
 
-    expect(screen.getByTestId("portrait-seat-indicator").getAttribute("data-state")).toBe(
-      "collapsed",
-    );
+    expect(screen.getByTestId("portrait-seat-switcher-trigger")).toBeTruthy();
+    expect(screen.queryByTestId("portrait-seat-switcher-menu")).toBeNull();
   });
 
   it("shows the switched seat name briefly at the top of the screen", () => {
@@ -381,8 +348,8 @@ describe("MultiplayerBoardView portrait seat indicator", () => {
         { id: "p4", name: "Player Four", color: "rose", position: "bottom-right" },
       ]);
 
-      fireEvent.click(screen.getByLabelText("Expand seat picker"));
-      fireEvent.click(screen.getByLabelText("Switch to Player Three's seat"));
+      fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
+      fireEvent.click(screen.getByLabelText("Switch to Player Three"));
       expect(
         screen
           .getAllByRole("status")
@@ -412,10 +379,10 @@ describe("MultiplayerBoardView portrait seat indicator", () => {
         { id: "p4", name: "Player Four", color: "rose", position: "bottom-right" },
       ]);
 
-      fireEvent.click(screen.getByLabelText("Expand seat picker"));
-      fireEvent.click(screen.getByLabelText("Switch to Player Three's seat"));
-      fireEvent.click(screen.getByLabelText("Expand seat picker"));
-      fireEvent.click(screen.getByLabelText("Switch to your seat"));
+      fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
+      fireEvent.click(screen.getByLabelText("Switch to Player Three"));
+      fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
+      fireEvent.click(screen.getByLabelText("Switch to You"));
 
       expect(
         screen

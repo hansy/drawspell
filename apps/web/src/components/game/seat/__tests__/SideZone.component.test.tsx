@@ -189,6 +189,74 @@ describe("SideZone touch gestures", () => {
     expect(onDoubleClick).toHaveBeenCalledTimes(1);
   });
 
+  it("accepts a touch double tap across different points in the same zone", () => {
+    const onClick = vi.fn();
+    const onDoubleClick = vi.fn();
+    const { container } = render(
+      <SideZone
+        zone={zone as any}
+        label="Library"
+        count={92}
+        onClick={onClick}
+        onDoubleClick={onDoubleClick}
+      />
+    );
+
+    const target = container.firstElementChild;
+    if (!target) throw new Error("Expected SideZone root element");
+
+    act(() => {
+      fireEvent(
+        target,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 20,
+          clientY: 18,
+        })
+      );
+      fireEvent(
+        target,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 20,
+          clientY: 18,
+        })
+      );
+      vi.advanceTimersByTime(100);
+      fireEvent(
+        target,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 52,
+          clientY: 38,
+        })
+      );
+      fireEvent(
+        target,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 52,
+          clientY: 38,
+        })
+      );
+    });
+
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(onDoubleClick).toHaveBeenCalledTimes(1);
+  });
+
   it("fires click when mouse events originate from a card target", () => {
     const onClick = vi.fn();
     const { getByTestId } = render(

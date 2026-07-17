@@ -48,12 +48,15 @@ import {
   summarizeZoneElement,
   type DebugFlagKey,
 } from "@/lib/debug";
+import {
+  TOUCH_CONTEXT_MENU_LONG_PRESS_MS,
+  TOUCH_MOVE_TOLERANCE_PX,
+} from "@/lib/touchGestures";
 
 const FACE_DOWN_DEBUG_KEY: DebugFlagKey = "faceDownDrag";
 const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
 const DEFAULT_DRAG_TRANSFORM_ORIGIN = "50% 50%";
-const TOUCH_DRAG_MOVE_DISTANCE_PX = 32;
 
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
@@ -393,7 +396,8 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        distance: TOUCH_DRAG_MOVE_DISTANCE_PX,
+        delay: TOUCH_CONTEXT_MENU_LONG_PRESS_MS,
+        tolerance: TOUCH_MOVE_TOLERANCE_PX,
       },
     })
   );
