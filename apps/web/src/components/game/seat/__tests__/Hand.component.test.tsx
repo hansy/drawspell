@@ -695,7 +695,7 @@ describe("Hand visual ownership", () => {
     expect(cardFace?.classList.contains("cursor-grab")).toBe(false);
   });
 
-  it("uses a non-scrolling cover flow and swipes between focused cards", () => {
+  it("tracks a cover-flow swipe before snapping to the focused card", () => {
     const cards = [
       buildCard("c1", "p1-hand"),
       buildCard("c2", "p1-hand"),
@@ -723,7 +723,11 @@ describe("Hand visual ownership", () => {
 
     const root = container.querySelector('[data-hand-cover-flow="true"]');
     const handZone = container.querySelector('[data-zone-id="p1-hand"]');
+    const strip = container.querySelector(
+      "[data-dnd-hand-card-strip]",
+    ) as HTMLElement | null;
     const thirdFrame = container.querySelector('[data-dnd-hand-card-frame-id="c3"]');
+    const restingTransform = strip?.style.transform;
 
     expect(root).not.toBeNull();
     expect(handZone?.classList.contains("overflow-hidden")).toBe(true);
@@ -738,6 +742,17 @@ describe("Hand visual ownership", () => {
       clientX: 120,
       clientY: 80,
     });
+    fireEvent.pointerMove(root as Element, {
+      pointerType: "touch",
+      pointerId: 1,
+      button: 0,
+      clientX: 170,
+      clientY: 82,
+    });
+
+    expect(root?.getAttribute("data-cover-flow-dragging")).toBe("true");
+    expect(strip?.style.transform).not.toBe(restingTransform);
+
     fireEvent.pointerUp(root as Element, {
       pointerType: "touch",
       pointerId: 1,
@@ -748,6 +763,60 @@ describe("Hand visual ownership", () => {
 
     const secondFrame = container.querySelector('[data-dnd-hand-card-frame-id="c2"]');
     expect(secondFrame?.getAttribute("style")).toContain("translate3d(0,-4px,0)");
+  });
+
+  it("keeps the cover-flow layout stable while a card is dragged within the hand", () => {
+    const cards = [
+      buildCard("c1", "p1-hand"),
+      buildCard("c2", "p1-hand"),
+      buildCard("c3", "p1-hand"),
+    ];
+    const zone = buildHandZone("p1-hand", "p1", cards.map((card) => card.id));
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Hand
+            zone={zone}
+            cards={cards}
+            isTop={false}
+            isRight={false}
+            isMe
+            viewerPlayerId="p1"
+            viewerRole="player"
+            showLabel={false}
+            coverFlow
+          />
+        </CardPreviewProvider>
+      </DndContext>,
+    );
+
+    const strip = container.querySelector(
+      "[data-dnd-hand-card-strip]",
+    ) as HTMLElement | null;
+    const restingTransform = strip?.style.transform;
+
+    act(() => {
+      useDragStore.setState({
+        activeCardId: "c3",
+        handDragPreview: {
+          cardId: "c3",
+          zoneId: zone.id,
+          targetIndex: 0,
+        },
+      } as Partial<ReturnType<typeof useDragStore.getState>>);
+    });
+
+    const renderedCardIds = Array.from(
+      container.querySelectorAll("[data-dnd-hand-sortable-card-id]"),
+    ).map((node) => node.getAttribute("data-dnd-hand-sortable-card-id"));
+    const draggedCard = container.querySelector(
+      '[data-dnd-hand-sortable-card-id="c3"]',
+    ) as HTMLElement | null;
+
+    expect(renderedCardIds).toEqual(["c1", "c2", "c3"]);
+    expect(strip?.style.transform).toBe(restingTransform);
+    expect(draggedCard?.style.transition).toBe("none");
   });
 
   it("highlights an own-hand card while its preview is open", () => {
