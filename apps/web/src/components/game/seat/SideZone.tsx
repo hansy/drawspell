@@ -5,10 +5,12 @@ import { Card } from "../card/Card";
 import { cn } from "@/lib/utils";
 import { CARD_ASPECT_RATIO, ZONE_SIDEWAYS_CLASSES } from "@/lib/constants";
 import { ZONE } from "@/constants/zones";
+import {
+  TOUCH_CONTEXT_MENU_LONG_PRESS_MS,
+  TOUCH_MOVE_TOLERANCE_PX,
+} from "@/lib/touchGestures";
 
-const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_DOUBLE_TAP_MS = 280;
-const TOUCH_MOVE_TOLERANCE_PX = 10;
 const NATIVE_CLICK_SUPPRESSION_MS = 450;
 
 type TouchPressState = {
@@ -74,8 +76,6 @@ export const SideZone: React.FC<SideZoneProps> = ({
   const touchPressRef = React.useRef<TouchPressState | null>(null);
   const lastTapRef = React.useRef<{
     timestamp: number;
-    x: number;
-    y: number;
   } | null>(null);
   const suppressNativeUntilRef = React.useRef(0);
 
@@ -213,9 +213,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
       const previousTap = lastTapRef.current;
       const isDoubleTap = Boolean(
         previousTap &&
-          now - previousTap.timestamp <= TOUCH_DOUBLE_TAP_MS &&
-          Math.hypot(event.clientX - previousTap.x, event.clientY - previousTap.y) <=
-            TOUCH_MOVE_TOLERANCE_PX
+          now - previousTap.timestamp <= TOUCH_DOUBLE_TAP_MS
       );
       if (isDoubleTap) {
         lastTapRef.current = null;
@@ -225,8 +223,6 @@ export const SideZone: React.FC<SideZoneProps> = ({
 
       lastTapRef.current = {
         timestamp: now,
-        x: event.clientX,
-        y: event.clientY,
       };
       onClick?.(event as unknown as React.MouseEvent, zone.id);
     },

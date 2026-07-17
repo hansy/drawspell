@@ -1,0 +1,2 @@
+export const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
+export const TOUCH_MOVE_TOLERANCE_PX = 10;

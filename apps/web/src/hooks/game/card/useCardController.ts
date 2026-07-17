@@ -33,10 +33,12 @@ import {
 } from "@/lib/debug";
 
 import type { CardProps, CardViewProps } from "@/components/game/card/types";
+import {
+  TOUCH_CONTEXT_MENU_LONG_PRESS_MS,
+  TOUCH_MOVE_TOLERANCE_PX,
+} from "@/lib/touchGestures";
 
 const DESKTOP_PREVIEW_LOCK_MOVE_TOLERANCE_PX = 8;
-const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
-const TOUCH_MOVE_TOLERANCE_PX = 10;
 const TOUCH_PREVIEW_TAP_TOLERANCE_PX = 6;
 const SUPPRESS_MOUSE_HOVER_AFTER_TOUCH_MS = 700;
 const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";

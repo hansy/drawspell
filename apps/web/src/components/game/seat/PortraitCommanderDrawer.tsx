@@ -7,6 +7,7 @@ import { Zone } from "@/components/game/zone/Zone";
 import { useCommanderZoneController } from "@/hooks/game/seat/useCommanderZoneController";
 import { cn } from "@/lib/utils";
 import type { Card as CardType, Zone as ZoneType, ZoneId } from "@/types";
+import { CARD_ASPECT_RATIO } from "@/lib/constants";
 
 interface PortraitCommanderDrawerProps {
   open: boolean;
@@ -33,15 +34,18 @@ export const PortraitCommanderDrawer: React.FC<PortraitCommanderDrawerProps> = (
     open && zone && (over?.id === zone.id || over?.data.current?.zoneId === zone.id),
   );
   const visibleCards = cards.slice(-MAX_COMMANDER_CARDS);
+  const visibleCardCount = Math.max(1, visibleCards.length);
   const layoutVars = {
-    ["--cmdr-slot-w" as string]: "max(var(--card-w,80px),7.5rem)",
+    ["--cmdr-max-card-w" as string]: `min(calc((100vw - 3rem - ${(visibleCardCount - 1) * 0.75}rem) / ${visibleCardCount}), 11rem)`,
+    ["--cmdr-card-h" as string]: `min(calc(100% - 3rem), calc(var(--cmdr-max-card-w) / ${CARD_ASPECT_RATIO}))`,
+    ["--cmdr-slot-w" as string]: "calc(var(--cmdr-max-card-w) + 1rem)",
     ["--cmdr-slot-gap" as string]: "0.75rem",
   } as React.CSSProperties;
 
   return (
     <div
       className={cn(
-        "absolute inset-x-0 top-8 bottom-0 z-30 overflow-hidden",
+        "absolute inset-x-0 top-11 bottom-0 z-30 overflow-hidden",
         "transition-transform duration-200 ease-out",
         "border-t border-zinc-700 bg-zinc-950/95 shadow-[0_-14px_40px_rgba(0,0,0,0.55)] backdrop-blur",
         isDropHoveringCommander && "ring-2 ring-inset ring-indigo-400/85 bg-indigo-950/30",
@@ -68,7 +72,7 @@ export const PortraitCommanderDrawer: React.FC<PortraitCommanderDrawerProps> = (
                     key={card.id}
                     className="relative flex h-full min-h-0 w-[var(--cmdr-slot-w)] items-center justify-center"
                   >
-                    <div className="relative h-[var(--card-h,120px)] w-[var(--card-w,80px)]">
+                    <div className="relative h-[var(--cmdr-card-h)] w-auto aspect-[11/15]">
                       <Card
                         card={card}
                         className="shadow-lg !h-full !w-full !aspect-auto"

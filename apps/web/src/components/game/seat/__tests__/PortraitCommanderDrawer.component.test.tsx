@@ -58,7 +58,7 @@ describe("PortraitCommanderDrawer", () => {
   });
 
   it("hides commander tax controls when viewing an opponent commander", () => {
-    renderDrawer([card]);
+    const { container } = renderDrawer([card]);
 
     expect(
       screen.queryByRole("button", {
@@ -70,5 +70,10 @@ describe("PortraitCommanderDrawer", () => {
         name: `Increase commander tax for ${card.name}`,
       }),
     ).toBeNull();
+
+    const drawer = container.firstElementChild as HTMLElement | null;
+    const cardFrame = container.querySelector('[data-card-id="cmd-1"]')?.parentElement;
+    expect(drawer?.style.getPropertyValue("--cmdr-max-card-w")).toContain("11rem");
+    expect(cardFrame?.classList.contains("h-[var(--cmdr-card-h)]")).toBe(true);
   });
 });
