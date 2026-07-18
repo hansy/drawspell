@@ -16,7 +16,9 @@ export const getTouchDragActivationMode = (
 export const getTouchDragActivationConstraint = (
   mode: TouchDragActivationMode,
 ): PointerActivationConstraint =>
-  mode === "vertical" ? { distance: { y: 6 } } : { distance: 4 };
+  mode === "vertical"
+    ? { distance: { y: 4 }, tolerance: { x: 8 } }
+    : { distance: 4 };
 
 type TouchSensorConstructorProps = ConstructorParameters<typeof TouchSensor>[0];
 

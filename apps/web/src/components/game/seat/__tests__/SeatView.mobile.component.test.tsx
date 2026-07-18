@@ -246,4 +246,52 @@ describe("SeatView mobile toolbar", () => {
     expect(onOpponentLibraryReveals).toHaveBeenCalledWith(libraryZone.id);
     expect(onViewZone).not.toHaveBeenCalled();
   });
+
+  it("renders the mobile hand as a side-by-side horizontal strip", () => {
+    const handZone = makeZone("hand-p1", "hand", ["c-hand-1", "c-hand-2"]);
+    const handCards = [
+      makeCard("c-hand-1", handZone.id, "First Hand Card"),
+      makeCard("c-hand-2", handZone.id, "Second Hand Card"),
+    ];
+
+    const { container } = render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer()}
+            color="sky"
+            isMe
+            viewerPlayerId="p1"
+            opponentColors={{ p1: "sky" }}
+            model={{
+              ...baseModel,
+              zones: { ...baseModel.zones, hand: handZone },
+              cards: { ...baseModel.cards, hand: handCards },
+            } as any}
+            layoutVariant="portrait-viewport"
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    const hand = container.querySelector('[data-zone-id="hand-p1"]');
+    const strip = container.querySelector("[data-dnd-hand-card-strip]");
+    const slots = Array.from(
+      container.querySelectorAll("[data-dnd-hand-sortable-card-id]"),
+    ) as HTMLElement[];
+
+    expect(hand?.classList.contains("overflow-x-auto")).toBe(true);
+    expect(hand?.classList.contains("touch-pan-x")).toBe(true);
+    expect(hand?.classList.contains("snap-x")).toBe(false);
+    expect(hand?.closest("[data-hand-cover-flow]")).toBeNull();
+    expect(strip?.classList.contains("justify-start")).toBe(true);
+    expect(strip?.classList.contains("justify-center")).toBe(false);
+    expect(strip?.classList.contains("transition-transform")).toBe(false);
+    expect(slots).toHaveLength(2);
+    expect(
+      slots.map((slot) =>
+        slot.style.getPropertyValue("--hand-card-slot-width"),
+      ),
+    ).toEqual(["128px", "128px"]);
+  });
 });

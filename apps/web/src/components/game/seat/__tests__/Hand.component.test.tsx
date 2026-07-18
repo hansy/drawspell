@@ -378,7 +378,7 @@ describe("Hand visual ownership", () => {
     ).toBe(false);
   });
 
-  it("supports a low-overlap mobile hand layout", () => {
+  it("supports a side-by-side mobile hand layout", () => {
     const cards = [buildCard("c1", "p1-hand"), buildCard("c2", "p1-hand")];
     const zone = buildHandZone("p1-hand", "p1", cards.map((card) => card.id));
 
@@ -396,7 +396,7 @@ describe("Hand visual ownership", () => {
             showLabel={false}
             baseCardHeight={120}
             cardScale={2}
-            cardOverlapRatio={0.9}
+            cardOverlapRatio={1}
           />
         </CardPreviewProvider>
       </DndContext>
@@ -408,7 +408,7 @@ describe("Hand visual ownership", () => {
 
     expect(sourceCard).not.toBeNull();
     expect(sourceCard?.style.getPropertyValue("--hand-card-slot-width")).toBe(
-      "144px"
+      "160px"
     );
   });
 
@@ -444,7 +444,7 @@ describe("Hand visual ownership", () => {
     expect(handZone?.classList.contains("overflow-y-hidden")).toBe(true);
   });
 
-  it("keeps cards touch-locked for drag", () => {
+  it("leaves horizontal card gestures available for native hand scrolling", () => {
     const card = buildCard("c1", "p1-hand");
     const zone = buildHandZone("p1-hand", "p1", [card.id]);
 
@@ -470,7 +470,8 @@ describe("Hand visual ownership", () => {
     );
 
     expect(sourceCard).not.toBeNull();
-    expect(sourceCard?.classList.contains("touch-none")).toBe(true);
+    expect(sourceCard?.classList.contains("touch-pan-x")).toBe(true);
+    expect(sourceCard?.classList.contains("touch-none")).toBe(false);
   });
 
   it("does not show the custom scrollbar by default even when the hand overflows", () => {
@@ -695,109 +696,6 @@ describe("Hand visual ownership", () => {
     expect(cardFace?.classList.contains("cursor-grab")).toBe(false);
   });
 
-  it("uses the viewer's native center-snapping cover flow", () => {
-    const cards = [
-      buildCard("c1", "p1-hand"),
-      buildCard("c2", "p1-hand"),
-      buildCard("c3", "p1-hand"),
-    ];
-    const zone = buildHandZone("p1-hand", "p1", cards.map((card) => card.id));
-
-    const { container } = render(
-      <DndContext>
-        <CardPreviewProvider>
-          <Hand
-            zone={zone}
-            cards={cards}
-            isTop={false}
-            isRight={false}
-            isMe
-            viewerPlayerId="p1"
-            viewerRole="player"
-            showLabel={false}
-            coverFlow
-          />
-        </CardPreviewProvider>
-      </DndContext>,
-    );
-
-    const handZone = container.querySelector('[data-zone-id="p1-hand"]');
-    const secondCard = container.querySelector(
-      '[data-dnd-hand-sortable-card-id="c2"]',
-    ) as HTMLElement | null;
-    const thirdCard = container.querySelector(
-      '[data-dnd-hand-sortable-card-id="c3"]',
-    ) as HTMLElement | null;
-
-    expect(handZone?.classList.contains("overflow-x-auto")).toBe(true);
-    expect(handZone?.classList.contains("touch-pan-x")).toBe(true);
-    expect(handZone?.classList.contains("snap-x")).toBe(true);
-    expect(handZone?.classList.contains("snap-mandatory")).toBe(true);
-    expect(container.querySelector("[data-dnd-hand-scrollbar]")).toBeNull();
-    expect(thirdCard?.style.scrollSnapAlign).toBe("center");
-    expect(thirdCard?.style.scrollSnapStop).toBe("always");
-    expect(thirdCard?.getAttribute("data-hand-cover-flow-focused")).toBe("true");
-
-    fireEvent.click(secondCard as Element);
-
-    expect(secondCard?.getAttribute("data-hand-cover-flow-focused")).toBe("true");
-    expect(thirdCard?.getAttribute("data-hand-cover-flow-focused")).toBeNull();
-  });
-
-  it("keeps the cover-flow layout stable while a card is dragged within the hand", () => {
-    const cards = [
-      buildCard("c1", "p1-hand"),
-      buildCard("c2", "p1-hand"),
-      buildCard("c3", "p1-hand"),
-    ];
-    const zone = buildHandZone("p1-hand", "p1", cards.map((card) => card.id));
-
-    const { container } = render(
-      <DndContext>
-        <CardPreviewProvider>
-          <Hand
-            zone={zone}
-            cards={cards}
-            isTop={false}
-            isRight={false}
-            isMe
-            viewerPlayerId="p1"
-            viewerRole="player"
-            showLabel={false}
-            coverFlow
-          />
-        </CardPreviewProvider>
-      </DndContext>,
-    );
-
-    const strip = container.querySelector(
-      "[data-dnd-hand-card-strip]",
-    ) as HTMLElement | null;
-    const restingTransform = strip?.style.transform;
-
-    act(() => {
-      useDragStore.setState({
-        activeCardId: "c3",
-        handDragPreview: {
-          cardId: "c3",
-          zoneId: zone.id,
-          targetIndex: 0,
-        },
-      } as Partial<ReturnType<typeof useDragStore.getState>>);
-    });
-
-    const renderedCardIds = Array.from(
-      container.querySelectorAll("[data-dnd-hand-sortable-card-id]"),
-    ).map((node) => node.getAttribute("data-dnd-hand-sortable-card-id"));
-    const draggedCard = container.querySelector(
-      '[data-dnd-hand-sortable-card-id="c3"]',
-    ) as HTMLElement | null;
-
-    expect(renderedCardIds).toEqual(["c1", "c2", "c3"]);
-    expect(strip?.style.transform).toBe(restingTransform);
-    expect(draggedCard?.style.transition).toBe("none");
-  });
-
   it("highlights an own-hand card while its preview is open", () => {
     const card = buildCard("c1", "p1-hand");
     const zone = buildHandZone("p1-hand", "p1", [card.id]);
@@ -820,7 +718,6 @@ describe("Hand visual ownership", () => {
             viewerPlayerId="p1"
             viewerRole="player"
             showLabel={false}
-            coverFlow
           />
         </CardPreviewProvider>
       </DndContext>,

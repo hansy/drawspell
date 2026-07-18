@@ -22,7 +22,8 @@ describe("touch drag sensors", () => {
       "vertical",
     );
     expect(getTouchDragActivationConstraint("vertical")).toEqual({
-      distance: { y: 6 },
+      distance: { y: 4 },
+      tolerance: { x: 8 },
     });
   });
 });

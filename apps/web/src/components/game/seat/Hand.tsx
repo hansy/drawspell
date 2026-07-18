@@ -33,10 +33,6 @@ import {
   TOUCH_CONTEXT_MENU_LONG_PRESS_MS,
   TOUCH_MOVE_TOLERANCE_PX,
 } from "@/lib/touchGestures";
-import {
-  getCoverFlowVisuals,
-  useHorizontalCoverFlow,
-} from "../zone-viewer/coverFlow";
 
 interface HandProps {
   zone: ZoneType;
@@ -60,7 +56,7 @@ interface HandProps {
   labelPlacement?: "seat-edge" | "top-left" | "top-center" | "bottom-center";
   cardTopGapPx?: number;
   flipCards?: boolean;
-  coverFlow?: boolean;
+  scrollAlignment?: "center" | "start";
 }
 
 const HAND_SCROLLBAR_MIN_OVERFLOW_PX = 1;
@@ -91,9 +87,6 @@ const SortableCard = React.memo(
     renderedZoneId,
     flipCard,
     isPreviewed,
-    coverFlowOffset,
-    setCoverFlowItemNode,
-    onActivate,
   }: {
     card: CardType;
     isMe: boolean;
@@ -108,9 +101,6 @@ const SortableCard = React.memo(
     renderedZoneId: string;
     flipCard: boolean;
     isPreviewed: boolean;
-    coverFlowOffset?: number;
-    setCoverFlowItemNode?: (cardId: string, node: HTMLDivElement | null) => void;
-    onActivate?: (cardId: string) => void;
   }) => {
     const {
       attributes,
@@ -151,38 +141,15 @@ const SortableCard = React.memo(
     const overlapWidth = useFullSlotWidth
       ? cardWidth
       : cardWidth * cardOverlapRatio;
-    const coverFlowVisuals =
-      coverFlowOffset === undefined
-        ? null
-        : getCoverFlowVisuals({
-            isFocused: coverFlowOffset === 0,
-            distance: Math.abs(coverFlowOffset),
-            cardHeightPx: cardHeight,
-          });
-
-    const setCardNodeRef = React.useCallback(
-      (node: HTMLDivElement | null) => {
-        setNodeRef(node);
-        setCoverFlowItemNode?.(card.id, node);
-      },
-      [card.id, setCoverFlowItemNode, setNodeRef],
-    );
 
     const style = React.useMemo(() => {
       return {
         transform: CSS.Transform.toString(transform),
         transition: isActiveDragSource ? "none" : transition,
-        zIndex:
-          isActiveDragSource || isPendingDrop ? 300 : coverFlowVisuals?.zIndex,
-        opacity: coverFlowVisuals?.opacity,
-        scrollSnapAlign: coverFlowOffset === undefined ? undefined : "center",
-        scrollSnapStop: coverFlowOffset === undefined ? undefined : "always",
+        zIndex: isActiveDragSource || isPendingDrop ? 300 : undefined,
         ["--hand-card-slot-width" as string]: `${overlapWidth}px`,
       } as React.CSSProperties;
     }, [
-      coverFlowVisuals?.opacity,
-      coverFlowVisuals?.zIndex,
-      coverFlowOffset,
       isActiveDragSource,
       isPendingDrop,
       overlapWidth,
@@ -240,26 +207,20 @@ const SortableCard = React.memo(
 
     return (
       <div
-        ref={setCardNodeRef}
+        ref={setNodeRef}
         style={style}
         data-dnd-hand-sortable-card-id={card.id}
         data-dnd-hand-card-scale={cardScale}
         data-hand-card-previewed={isPreviewed ? "true" : undefined}
-        data-hand-cover-flow-focused={
-          coverFlowOffset === 0 ? "true" : undefined
-        }
         className={cn(
           "relative flex shrink-0 h-full w-[var(--hand-card-slot-width)] items-center lg:items-start transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group",
-          coverFlowOffset === undefined
-            ? "touch-none"
-            : "touch-pan-x justify-center",
-          isMe && coverFlowOffset === undefined && "hover:-translate-y-3",
+          "touch-pan-x",
+          isMe && "hover:-translate-y-3",
           isActiveDragSource && "z-50",
           isPendingDrop && "z-50 opacity-0",
         )}
         {...attributes}
         {...listeners}
-        onClick={() => onActivate?.(card.id)}
       >
         <div
           data-dnd-hand-drop-preview-card-id={
@@ -274,10 +235,6 @@ const SortableCard = React.memo(
             width: alignVisualBounds ? cardWidth : undefined,
             height: alignVisualBounds ? cardHeight : undefined,
             opacity: isActiveDragSource ? 0.45 : undefined,
-            transform:
-              !coverFlowVisuals
-                ? undefined
-                : `translate3d(0,${coverFlowVisuals.liftPx}px,0) scale(${coverFlowVisuals.scale})`,
             transition:
               "transform 190ms cubic-bezier(0.22, 1, 0.36, 1), opacity 140ms ease-out",
           }}
@@ -297,8 +254,6 @@ const SortableCard = React.memo(
                 "ring-2 ring-cyan-200/90 ring-offset-2 ring-offset-zinc-950 shadow-[0_16px_36px_rgba(103,232,249,0.25)]",
               isMe && isPreviewed &&
                 "ring-2 ring-cyan-200 ring-offset-2 ring-offset-zinc-950",
-              coverFlowOffset === 0 &&
-                "drop-shadow-[0_14px_28px_rgba(103,232,249,0.42)]",
             )}
             style={{
               transformOrigin: alignVisualBounds ? "top left" : undefined,
@@ -345,12 +300,11 @@ const HandInner: React.FC<HandProps> = ({
   labelPlacement = "seat-edge",
   cardTopGapPx = HAND_CARD_TOP_GAP_PX,
   flipCards = false,
-  coverFlow = false,
+  scrollAlignment = "center",
 }) => {
   const preview = useOptionalCardPreview();
   const handDragPreview = useDragStore((state) => state.handDragPreview);
   const displayCards = React.useMemo(() => {
-    if (coverFlow) return cards;
     if (!handDragPreview || handDragPreview.zoneId !== zone.id) return cards;
     const oldIndex = cards.findIndex((card) => card.id === handDragPreview.cardId);
     if (oldIndex === -1) return cards;
@@ -360,7 +314,7 @@ const HandInner: React.FC<HandProps> = ({
     );
     if (oldIndex === targetIndex) return cards;
     return arrayMove(cards, oldIndex, targetIndex);
-  }, [cards, coverFlow, handDragPreview, zone.id]);
+  }, [cards, handDragPreview, zone.id]);
   // Memoize card IDs array for SortableContext
   const cardIds = React.useMemo(
     () => displayCards.map((card) => card.id),
@@ -370,8 +324,6 @@ const HandInner: React.FC<HandProps> = ({
   const touchPressTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchPressRef = React.useRef<TouchPressState | null>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
-  const [scrollContainerNode, setCoverFlowScrollNode] =
-    React.useState<HTMLDivElement | null>(null);
   const lastLoggedScrollLeftRef = React.useRef<number | null>(null);
   const [scrollbarState, setScrollbarState] = React.useState({
     left: 0,
@@ -380,33 +332,6 @@ const HandInner: React.FC<HandProps> = ({
   });
   const [fitCardOverlapRatio, setFitCardOverlapRatio] = React.useState(
     cardOverlapRatio,
-  );
-  const coverFlowItemIds = React.useMemo(
-    () => [...displayCards].reverse().map((card) => card.id),
-    [displayCards],
-  );
-  const {
-    centeredId: coverFlowActiveCardId,
-    setCenteredId: setCoverFlowActiveCardId,
-    setItemNode: setCoverFlowItemNode,
-    scheduleCenteredUpdate,
-  } = useHorizontalCoverFlow({
-    enabled: coverFlow,
-    itemIds: coverFlowItemIds,
-    scrollNode: scrollContainerNode,
-  });
-
-  const coverFlowActiveIndex = Math.max(
-    0,
-    displayCards.findIndex((card) => card.id === coverFlowActiveCardId),
-  );
-  const resolvedBaseHeight = baseCardHeight ?? BASE_CARD_HEIGHT;
-  const coverFlowCardWidth = resolvedBaseHeight * CARD_ASPECT_RATIO * cardScale;
-  const coverFlowSlotWidth = Math.max(50, Math.round(coverFlowCardWidth * 0.28));
-
-  const handleCoverFlowActivate = React.useCallback(
-    (cardId: string) => setCoverFlowActiveCardId(cardId),
-    [setCoverFlowActiveCardId],
   );
 
   const clearTouchPressTimeout = React.useCallback(() => {
@@ -474,7 +399,6 @@ const HandInner: React.FC<HandProps> = ({
   const setScrollContainerNode = React.useCallback(
     (node: HTMLDivElement | null) => {
       scrollContainerRef.current = node;
-      setCoverFlowScrollNode(node);
       syncScrollbarState();
     },
     [syncScrollbarState],
@@ -614,7 +538,6 @@ const HandInner: React.FC<HandProps> = ({
   return (
     <div
       data-hand-fit-cards={fitCards ? "true" : undefined}
-      data-hand-cover-flow={coverFlow ? "true" : undefined}
       className={cn(
         "group/hand-zone h-full flex-1 relative min-w-0 w-0", // w-0 enforces flex width constraint
         // Distinct background for hand area
@@ -668,29 +591,18 @@ const HandInner: React.FC<HandProps> = ({
         onPointerUp={handleTouchContextMenuEnd}
         onPointerCancel={handleTouchContextMenuEnd}
         onPointerLeave={handleTouchContextMenuEnd}
-        onScroll={() => {
-          syncScrollbarState();
-          if (coverFlow) scheduleCenteredUpdate();
-        }}
+        onScroll={syncScrollbarState}
         style={{
           WebkitOverflowScrolling: "touch",
-          paddingLeft: coverFlow
-            ? `calc(50% - ${Math.round(coverFlowSlotWidth / 2)}px)`
-            : undefined,
-          paddingRight: coverFlow
-            ? `calc(50% - ${Math.round(coverFlowSlotWidth / 2)}px)`
-            : undefined,
         }}
         className={cn(
           "w-full h-full flex scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent overscroll-x-none",
           isMe && viewerRole !== "spectator" && onHandContextMenu && cards.length > 0 &&
             "cursor-context-menu",
-          coverFlow
-            ? "overflow-x-auto overflow-y-hidden touch-pan-x snap-x snap-mandatory overscroll-x-contain scroll-smooth [perspective:900px]"
-            : fitCards
+          fitCards
             ? "overflow-x-clip overflow-y-visible touch-none"
             : "overflow-x-auto overflow-y-hidden",
-          !coverFlow && !fitCards &&
+          !fitCards &&
             (showCustomScrollbar ? "touch-none" : "touch-pan-x"),
         )}
       >
@@ -702,19 +614,16 @@ const HandInner: React.FC<HandProps> = ({
             data-dnd-hand-card-strip
             className={cn(
               "flex h-full gap-0 items-center lg:items-start pt-0 lg:pt-[var(--hand-card-top-gap)] motion-reduce:transition-none",
-              coverFlow
-                ? "w-max shrink-0 [transform-style:preserve-3d]"
-                : cn(
-                    "transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                    isSingleCardHand
-                      ? "w-full justify-center"
-                      : "w-max min-w-full shrink-0 justify-center",
-                  ),
+              scrollAlignment === "start"
+                ? "w-max min-w-full shrink-0 justify-start"
+                : isSingleCardHand
+                  ? "w-full justify-center"
+                  : "w-max min-w-full shrink-0 justify-center",
             )}
             style={{
               ["--hand-card-top-gap" as string]: `${cardTopGapPx}px`,
-              paddingLeft: coverFlow ? 0 : fitCards ? 16 : HAND_CARD_SCROLL_EDGE_PADDING_PX,
-              paddingRight: coverFlow ? 0 : fitCards ? 16 : HAND_CARD_SCROLL_EDGE_PADDING_PX,
+              paddingLeft: fitCards ? 16 : HAND_CARD_SCROLL_EDGE_PADDING_PX,
+              paddingRight: fitCards ? 16 : HAND_CARD_SCROLL_EDGE_PADDING_PX,
               paddingBottom: reserveCustomScrollbarSpace ? 12 : 0,
             }}
           >
@@ -732,25 +641,17 @@ const HandInner: React.FC<HandProps> = ({
                 onCardContextMenu={onCardContextMenu}
                 cardScale={cardScale}
                 cardOverlapRatio={
-                  coverFlow
-                    ? 0.28
-                    : fitCards
-                      ? fitCardOverlapRatio
-                      : cardOverlapRatio
+                  fitCards ? fitCardOverlapRatio : cardOverlapRatio
                 }
                 baseCardHeight={baseCardHeight}
                 useFullSlotWidth={
-                  !coverFlow &&
-                  (isSingleCardHand ||
-                    (fitCards && index === displayCards.length - 1))
+                  isSingleCardHand ||
+                  (fitCards && index === displayCards.length - 1)
                 }
-                alignVisualBounds={coverFlow || fitCards}
+                alignVisualBounds={fitCards}
                 renderedZoneId={zone.id}
                 flipCard={flipCards}
                 isPreviewed={Boolean(isMe && preview?.previewCardId === card.id)}
-                coverFlowOffset={coverFlow ? index - coverFlowActiveIndex : undefined}
-                setCoverFlowItemNode={coverFlow ? setCoverFlowItemNode : undefined}
-                onActivate={coverFlow ? handleCoverFlowActivate : undefined}
               />
             ))}
           </div>

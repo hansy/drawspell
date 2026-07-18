@@ -925,6 +925,33 @@ describe("applyIntentToDoc", () => {
     expect(hidden.libraryOrder.p1).toEqual(["c1"]);
   });
 
+  it("should add each drawn card to the left edge of the hand", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    const library = makeZone("lib-p1", ZONE.LIBRARY, "p1");
+    const hand = makeZone("hand-p1", ZONE.HAND, "p1", ["h1", "h2"]);
+    writeZone(maps, library);
+    writeZone(maps, hand);
+
+    hidden.libraryOrder.p1 = ["c1"];
+    hidden.handOrder.p1 = ["h1", "h2"];
+    hidden.cards.c1 = makeCard("c1", "p1", library.id);
+    hidden.cards.h1 = makeCard("h1", "p1", hand.id);
+    hidden.cards.h2 = makeCard("h2", "p1", hand.id);
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-draw-left",
+      type: "library.draw",
+      payload: { actorId: "p1", playerId: "p1", count: 1 },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(hidden.handOrder.p1).toEqual(["c1", "h1", "h2"]);
+    expect(readZone(maps, hand.id)?.cardIds).toEqual(["c1", "h1", "h2"]);
+  });
+
   it("should discard from the library and emit per-card logs", () => {
     const doc = createDoc();
     const maps = getMaps(doc);

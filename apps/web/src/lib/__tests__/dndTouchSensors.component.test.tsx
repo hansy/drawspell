@@ -53,12 +53,23 @@ describe("RoutedTouchSensor", () => {
     fireEvent.touchEnd(card, { changedTouches: [touch(45, 21)] });
   });
 
+  it("keeps a horizontal hand swipe scrolling despite natural vertical drift", () => {
+    const { getByTestId } = render(<Harness mode="vertical" />);
+    const card = getByTestId("card");
+
+    fireEvent.touchStart(card, { touches: [touch(20, 20)] });
+    fireEvent.touchMove(card, { touches: [touch(45, 25)] });
+
+    expect(card.getAttribute("aria-pressed")).not.toBe("true");
+    fireEvent.touchEnd(card, { changedTouches: [touch(45, 25)] });
+  });
+
   it("starts a hand drag from short vertical movement", () => {
     const { getByTestId } = render(<Harness mode="vertical" />);
     const card = getByTestId("card");
 
     fireEvent.touchStart(card, { touches: [touch(20, 20)] });
-    fireEvent.touchMove(card, { touches: [touch(21, 27)] });
+    fireEvent.touchMove(card, { touches: [touch(21, 25)] });
 
     expect(card.getAttribute("aria-pressed")).toBe("true");
     fireEvent.touchEnd(card, { changedTouches: [touch(21, 27)] });

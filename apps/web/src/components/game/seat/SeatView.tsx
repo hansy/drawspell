@@ -536,8 +536,9 @@ export const SeatView: React.FC<SeatViewProps> = ({
                   onHandContextMenu={onHandContextMenu}
                   scale={scale}
                   cardScale={handCardScale}
+                  cardOverlapRatio={1}
                   baseCardHeight={baseCardHeightPx}
-                  coverFlow
+                  scrollAlignment="start"
                   showLabel={false}
                   dropDisabled={isCommanderDrawerOpen}
                   className="!w-full !flex-none !border-0 !bg-transparent"

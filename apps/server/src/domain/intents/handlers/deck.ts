@@ -62,7 +62,8 @@ const handleLibraryDraw: IntentHandler = ({ actorId, maps, hidden, payload, push
       maps,
       hidden,
       { cardId, toZoneId: handZone.id, actorId: payload.actorId, opts: { suppressLog: true } },
-      "top",
+      // Hand index 0 renders at the left edge.
+      "bottom",
       pushLogEvent,
       markHiddenChanged
     );
