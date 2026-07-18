@@ -13,7 +13,7 @@ function disposeProvider(provider: YSyncProvider | null): void {
     provider.disconnect();
     // y-partyserver uses shouldConnect to control auto-reconnect
     if ("shouldConnect" in provider) {
-      (provider as any).shouldConnect = false;
+      provider.shouldConnect = false;
     }
     provider.destroy();
   } catch (_err) {

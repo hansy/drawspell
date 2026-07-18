@@ -3,6 +3,7 @@ export type YSyncProvider = {
   connect?: () => void | Promise<void>;
   disconnect: () => void;
   destroy: () => void;
+  shouldConnect?: boolean;
   wsconnected?: boolean;
   synced?: boolean;
 };
