@@ -33,6 +33,10 @@ import {
   TOUCH_CONTEXT_MENU_LONG_PRESS_MS,
   TOUCH_MOVE_TOLERANCE_PX,
 } from "@/lib/touchGestures";
+import {
+  getCoverFlowVisuals,
+  useHorizontalCoverFlow,
+} from "../zone-viewer/coverFlow";
 
 interface HandProps {
   zone: ZoneType;
@@ -61,12 +65,6 @@ interface HandProps {
 
 const HAND_SCROLLBAR_MIN_OVERFLOW_PX = 1;
 const HAND_SCROLL_DEBUG_MIN_DELTA_PX = 4;
-const COVER_FLOW_AXIS_LOCK_PX = 6;
-const COVER_FLOW_SWIPE_COMMIT_PX = 18;
-const COVER_FLOW_VELOCITY_COMMIT_PX_PER_MS = 0.25;
-const COVER_FLOW_VELOCITY_PROJECTION_MS = 120;
-const COVER_FLOW_MAX_VELOCITY_PROJECTION_PX = 32;
-const COVER_FLOW_EDGE_RESISTANCE = 0.28;
 
 type TouchPressState = {
   pointerId: number;
@@ -94,6 +92,7 @@ const SortableCard = React.memo(
     flipCard,
     isPreviewed,
     coverFlowOffset,
+    setCoverFlowItemNode,
     onActivate,
   }: {
     card: CardType;
@@ -110,6 +109,7 @@ const SortableCard = React.memo(
     flipCard: boolean;
     isPreviewed: boolean;
     coverFlowOffset?: number;
+    setCoverFlowItemNode?: (cardId: string, node: HTMLDivElement | null) => void;
     onActivate?: (cardId: string) => void;
   }) => {
     const {
@@ -127,6 +127,7 @@ const SortableCard = React.memo(
         ownerId: card.ownerId,
         tapped: card.tapped,
         cardScale,
+        touchDragActivation: "vertical",
         dragOverlayScale: ZONE_DRAG_OVERLAY_SCALE,
         dragOverlayCue: "zone",
       },
@@ -150,14 +151,44 @@ const SortableCard = React.memo(
     const overlapWidth = useFullSlotWidth
       ? cardWidth
       : cardWidth * cardOverlapRatio;
+    const coverFlowVisuals =
+      coverFlowOffset === undefined
+        ? null
+        : getCoverFlowVisuals({
+            isFocused: coverFlowOffset === 0,
+            distance: Math.abs(coverFlowOffset),
+            cardHeightPx: cardHeight,
+          });
+
+    const setCardNodeRef = React.useCallback(
+      (node: HTMLDivElement | null) => {
+        setNodeRef(node);
+        setCoverFlowItemNode?.(card.id, node);
+      },
+      [card.id, setCoverFlowItemNode, setNodeRef],
+    );
 
     const style = React.useMemo(() => {
       return {
         transform: CSS.Transform.toString(transform),
         transition: isActiveDragSource ? "none" : transition,
+        zIndex:
+          isActiveDragSource || isPendingDrop ? 300 : coverFlowVisuals?.zIndex,
+        opacity: coverFlowVisuals?.opacity,
+        scrollSnapAlign: coverFlowOffset === undefined ? undefined : "center",
+        scrollSnapStop: coverFlowOffset === undefined ? undefined : "always",
         ["--hand-card-slot-width" as string]: `${overlapWidth}px`,
       } as React.CSSProperties;
-    }, [isActiveDragSource, overlapWidth, transform, transition]);
+    }, [
+      coverFlowVisuals?.opacity,
+      coverFlowVisuals?.zIndex,
+      coverFlowOffset,
+      isActiveDragSource,
+      isPendingDrop,
+      overlapWidth,
+      transform,
+      transition,
+    ]);
 
     React.useEffect(() => {
       if (!isDebugEnabled("battlefieldDnd")) return;
@@ -209,13 +240,19 @@ const SortableCard = React.memo(
 
     return (
       <div
-        ref={setNodeRef}
+        ref={setCardNodeRef}
         style={style}
         data-dnd-hand-sortable-card-id={card.id}
         data-dnd-hand-card-scale={cardScale}
         data-hand-card-previewed={isPreviewed ? "true" : undefined}
+        data-hand-cover-flow-focused={
+          coverFlowOffset === 0 ? "true" : undefined
+        }
         className={cn(
-          "relative flex shrink-0 h-full w-[var(--hand-card-slot-width)] items-center lg:items-start touch-none transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group",
+          "relative flex shrink-0 h-full w-[var(--hand-card-slot-width)] items-center lg:items-start transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group",
+          coverFlowOffset === undefined
+            ? "touch-none"
+            : "touch-pan-x justify-center",
           isMe && coverFlowOffset === undefined && "hover:-translate-y-3",
           isActiveDragSource && "z-50",
           isPendingDrop && "z-50 opacity-0",
@@ -237,16 +274,10 @@ const SortableCard = React.memo(
             width: alignVisualBounds ? cardWidth : undefined,
             height: alignVisualBounds ? cardHeight : undefined,
             opacity: isActiveDragSource ? 0.45 : undefined,
-            zIndex:
-              coverFlowOffset === undefined
-                ? undefined
-                : 20 - Math.min(10, Math.abs(coverFlowOffset)),
             transform:
-              coverFlowOffset === undefined
+              !coverFlowVisuals
                 ? undefined
-                : coverFlowOffset === 0
-                  ? "translate3d(0,-4px,0) scale(1) rotateY(0deg)"
-                  : `translate3d(${Math.sign(coverFlowOffset) * Math.min(12, Math.abs(coverFlowOffset) * 4)}px,${Math.min(14, Math.abs(coverFlowOffset) * 5)}px,0) scale(${Math.max(0.82, 0.94 - Math.abs(coverFlowOffset) * 0.04)}) rotateY(${-Math.sign(coverFlowOffset) * Math.min(12, 8 + Math.abs(coverFlowOffset) * 2)}deg)`,
+                : `translate3d(0,${coverFlowVisuals.liftPx}px,0) scale(${coverFlowVisuals.scale})`,
             transition:
               "transform 190ms cubic-bezier(0.22, 1, 0.36, 1), opacity 140ms ease-out",
           }}
@@ -266,6 +297,8 @@ const SortableCard = React.memo(
                 "ring-2 ring-cyan-200/90 ring-offset-2 ring-offset-zinc-950 shadow-[0_16px_36px_rgba(103,232,249,0.25)]",
               isMe && isPreviewed &&
                 "ring-2 ring-cyan-200 ring-offset-2 ring-offset-zinc-950",
+              coverFlowOffset === 0 &&
+                "drop-shadow-[0_14px_28px_rgba(103,232,249,0.42)]",
             )}
             style={{
               transformOrigin: alignVisualBounds ? "top left" : undefined,
@@ -316,7 +349,6 @@ const HandInner: React.FC<HandProps> = ({
 }) => {
   const preview = useOptionalCardPreview();
   const handDragPreview = useDragStore((state) => state.handDragPreview);
-  const activeDragCardId = useDragStore((state) => state.activeCardId);
   const displayCards = React.useMemo(() => {
     if (coverFlow) return cards;
     if (!handDragPreview || handDragPreview.zoneId !== zone.id) return cards;
@@ -338,6 +370,8 @@ const HandInner: React.FC<HandProps> = ({
   const touchPressTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchPressRef = React.useRef<TouchPressState | null>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const [scrollContainerNode, setCoverFlowScrollNode] =
+    React.useState<HTMLDivElement | null>(null);
   const lastLoggedScrollLeftRef = React.useRef<number | null>(null);
   const [scrollbarState, setScrollbarState] = React.useState({
     left: 0,
@@ -347,34 +381,20 @@ const HandInner: React.FC<HandProps> = ({
   const [fitCardOverlapRatio, setFitCardOverlapRatio] = React.useState(
     cardOverlapRatio,
   );
-  const [coverFlowActiveCardId, setCoverFlowActiveCardId] = React.useState<
-    string | null
-  >(() => cards[cards.length - 1]?.id ?? null);
-  const [coverFlowDragOffsetPx, setCoverFlowDragOffsetPx] = React.useState(0);
-  const [isCoverFlowSwiping, setIsCoverFlowSwiping] = React.useState(false);
-  const coverFlowSuppressClickRef = React.useRef(false);
-  const coverFlowSuppressClickTimeoutRef = React.useRef<
-    ReturnType<typeof setTimeout> | null
-  >(null);
-  const coverFlowSwipeRef = React.useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    x: number;
-    y: number;
-    lastX: number;
-    lastTimestamp: number;
-    velocityX: number;
-    axis: "pending" | "horizontal" | "vertical";
-  } | null>(null);
-
-  React.useEffect(() => {
-    if (!coverFlow) return;
-    if (coverFlowActiveCardId && cards.some((card) => card.id === coverFlowActiveCardId)) {
-      return;
-    }
-    setCoverFlowActiveCardId(cards[cards.length - 1]?.id ?? null);
-  }, [cards, coverFlow, coverFlowActiveCardId]);
+  const coverFlowItemIds = React.useMemo(
+    () => [...displayCards].reverse().map((card) => card.id),
+    [displayCards],
+  );
+  const {
+    centeredId: coverFlowActiveCardId,
+    setCenteredId: setCoverFlowActiveCardId,
+    setItemNode: setCoverFlowItemNode,
+    scheduleCenteredUpdate,
+  } = useHorizontalCoverFlow({
+    enabled: coverFlow,
+    itemIds: coverFlowItemIds,
+    scrollNode: scrollContainerNode,
+  });
 
   const coverFlowActiveIndex = Math.max(
     0,
@@ -382,178 +402,11 @@ const HandInner: React.FC<HandProps> = ({
   );
   const resolvedBaseHeight = baseCardHeight ?? BASE_CARD_HEIGHT;
   const coverFlowCardWidth = resolvedBaseHeight * CARD_ASPECT_RATIO * cardScale;
-  const coverFlowSlotWidth = coverFlowCardWidth * 0.42;
-  const coverFlowCenterOffset =
-    coverFlowActiveIndex * coverFlowSlotWidth + coverFlowCardWidth / 2;
+  const coverFlowSlotWidth = Math.max(50, Math.round(coverFlowCardWidth * 0.28));
 
-  const clearCoverFlowClickSuppression = React.useCallback(() => {
-    if (coverFlowSuppressClickTimeoutRef.current) {
-      clearTimeout(coverFlowSuppressClickTimeoutRef.current);
-      coverFlowSuppressClickTimeoutRef.current = null;
-    }
-    coverFlowSuppressClickRef.current = false;
-  }, []);
-
-  const releaseCoverFlowClickSuppression = React.useCallback(() => {
-    if (coverFlowSuppressClickTimeoutRef.current) {
-      clearTimeout(coverFlowSuppressClickTimeoutRef.current);
-    }
-    coverFlowSuppressClickTimeoutRef.current = setTimeout(() => {
-      coverFlowSuppressClickTimeoutRef.current = null;
-      coverFlowSuppressClickRef.current = false;
-    }, 0);
-  }, []);
-
-  const resetCoverFlowGesture = React.useCallback(() => {
-    coverFlowSwipeRef.current = null;
-    setCoverFlowDragOffsetPx(0);
-    setIsCoverFlowSwiping(false);
-  }, []);
-
-  const handleCoverFlowPointerDown = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      if (!coverFlow || event.pointerType !== "touch" || event.button !== 0) return;
-      coverFlowSwipeRef.current = {
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        x: event.clientX,
-        y: event.clientY,
-        lastX: event.clientX,
-        lastTimestamp: event.timeStamp,
-        velocityX: 0,
-        axis: "pending",
-      };
-      clearCoverFlowClickSuppression();
-    },
-    [clearCoverFlowClickSuppression, coverFlow],
-  );
-
-  const handleCoverFlowPointerMove = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      const gesture = coverFlowSwipeRef.current;
-      if (!gesture || gesture.pointerId !== event.pointerId) return;
-      if (activeDragCardId) {
-        resetCoverFlowGesture();
-        return;
-      }
-      gesture.x = event.clientX;
-      gesture.y = event.clientY;
-      const deltaX = event.clientX - gesture.startX;
-      const deltaY = gesture.y - gesture.startY;
-
-      if (gesture.axis === "pending") {
-        if (
-          Math.abs(deltaX) < COVER_FLOW_AXIS_LOCK_PX &&
-          Math.abs(deltaY) < COVER_FLOW_AXIS_LOCK_PX
-        ) {
-          return;
-        }
-        gesture.axis = Math.abs(deltaX) > Math.abs(deltaY) ? "horizontal" : "vertical";
-      }
-      if (gesture.axis !== "horizontal") return;
-
-      const elapsedMs = Math.max(1, event.timeStamp - gesture.lastTimestamp);
-      const instantaneousVelocity = (event.clientX - gesture.lastX) / elapsedMs;
-      gesture.velocityX = gesture.velocityX * 0.65 + instantaneousVelocity * 0.35;
-      gesture.lastX = event.clientX;
-      gesture.lastTimestamp = event.timeStamp;
-
-      const isPullingPastStart = coverFlowActiveIndex === 0 && deltaX > 0;
-      const isPullingPastEnd =
-        coverFlowActiveIndex === displayCards.length - 1 && deltaX < 0;
-      const resistedDelta =
-        isPullingPastStart || isPullingPastEnd
-          ? deltaX * COVER_FLOW_EDGE_RESISTANCE
-          : deltaX;
-      coverFlowSuppressClickRef.current = true;
-      setIsCoverFlowSwiping(true);
-      setCoverFlowDragOffsetPx(resistedDelta);
-    },
-    [
-      activeDragCardId,
-      coverFlowActiveIndex,
-      displayCards.length,
-      resetCoverFlowGesture,
-    ],
-  );
-
-  const handleCoverFlowPointerEnd = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      const gesture = coverFlowSwipeRef.current;
-      if (!gesture || gesture.pointerId !== event.pointerId) return;
-      if (activeDragCardId || gesture.axis !== "horizontal") {
-        resetCoverFlowGesture();
-        return;
-      }
-
-      const deltaX = event.clientX - gesture.startX;
-      const shouldCommit =
-        Math.abs(deltaX) >= COVER_FLOW_SWIPE_COMMIT_PX ||
-        Math.abs(gesture.velocityX) >= COVER_FLOW_VELOCITY_COMMIT_PX_PER_MS;
-      if (!shouldCommit) {
-        resetCoverFlowGesture();
-        releaseCoverFlowClickSuppression();
-        return;
-      }
-
-      const velocityProjection = Math.max(
-        -COVER_FLOW_MAX_VELOCITY_PROJECTION_PX,
-        Math.min(
-          COVER_FLOW_MAX_VELOCITY_PROJECTION_PX,
-          gesture.velocityX * COVER_FLOW_VELOCITY_PROJECTION_MS,
-        ),
-      );
-      const projectedDelta = deltaX + velocityProjection;
-      const snapDistance = Math.max(72, coverFlowSlotWidth);
-      const stepCount = Math.max(
-        1,
-        Math.min(
-          3,
-          Math.round(
-            (Math.abs(projectedDelta) - COVER_FLOW_SWIPE_COMMIT_PX) / snapDistance,
-          ),
-        ),
-      );
-      const nextIndex = Math.max(
-        0,
-        Math.min(
-          displayCards.length - 1,
-          coverFlowActiveIndex + (projectedDelta < 0 ? stepCount : -stepCount),
-        ),
-      );
-      setCoverFlowActiveCardId(displayCards[nextIndex]?.id ?? null);
-      resetCoverFlowGesture();
-      releaseCoverFlowClickSuppression();
-    },
-    [
-      activeDragCardId,
-      coverFlowActiveIndex,
-      coverFlowSlotWidth,
-      displayCards,
-      releaseCoverFlowClickSuppression,
-      resetCoverFlowGesture,
-    ],
-  );
-
-  const handleCoverFlowActivate = React.useCallback((cardId: string) => {
-    if (coverFlowSuppressClickRef.current || activeDragCardId) return;
-    setCoverFlowActiveCardId(cardId);
-  }, [activeDragCardId]);
-
-  React.useEffect(() => {
-    if (!activeDragCardId) return;
-    coverFlowSuppressClickRef.current = true;
-    resetCoverFlowGesture();
-  }, [activeDragCardId, resetCoverFlowGesture]);
-
-  React.useEffect(
-    () => () => {
-      if (coverFlowSuppressClickTimeoutRef.current) {
-        clearTimeout(coverFlowSuppressClickTimeoutRef.current);
-      }
-    },
-    [],
+  const handleCoverFlowActivate = React.useCallback(
+    (cardId: string) => setCoverFlowActiveCardId(cardId),
+    [setCoverFlowActiveCardId],
   );
 
   const clearTouchPressTimeout = React.useCallback(() => {
@@ -621,6 +474,7 @@ const HandInner: React.FC<HandProps> = ({
   const setScrollContainerNode = React.useCallback(
     (node: HTMLDivElement | null) => {
       scrollContainerRef.current = node;
+      setCoverFlowScrollNode(node);
       syncScrollbarState();
     },
     [syncScrollbarState],
@@ -761,7 +615,6 @@ const HandInner: React.FC<HandProps> = ({
     <div
       data-hand-fit-cards={fitCards ? "true" : undefined}
       data-hand-cover-flow={coverFlow ? "true" : undefined}
-      data-cover-flow-dragging={isCoverFlowSwiping ? "true" : undefined}
       className={cn(
         "group/hand-zone h-full flex-1 relative min-w-0 w-0", // w-0 enforces flex width constraint
         // Distinct background for hand area
@@ -771,13 +624,6 @@ const HandInner: React.FC<HandProps> = ({
         "px-4",
         className,
       )}
-      onPointerDownCapture={handleCoverFlowPointerDown}
-      onPointerMoveCapture={handleCoverFlowPointerMove}
-      onPointerUpCapture={handleCoverFlowPointerEnd}
-      onPointerCancelCapture={() => {
-        resetCoverFlowGesture();
-        releaseCoverFlowClickSuppression();
-      }}
     >
       {showLabel && (
         <div
@@ -822,13 +668,25 @@ const HandInner: React.FC<HandProps> = ({
         onPointerUp={handleTouchContextMenuEnd}
         onPointerCancel={handleTouchContextMenuEnd}
         onPointerLeave={handleTouchContextMenuEnd}
-        onScroll={syncScrollbarState}
+        onScroll={() => {
+          syncScrollbarState();
+          if (coverFlow) scheduleCenteredUpdate();
+        }}
+        style={{
+          WebkitOverflowScrolling: "touch",
+          paddingLeft: coverFlow
+            ? `calc(50% - ${Math.round(coverFlowSlotWidth / 2)}px)`
+            : undefined,
+          paddingRight: coverFlow
+            ? `calc(50% - ${Math.round(coverFlowSlotWidth / 2)}px)`
+            : undefined,
+        }}
         className={cn(
           "w-full h-full flex scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent overscroll-x-none",
           isMe && viewerRole !== "spectator" && onHandContextMenu && cards.length > 0 &&
             "cursor-context-menu",
           coverFlow
-            ? "overflow-hidden touch-none [perspective:900px]"
+            ? "overflow-x-auto overflow-y-hidden touch-pan-x snap-x snap-mandatory overscroll-x-contain scroll-smooth [perspective:900px]"
             : fitCards
             ? "overflow-x-clip overflow-y-visible touch-none"
             : "overflow-x-auto overflow-y-hidden",
@@ -845,12 +703,7 @@ const HandInner: React.FC<HandProps> = ({
             className={cn(
               "flex h-full gap-0 items-center lg:items-start pt-0 lg:pt-[var(--hand-card-top-gap)] motion-reduce:transition-none",
               coverFlow
-                ? cn(
-                    "absolute left-1/2 top-1/2 w-max [transform-style:preserve-3d]",
-                    isCoverFlowSwiping
-                      ? "transition-none will-change-transform"
-                      : "transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                  )
+                ? "w-max shrink-0 [transform-style:preserve-3d]"
                 : cn(
                     "transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
                     isSingleCardHand
@@ -863,9 +716,6 @@ const HandInner: React.FC<HandProps> = ({
               paddingLeft: coverFlow ? 0 : fitCards ? 16 : HAND_CARD_SCROLL_EDGE_PADDING_PX,
               paddingRight: coverFlow ? 0 : fitCards ? 16 : HAND_CARD_SCROLL_EDGE_PADDING_PX,
               paddingBottom: reserveCustomScrollbarSpace ? 12 : 0,
-              transform: coverFlow
-                ? `translate3d(${-coverFlowCenterOffset + coverFlowDragOffsetPx}px,-50%,0)`
-                : undefined,
             }}
           >
             {/*
@@ -882,19 +732,24 @@ const HandInner: React.FC<HandProps> = ({
                 onCardContextMenu={onCardContextMenu}
                 cardScale={cardScale}
                 cardOverlapRatio={
-                  coverFlow ? 0.42 : fitCards ? fitCardOverlapRatio : cardOverlapRatio
+                  coverFlow
+                    ? 0.28
+                    : fitCards
+                      ? fitCardOverlapRatio
+                      : cardOverlapRatio
                 }
                 baseCardHeight={baseCardHeight}
                 useFullSlotWidth={
-                  !coverFlow && (isSingleCardHand ||
-                  (fitCards && index === displayCards.length - 1)
-                  )
+                  !coverFlow &&
+                  (isSingleCardHand ||
+                    (fitCards && index === displayCards.length - 1))
                 }
                 alignVisualBounds={coverFlow || fitCards}
                 renderedZoneId={zone.id}
                 flipCard={flipCards}
                 isPreviewed={Boolean(isMe && preview?.previewCardId === card.id)}
                 coverFlowOffset={coverFlow ? index - coverFlowActiveIndex : undefined}
+                setCoverFlowItemNode={coverFlow ? setCoverFlowItemNode : undefined}
                 onActivate={coverFlow ? handleCoverFlowActivate : undefined}
               />
             ))}

@@ -3,7 +3,6 @@ import {
   useSensor,
   useSensors,
   MouseSensor,
-  TouchSensor,
   DragEndEvent,
   DragMoveEvent,
   DragStartEvent,
@@ -48,10 +47,7 @@ import {
   summarizeZoneElement,
   type DebugFlagKey,
 } from "@/lib/debug";
-import {
-  TOUCH_CONTEXT_MENU_LONG_PRESS_MS,
-  TOUCH_MOVE_TOLERANCE_PX,
-} from "@/lib/touchGestures";
+import { RoutedTouchSensor } from "@/lib/dndTouchSensors";
 
 const FACE_DOWN_DEBUG_KEY: DebugFlagKey = "faceDownDrag";
 const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
@@ -394,12 +390,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         distance: 8,
       },
     }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: TOUCH_CONTEXT_MENU_LONG_PRESS_MS,
-        tolerance: TOUCH_MOVE_TOLERANCE_PX,
-      },
-    })
+    useSensor(RoutedTouchSensor)
   );
 
   const dragSeq = React.useRef(0);

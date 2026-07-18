@@ -47,6 +47,11 @@ interface SideZoneProps {
   flipCard?: boolean;
 }
 
+export const shouldDisableSideZoneCardDrag = (
+  zoneType: ZoneType["type"],
+  disableCardDrag = false,
+) => disableCardDrag || zoneType === ZONE.LIBRARY;
+
 // Shared rendering for vertical sidebar zones (library/graveyard/exile).
 export const SideZone: React.FC<SideZoneProps> = ({
   zone,
@@ -70,6 +75,10 @@ export const SideZone: React.FC<SideZoneProps> = ({
   visibleHeight,
   flipCard = false,
 }) => {
+  const cardDragDisabled = shouldDisableSideZoneCardDrag(
+    zone.type,
+    disableCardDrag,
+  );
   const touchPressTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
@@ -307,7 +316,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
               card={card}
               style={{ width: "100%", height: "100%" }}
               faceDown={faceDown}
-              disableDrag={disableCardDrag}
+              disableDrag={cardDragDisabled}
               disableInteractions
               disableHoverAnimation
               className={cn(
@@ -400,7 +409,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
                   card={card}
                   style={{ width: "100%", height: "100%" }}
                   faceDown={faceDown}
-                  disableDrag={disableCardDrag}
+                  disableDrag={cardDragDisabled}
                   disableInteractions
                   disableHoverAnimation
                   className={cn("w-full h-full", cardClassName)}

@@ -36,10 +36,10 @@ export const PortraitCommanderDrawer: React.FC<PortraitCommanderDrawerProps> = (
   const visibleCards = cards.slice(-MAX_COMMANDER_CARDS);
   const visibleCardCount = Math.max(1, visibleCards.length);
   const layoutVars = {
-    ["--cmdr-max-card-w" as string]: `min(calc((100vw - 3rem - ${(visibleCardCount - 1) * 0.75}rem) / ${visibleCardCount}), 11rem)`,
-    ["--cmdr-card-h" as string]: `min(calc(100% - 3rem), calc(var(--cmdr-max-card-w) / ${CARD_ASPECT_RATIO}))`,
-    ["--cmdr-slot-w" as string]: "calc(var(--cmdr-max-card-w) + 1rem)",
-    ["--cmdr-slot-gap" as string]: "0.75rem",
+    ["--cmdr-max-card-w" as string]: `min(calc((100vw - 1rem - ${(visibleCardCount - 1) * 0.5}rem) / ${visibleCardCount}), 11rem)`,
+    ["--cmdr-card-h" as string]: `min(calc(100% - 1rem), calc(var(--cmdr-max-card-w) / ${CARD_ASPECT_RATIO}))`,
+    ["--cmdr-slot-w" as string]: "calc(var(--cmdr-max-card-w) + 0.5rem)",
+    ["--cmdr-slot-gap" as string]: "0.5rem",
   } as React.CSSProperties;
 
   return (
@@ -57,10 +57,10 @@ export const PortraitCommanderDrawer: React.FC<PortraitCommanderDrawerProps> = (
       {zone ? (
         <Zone
           zone={zone}
-          className="relative h-full w-full overflow-hidden border-t border-zinc-800 bg-zinc-900/45 p-3 pt-8"
+          className="relative h-full w-full overflow-hidden border-t border-zinc-800 bg-zinc-900/45 p-1"
           onContextMenu={(e) => onZoneContextMenu?.(e, zone.id)}
         >
-          <div className="pointer-events-none absolute left-3 top-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-500">
+          <div className="pointer-events-none absolute left-2 top-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-500">
             Commander Zone
           </div>
           {visibleCards.length > 0 ? (
@@ -79,7 +79,7 @@ export const PortraitCommanderDrawer: React.FC<PortraitCommanderDrawerProps> = (
                         disableHoverAnimation
                         onContextMenu={(e) => onCardContextMenu?.(e, card)}
                       />
-                      <div className="pointer-events-auto absolute bottom-0 left-1/2 z-40 flex w-[var(--cmdr-slot-w)] -translate-x-1/2 translate-y-[35%] justify-center">
+                      <div className="pointer-events-auto absolute bottom-0 left-1/2 z-40 flex w-[var(--cmdr-slot-w)] -translate-x-1/2 translate-y-[20%] justify-center">
                         <div className="flex items-center gap-1 rounded-full border border-zinc-600 bg-zinc-950/90 px-1 py-1 shadow-lg">
                           {isOwner && (
                             <button

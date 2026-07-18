@@ -695,7 +695,7 @@ describe("Hand visual ownership", () => {
     expect(cardFace?.classList.contains("cursor-grab")).toBe(false);
   });
 
-  it("tracks a cover-flow swipe before snapping to the focused card", () => {
+  it("uses the viewer's native center-snapping cover flow", () => {
     const cards = [
       buildCard("c1", "p1-hand"),
       buildCard("c2", "p1-hand"),
@@ -721,48 +721,27 @@ describe("Hand visual ownership", () => {
       </DndContext>,
     );
 
-    const root = container.querySelector('[data-hand-cover-flow="true"]');
     const handZone = container.querySelector('[data-zone-id="p1-hand"]');
-    const strip = container.querySelector(
-      "[data-dnd-hand-card-strip]",
+    const secondCard = container.querySelector(
+      '[data-dnd-hand-sortable-card-id="c2"]',
     ) as HTMLElement | null;
-    const thirdFrame = container.querySelector('[data-dnd-hand-card-frame-id="c3"]');
-    const restingTransform = strip?.style.transform;
+    const thirdCard = container.querySelector(
+      '[data-dnd-hand-sortable-card-id="c3"]',
+    ) as HTMLElement | null;
 
-    expect(root).not.toBeNull();
-    expect(handZone?.classList.contains("overflow-hidden")).toBe(true);
-    expect(handZone?.classList.contains("overflow-x-auto")).toBe(false);
+    expect(handZone?.classList.contains("overflow-x-auto")).toBe(true);
+    expect(handZone?.classList.contains("touch-pan-x")).toBe(true);
+    expect(handZone?.classList.contains("snap-x")).toBe(true);
+    expect(handZone?.classList.contains("snap-mandatory")).toBe(true);
     expect(container.querySelector("[data-dnd-hand-scrollbar]")).toBeNull();
-    expect(thirdFrame?.getAttribute("style")).toContain("translate3d(0,-4px,0)");
+    expect(thirdCard?.style.scrollSnapAlign).toBe("center");
+    expect(thirdCard?.style.scrollSnapStop).toBe("always");
+    expect(thirdCard?.getAttribute("data-hand-cover-flow-focused")).toBe("true");
 
-    fireEvent.pointerDown(root as Element, {
-      pointerType: "touch",
-      pointerId: 1,
-      button: 0,
-      clientX: 120,
-      clientY: 80,
-    });
-    fireEvent.pointerMove(root as Element, {
-      pointerType: "touch",
-      pointerId: 1,
-      button: 0,
-      clientX: 170,
-      clientY: 82,
-    });
+    fireEvent.click(secondCard as Element);
 
-    expect(root?.getAttribute("data-cover-flow-dragging")).toBe("true");
-    expect(strip?.style.transform).not.toBe(restingTransform);
-
-    fireEvent.pointerUp(root as Element, {
-      pointerType: "touch",
-      pointerId: 1,
-      button: 0,
-      clientX: 200,
-      clientY: 82,
-    });
-
-    const secondFrame = container.querySelector('[data-dnd-hand-card-frame-id="c2"]');
-    expect(secondFrame?.getAttribute("style")).toContain("translate3d(0,-4px,0)");
+    expect(secondCard?.getAttribute("data-hand-cover-flow-focused")).toBe("true");
+    expect(thirdCard?.getAttribute("data-hand-cover-flow-focused")).toBeNull();
   });
 
   it("keeps the cover-flow layout stable while a card is dragged within the hand", () => {

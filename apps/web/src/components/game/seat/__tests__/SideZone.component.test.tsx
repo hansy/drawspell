@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ZONE } from "@/constants/zones";
 import { CardPreviewProvider } from "../../card/CardPreviewProvider";
 
-import { SideZone } from "../SideZone";
+import { SideZone, shouldDisableSideZoneCardDrag } from "../SideZone";
 
 const createPointerEvent = (
   type: string,
@@ -38,6 +38,12 @@ describe("SideZone touch gestures", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("never exposes the displayed library card as a drag handle", () => {
+    expect(shouldDisableSideZoneCardDrag(ZONE.LIBRARY, false)).toBe(true);
+    expect(shouldDisableSideZoneCardDrag(ZONE.GRAVEYARD, false)).toBe(false);
+    expect(shouldDisableSideZoneCardDrag(ZONE.EXILE, true)).toBe(true);
   });
 
   it("shows no dotted outline around an empty library edge zone", () => {
@@ -109,7 +115,6 @@ describe("SideZone touch gestures", () => {
             label="Library"
             count={1}
             flipCard
-            disableCardDrag
           />
         </CardPreviewProvider>
       </DndContext>
@@ -119,6 +124,7 @@ describe("SideZone touch gestures", () => {
     const card = container.querySelector('[data-card-id="card-1"]');
     expect(dropZone?.classList.contains("border-dotted")).toBe(false);
     expect(card?.classList.contains("rotate-180")).toBe(true);
+    expect(card?.getAttribute("aria-disabled")).toBe("true");
   });
 
   it("maps touch double tap to onDoubleClick", () => {

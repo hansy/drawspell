@@ -72,8 +72,13 @@ describe("PortraitCommanderDrawer", () => {
     ).toBeNull();
 
     const drawer = container.firstElementChild as HTMLElement | null;
+    const zoneElement = container.querySelector('[data-zone-id="cmd-p1"]');
     const cardFrame = container.querySelector('[data-card-id="cmd-1"]')?.parentElement;
     expect(drawer?.style.getPropertyValue("--cmdr-max-card-w")).toContain("11rem");
+    expect(drawer?.style.getPropertyValue("--cmdr-max-card-w")).toContain("1rem");
+    expect(drawer?.style.getPropertyValue("--cmdr-card-h")).toContain("1rem");
+    expect(zoneElement?.classList.contains("p-1")).toBe(true);
+    expect(zoneElement?.classList.contains("pt-5")).toBe(false);
     expect(cardFrame?.classList.contains("h-[var(--cmdr-card-h)]")).toBe(true);
   });
 });
