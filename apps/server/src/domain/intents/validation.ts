@@ -3,6 +3,11 @@ import type { InnerApplyResult, PermissionResult } from "../types";
 
 export type ValidationResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
+const valid = <T>(value: T): ValidationResult<T> => ({ ok: true, value });
+const invalid = <T>(error: string): ValidationResult<T> => ({ ok: false, error });
+const innerOk = (): InnerApplyResult => ({ ok: true });
+const innerError = (error: string): InnerApplyResult => ({ ok: false, error });
+
 export const readPayload = (payload: unknown): Record<string, unknown> =>
   isRecord(payload) ? (payload as Record<string, unknown>) : {};
 
@@ -25,32 +30,32 @@ export const readActorId = (payload: Record<string, unknown>): string | undefine
   readNonEmptyString(payload.actorId);
 
 export const requireString = (value: unknown, error: string): ValidationResult<string> => {
-  if (!isString(value)) return { ok: false, error };
-  return { ok: true, value };
+  if (!isString(value)) return invalid(error);
+  return valid(value);
 };
 
 export const requireNonEmptyString = (
   value: unknown,
   error: string
 ): ValidationResult<string> => {
-  if (!isNonEmptyString(value)) return { ok: false, error };
-  return { ok: true, value };
+  if (!isNonEmptyString(value)) return invalid(error);
+  return valid(value);
 };
 
 export const requireRecord = (
   value: unknown,
   error: string
 ): ValidationResult<Record<string, unknown>> => {
-  if (!isRecord(value)) return { ok: false, error };
-  return { ok: true, value: value as Record<string, unknown> };
+  if (!isRecord(value)) return invalid(error);
+  return valid(value as Record<string, unknown>);
 };
 
 export const requireArray = <T = unknown>(
   value: unknown,
   error: string
 ): ValidationResult<T[]> => {
-  if (!Array.isArray(value)) return { ok: false, error };
-  return { ok: true, value: value as T[] };
+  if (!Array.isArray(value)) return invalid(error);
+  return valid(value as T[]);
 };
 
 const requireProp = <T>(
@@ -90,14 +95,14 @@ export const ensureActorMatches = (
   expected: string,
   error = "actor mismatch"
 ): InnerApplyResult => {
-  if (actorId !== expected) return { ok: false, error };
-  return { ok: true };
+  if (actorId !== expected) return innerError(error);
+  return innerOk();
 };
 
 export const ensurePermission = (
   permission: PermissionResult,
   fallback = "not permitted"
 ): InnerApplyResult => {
-  if (permission.allowed) return { ok: true };
-  return { ok: false, error: permission.reason ?? fallback };
+  if (permission.allowed) return innerOk();
+  return innerError(permission.reason ?? fallback);
 };
