@@ -28,16 +28,19 @@ export type EndTurnPayload = {
   actorId?: string;
 };
 
+const resolveDelta = (payload: { from: number; to: number; delta?: number }) =>
+  typeof payload.delta === "number" ? payload.delta : payload.to - payload.from;
+
 const formatLife: LogEventDefinition<LifePayload>["format"] = (payload, ctx) => {
   const player = buildPlayerPart(ctx, payload.playerId);
-  const delta = typeof payload.delta === "number" ? payload.delta : payload.to - payload.from;
+  const delta = resolveDelta(payload);
   const signed = delta >= 0 ? `+${delta}` : `${delta}`;
   return [player, { kind: "text", text: ` life ${signed} (${payload.from} -> ${payload.to})` }];
 };
 
 const formatCommanderTax: LogEventDefinition<CommanderTaxPayload>["format"] = (payload, ctx) => {
   const player = buildPlayerPart(ctx, payload.playerId);
-  const delta = typeof payload.delta === "number" ? payload.delta : payload.to - payload.from;
+  const delta = resolveDelta(payload);
   const absDelta = Math.abs(delta);
   const verb = delta >= 0 ? "added" : "removed";
   const preposition = delta >= 0 ? "to" : "from";
@@ -70,10 +73,8 @@ export const playerEvents = {
     aggregate: {
       key: (payload: LifePayload) => `life:${payload.playerId}`,
       mergePayload: (existing: LifePayload, incoming: LifePayload) => {
-        const existingDelta =
-          typeof existing.delta === "number" ? existing.delta : existing.to - existing.from;
-        const nextDelta =
-          typeof incoming.delta === "number" ? incoming.delta : incoming.to - incoming.from;
+        const existingDelta = resolveDelta(existing);
+        const nextDelta = resolveDelta(incoming);
         const totalDelta = existingDelta + nextDelta;
         return {
           ...incoming,
