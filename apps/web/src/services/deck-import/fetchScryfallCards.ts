@@ -34,6 +34,18 @@ const DEFAULT_MAX_RETRIES = 2;
 
 const defaultSleep: Sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const getRetryDelayMs = (response: Response | null, attempt: number, backoffMs: number) => {
+  const retryAfter = response?.headers.get("Retry-After");
+  if (retryAfter) {
+    const asSeconds = Number(retryAfter);
+    if (Number.isFinite(asSeconds)) {
+      return Math.max(0, asSeconds * 1000);
+    }
+  }
+
+  return backoffMs * Math.pow(2, attempt);
+};
+
 const normalizeQuantity = (value: number): number =>
   Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 
@@ -286,17 +298,6 @@ export const fetchScryfallCards = async (
   const sleep = opts?.sleep ?? defaultSleep;
   let requestCount = 0;
 
-  const getRetryDelayMs = (response: Response | null, attempt: number) => {
-    const retryAfter = response?.headers.get("Retry-After");
-    if (retryAfter) {
-      const asSeconds = Number(retryAfter);
-      if (Number.isFinite(asSeconds)) {
-        return Math.max(0, asSeconds * 1000);
-      }
-    }
-    return backoffMs * Math.pow(2, attempt);
-  };
-
   const rateLimitedRequest = async (url: string, init?: RequestInit) => {
     let attempt = 0;
 
@@ -311,7 +312,7 @@ export const fetchScryfallCards = async (
         response = await fetcher(url, init);
       } catch (error) {
         if (attempt < maxRetries) {
-          await sleep(getRetryDelayMs(null, attempt));
+          await sleep(getRetryDelayMs(null, attempt, backoffMs));
           attempt += 1;
           continue;
         }
@@ -319,7 +320,7 @@ export const fetchScryfallCards = async (
       }
 
       if (response.status === 429 && attempt < maxRetries) {
-        await sleep(getRetryDelayMs(response, attempt));
+        await sleep(getRetryDelayMs(response, attempt, backoffMs));
         attempt += 1;
         continue;
       }
