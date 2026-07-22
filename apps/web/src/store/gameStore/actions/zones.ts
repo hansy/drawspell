@@ -12,6 +12,19 @@ type Deps = {
   dispatchIntent: DispatchIntent;
 };
 
+const containsSameCardIds = (
+  currentIds: readonly string[],
+  orderedCardIds: readonly string[]
+) => {
+  if (currentIds.length !== orderedCardIds.length) return false;
+
+  const currentSet = new Set(currentIds);
+  return (
+    orderedCardIds.every((id) => currentSet.has(id)) &&
+    currentIds.every((id) => orderedCardIds.includes(id))
+  );
+};
+
 export const createZoneActions = (
   _set: SetState,
   get: GetState,
@@ -58,13 +71,7 @@ export const createZoneActions = (
     }
 
     const currentIds = zone.cardIds;
-    if (currentIds.length !== orderedCardIds.length) return;
-
-    const currentSet = new Set(currentIds);
-    const containsSameCards =
-      orderedCardIds.every((id) => currentSet.has(id)) &&
-      currentIds.every((id) => orderedCardIds.includes(id));
-    if (!containsSameCards) return;
+    if (!containsSameCardIds(currentIds, orderedCardIds)) return;
 
     dispatchIntent({
       type: "zone.reorder",
