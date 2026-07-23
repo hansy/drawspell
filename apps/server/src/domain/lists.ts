@@ -1,11 +1,15 @@
+const toUniqueMemberSet = (list: string[]) => {
+  const members = new Set(list);
+  return members.size === list.length ? members : null;
+};
+
 export const hasSameMembers = (left: string[], right: string[]): boolean => {
   if (left.length !== right.length) return false;
-  const setLeft = new Set(left);
-  const setRight = new Set(right);
-  if (setLeft.size !== left.length || setRight.size !== right.length) return false;
-  if (setLeft.size !== setRight.size) return false;
-  for (const entry of setLeft) {
-    if (!setRight.has(entry)) return false;
+  const leftMembers = toUniqueMemberSet(left);
+  const rightMembers = toUniqueMemberSet(right);
+  if (!leftMembers || !rightMembers) return false;
+  for (const entry of leftMembers) {
+    if (!rightMembers.has(entry)) return false;
   }
   return true;
 };
