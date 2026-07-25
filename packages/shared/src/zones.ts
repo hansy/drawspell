@@ -7,6 +7,16 @@ type ZoneMatchCandidate = Pick<Zone, "ownerId"> & {
   type: ZoneType | typeof LEGACY_COMMAND_ZONE;
 };
 
+const PLAYER_ZONE_TYPES = [
+  ZONE.LIBRARY,
+  ZONE.HAND,
+  ZONE.BATTLEFIELD,
+  ZONE.GRAVEYARD,
+  ZONE.EXILE,
+  ZONE.COMMANDER,
+  ZONE.SIDEBOARD,
+] as const satisfies readonly ZoneType[];
+
 export const zoneMatchesOwnerAndType = (
   zone: ZoneMatchCandidate,
   ownerId: PlayerId,
@@ -29,15 +39,13 @@ export const findZoneByType = (
 export const getPlayerZones = (
   zones: Record<string, Zone>,
   ownerId: PlayerId
-): Record<ZoneType, Zone | undefined> => ({
-  library: findZoneByType(zones, ownerId, ZONE.LIBRARY),
-  hand: findZoneByType(zones, ownerId, ZONE.HAND),
-  battlefield: findZoneByType(zones, ownerId, ZONE.BATTLEFIELD),
-  graveyard: findZoneByType(zones, ownerId, ZONE.GRAVEYARD),
-  exile: findZoneByType(zones, ownerId, ZONE.EXILE),
-  commander: findZoneByType(zones, ownerId, ZONE.COMMANDER),
-  sideboard: findZoneByType(zones, ownerId, ZONE.SIDEBOARD),
-});
+): Record<ZoneType, Zone | undefined> =>
+  Object.fromEntries(
+    PLAYER_ZONE_TYPES.map((zoneType) => [
+      zoneType,
+      findZoneByType(zones, ownerId, zoneType),
+    ])
+  ) as Record<ZoneType, Zone | undefined>;
 
 export const getCardsInZone = <TCard extends Pick<Card, "id"> = Card>(
   cards: Record<string, TCard | undefined>,
