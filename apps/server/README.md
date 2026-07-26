@@ -36,11 +36,22 @@ Run these from `apps/server` (or prefix with `bun run --cwd apps/server` from th
 bun run dev
 bun run dev:app
 bun run build
+bun run perf:commander -- --joinTokenSecret <local-join-token-secret>
 bun run deploy
 bun run deploy:staging
 bun run test
 bun run typecheck
 ```
+
+`perf:commander` provisions four distinct players with 100-card Commander decks
+(99 library cards plus one commander), then sends a mixed gameplay workload over
+the real intent WebSockets. Pass `--url`, `--room`, `--origin`, `--messages`, or
+`--mix` to override the defaults. The join-token secret must match the target
+server; a pre-issued token can be supplied with `--joinToken` instead and must
+be accompanied by its matching `--room`.
+Each default run uses a fresh benchmark room so persisted fixture state cannot
+affect later measurements. Known Drawspell server URLs automatically use their
+matching web origin; pass `--origin` for another protected target.
 
 `bun run dev` runs through Portless at `https://server.ds.localhost`. The
 underlying Wrangler command is `bun run dev:app`; Portless assigns an ephemeral

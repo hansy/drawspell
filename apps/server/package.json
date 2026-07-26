@@ -6,6 +6,7 @@
     "dev": "portless server.ds bun run dev:app",
     "dev:app": "sh -c 'wrangler dev --port \"$PORT\"'",
     "build": "wrangler build",
+    "perf:commander": "bun scripts/ws-load.ts --players 4 --connections 4 --libraryCards 99",
     "deploy": "wrangler deploy --env production",
     "deploy:staging": "wrangler deploy --env staging",
     "do:metrics": "bun scripts/do-metrics.ts",

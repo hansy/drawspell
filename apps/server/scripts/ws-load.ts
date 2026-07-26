@@ -1,10 +1,18 @@
+import { createJoinToken } from "@mtg/shared/security/joinToken";
+import {
+  createBenchmarkWebSocket,
+  resolveBenchmarkOrigin,
+  resolveBenchmarkRoom,
+} from "./wsLoadConfig";
+
 const config = {
   url: "wss://server.ds.localhost/parties/rooms/bench",
-  connections: 20,
-  messages: 5,
+  players: 4,
+  connections: 4,
+  messages: 25,
   timeoutMs: 15000,
   windowMs: 2000,
-  libraryCards: 40,
+  libraryCards: 99,
   mix: "coin.flip,library.view,card.tap,dice.roll",
   room: "bench",
 };
@@ -28,11 +36,17 @@ const readNumber = (name: string, fallback: number) => {
 
 const baseUrl = readArg("url") ?? config.url;
 const connections = readNumber("connections", config.connections);
+const players = Math.max(1, Math.floor(readNumber("players", config.players)));
 const messagesPerConnection = readNumber("messages", config.messages);
 const timeoutMs = readNumber("timeoutMs", config.timeoutMs);
 const windowMs = readNumber("windowMs", config.windowMs);
 const libraryCards = readNumber("libraryCards", config.libraryCards);
-const room = readArg("room") ?? config.room;
+const suppliedJoinToken = readArg("joinToken");
+const room = resolveBenchmarkRoom({
+  requestedRoom: readArg("room"),
+  suppliedJoinToken,
+  createRoomId: () => `${config.room}-${crypto.randomUUID()}`,
+});
 const mix = (readArg("mix") ?? config.mix)
   .split(",")
   .map((entry) => entry.trim())
@@ -64,6 +78,22 @@ const resolveRoomUrl = (raw: string, nextRoom: string) => {
 };
 
 const roomUrl = resolveRoomUrl(baseUrl, room);
+const socketOrigin = resolveBenchmarkOrigin(baseUrl, readArg("origin"));
+const joinTokenSecret =
+  readArg("joinTokenSecret") ?? process.env.JOIN_TOKEN_SECRET ?? null;
+
+const resolveJoinToken = async () => {
+  if (suppliedJoinToken) return suppliedJoinToken;
+  if (!joinTokenSecret) {
+    throw new Error(
+      "missing join token: pass --joinToken or --joinTokenSecret (or JOIN_TOKEN_SECRET)",
+    );
+  }
+  return createJoinToken(
+    { roomId: room, exp: Date.now() + Math.max(timeoutMs, 60_000) },
+    joinTokenSecret,
+  );
+};
 
 const decodeMessage = (data: unknown): string | null => {
   if (typeof data === "string") return data;
@@ -111,17 +141,18 @@ const waitForMessage = <T>(ws: WebSocket, predicate: (payload: any) => payload i
   });
 };
 
-const getPlayerToken = async () => {
+const getPlayerToken = async (joinToken: string) => {
   const url = new URL(roomUrl);
   url.searchParams.set("role", "intent");
   url.searchParams.set("playerId", "p1");
+  url.searchParams.set("jt", joinToken);
   if (perfMetrics) {
     url.searchParams.set("perfMetrics", "1");
     if (perfMetricsIntervalMs) {
       url.searchParams.set("perfMetricsIntervalMs", perfMetricsIntervalMs);
     }
   }
-  const ws = new WebSocket(url.toString());
+  const ws = createBenchmarkWebSocket(url.toString(), socketOrigin);
 
   await new Promise<void>((resolve, reject) => {
     ws.addEventListener("open", () => resolve(), { once: true });
@@ -160,7 +191,11 @@ const sendIntent = (ws: WebSocket, intent: Record<string, unknown>) => {
       if (parsed.ok) {
         resolve();
       } else {
-        reject(new Error(parsed.error ?? "intent failed"));
+        reject(
+          new Error(
+            `${String(intent.type ?? "intent")} (${intentId}): ${parsed.error ?? "intent failed"}`,
+          ),
+        );
       }
     };
     ws.addEventListener("message", onMessage);
@@ -168,18 +203,24 @@ const sendIntent = (ws: WebSocket, intent: Record<string, unknown>) => {
   });
 };
 
-const setupRoom = async (playerToken: string) => {
+const setupPlayer = async (
+  playerToken: string,
+  playerIndex: number,
+  joinToken: string,
+) => {
+  const playerId = `p${playerIndex + 1}`;
   const url = new URL(roomUrl);
   url.searchParams.set("role", "intent");
-  url.searchParams.set("playerId", "p1");
+  url.searchParams.set("playerId", playerId);
   url.searchParams.set("gt", playerToken);
+  url.searchParams.set("jt", joinToken);
   if (perfMetrics) {
     url.searchParams.set("perfMetrics", "1");
     if (perfMetricsIntervalMs) {
       url.searchParams.set("perfMetricsIntervalMs", perfMetricsIntervalMs);
     }
   }
-  const ws = new WebSocket(url.toString());
+  const ws = createBenchmarkWebSocket(url.toString(), socketOrigin);
 
   await new Promise<void>((resolve, reject) => {
     ws.addEventListener("open", () => resolve(), { once: true });
@@ -192,9 +233,9 @@ const setupRoom = async (playerToken: string) => {
   );
 
   const player = {
-    id: "p1",
-    name: "Load Player",
-    life: 20,
+    id: playerId,
+    name: `Commander Player ${playerIndex + 1}`,
+    life: 40,
     counters: [],
     commanderDamage: {},
     commanderTax: 0,
@@ -203,44 +244,38 @@ const setupRoom = async (playerToken: string) => {
   await sendIntent(ws, {
     id: "setup-player",
     type: "player.join",
-    payload: { actorId: "p1", player },
+    payload: { actorId: playerId, player },
   });
 
-  await sendIntent(ws, {
-    id: "setup-zone-library",
-    type: "zone.add",
-    payload: { actorId: "p1", zone: { id: "library-p1", type: "library", ownerId: "p1", cardIds: [] } },
-  });
+  for (const type of [
+    "library",
+    "hand",
+    "battlefield",
+    "graveyard",
+    "exile",
+    "commander",
+  ]) {
+    await sendIntent(ws, {
+      id: `setup-zone-${type}-${playerId}`,
+      type: "zone.add",
+      payload: {
+        actorId: playerId,
+        zone: { id: `${type}-${playerId}`, type, ownerId: playerId, cardIds: [] },
+      },
+    });
+  }
 
   await sendIntent(ws, {
-    id: "setup-zone-hand",
-    type: "zone.add",
-    payload: { actorId: "p1", zone: { id: "hand-p1", type: "hand", ownerId: "p1", cardIds: [] } },
-  });
-
-  await sendIntent(ws, {
-    id: "setup-zone-battlefield",
-    type: "zone.add",
-    payload: { actorId: "p1", zone: { id: "battlefield-p1", type: "battlefield", ownerId: "p1", cardIds: [] } },
-  });
-
-  await sendIntent(ws, {
-    id: "setup-zone-graveyard",
-    type: "zone.add",
-    payload: { actorId: "p1", zone: { id: "graveyard-p1", type: "graveyard", ownerId: "p1", cardIds: [] } },
-  });
-
-  await sendIntent(ws, {
-    id: "setup-card-battlefield",
+    id: `setup-card-battlefield-${playerId}`,
     type: "card.add",
     payload: {
-      actorId: "p1",
+      actorId: playerId,
       card: {
-        id: "bf-1",
+        id: `bf-${playerId}-1`,
         name: "Benchmark Card",
-        ownerId: "p1",
-        controllerId: "p1",
-        zoneId: "battlefield-p1",
+        ownerId: playerId,
+        controllerId: playerId,
+        zoneId: `battlefield-${playerId}`,
         tapped: false,
         faceDown: false,
         position: { x: 0.5, y: 0.5 },
@@ -250,42 +285,64 @@ const setupRoom = async (playerToken: string) => {
     },
   });
 
-  for (let i = 0; i < libraryCards; i += 1) {
-    await sendIntent(ws, {
-      id: `setup-card-lib-${i}`,
-      type: "card.add",
-      payload: {
-        actorId: "p1",
-        card: {
-          id: `lib-${i}`,
-          name: `Library ${i}`,
-          ownerId: "p1",
-          controllerId: "p1",
-          zoneId: "library-p1",
-          tapped: false,
-          faceDown: false,
-          position: { x: 0.5, y: 0.5 },
-          rotation: 0,
-          counters: [],
-        },
+  const cards = Array.from({ length: libraryCards }, (_, index) => ({
+    id: `lib-${playerId}-${index}`,
+    name: `Library ${playerId} ${index}`,
+    ownerId: playerId,
+    controllerId: playerId,
+    zoneId: `library-${playerId}`,
+    tapped: false,
+    faceDown: false,
+    position: { x: 0.5, y: 0.5 },
+    rotation: 0,
+    counters: [],
+  }));
+  await sendIntent(ws, {
+    id: `setup-library-${playerId}`,
+    type: "card.add.batch",
+    payload: { actorId: playerId, cards },
+  });
+
+  await sendIntent(ws, {
+    id: `setup-commander-${playerId}`,
+    type: "card.add",
+    payload: {
+      actorId: playerId,
+      card: {
+        id: `commander-${playerId}`,
+        name: `Commander ${playerId}`,
+        ownerId: playerId,
+        controllerId: playerId,
+        zoneId: `commander-${playerId}`,
+        tapped: false,
+        faceDown: false,
+        position: { x: 0.5, y: 0.5 },
+        rotation: 0,
+        counters: [],
+        isCommander: true,
       },
-    });
-  }
+    },
+  });
 
   ws.close();
 };
 
 const run = async () => {
-  const playerToken = await getPlayerToken();
-  await setupRoom(playerToken);
+  const joinToken = await resolveJoinToken();
+  const playerToken = await getPlayerToken(joinToken);
+  for (let playerIndex = 0; playerIndex < players; playerIndex += 1) {
+    await setupPlayer(playerToken, playerIndex, joinToken);
+  }
   const latencies: number[] = [];
   const sockets: WebSocket[] = [];
 
   const connectionPromises = Array.from({ length: connections }, async (_, index) => {
+    const playerId = `p${(index % players) + 1}`;
     const url = new URL(roomUrl);
     url.searchParams.set("role", "intent");
-    url.searchParams.set("playerId", "p1");
+    url.searchParams.set("playerId", playerId);
     url.searchParams.set("gt", playerToken);
+    url.searchParams.set("jt", joinToken);
     if (perfMetrics) {
       url.searchParams.set("perfMetrics", "1");
       if (perfMetricsIntervalMs) {
@@ -293,7 +350,7 @@ const run = async () => {
       }
     }
 
-    const ws = new WebSocket(url.toString());
+    const ws = createBenchmarkWebSocket(url.toString(), socketOrigin);
     sockets.push(ws);
 
     await new Promise<void>((resolve, reject) => {
@@ -331,25 +388,31 @@ const run = async () => {
 
       switch (intentType) {
         case "library.view":
-          intentPayload = { actorId: "p1", playerId: "p1", count: 7 };
+          intentPayload = { actorId: playerId, playerId, count: 7 };
           break;
         case "library.draw":
-          intentPayload = { actorId: "p1", playerId: "p1", count: 1 };
+          intentPayload = { actorId: playerId, playerId, count: 1 };
           break;
         case "card.move": {
-          const toZoneId = i % 2 === 0 ? "graveyard-p1" : "battlefield-p1";
-          intentPayload = { actorId: "p1", cardId: "bf-1", toZoneId };
+          const toZoneId = i % 2 === 0
+            ? `graveyard-${playerId}`
+            : `battlefield-${playerId}`;
+          intentPayload = { actorId: playerId, cardId: `bf-${playerId}-1`, toZoneId };
           break;
         }
         case "card.tap":
-          intentPayload = { actorId: "p1", cardId: "bf-1", tapped: i % 2 === 0 };
+          intentPayload = {
+            actorId: playerId,
+            cardId: `bf-${playerId}-1`,
+            tapped: i % 2 === 0,
+          };
           break;
         case "dice.roll":
-          intentPayload = { actorId: "p1", sides: 6, count: 1, results: [3] };
+          intentPayload = { actorId: playerId, sides: 6, count: 1, results: [3] };
           break;
         case "coin.flip":
         default:
-          intentPayload = { actorId: "p1", count: 1, results: ["heads"] };
+          intentPayload = { actorId: playerId, count: 1, results: ["heads"] };
           break;
       }
 
@@ -393,6 +456,7 @@ const run = async () => {
   console.log("ws load results");
   console.log(`url: ${roomUrl}`);
   console.log(`room: ${room}`);
+  console.log(`players: ${players}, commander cards/player: ${libraryCards + 1}`);
   console.log(`connections: ${connections}, messages/connection: ${messagesPerConnection}`);
   console.log(`mix: ${mix.length ? mix.join(", ") : "coin.flip"}`);
   console.log(`samples: ${latencies.length}`);

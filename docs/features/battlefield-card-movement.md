@@ -9,6 +9,9 @@ lead, free-flowing previews, and quarter-card stacking.
 ### Coordinate Model
 
 - Battlefield positions are canonical center points.
+- On desktop, the battlefield render and droppable bounds exclude the side
+  column and hand bar. Mirrored seats exclude those controls from the matching
+  right or top edge.
 - Rendering, drag preview, drop commit, and store writes must convert explicitly
   between center, top-left, viewport, and battlefield coordinates.
 - Card dimensions must come from the same battlefield geometry helpers at every
@@ -39,6 +42,8 @@ lead, free-flowing previews, and quarter-card stacking.
 ### Drag Preview
 
 - The old ghost-lead behavior is retired.
+- The desktop bottom bar is a continuous compact drag-cue surface. Gaps between
+  its zones keep the overlay at zone scale while continuing to reject drops.
 - The current preview is a filled cyan battlefield placement rectangle.
 - The dragged card overlay stays cursor anchored.
 - The placement rectangle represents the snapped final battlefield target. It may

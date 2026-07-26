@@ -1,6 +1,42 @@
 # Performance audit
 
-Updated: 2026-07-16
+Updated: 2026-07-26
+
+## Four-player Commander follow-up
+
+A second audit exercised the actual Durable Object intent channel with four
+distinct players, 100 cards per deck, and a 200-intent burst spanning library
+views, draws, taps, moves, dice rolls, and coin flips. On the local Wrangler
+runtime, acknowledgment latency was 48.19 ms p50, 71.24 ms p95, and 71.58 ms
+p99. Because all 200 intents were queued at once, this is a stress result rather
+than human-paced interaction latency.
+
+This pass also removed several client-side stalls not covered by the first audit:
+
+1. Scryfall cache hydration now reads a card collection in one IndexedDB
+   transaction and persists a fetched collection in one transaction. A cold
+   four-deck lookup drops from up to 400 read transactions plus 400 write
+   transactions to one read plus one write transaction.
+2. Card faces now subscribe only to the names of players to whom that card is
+   revealed. Ordinary life, counter, and profile updates no longer rerender
+   every visible card; the regression profiler records zero card-face commits
+   for an unrelated player update.
+3. The realtime session no longer imports the full PostHog runtime merely to
+   obtain an analytics identifier. It uses the existing stable client device ID,
+   and deferred PostHog initialization identifies with the same value.
+   The game-board chunk fell from 596.70 kB decoded / 187.79 kB gzip to
+   415.14 kB decoded / 128.42 kB gzip.
+4. Build commands now define `VITE_ENV` explicitly. This fixes an HTTP 500 in
+   locally served production artifacts and makes preview/load testing exercise
+   the same environment selection as deployment.
+
+Five fresh Chrome contexts against the corrected production artifact measured
+48.5 ms median DOMContentLoaded, 55.5 ms load, 120 ms FCP/LCP, zero layout
+shift, zero long tasks, and 3.56 MB median JavaScript heap use.
+
+The WebSocket load harness now models four separate players, provisions full
+Commander decks with batched card intents, and supports the mandatory join-token
+handshake via `--joinToken` or `--joinTokenSecret`.
 
 ## Executive summary
 
@@ -10,24 +46,24 @@ The audit found three distinct critical paths: cold landing startup, full Yjs sn
 
 | Metric | Before | After | Change |
 | --- | ---: | ---: | ---: |
-| Landing main JavaScript (decoded) | 742.19 kB | 392.77 kB | -47.1% |
+| Landing main JavaScript (decoded) | 742.19 kB | 392.74 kB | -47.1% |
 | Landing main JavaScript (gzip) | 238.10 kB | 126.54 kB | -46.9% |
-| Initial game-board chunk (decoded) | 492.45 kB | 413.60 kB | -16.0% |
-| Initial game-board chunk (gzip) | 154.14 kB | 128.01 kB | -16.9% |
-| Max-room snapshot sanitize, median | 43.66 ms | 2.75 ms | -93.7% |
-| Max-room snapshot sanitize, median p95 across runs | 49.84 ms | 3.87 ms | -92.2% |
+| Initial game-board chunk (decoded) | 492.45 kB | 415.14 kB | -15.7% |
+| Initial game-board chunk (gzip) | 154.14 kB | 128.42 kB | -16.7% |
+| Max-room snapshot sanitize, median | 43.66 ms | 0.6956 ms | -98.4% |
+| Max-room snapshot sanitize, p95 | 49.84 ms | 0.9106 ms | -98.2% |
 | 1,000 unchanged persistence updates | 1,000 writes / 53.05 ms | 1 write / 1.94 ms | -99.9% writes / -96.3% modeled time |
-| Cold landing DOMContentLoaded, median | 246.9 ms | 199.4 ms | -19.2% |
-| Cold landing load, median | 317.1 ms | 238.1 ms | -24.9% |
-| Cold landing FCP/LCP, median | 300 ms | 268 ms | -10.7% |
-| Cold landing JS heap, median | 4.73 MB | 3.54 MB | -25.1% |
-| Cold landing script duration, median | 110.63 ms | 64.41 ms | -41.8% |
+| Cold landing DOMContentLoaded, median | 246.9 ms | 48.5 ms | -80.4% |
+| Cold landing load, median | 317.1 ms | 55.5 ms | -82.5% |
+| Cold landing FCP/LCP, median | 300 ms | 120 ms | -60.0% |
+| Cold landing JS heap, median | 4.73 MB | 3.56 MB | -24.7% |
+| Cold landing script duration, median | 110.63 ms | 22.82 ms | -79.4% |
 | Cold landing long tasks, median | 1 / 79 ms | 0 / 0 ms | eliminated at median |
 | Battlefield commits per unrelated card update | 1 | 0 | eliminated |
 | Battlefield commits per unrelated-zone selection | 1 | 0 | eliminated |
 | 800-card / 400-selected membership pass, median | 0.8046 ms | 0.0425 ms | -94.7% |
 | 800-card / 400-claim pending-drop membership, median | 1.3912 ms | 0.0719 ms | -94.8% |
-| One-card full sync in an 800-card room | — | 3.6292 ms median / 4.4778 ms p95 | within frame budget |
+| One-card full sync in an 800-card room | — | 1.5715 ms median / 1.8662 ms p95 | within frame budget |
 | Remote-update scheduling delay | 50 ms after final update | next frame / 32 ms fallback | no trailing starvation |
 | Modern mana font transfer | 408.28 kB WOFF | 187.40 kB WOFF2 | -54.1% |
 | Emitted mana-related font artifacts | 3.53 MB | 187.40 kB | -94.7% |
@@ -61,6 +97,7 @@ bun run --cwd apps/web perf:bench -- --json
 Cold browser startup (requires a production preview and Chrome/Chromium):
 
 ```bash
+bun run --cwd apps/web build:production
 bun run --cwd apps/web serve -- --host 127.0.0.1 --port 4173
 bun run --cwd apps/web perf:browser
 ```
@@ -76,17 +113,17 @@ Existing server stress fixtures remain available under `apps/server/scripts/`. B
 
 | Server fixture | Median |
 | --- | ---: |
-| `library.view` intent | 0.0049 ms/intent |
-| Hidden-card chunking | 2.61 ms/iteration |
-| Card duplication | 0.80 ms/iteration |
-| Overlay build with shared snapshot + zone lookup | 0.1215 ms/overlay |
-| Library reveal synchronization | 1.10 ms/iteration |
+| `library.view` intent (four players, 100-card libraries) | 0.0073 ms/intent |
+| Hidden-card chunking | 3.571 ms/iteration |
+| Card duplication | 0.713 ms/iteration |
+| Overlay build with shared snapshot + zone lookup | 0.0971 ms/overlay |
+| Library reveal synchronization | 1.427 ms/iteration |
 
 ## Remaining findings and completion thresholds
 
 ### 1. Shared-state reconciliation
 
-`createFullSyncToStore` still validates the full snapshot because a single changed card can affect zone membership, counter legality, and collision-resolved placement of later cards. The new end-to-end maximum-room fixture measures this complete path at 3.6292 ms median / 4.4778 ms p95, safely below a 16.7 ms frame. Frame batching removes the previous 50 ms trailing delay.
+`createFullSyncToStore` still validates the full snapshot because a single changed card can affect zone membership, counter legality, and collision-resolved placement of later cards. The new end-to-end maximum-room fixture measures this complete path at 1.5715 ms median / 1.8662 ms p95, safely below a 16.7 ms frame. Frame batching removes the previous 50 ms trailing delay.
 
 Completion threshold: retain full validation while p95 remains below 8 ms. Only introduce transaction-key incremental sanitization if this gate regresses; it would require affected-zone dependency tracking and equivalence tests for collision placement, deletes, capacity limits, and private overlays.
 
@@ -94,11 +131,11 @@ Completion threshold: retain full validation while p95 remains below 8 ms. Only 
 
 The broad `Battlefield` card/selection subscriptions and repeated selection/drop scans are eliminated. The board controller still observes whole `cards` and `zones` records because seat layout, overlays, context actions, and zone viewers consume cross-seat state. Scryfall metadata derivation now remains stable across ordinary card mutations.
 
-Completion threshold: perform the larger controller/seat ownership refactor only with an interactive 100/300/800-card drag fixture showing missed-frame or commit-duration regressions. Store publication itself measures 4.4778 ms p95 in the maximum-room microbenchmark.
+Completion threshold: perform the larger controller/seat ownership refactor only with an interactive 100/300/800-card drag fixture showing missed-frame or commit-duration regressions. Store publication itself measures 1.8662 ms p95 in the maximum-room microbenchmark.
 
 ### 3. Optional board payload
 
-The board entry is 413.60 kB decoded / 128.01 kB gzip. Remaining static code is the always-visible shell: DnD, realtime sync, seats, cards, navigation, and the default-open desktop log. Closed tools are split into small on-demand chunks.
+The board entry is 415.14 kB decoded / 128.42 kB gzip. Remaining static code is the always-visible shell: DnD, realtime sync, seats, cards, navigation, and the default-open desktop log. Closed tools are split into small on-demand chunks.
 
 Completion threshold: keep the board entry below 135 kB gzip. Revisit only when a new optional feature increases the entry or when first-open telemetry justifies idle prefetching.
 
@@ -116,10 +153,12 @@ Completion threshold: add windowing only after a reproducible 300-card viewer tr
 
 ## Validation
 
-- Full web test suite: 127 files and 786 tests passed.
+- Full web test suite: 129 files and 797 tests passed.
 - TypeScript typecheck passed.
 - Production build passed.
 - Performance benchmark suite passed with machine-readable JSON output.
+- Four-player Durable Object WebSocket burst completed with 200 acknowledged
+  intents at 71.24 ms p95.
 - Git whitespace validation passed.
 
 ## Measurement environment and caveats

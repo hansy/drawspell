@@ -1,4 +1,5 @@
 import React from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Card as CardType } from "@/types";
 import { useGameStore } from "@/store/gameStore";
 import {
@@ -35,6 +36,8 @@ interface CardFaceProps {
   hideRevealIcon?: boolean;
 }
 
+const EMPTY_REVEAL_TO_NAMES: string[] = [];
+
 const CardFaceInner: React.FC<CardFaceProps> = ({
   card,
   faceDown,
@@ -59,8 +62,14 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
   const updateCard = useGameStore((state) => state.updateCard);
   const globalCounters = useGameStore((state) => state.globalCounters);
   const myPlayerId = useGameStore((state) => state.myPlayerId);
-  const players = useGameStore((state) => state.players);
   const zoneType = useGameStore((state) => state.zones[card.zoneId]?.type);
+  const revealToNames = useGameStore(
+    useShallow((state) => {
+      const ids = card.revealedTo;
+      if (!ids?.length) return EMPTY_REVEAL_TO_NAMES;
+      return ids.map((id) => state.players[id]?.name || id);
+    })
+  );
   const [scryfallCacheTick, setScryfallCacheTick] = React.useState(0);
 
   React.useEffect(() => {
@@ -99,12 +108,6 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
     );
   }, [card, useTransformFlip, activeFaceIndex]);
   const frontFaceDown = useTransformFlip ? false : Boolean(faceDown);
-
-  const revealToNames = React.useMemo(() => {
-    const ids = card.revealedTo || [];
-    if (!ids.length) return [];
-    return ids.map((id) => players[id]?.name || id);
-  }, [card.revealedTo, players]);
 
   const frontModel = React.useMemo(
     () =>

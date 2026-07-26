@@ -8,11 +8,20 @@ const createStore = (seed: CachedCard[] = []): ScryfallCardStore => {
   const map = new Map<string, CachedCard>(seed.map((e) => [e.scryfallId, e]));
   return {
     get: vi.fn(async (id) => map.get(id) ?? null),
+    getMany: vi.fn(async (ids: string[]) =>
+      ids.map((id: string) => map.get(id) ?? null)
+    ),
     put: vi.fn(async (entry) => {
       map.set(entry.scryfallId, entry);
     }),
+    putMany: vi.fn(async (entries: CachedCard[]) => {
+      entries.forEach((entry: CachedCard) => map.set(entry.scryfallId, entry));
+    }),
     delete: vi.fn(async (id) => {
       map.delete(id);
+    }),
+    deleteMany: vi.fn(async (ids: string[]) => {
+      ids.forEach((id: string) => map.delete(id));
     }),
     clear: vi.fn(async () => {
       map.clear();
@@ -142,6 +151,11 @@ describe("createScryfallCache", () => {
     expect(results.cards.get("c2")?.id).toBe("c2");
     expect(results.cards.get("c3")?.id).toBe("c3");
     expect(results.errors).toHaveLength(0);
+
+    expect(store.getMany).toHaveBeenCalledTimes(1);
+    expect(store.get).not.toHaveBeenCalled();
+    expect(store.putMany).toHaveBeenCalledTimes(1);
+    expect(store.put).not.toHaveBeenCalled();
 
     // Only the collection endpoint should be used (for c3).
     expect(fetchFnMock).toHaveBeenCalledTimes(1);

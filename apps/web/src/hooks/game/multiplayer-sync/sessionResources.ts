@@ -7,7 +7,6 @@ import {
   receiveGameLogEvents,
   replaceGameLog,
 } from "@/logging/logStore";
-import { getPostHogDistinctId } from "@/lib/posthog";
 import { resolvePartyKitHost } from "@/lib/partyKitHost";
 import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
 import {
@@ -267,7 +266,9 @@ export function setupSessionResources({
 
   const intentViewerRole = useGameStore.getState().viewerRole;
   const intentCapabilities = ["overlay-diff-v1"];
-  const userId = getPostHogDistinctId() ?? undefined;
+  // Keep realtime analytics identity lightweight and available before the
+  // deferred PostHog chunk initializes.
+  const userId = connectionGroupId;
   const resolvedIntentToken =
     inviteToken.token && inviteToken.role
       ? { token: inviteToken.token, tokenRole: inviteToken.role }

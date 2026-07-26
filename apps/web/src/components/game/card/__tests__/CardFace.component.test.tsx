@@ -1,4 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
+import { Profiler } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Card, Player, Zone } from "@/types";
@@ -156,5 +157,39 @@ describe("CardFace", () => {
 
     const img = await screen.findByRole("img", { name: "Cache Test" });
     expect(img.getAttribute("src")).toBe("https://example.com/cache-test.jpg");
+  });
+
+  it("does not rerender for unrelated player updates", () => {
+    const zone = buildZone("bf-me", "BATTLEFIELD", "me");
+    const card = buildTransformCard(zone.id);
+    let commits = 0;
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { ...state.zones, [zone.id]: zone },
+      cards: { ...state.cards, [card.id]: card },
+      players: {
+        me: buildPlayer("me", "Me"),
+        opponent: buildPlayer("opponent", "Opponent"),
+      },
+    }));
+
+    render(
+      <Profiler id="card-face" onRender={() => commits += 1}>
+        <CardFace card={card} />
+      </Profiler>,
+    );
+    const initialCommits = commits;
+
+    act(() => {
+      useGameStore.setState((state) => ({
+        players: {
+          ...state.players,
+          opponent: { ...state.players.opponent!, life: 19 },
+        },
+      }));
+    });
+
+    expect(commits).toBe(initialCommits);
   });
 });
