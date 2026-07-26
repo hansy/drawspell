@@ -42,15 +42,11 @@ export const createScryfallCache = ({
 
   const isExpired = (cachedAt: number) => now() - cachedAt > expiryMs;
 
-  const deleteExpiredEntry = (scryfallId: string) => {
-    void store?.delete(scryfallId);
-  };
-
   const resolveStoreEntry = (scryfallId: string, entry: CachedCard | null) => {
     if (!entry) return null;
     if (isExpired(entry.cachedAt)) {
       // Expired: best-effort delete, then treat as a miss.
-      deleteExpiredEntry(scryfallId);
+      void store?.delete(scryfallId);
       return null;
     }
 
@@ -67,6 +63,25 @@ export const createScryfallCache = ({
     }
 
     return card;
+  };
+
+  const readManyFromStore = async (scryfallIds: string[]) => {
+    if (!store || scryfallIds.length === 0) return [];
+    const entries = await store.getMany(scryfallIds);
+    const expiredIds: string[] = [];
+    const cards = entries.map((entry, index) => {
+      if (!entry) return null;
+      if (isExpired(entry.cachedAt)) {
+        expiredIds.push(scryfallIds[index]);
+        return null;
+      }
+      memory.set(entry.scryfallId, entry.data);
+      return entry.data;
+    });
+    if (expiredIds.length > 0) {
+      void store.deleteMany(expiredIds);
+    }
+    return cards;
   };
 
   const writeToCache = async (
@@ -130,7 +145,7 @@ export const createScryfallCache = ({
     }
 
     if (store && toCheckStore.length > 0) {
-      const entries = await Promise.all(toCheckStore.map((id) => readFromStore(id)));
+      const entries = await readManyFromStore(toCheckStore);
       toCheckStore.forEach((id, idx) => {
         const card = entries[idx];
         if (card) {
@@ -147,10 +162,20 @@ export const createScryfallCache = ({
     if (toFetch.length > 0) {
       const fetched = await fetchCardCollection(fetchFn, toFetch, { rateLimitMs, sleep });
       if (fetched.ok) {
+        const fetchedCards = Array.from(fetched.data.cards.values());
         for (const [id, card] of fetched.data.cards.entries()) {
           results.set(id, card);
-          // Store async (best-effort), don't block the batch.
-          void writeToCache(card, { awaitStore: false });
+          memory.set(card.id, card);
+        }
+        if (store && fetchedCards.length > 0) {
+          // Store the collection in one best-effort transaction.
+          void store.putMany(
+            fetchedCards.map((card) => ({
+              scryfallId: card.id,
+              data: card,
+              cachedAt: now(),
+            }))
+          );
         }
         if (fetched.data.errors.length > 0) {
           errors.push(...fetched.data.errors);
@@ -168,8 +193,15 @@ export const createScryfallCache = ({
   };
 
   const cacheCards: ScryfallCache["cacheCards"] = async (cards) => {
-    for (const card of cards) {
-      void writeToCache(card, { awaitStore: false });
+    cards.forEach((card) => memory.set(card.id, card));
+    if (store && cards.length > 0) {
+      void store.putMany(
+        cards.map((card) => ({
+          scryfallId: card.id,
+          data: card,
+          cachedAt: now(),
+        }))
+      );
     }
   };
 

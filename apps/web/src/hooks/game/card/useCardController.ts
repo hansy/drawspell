@@ -416,12 +416,17 @@ export const useCardController = (props: CardProps): CardController => {
     });
     if (groupIds.length > 1) {
       const targetTapped = !card.tapped;
+      let previewDismissed = false;
       groupIds.forEach((id) => {
         const targetCard = state.cards[id];
         if (!targetCard) return;
         if (targetCard.zoneId !== card.zoneId) return;
         if (targetCard.controllerId !== actorId) return;
         if (targetCard.tapped === targetTapped) return;
+        if (!previewDismissed) {
+          unlockPreview();
+          previewDismissed = true;
+        }
         debugLog(BATTLEFIELD_DND_DEBUG_KEY, "tap-group-card-before", {
           pointer: pointerSummary(event),
           cardId: targetCard.id,
@@ -442,6 +447,7 @@ export const useCardController = (props: CardProps): CardController => {
       return;
     }
     if (card.controllerId !== actorId) return;
+    unlockPreview();
     tapCard(card.id, actorId);
     logTapResult(card.id, !card.tapped);
   }, [
@@ -453,6 +459,7 @@ export const useCardController = (props: CardProps): CardController => {
     card.tapped,
     myPlayerId,
     tapCard,
+    unlockPreview,
     viewerRole,
   ]);
 

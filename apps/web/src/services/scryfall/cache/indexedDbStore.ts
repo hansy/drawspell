@@ -70,6 +70,31 @@ export const createIndexedDbStore = ({
     }
   };
 
+  const getMany: ScryfallCardStore["getMany"] = async (scryfallIds) => {
+    if (scryfallIds.length === 0) return [];
+    try {
+      const database = await initDb();
+      return await new Promise<(CachedCard | null)[]>((resolve) => {
+        const tx = database.transaction(storeName, "readonly");
+        const store = tx.objectStore(storeName);
+        const results: (CachedCard | null)[] = Array(scryfallIds.length).fill(null);
+
+        scryfallIds.forEach((scryfallId, index) => {
+          const request = store.get(scryfallId);
+          request.onsuccess = () => {
+            results[index] = (request.result as CachedCard | undefined) ?? null;
+          };
+        });
+
+        tx.oncomplete = () => resolve(results);
+        tx.onerror = () => resolve(results);
+        tx.onabort = () => resolve(results);
+      });
+    } catch {
+      return scryfallIds.map(() => null);
+    }
+  };
+
   const put: ScryfallCardStore["put"] = async (entry) => {
     try {
       const database = await initDb();
@@ -88,6 +113,23 @@ export const createIndexedDbStore = ({
     }
   };
 
+  const putMany: ScryfallCardStore["putMany"] = async (entries) => {
+    if (entries.length === 0) return;
+    try {
+      const database = await initDb();
+      await new Promise<void>((resolve) => {
+        const tx = database.transaction(storeName, "readwrite");
+        const store = tx.objectStore(storeName);
+        entries.forEach((entry) => store.put(entry));
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+        tx.onabort = () => resolve();
+      });
+    } catch {
+      // Ignore errors
+    }
+  };
+
   const del: ScryfallCardStore["delete"] = async (scryfallId) => {
     try {
       const database = await initDb();
@@ -97,6 +139,23 @@ export const createIndexedDbStore = ({
         store.delete(scryfallId);
         tx.oncomplete = () => resolve();
         tx.onerror = () => resolve();
+      });
+    } catch {
+      // Ignore errors
+    }
+  };
+
+  const deleteMany: ScryfallCardStore["deleteMany"] = async (scryfallIds) => {
+    if (scryfallIds.length === 0) return;
+    try {
+      const database = await initDb();
+      await new Promise<void>((resolve) => {
+        const tx = database.transaction(storeName, "readwrite");
+        const store = tx.objectStore(storeName);
+        scryfallIds.forEach((scryfallId) => store.delete(scryfallId));
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+        tx.onabort = () => resolve();
       });
     } catch {
       // Ignore errors
@@ -164,8 +223,11 @@ export const createIndexedDbStore = ({
 
   return {
     get,
+    getMany,
     put,
+    putMany,
     delete: del,
+    deleteMany,
     clear,
     cleanupBefore,
     count,

@@ -7,7 +7,16 @@ import {
   HAND_SNAP_RELEASE_PX,
   HAND_SNAP_THRESHOLD_PX,
 } from "../handSizing";
+import { ZONE_DRAG_OVERLAY_SCALE } from "@/lib/dndDragCue";
 import { BottomBar } from "../BottomBar";
+
+const useDroppableMock = vi.hoisted(() =>
+  vi.fn(() => ({ setNodeRef: vi.fn() })),
+);
+
+vi.mock("@dnd-kit/core", () => ({
+  useDroppable: useDroppableMock,
+}));
 
 describe("BottomBar", () => {
   let onHeightChange: ReturnType<typeof vi.fn>;
@@ -76,6 +85,28 @@ describe("BottomBar", () => {
 
       const bottomBar = container.querySelector(".flex-row");
       expect(bottomBar).toBeTruthy();
+    });
+
+    it("keeps the compact zone drag cue over gaps in an active bottom bar", () => {
+      render(
+        <BottomBar
+          isTop={false}
+          isRight={false}
+          dropBlockerId="bottom-bar-drop-blocker:p1"
+        >
+          <div>Content</div>
+        </BottomBar>
+      );
+
+      expect(useDroppableMock).toHaveBeenCalledWith({
+        id: "bottom-bar-drop-blocker:p1",
+        disabled: false,
+        data: {
+          dropSurface: "bottom-bar",
+          dragOverlayScale: ZONE_DRAG_OVERLAY_SCALE,
+          dragOverlayCue: "zone",
+        },
+      });
     });
   });
 

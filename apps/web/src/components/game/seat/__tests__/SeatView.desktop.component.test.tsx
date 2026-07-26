@@ -268,7 +268,7 @@ describe("SeatView desktop side-zone previews", () => {
     expect(container.querySelector("[data-card-preview]")).toBeNull();
   });
 
-  it("composes desktop zones as battlefield edge overlays", () => {
+  it("composes desktop controls around a bounded battlefield", () => {
     const onEditUsername = vi.fn();
     const handZone = makeZone("hand-p1", "hand", ["c-hand"]);
     const libraryZone = makeZone("library-p1", "library", ["c-library"]);
@@ -329,6 +329,19 @@ describe("SeatView desktop side-zone previews", () => {
     expect(container.querySelector("[data-desktop-life-total]")?.textContent).toBe("40");
     expect(container.querySelector("[data-desktop-bottom-overlay]")).not.toBeNull();
     expect(container.querySelector("[data-desktop-side-column]")).not.toBeNull();
+    const battlefieldSurface = container.querySelector(
+      "[data-desktop-battlefield-surface]",
+    ) as HTMLElement | null;
+    expect(battlefieldSurface).not.toBeNull();
+    expect(battlefieldSurface?.style.left).toBe("var(--seat-side-column-w)");
+    expect(battlefieldSurface?.style.right).toBe("0px");
+    expect(battlefieldSurface?.style.top).toBe("0px");
+    expect(battlefieldSurface?.style.bottom).toBe("160px");
+    expect(
+      battlefieldSurface?.contains(
+        container.querySelector(`[data-zone-id="${battlefieldZone.id}"]`),
+      ),
+    ).toBe(true);
     expect(
       container
         .querySelector("[data-desktop-side-column]")
@@ -414,6 +427,7 @@ describe("SeatView desktop side-zone previews", () => {
     const graveyardZone = makeZone("graveyard-p1", "graveyard");
     const exileZone = makeZone("exile-p1", "exile");
     const commanderZone = makeZone("commander-p1", "commander");
+    const battlefieldZone = makeZone("battlefield-p1", "battlefield");
     const model = {
       isTop: true,
       isRight: false,
@@ -425,6 +439,7 @@ describe("SeatView desktop side-zone previews", () => {
         graveyard: graveyardZone,
         exile: exileZone,
         commander: commanderZone,
+        battlefield: battlefieldZone,
       },
       cards: {
         hand: [],
@@ -459,12 +474,19 @@ describe("SeatView desktop side-zone previews", () => {
     const commanderPanel = container.querySelector("[data-commander-zone-panel]");
     const overlay = container.querySelector("[data-desktop-bottom-overlay]");
     const orientationFrame = container.querySelector("[data-seat-orientation-frame]");
+    const battlefieldSurface = container.querySelector(
+      "[data-desktop-battlefield-surface]",
+    ) as HTMLElement | null;
 
     expect(seat).not.toBeNull();
     expect(rail?.classList.contains("top-0")).toBe(false);
     expect(rail?.classList.contains("bottom-0")).toBe(true);
     expect(orientationFrame?.getAttribute("data-seat-mirror-y")).toBe("true");
     expect(orientationFrame?.getAttribute("data-seat-mirror-x")).toBe("false");
+    expect(battlefieldSurface?.style.left).toBe("var(--seat-side-column-w)");
+    expect(battlefieldSurface?.style.right).toBe("0px");
+    expect(battlefieldSurface?.style.top).toBe("160px");
+    expect(battlefieldSurface?.style.bottom).toBe("0px");
     expect(sideColumn?.firstElementChild?.contains(life)).toBe(true);
     expect(sideColumn?.firstElementChild?.nextElementSibling).toBe(
       container.querySelector("[data-desktop-side-player-slot]"),
@@ -490,5 +512,48 @@ describe("SeatView desktop side-zone previews", () => {
         (label) => label.classList.contains("ds-seat-upright"),
       ),
     ).toBe(true);
+  });
+
+  it("bounds a right seat battlefield away from its right side column", () => {
+    const battlefieldZone = makeZone("battlefield-p1", "battlefield");
+    const model = {
+      isTop: false,
+      isRight: true,
+      mirrorBattlefieldY: false,
+      inverseScalePercent: 100,
+      zones: { battlefield: battlefieldZone },
+      cards: {
+        hand: [],
+        library: [],
+        graveyard: [],
+        exile: [],
+        battlefield: [],
+        commander: [],
+      },
+      opponentLibraryRevealCount: 0,
+    } as const;
+
+    const { container } = render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer()}
+            color="sky"
+            isMe
+            viewerPlayerId="p1"
+            opponentColors={{ p1: "sky" }}
+            model={model as any}
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    const battlefieldSurface = container.querySelector(
+      "[data-desktop-battlefield-surface]",
+    ) as HTMLElement | null;
+    expect(battlefieldSurface?.style.left).toBe("0px");
+    expect(battlefieldSurface?.style.right).toBe("var(--seat-side-column-w)");
+    expect(battlefieldSurface?.style.top).toBe("0px");
+    expect(battlefieldSurface?.style.bottom).toBe("160px");
   });
 });

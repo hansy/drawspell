@@ -617,6 +617,65 @@ describe("CardPreview", () => {
     expect(document.querySelector("[data-card-preview]")).not.toBeNull();
   });
 
+  it("dismisses a locked preview after tapping or untapping a battlefield card", () => {
+    const zoneId = "me-battlefield";
+    const cardId = "c1";
+    const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
+    const card = buildCard(cardId, "Test Card", zoneId);
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me") },
+      myPlayerId: "me",
+      viewerRole: "player",
+    }));
+
+    const BattlefieldCardHarness = () => {
+      const liveCard = useGameStore((state) => state.cards[cardId]);
+      return liveCard ? <Card card={liveCard} /> : null;
+    };
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <BattlefieldCardHarness />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+    const cardElement = container.querySelector(`[data-card-id="${cardId}"]`);
+    if (!cardElement) throw new Error("Expected card element to be present.");
+
+    act(() => {
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+        })
+      );
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+        })
+      );
+    });
+    expect(document.querySelector("[data-card-preview]")).not.toBeNull();
+
+    act(() => {
+      fireEvent.doubleClick(cardElement);
+    });
+
+    expect(useGameStore.getState().cards[cardId]?.tapped).toBe(true);
+    expect(document.querySelector("[data-card-preview]")).toBeNull();
+  });
+
   it("does not lock preview when a desktop click turns into a drag", () => {
     const zoneId = "me-battlefield";
     const cardId = "c1";

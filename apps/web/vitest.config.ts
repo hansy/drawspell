@@ -10,6 +10,9 @@ export default defineConfig({
         viteReact(),
     ],
     test: {
+        env: {
+            VITE_ENV: 'development',
+        },
         environment: 'jsdom',
         globals: true,
         setupFiles: ['./src/test/setup.ts'],

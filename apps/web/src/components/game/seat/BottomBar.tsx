@@ -1,6 +1,7 @@
 import React from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
+import { ZONE_DRAG_OVERLAY_SCALE } from "@/lib/dndDragCue";
 import {
   HAND_DEFAULT_HEIGHT,
   HAND_MAX_HEIGHT,
@@ -39,7 +40,11 @@ export const BottomBar: React.FC<BottomBarProps> = ({
   const bottomBarDropBlocker = useDroppable({
     id: dropBlockerId ?? "bottom-bar-drop-blocker-disabled",
     disabled: !dropBlockerId,
-    data: { dropSurface: "bottom-bar" },
+    data: {
+      dropSurface: "bottom-bar",
+      dragOverlayScale: ZONE_DRAG_OVERLAY_SCALE,
+      dragOverlayCue: "zone",
+    },
   });
   const canResize = Boolean(onHeightChange);
   const invertResizeDirection = invertResizeDirectionProp ?? isTop;

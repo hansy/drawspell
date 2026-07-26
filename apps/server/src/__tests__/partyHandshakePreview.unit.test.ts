@@ -74,6 +74,33 @@ describe("party websocket handshake allowlist", () => {
     expect(mocks.routePartykitRequest).not.toHaveBeenCalled();
   });
 
+  it("allows the configured staging web origin", async () => {
+    const joinToken = await createJoinToken(
+      { roomId: "room-staging", exp: Date.now() + 60_000 },
+      "join-secret",
+    );
+
+    const response = await server.fetch(
+      new Request(
+        `https://staging.ws.drawspell.space/parties/rooms/room-staging?jt=${encodeURIComponent(joinToken)}`,
+        {
+          headers: {
+            Upgrade: "websocket",
+            Origin: "https://staging.drawspell.space",
+            Host: "staging.ws.drawspell.space",
+          },
+        },
+      ),
+      {
+        JOIN_TOKEN_SECRET: "join-secret",
+        NODE_ENV: "staging",
+      } as any,
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.routePartykitRequest).toHaveBeenCalled();
+  });
+
   it("allows arbitrary origins and hosts in development", async () => {
     const joinToken = await createJoinToken(
       { roomId: "room-dev", exp: Date.now() + 60_000 },
@@ -101,5 +128,4 @@ describe("party websocket handshake allowlist", () => {
     await expect(response.text()).resolves.toBe("upgraded");
     expect(mocks.routePartykitRequest).toHaveBeenCalled();
   });
-
 });

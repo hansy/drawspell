@@ -594,7 +594,16 @@ export const SeatView: React.FC<SeatViewProps> = ({
           )}
         />
 
-        <div className="absolute inset-0 flex min-h-0 min-w-0">
+        <div
+          data-desktop-battlefield-surface
+          className="absolute flex min-h-0 min-w-0"
+          style={{
+            left: isRight ? 0 : "var(--seat-side-column-w)",
+            right: isRight ? "var(--seat-side-column-w)" : 0,
+            top: isTop ? effectiveHandHeight : 0,
+            bottom: isTop ? 0 : effectiveHandHeight,
+          }}
+        >
           {battlefield && (
             <Battlefield
               zone={battlefield}
