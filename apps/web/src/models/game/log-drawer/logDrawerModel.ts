@@ -17,6 +17,22 @@ const isLogEvent = <K extends LogEventId>(
   eventId: K
 ): entry is LogMessage<K> => entry.eventId === eventId;
 
+const resolveSingleZoneCardContext = (params: {
+  zoneId?: string;
+  zoneType?: ZoneType;
+  cardName?: string;
+  zones: LogContext["zones"];
+}): LogCardContext => {
+  const zone = params.zoneId ? params.zones[params.zoneId] : undefined;
+  return {
+    fromZone: zone,
+    toZone: zone,
+    fromZoneType: params.zoneType,
+    toZoneType: params.zoneType,
+    cardName: params.cardName,
+  };
+};
+
 export const resolveLogCardContext = (
   entry: LogMessage,
   ctx: LogContext
@@ -33,13 +49,13 @@ export const resolveLogCardContext = (
   }
 
   if (isLogEvent(entry, "card.transform") && entry.payload) {
-    const zone = entry.payload.zoneId ? ctx.zones[entry.payload.zoneId] : undefined;
     return {
-      fromZone: zone,
-      toZone: zone,
-      fromZoneType: entry.payload.zoneType,
-      toZoneType: entry.payload.zoneType,
-      cardName: entry.payload.cardName,
+      ...resolveSingleZoneCardContext({
+        zoneId: entry.payload.zoneId,
+        zoneType: entry.payload.zoneType,
+        cardName: entry.payload.cardName,
+        zones: ctx.zones,
+      }),
       nameOverride: entry.payload.fromFaceName,
     };
   }
@@ -55,14 +71,12 @@ export const resolveLogCardContext = (
       isLogEvent(entry, "counter.remove")) &&
     entry.payload
   ) {
-    const zone = entry.payload.zoneId ? ctx.zones[entry.payload.zoneId] : undefined;
-    return {
-      fromZone: zone,
-      toZone: zone,
-      fromZoneType: entry.payload.zoneType,
-      toZoneType: entry.payload.zoneType,
+    return resolveSingleZoneCardContext({
+      zoneId: entry.payload.zoneId,
+      zoneType: entry.payload.zoneType,
       cardName: entry.payload.cardName,
-    };
+      zones: ctx.zones,
+    });
   }
 
   return {};
