@@ -3,6 +3,7 @@ import * as Y from "yjs";
 import type { Card, Player, Zone } from "@mtg/shared/types";
 import { applyIntentToDoc } from "../src/domain/intents/applyIntentToDoc";
 import { createEmptyHiddenState } from "../src/domain/hiddenState";
+import { formatBytes } from "./benchFormat";
 
 const config = {
   battlefieldCards: 800,
@@ -70,13 +71,6 @@ const createCard = (id: string, ownerId: string, zoneId: string, overrides: Part
   counters: [],
   ...overrides,
 });
-
-const formatBytes = (bytes: number) => {
-  if (!Number.isFinite(bytes)) return "n/a";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
 
 const battlefieldCards = withArg("battlefieldCards", config.battlefieldCards);
 const otherZoneCards = withArg("otherZoneCards", config.otherZoneCards);

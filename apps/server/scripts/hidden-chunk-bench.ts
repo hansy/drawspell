@@ -1,5 +1,6 @@
 import type { Card } from "@mtg/shared/types";
 import { chunkHiddenCards } from "../src/domain/hiddenState";
+import { formatBytes } from "./benchFormat";
 
 const config = {
   cards: 4000,
@@ -46,13 +47,6 @@ const buildCards = (count: number) => {
     };
   }
   return cards;
-};
-
-const formatBytes = (bytes: number) => {
-  if (!Number.isFinite(bytes)) return "n/a";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
 const cardsCount = withArg("cards", config.cards);

@@ -5,6 +5,7 @@ import { buildOverlayForViewer } from "../src/domain/overlay";
 import { createEmptyHiddenState } from "../src/domain/hiddenState";
 import { buildSnapshot, getMaps } from "../src/domain/yjsStore";
 import { buildOverlayZoneLookup } from "../src/domain/overlay";
+import { formatBytes } from "./benchFormat";
 
 const config = {
   players: 4,
@@ -151,13 +152,6 @@ const buildFixture = () => {
   seedCards(doc, publicCards);
 
   return { doc, hidden, playerIds: players.map((player) => player.id) };
-};
-
-const formatBytes = (bytes: number) => {
-  if (!Number.isFinite(bytes)) return "n/a";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
 type OverlayBenchConnection =

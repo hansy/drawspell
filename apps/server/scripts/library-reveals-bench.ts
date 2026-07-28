@@ -3,6 +3,7 @@ import * as Y from "yjs";
 import type { Card, Player, Zone } from "@mtg/shared/types";
 import { createEmptyHiddenState, syncLibraryRevealsToAllForPlayer } from "../src/domain/hiddenState";
 import { getMaps } from "../src/domain/yjsStore";
+import { formatBytes } from "./benchFormat";
 
 const config = {
   cards: 1500,
@@ -71,13 +72,6 @@ const createCard = (id: string, ownerId: string, zoneId: string): Card => ({
   oracleText: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
   imageUrl: `https://img.example/${id}.png`,
 });
-
-const formatBytes = (bytes: number) => {
-  if (!Number.isFinite(bytes)) return "n/a";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
 
 const cardsCount = withArg("cards", config.cards);
 const revealsCount = withArg("reveals", config.reveals);
