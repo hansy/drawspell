@@ -50,12 +50,16 @@ export const readZoneCardIds = (maps: Maps, zoneId: string, zone?: Zone): string
   return uniqueStrings(zone?.cardIds ?? []);
 };
 
+const resetYArrayValues = <T>(array: Y.Array<T>, values: T[]) => {
+  array.delete(0, array.length);
+  if (values.length) array.insert(0, values);
+};
+
 export const syncZoneOrder = (maps: Maps, zoneId: string, ids: string[]) => {
   const unique = uniqueStrings(ids);
   const order = maps.zoneCardOrders.get(zoneId);
   if (order instanceof Y.Array) {
-    order.delete(0, order.length);
-    if (unique.length) order.insert(0, unique);
+    resetYArrayValues(order, unique);
     return;
   }
   const next = new Y.Array<string>();
@@ -202,8 +206,7 @@ export const clearYMap = <T>(map: Y.Map<T>) => {
 };
 
 export const syncPlayerOrder = (order: Y.Array<string>, ids: string[]) => {
-  order.delete(0, order.length);
-  if (ids.length) order.insert(0, ids);
+  resetYArrayValues(order, ids);
 };
 
 export const resolveNextHostId = (players: Record<string, Player>, order: string[]): string | null => {
