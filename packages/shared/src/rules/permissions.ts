@@ -29,6 +29,13 @@ const canActorMoveBattlefieldCard = (
   card: { ownerId: string; controllerId: string }
 ) => actorId === card.ownerId || actorId === card.controllerId;
 
+const requireBattlefieldMoveActor = (
+  actorId: string,
+  card: { ownerId: string; controllerId: string },
+  deniedReason: string
+): PermissionResult =>
+  canActorMoveBattlefieldCard(actorId, card) ? allow() : deny(deniedReason);
+
 const isOwnerSeatOrBattlefield = (cardOwnerId: string, zone: CardPlacementZone) =>
   zone.type === ZONE.BATTLEFIELD || zone.ownerId === cardOwnerId;
 
@@ -246,16 +253,20 @@ export function canMoveCard(
   }
 
   if (bothBattlefields) {
-    return canActorMoveBattlefieldCard(actorId, movingCard)
-      ? allow()
-      : deny("Only owner or controller may move this card between battlefields");
+    return requireBattlefieldMoveActor(
+      actorId,
+      movingCard,
+      "Only owner or controller may move this card between battlefields"
+    );
   }
 
   if (toBattlefield) {
     // Entering a battlefield from a non-battlefield zone.
-    return canActorMoveBattlefieldCard(actorId, movingCard)
-      ? allow()
-      : deny("Only owner or controller may move this card here");
+    return requireBattlefieldMoveActor(
+      actorId,
+      movingCard,
+      "Only owner or controller may move this card here"
+    );
   }
 
   // Non-battlefield destinations (seat zones): only the card owner may move their card here.
