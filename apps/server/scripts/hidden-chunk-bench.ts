@@ -1,6 +1,6 @@
 import type { Card } from "@mtg/shared/types";
 import { chunkHiddenCards } from "../src/domain/hiddenState";
-import { formatBytes } from "./benchFormat";
+import { formatBytes, withBenchNumberArg } from "./benchFormat";
 
 const config = {
   cards: 4000,
@@ -9,18 +9,8 @@ const config = {
   textSize: 80,
 };
 
-const readArg = (name: string) => {
-  const idx = process.argv.findIndex((arg) => arg === `--${name}`);
-  if (idx === -1) return null;
-  const raw = process.argv[idx + 1];
-  if (!raw) return null;
-  const num = Number(raw);
-  return Number.isFinite(num) ? num : null;
-};
-
 const withArg = <T extends number>(key: keyof typeof config, fallback: T): T => {
-  const value = readArg(String(key));
-  return (value ?? fallback) as T;
+  return withBenchNumberArg(String(key), fallback);
 };
 
 const repeatChar = (char: string, count: number) => Array(count + 1).join(char);

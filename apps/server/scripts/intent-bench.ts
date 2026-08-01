@@ -3,7 +3,7 @@ import * as Y from "yjs";
 import type { Card, Player, Zone, ZoneType } from "@mtg/shared/types";
 import { applyIntentToDoc } from "../src/domain/intents/applyIntentToDoc";
 import { createEmptyHiddenState } from "../src/domain/hiddenState";
-import { formatBytes } from "./benchFormat";
+import { formatBytes, withBenchNumberArg } from "./benchFormat";
 
 const config = {
   players: 4,
@@ -11,18 +11,8 @@ const config = {
   iterations: 5000,
 };
 
-const readArg = (name: string) => {
-  const idx = process.argv.findIndex((arg) => arg === `--${name}`);
-  if (idx === -1) return null;
-  const raw = process.argv[idx + 1];
-  if (!raw) return null;
-  const num = Number(raw);
-  return Number.isFinite(num) ? num : null;
-};
-
 const withArg = <T extends number>(key: keyof typeof config, fallback: T): T => {
-  const value = readArg(String(key));
-  return (value ?? fallback) as T;
+  return withBenchNumberArg(String(key), fallback);
 };
 
 const createDoc = () => {
