@@ -2,70 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import { getCanonicalBattlefieldPlacementGridSteps } from "@/lib/positions";
 import {
+  distance,
+  gridAlignedCenter,
+  liveDraggedCenter,
+  measuredCardSizing,
+  placementGridPixels,
+  zoneRect,
+} from "@test/utils/dndGeometry";
+import {
   computeAnchoredDragRect,
   computeAnchoredResizeOffset,
   computeDragOverlayBaseScale,
   computeBattlefieldPlacement,
   getEffectiveCardSize,
 } from "../dndBattlefield";
-
-const zoneRect = {
-  left: 0,
-  top: 0,
-  right: 1000,
-  bottom: 600,
-  width: 1000,
-  height: 600,
-};
-
-const measuredCardSizing = {
-  baseCardHeight: 135,
-  baseCardWidth: 90,
-};
-
-type Point = { x: number; y: number };
-
-const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
-
-const liveDraggedCenter = (params: {
-  pointerScreen: Point;
-  dragAnchor: Point;
-  cardSize: { cardWidth: number; cardHeight: number };
-  zoneScale?: number;
-}) => {
-  const zoneScale = params.zoneScale ?? 1;
-  return {
-    x:
-      params.pointerScreen.x +
-      (0.5 - params.dragAnchor.x) * params.cardSize.cardWidth * zoneScale,
-    y:
-      params.pointerScreen.y +
-      (0.5 - params.dragAnchor.y) * params.cardSize.cardHeight * zoneScale,
-  };
-};
-
-const placementGridPixels = (viewScale = 1) => {
-  const steps = getCanonicalBattlefieldPlacementGridSteps({
-    zoneWidth: zoneRect.width,
-    zoneHeight: zoneRect.height,
-    viewScale,
-    ...measuredCardSizing,
-  });
-  return {
-    x: steps.stepX * zoneRect.width,
-    y: steps.stepY * zoneRect.height,
-  };
-};
-
-const gridAlignedCenter = (params: {
-  grid: Point;
-  cardSize: { cardWidth: number; cardHeight: number };
-  xIndex: number;
-  yIndex: number;
-}) => ({
-  x: params.grid.x * params.xIndex + params.cardSize.cardWidth / 2,
-  y: params.grid.y * params.yIndex + params.cardSize.cardHeight / 2,
-});
 
 const expectEdgesAlignedToGrid = (params: {
   placement: ReturnType<typeof computeBattlefieldPlacement>;

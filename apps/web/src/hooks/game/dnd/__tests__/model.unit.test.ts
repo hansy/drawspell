@@ -4,10 +4,16 @@ import type { Card, Zone } from "@/types";
 import { ZONE } from "@/constants/zones";
 import {
   fromNormalizedPosition,
-  getCanonicalBattlefieldPlacementGridSteps,
   mirrorNormalizedY,
   toNormalizedPosition,
 } from "@/lib/positions";
+import {
+  distance,
+  gridAlignedCenter,
+  liveDraggedCenter,
+  measuredCardSizing,
+  placementGridPixels,
+} from "@test/utils/dndGeometry";
 import {
   computeBattlefieldGroupGhostCards,
   computeDragEndPlan,
@@ -16,13 +22,6 @@ import {
   computeSameHandEdgePreviewIndex,
   shouldUseSameHandDropFallback,
 } from "../model";
-
-type Point = { x: number; y: number };
-
-const measuredCardSizing = {
-  baseCardHeight: 135,
-  baseCardWidth: 90,
-};
 
 const rect = (params: {
   left: number;
@@ -64,50 +63,6 @@ const createHand = (cardIds: string[]): Zone => ({
   type: ZONE.HAND,
   ownerId: "p1",
   cardIds,
-});
-
-const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
-
-const liveDraggedCenter = (params: {
-  pointerScreen: Point;
-  dragAnchor: Point;
-  cardSize: { width: number; height: number };
-  zoneScale?: number;
-}) => {
-  const zoneScale = params.zoneScale ?? 1;
-  return {
-    x:
-      params.pointerScreen.x +
-      (0.5 - params.dragAnchor.x) * params.cardSize.width * zoneScale,
-    y:
-      params.pointerScreen.y +
-      (0.5 - params.dragAnchor.y) * params.cardSize.height * zoneScale,
-  };
-};
-
-const placementGridPixels = (viewScale = 1) => {
-  const zoneWidth = 1000;
-  const zoneHeight = 600;
-  const steps = getCanonicalBattlefieldPlacementGridSteps({
-    zoneWidth,
-    zoneHeight,
-    viewScale,
-    ...measuredCardSizing,
-  });
-  return {
-    x: steps.stepX * zoneWidth,
-    y: steps.stepY * zoneHeight,
-  };
-};
-
-const gridAlignedCenter = (params: {
-  grid: Point;
-  cardSize: { width: number; height: number };
-  xIndex: number;
-  yIndex: number;
-}) => ({
-  x: params.grid.x * params.xIndex + params.cardSize.width / 2,
-  y: params.grid.y * params.yIndex + params.cardSize.height / 2,
 });
 
 describe("game DnD movement contracts", () => {
