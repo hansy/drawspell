@@ -90,9 +90,12 @@ export const logDiscordProvisionEvent = (
 const readRecord = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 
-export const parseDiscordProvisionRequest = (
+const parseDiscordProvisionRecord = (
   rawBody: unknown,
-): DiscordRoomProvisionRequest | null => {
+): {
+  request: DiscordRoomProvisionRequest;
+  record: Record<string, unknown>;
+} | null => {
   const record = readRecord(rawBody);
   if (!record) return null;
   const interactionId = normalizeNonEmptyString(record.interactionId);
@@ -114,23 +117,29 @@ export const parseDiscordProvisionRequest = (
   }
 
   return {
-    interactionId,
-    guildId,
-    channelId,
-    invokerDiscordUserId,
-    participantDiscordUserIds,
+    request: {
+      interactionId,
+      guildId,
+      channelId,
+      invokerDiscordUserId,
+      participantDiscordUserIds,
+    },
+    record,
   };
 };
+
+export const parseDiscordProvisionRequest = (
+  rawBody: unknown,
+): DiscordRoomProvisionRequest | null =>
+  parseDiscordProvisionRecord(rawBody)?.request ?? null;
 
 export const parseDiscordRoomProvisionPayload = (
   rawBody: unknown,
 ): DiscordRoomInternalProvisionPayload | null => {
-  const parsed = parseDiscordProvisionRequest(rawBody);
+  const parsed = parseDiscordProvisionRecord(rawBody);
   if (!parsed) return null;
 
-  const record = readRecord(rawBody);
-  if (!record) return null;
-  const inviteExpiresAtRaw = record.inviteExpiresAt;
+  const inviteExpiresAtRaw = parsed.record.inviteExpiresAt;
   if (
     typeof inviteExpiresAtRaw !== "number" ||
     !Number.isFinite(inviteExpiresAtRaw)
@@ -140,7 +149,7 @@ export const parseDiscordRoomProvisionPayload = (
 
   const inviteExpiresAt = Math.floor(inviteExpiresAtRaw);
   if (inviteExpiresAt <= 0) return null;
-  return { ...parsed, inviteExpiresAt };
+  return { ...parsed.request, inviteExpiresAt };
 };
 
 export const parseDiscordRoomProvisionResponse = (
