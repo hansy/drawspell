@@ -189,6 +189,11 @@ const createProvisionRequest = (
   participantDiscordUserIds: recipientIds,
 });
 
+const provisioningServerHost = (nodeEnv: string): string =>
+  nodeEnv === "development"
+    ? "drawspell-server-development"
+    : "drawspell-server-production";
+
 const callProvisioningEndpoint = async (
   input: {
     SERVER: Env["SERVER"];
@@ -201,11 +206,7 @@ const callProvisioningEndpoint = async (
   let response: Response;
   try {
     response = await input.SERVER.fetch(
-      `https://${
-        input.NODE_ENV === "development"
-          ? "drawspell-server-development"
-          : "drawspell-server-production"
-      }${DISCORD_ROOM_PROVISION_PATH}`,
+      `https://${provisioningServerHost(input.NODE_ENV)}${DISCORD_ROOM_PROVISION_PATH}`,
       {
         method: "POST",
         headers: {
