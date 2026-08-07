@@ -10,6 +10,9 @@ import { applyCardMove } from "../../movement";
 import { ensurePermission, readNumber, requireNonEmptyStringProp } from "../validation";
 import type { IntentHandler, IntentHandlerContext } from "./types";
 
+const normalizeNonNegativeCount = (count: number) =>
+  Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+
 const resolveLibraryContext = (
   actorId: string,
   maps: IntentHandlerContext["maps"],
@@ -53,7 +56,7 @@ const handleLibraryDraw: IntentHandler = ({ actorId, maps, hidden, payload, push
   const { playerId, libraryZone } = libraryContext;
   const handZone = findZoneByTypeInMaps(maps, playerId, ZONE.HAND);
   if (!handZone) return { ok: false, error: "zone not found" };
-  const drawCount = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+  const drawCount = normalizeNonNegativeCount(count);
   for (let i = 0; i < drawCount; i += 1) {
     const order = hidden.libraryOrder[playerId] ?? [];
     const cardId = order.length ? order[order.length - 1] : null;
@@ -81,7 +84,7 @@ const handleLibraryDiscard: IntentHandler = ({ actorId, maps, hidden, payload, p
   const { playerId, libraryZone } = libraryContext;
   const graveyardZone = findZoneByTypeInMaps(maps, playerId, ZONE.GRAVEYARD);
   if (!graveyardZone) return { ok: false, error: "zone not found" };
-  const discardCount = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+  const discardCount = normalizeNonNegativeCount(count);
   for (let i = 0; i < discardCount; i += 1) {
     const order = hidden.libraryOrder[playerId] ?? [];
     const cardId = order.length ? order[order.length - 1] : null;
@@ -116,7 +119,7 @@ const handleHandDiscardRandom: IntentHandler = ({ actorId, maps, hidden, payload
   if (!allowed.ok) return allowed;
 
   const rawCount = readNumber(payload.count) ?? 1;
-  const requestedCount = Number.isFinite(rawCount) ? Math.max(0, Math.floor(rawCount)) : 0;
+  const requestedCount = normalizeNonNegativeCount(rawCount);
   if (requestedCount <= 0) return { ok: true };
 
   const startingHandIds = (hidden.handOrder[playerId] ?? handZone.cardIds)
