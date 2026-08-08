@@ -16,17 +16,14 @@ export { resolveControllerAfterMove } from "@mtg/shared/movement";
 
 export const getCardFaces = (card: Card) => card.scryfall?.card_faces ?? [];
 
+const clampFaceIndex = (index: number, faceCount: number): number =>
+  Math.min(Math.max(index, 0), faceCount - 1);
+
 export const getCurrentFaceIndex = (card: Card): number => {
   const faces = getCardFaces(card);
   if (!faces.length) return 0;
-  const index = card.currentFaceIndex ?? 0;
-  if (index < 0) return 0;
-  if (index >= faces.length) return faces.length - 1;
-  return index;
+  return clampFaceIndex(card.currentFaceIndex ?? 0, faces.length);
 };
-
-const clampFaceIndex = (index: number, faceCount: number): number =>
-  Math.min(Math.max(index, 0), faceCount - 1);
 
 export const syncCardStatsToFace = (
   card: Card,
