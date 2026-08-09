@@ -1,4 +1,5 @@
 import { normalizeCounterType } from "@mtg/shared/counters";
+import { getCardFaces } from "@mtg/shared/cards";
 import type { Card, CardIdentity, CardLite } from "@mtg/shared/types/cards";
 import type { Counter } from "@mtg/shared/types/counters";
 import type { Zone } from "@mtg/shared/types/zones";
@@ -11,10 +12,8 @@ import {
   offsetNormalizedByGrid,
 } from "./positions";
 
-export { buildDuplicateTokenCard } from "@mtg/shared/cards";
+export { buildDuplicateTokenCard, getCardFaces } from "@mtg/shared/cards";
 export { resolveControllerAfterMove } from "@mtg/shared/movement";
-
-export const getCardFaces = (card: Card) => card.scryfall?.card_faces ?? [];
 
 const clampFaceIndex = (index: number, faceCount: number): number =>
   Math.min(Math.max(index, 0), faceCount - 1);
