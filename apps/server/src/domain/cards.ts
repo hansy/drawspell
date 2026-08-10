@@ -1,5 +1,5 @@
 import { normalizeCounterType } from "@mtg/shared/counters";
-import { getCardFaces } from "@mtg/shared/cards";
+import { getCardFaces, getCurrentFaceIndex } from "@mtg/shared/cards";
 import type { Card, CardIdentity, CardLite } from "@mtg/shared/types/cards";
 import type { Counter } from "@mtg/shared/types/counters";
 import type { Zone } from "@mtg/shared/types/zones";
@@ -12,17 +12,11 @@ import {
   offsetNormalizedByGrid,
 } from "./positions";
 
-export { buildDuplicateTokenCard, getCardFaces } from "@mtg/shared/cards";
+export { buildDuplicateTokenCard, getCardFaces, getCurrentFaceIndex } from "@mtg/shared/cards";
 export { resolveControllerAfterMove } from "@mtg/shared/movement";
 
 const clampFaceIndex = (index: number, faceCount: number): number =>
   Math.min(Math.max(index, 0), faceCount - 1);
-
-export const getCurrentFaceIndex = (card: Card): number => {
-  const faces = getCardFaces(card);
-  if (!faces.length) return 0;
-  return clampFaceIndex(card.currentFaceIndex ?? 0, faces.length);
-};
 
 export const syncCardStatsToFace = (
   card: Card,
