@@ -34,6 +34,18 @@ const removePlayerFromOrder = (maps: SharedMaps, playerId: string) => {
   }
 };
 
+const writeOptionalNonNegativeCount = (
+  target: ReturnType<typeof ensureChildMap>,
+  key: "handCount" | "libraryCount" | "sideboardCount",
+  value: number | undefined,
+) => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    target.set(key, Math.max(0, Math.floor(value)));
+  } else {
+    target.delete(key);
+  }
+};
+
 const writePlayer = (maps: SharedMaps, player: Player) => {
   const target = ensureChildMap(maps.players, player.id);
   target.set('id', player.id);
@@ -43,21 +55,9 @@ const writePlayer = (maps: SharedMaps, player: Player) => {
   target.set('cursor', player.cursor);
   target.set('commanderTax', player.commanderTax);
   target.set('deckLoaded', player.deckLoaded);
-  if (typeof player.handCount === "number" && Number.isFinite(player.handCount)) {
-    target.set("handCount", Math.max(0, Math.floor(player.handCount)));
-  } else {
-    target.delete("handCount");
-  }
-  if (typeof player.libraryCount === "number" && Number.isFinite(player.libraryCount)) {
-    target.set("libraryCount", Math.max(0, Math.floor(player.libraryCount)));
-  } else {
-    target.delete("libraryCount");
-  }
-  if (typeof player.sideboardCount === "number" && Number.isFinite(player.sideboardCount)) {
-    target.set("sideboardCount", Math.max(0, Math.floor(player.sideboardCount)));
-  } else {
-    target.delete("sideboardCount");
-  }
+  writeOptionalNonNegativeCount(target, "handCount", player.handCount);
+  writeOptionalNonNegativeCount(target, "libraryCount", player.libraryCount);
+  writeOptionalNonNegativeCount(target, "sideboardCount", player.sideboardCount);
   const libraryTopReveal = normalizeLibraryTopRevealMode(player.libraryTopReveal);
   if (libraryTopReveal) {
     target.set('libraryTopReveal', libraryTopReveal);
