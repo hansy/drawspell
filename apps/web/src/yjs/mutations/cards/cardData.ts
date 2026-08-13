@@ -33,6 +33,11 @@ import {
 const isPositionLike = (value: unknown): value is { x: number; y: number } =>
   isRecord(value) && typeof value.x === "number" && typeof value.y === "number";
 
+const normalizeCommanderTax = (value: unknown) =>
+  typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, Math.min(99, Math.floor(value)))
+    : 0;
+
 export const writeCard = (maps: SharedMaps, card: Card) => {
   const target = ensureChildMap(maps.cards, card.id);
   const normalizedPosition =
@@ -57,10 +62,7 @@ export const writeCard = (maps: SharedMaps, card: Card) => {
   const scryfallId = clampString(card.scryfallId, MAX_SCRYFALL_ID_LENGTH);
   const scryfall = normalizeScryfallLiteForSync(card.scryfall);
   const customText = clampString(card.customText, MAX_CUSTOM_TEXT_LENGTH);
-  const commanderTax =
-    typeof card.commanderTax === "number" && Number.isFinite(card.commanderTax)
-      ? Math.max(0, Math.min(99, Math.floor(card.commanderTax)))
-      : 0;
+  const commanderTax = normalizeCommanderTax(card.commanderTax);
 
   target.set("id", card.id);
   target.set("ownerId", card.ownerId);
@@ -122,10 +124,7 @@ export const readCard = (maps: SharedMaps, cardId: string): Card | null => {
   const rawCommanderTax = getVal("commanderTax");
   const rawFaceDownMode = getVal("faceDownMode");
   const faceDownMode = rawFaceDownMode === "morph" ? "morph" : undefined;
-  const commanderTax =
-    typeof rawCommanderTax === "number" && Number.isFinite(rawCommanderTax)
-      ? Math.max(0, Math.min(99, Math.floor(rawCommanderTax)))
-      : 0;
+  const commanderTax = normalizeCommanderTax(rawCommanderTax);
 
   return {
     id: cardId,
