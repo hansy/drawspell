@@ -21,6 +21,8 @@ const isSpectator = (actor: ActorContext) => actor.role === "spectator";
 
 const allow = (): PermissionResult => ({ allowed: true });
 const deny = (reason: string): PermissionResult => ({ allowed: false, reason });
+const allowFaces = (): ViewResult => ({ allowed: true, visibility: "faces" });
+const denyHiddenZone = (): ViewResult => ({ allowed: false, reason: "Hidden zone" });
 const OWNER_SEAT_OR_BATTLEFIELD_REASON =
   "Cards may only enter their owner seat zones or any battlefield";
 
@@ -167,15 +169,15 @@ export function canViewZone(
 
   if (isHiddenZoneType(zone.type)) {
     if (isSpectator(ctx)) {
-      if (zone.type === ZONE.HAND) return { allowed: true, visibility: "faces" };
-      return { allowed: false, reason: "Hidden zone" };
+      if (zone.type === ZONE.HAND) return allowFaces();
+      return denyHiddenZone();
     }
-    if (!isOwner) return { allowed: false, reason: "Hidden zone" };
+    if (!isOwner) return denyHiddenZone();
     // Library "view all" is implicitly owner-only; already satisfied by isOwner.
-    return { allowed: true, visibility: "faces" };
+    return allowFaces();
   }
 
-  return { allowed: true, visibility: "faces" };
+  return allowFaces();
 }
 
 export function canMoveCard(ctx: MoveContext): PermissionResult;
