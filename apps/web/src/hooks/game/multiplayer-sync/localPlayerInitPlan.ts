@@ -9,6 +9,15 @@ export type LocalPlayerInitPlan = {
   zonesToCreate: Zone[];
 };
 
+const INITIAL_ZONE_TYPES = [
+  ZONE.LIBRARY,
+  ZONE.HAND,
+  ZONE.BATTLEFIELD,
+  ZONE.GRAVEYARD,
+  ZONE.EXILE,
+  ZONE.COMMANDER,
+] as const;
+
 const hasZoneOfType = (zones: Record<string, { ownerId: string; type: string }>, ownerId: string, type: string): boolean => {
   return Object.values(zones).some((zone) => zone.ownerId === ownerId && zone.type === type);
 };
@@ -33,10 +42,8 @@ export const computeLocalPlayerInitPlan = ({
   const hasCommanderZone =
     hasZoneOfType(zones, playerId, ZONE.COMMANDER) || hasZoneOfType(zones, playerId, "command");
 
-  const zoneTypes = [ZONE.LIBRARY, ZONE.HAND, ZONE.BATTLEFIELD, ZONE.GRAVEYARD, ZONE.EXILE, ZONE.COMMANDER] as const;
-
   const zonesToCreate: Zone[] = [];
-  for (const type of zoneTypes) {
+  for (const type of INITIAL_ZONE_TYPES) {
     if (type === ZONE.COMMANDER) {
       if (hasCommanderZone) continue;
     } else if (hasZoneOfType(zones, playerId, type)) {
