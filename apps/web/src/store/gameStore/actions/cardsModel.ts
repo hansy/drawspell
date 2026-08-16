@@ -12,11 +12,14 @@ import { MAX_REVEALED_TO } from "@/lib/limits";
 
 export { buildDuplicateTokenCard } from "@mtg/shared/cards";
 
+const normalizeFaceIndex = (faceIndex: number, faceCount: number): number =>
+  Math.min(Math.max(faceIndex, 0), faceCount - 1);
+
 export const normalizeCardForAdd = (card: Card): Card => {
   const faces = getCardFaces(card);
   const initialFaceIndex = card.currentFaceIndex ?? 0;
   const normalizedFaceIndex = faces.length
-    ? Math.min(Math.max(initialFaceIndex, 0), faces.length - 1)
+    ? normalizeFaceIndex(initialFaceIndex, faces.length)
     : initialFaceIndex;
 
   const withFaceStats = syncCardStatsToFace({ ...card, currentFaceIndex: initialFaceIndex }, normalizedFaceIndex);
@@ -48,7 +51,7 @@ export const buildUpdateCardPatch = (cardBefore: Card, updates: Partial<Card>): 
   const commanderTax = normalizeCommanderTax(merged.commanderTax);
   const faces = getCardFaces(merged);
   const normalizedFaceIndex = faces.length
-    ? Math.min(Math.max(merged.currentFaceIndex ?? 0, 0), faces.length - 1)
+    ? normalizeFaceIndex(merged.currentFaceIndex ?? 0, faces.length)
     : merged.currentFaceIndex;
   const targetFaceIndex = normalizedFaceIndex ?? merged.currentFaceIndex;
   const faceChanged = targetFaceIndex !== cardBefore.currentFaceIndex;
@@ -118,7 +121,7 @@ export const computeTransformTargetIndex = (
   const faces = getCardFaces(card);
   const targetIndex = faces.length
     ? typeof faceIndex === "number"
-      ? Math.min(Math.max(faceIndex, 0), faces.length - 1)
+      ? normalizeFaceIndex(faceIndex, faces.length)
       : (getCurrentFaceIndex(card) + 1) % faces.length
     : 0;
 
