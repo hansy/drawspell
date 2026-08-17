@@ -13,6 +13,9 @@ import type { IntentHandler, IntentHandlerContext } from "./types";
 const normalizeNonNegativeCount = (count: number) =>
   Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
 
+const getTopLibraryCardId = (cardIds: string[]) =>
+  cardIds.length ? cardIds[cardIds.length - 1] : null;
+
 const resolveLibraryContext = (
   actorId: string,
   maps: IntentHandlerContext["maps"],
@@ -59,7 +62,7 @@ const handleLibraryDraw: IntentHandler = ({ actorId, maps, hidden, payload, push
   const drawCount = normalizeNonNegativeCount(count);
   for (let i = 0; i < drawCount; i += 1) {
     const order = hidden.libraryOrder[playerId] ?? [];
-    const cardId = order.length ? order[order.length - 1] : null;
+    const cardId = getTopLibraryCardId(order);
     if (!cardId) break;
     const result = applyCardMove(
       maps,
@@ -87,7 +90,7 @@ const handleLibraryDiscard: IntentHandler = ({ actorId, maps, hidden, payload, p
   const discardCount = normalizeNonNegativeCount(count);
   for (let i = 0; i < discardCount; i += 1) {
     const order = hidden.libraryOrder[playerId] ?? [];
-    const cardId = order.length ? order[order.length - 1] : null;
+    const cardId = getTopLibraryCardId(order);
     if (!cardId) break;
     const result = applyCardMove(
       maps,
