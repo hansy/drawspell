@@ -27,6 +27,17 @@ interface LogStoreState {
   clear: () => void;
 }
 
+const applyLogEntryUpdate = (
+  entries: LogMessage[],
+  update: { kind: 'append' | 'replaceLast'; entry: LogMessage }
+) => {
+  if (update.kind === 'replaceLast') {
+    entries[entries.length - 1] = update.entry;
+  } else {
+    entries.push(update.entry);
+  }
+};
+
 export const useLogStore = create<LogStoreState>((set) => {
   const appendLocal = <K extends LogEventId>(
     def: LogEventDefinition<LogEventPayloadMap[K]>,
@@ -52,11 +63,7 @@ export const useLogStore = create<LogStoreState>((set) => {
         createId: uuidv4,
       });
 
-      if (update.kind === 'replaceLast') {
-        entries[entries.length - 1] = update.entry;
-      } else {
-        entries.push(update.entry);
-      }
+      applyLogEntryUpdate(entries, update);
 
       if (entries.length > MAX_LOG_ENTRIES) {
         entries.splice(0, entries.length - MAX_LOG_ENTRIES);
@@ -104,11 +111,7 @@ export const useLogStore = create<LogStoreState>((set) => {
             createId: uuidv4,
           });
 
-          if (update.kind === 'replaceLast') {
-            entries[entries.length - 1] = update.entry;
-          } else {
-            entries.push(update.entry);
-          }
+          applyLogEntryUpdate(entries, update);
         } else {
           const entry = buildLogEntry({
             eventId,
