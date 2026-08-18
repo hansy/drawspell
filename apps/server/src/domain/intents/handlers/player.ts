@@ -8,6 +8,7 @@ import {
 } from "@mtg/shared/types/players";
 import type { Zone } from "@mtg/shared/types/zones";
 import { MAX_PLAYERS } from "@mtg/shared/constants/room";
+import { ZONE } from "@mtg/shared/constants/zones";
 
 import {
   applyRecordToMap,
@@ -196,7 +197,10 @@ const handlePlayerLeave: IntentHandler = ({ actorId, maps, hidden, payload, mark
   });
 
   Object.values(nextZones).forEach((zone) => {
-    zone.cardIds = zone.cardIds.filter((id) => nextCards[id]);
+    zone.cardIds =
+      zone.type === ZONE.HAND
+        ? [...(hidden.handOrder[zone.ownerId] ?? [])]
+        : zone.cardIds.filter((id) => nextCards[id]);
   });
 
   const nextMeta = { ...snapshot.meta };

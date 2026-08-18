@@ -887,6 +887,39 @@ describe("server migration behavior", () => {
     expect(hidden.faceDownBattlefield.c1).toBeUndefined();
   });
 
+  it("preserves surviving players' hidden hand orders when a player leaves", () => {
+    const doc = createDoc();
+    seedPlayers(doc, [createPlayer("p1"), createPlayer("p2")]);
+    const p1Hand = createZone("hand-p1", "hand", "p1", ["h1"]);
+    const p2Hand = createZone("hand-p2", "hand", "p2", ["h2", "h3"]);
+    seedZones(doc, [p1Hand, p2Hand]);
+
+    const hidden = createEmptyHiddenState();
+    hidden.handOrder = { p1: ["h1"], p2: ["h2", "h3"] };
+    hidden.cards = {
+      h1: createCard("h1", "p1", p1Hand.id),
+      h2: createCard("h2", "p2", p2Hand.id),
+      h3: createCard("h3", "p2", p2Hand.id),
+    };
+
+    const result = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-leave-preserves-hands",
+        type: "player.leave",
+        payload: { actorId: "p1", playerId: "p1" },
+      },
+      hidden
+    );
+
+    expect(result.ok).toBe(true);
+    expect(hidden.handOrder.p2).toEqual(["h2", "h3"]);
+    expect((doc.getMap("zones").get(p2Hand.id) as Zone).cardIds).toEqual([
+      "h2",
+      "h3",
+    ]);
+  });
+
   it("adds zones only for owners and initializes hidden zone state", () => {
     const doc = createDoc();
     seedPlayers(doc, [createPlayer("p1")]);
