@@ -167,5 +167,14 @@ describe("ZoneViewerModalView", () => {
     expect(screen.getByText("1-mana")).toBeTruthy();
     expect(screen.getByText("Land")).toBeTruthy();
     expect(screen.getByText("Spell")).toBeTruthy();
+
+    const libraryView = document.querySelector(".library-view-container");
+    expect(libraryView?.parentElement?.classList.contains("h-0")).toBe(true);
+    expect(libraryView?.parentElement?.classList.contains("flex")).toBe(true);
+    expect(libraryView?.classList.contains("flex-1")).toBe(true);
+    expect(libraryView?.classList.contains("flex")).toBe(true);
+    expect(libraryView?.classList.contains("h-full")).toBe(false);
+    expect(libraryView?.firstElementChild?.classList.contains("flex-1")).toBe(true);
+    expect(libraryView?.firstElementChild?.classList.contains("h-full")).toBe(false);
   });
 });
