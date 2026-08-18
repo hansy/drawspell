@@ -101,7 +101,7 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
           <div
             ref={setScrollNode}
             className={cn(
-              "flex-1 min-h-0 px-4 pb-4 pt-3 lg:px-6 lg:pb-6 lg:pt-4 bg-zinc-950/50",
+              "flex h-0 flex-1 min-h-0 flex-col px-4 pb-4 pt-3 lg:px-6 lg:pb-6 lg:pt-4 bg-zinc-950/50",
               viewMode === "grouped"
                 ? "overflow-hidden"
                 : "overflow-x-auto overflow-y-hidden",

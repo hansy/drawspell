@@ -234,7 +234,7 @@ export const ZoneViewerGroupedView: React.FC<ZoneViewerGroupedViewProps> = ({
 
   return (
   <div
-    className="library-view-container h-full min-h-0"
+    className="library-view-container flex min-h-0 flex-1 flex-col"
     onPointerDownCapture={(event) => {
       if (event.pointerType !== "touch") return;
       const gesture = touchGesture.current;
@@ -248,7 +248,7 @@ export const ZoneViewerGroupedView: React.FC<ZoneViewerGroupedViewProps> = ({
       if (event.pointerType === "touch") finishTouchPointer(event.pointerId);
     }}
   >
-    <div className="library-sections h-full min-h-0">
+    <div className="library-sections min-h-0 flex-1">
       {sections.map((section) => (
         <LibrarySection
           key={section.key}
