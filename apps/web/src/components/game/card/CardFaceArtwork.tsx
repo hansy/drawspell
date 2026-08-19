@@ -8,7 +8,17 @@ export const CardFaceArtwork: React.FC<{
   displayName: string;
   imageClassName?: string;
   imageTransform?: string;
-}> = ({ faceDown, displayImageUrl, displayName, imageClassName, imageTransform }) => {
+  imageLoading?: React.ImgHTMLAttributes<HTMLImageElement>["loading"];
+  imageFetchPriority?: React.ImgHTMLAttributes<HTMLImageElement>["fetchPriority"];
+}> = ({
+  faceDown,
+  displayImageUrl,
+  displayName,
+  imageClassName,
+  imageTransform,
+  imageLoading = "lazy",
+  imageFetchPriority = "auto",
+}) => {
   if (faceDown) {
     return (
       <div className="w-full h-full bg-indigo-900/50 rounded flex items-center justify-center bg-[url('/mtg_card_back.jpeg')] bg-cover bg-center" />
@@ -20,7 +30,8 @@ export const CardFaceArtwork: React.FC<{
       <img
         src={displayImageUrl}
         alt={displayName}
-        loading="lazy"
+        loading={imageLoading}
+        fetchPriority={imageFetchPriority}
         decoding="async"
         draggable={false}
         className={cn(

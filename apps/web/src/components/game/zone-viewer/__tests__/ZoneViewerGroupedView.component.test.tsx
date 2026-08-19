@@ -12,9 +12,13 @@ const preview = vi.hoisted(() => ({
   unlockPreview: vi.fn(),
 }));
 
+const preloadCardPreviewImage = vi.hoisted(() => vi.fn());
+
 vi.mock("../../card/CardPreviewProvider", () => ({
   useOptionalCardPreview: () => preview,
 }));
+
+vi.mock("@/lib/cardImagePreload", () => ({ preloadCardPreviewImage }));
 
 const card = (id: string, name: string): Card =>
   ({
@@ -63,6 +67,22 @@ describe("ZoneViewerGroupedView", () => {
     fireEvent.contextMenu(row, { clientX: 30, clientY: 40 });
     expect(preview.unlockPreview).toHaveBeenCalled();
     expect(onContextMenu).toHaveBeenCalledWith(expect.anything(), first);
+  });
+
+  it("preloads artwork for rendered rows and raises its priority on pointer entry", () => {
+    const first = card("a", "Aether Adept");
+    const { container } = render(
+      <ZoneViewerGroupedView
+        sections={buildLibraryManaSections([first])}
+        interactionsDisabled={false}
+        onCardContextMenu={vi.fn()}
+      />
+    );
+    const row = container.querySelector(".library-card-row") as HTMLDivElement;
+
+    expect(preloadCardPreviewImage).toHaveBeenCalledWith(first);
+    fireEvent.pointerEnter(row);
+    expect(preloadCardPreviewImage).toHaveBeenCalledWith(first, "high");
   });
 
   it("suppresses long press and tap activation for a multi-touch gesture", () => {

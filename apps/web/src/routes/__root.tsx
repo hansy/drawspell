@@ -35,6 +35,14 @@ export const Route = createRootRoute({
     ],
     links: [
       {
+        rel: "preconnect",
+        href: "https://cards.scryfall.io",
+      },
+      {
+        rel: "dns-prefetch",
+        href: "https://cards.scryfall.io",
+      },
+      {
         rel: "stylesheet",
         href: appCss,
       },

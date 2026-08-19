@@ -23,6 +23,8 @@ interface CardFaceProps {
   faceDown?: boolean;
   imageClassName?: string;
   imageTransform?: string;
+  imageLoading?: React.ImgHTMLAttributes<HTMLImageElement>["loading"];
+  imageFetchPriority?: React.ImgHTMLAttributes<HTMLImageElement>["fetchPriority"];
   countersClassName?: string;
   interactive?: boolean;
   hidePT?: boolean;
@@ -43,6 +45,8 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
   faceDown,
   imageClassName,
   imageTransform,
+  imageLoading,
+  imageFetchPriority,
   countersClassName,
   interactive,
   hidePT,
@@ -208,6 +212,8 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
         model={frontModel}
         imageClassName={imageClassName}
         imageTransform={imageTransform}
+        imageLoading={imageLoading}
+        imageFetchPriority={imageFetchPriority}
         countersClassName={countersClassName}
         interactive={interactive}
         showCounterLabels={showCounterLabels}
@@ -241,6 +247,8 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
             model={frontModel}
             imageClassName={imageClassName}
             imageTransform={imageTransform}
+            imageLoading={imageLoading}
+            imageFetchPriority={imageFetchPriority}
             countersClassName={countersClassName}
             interactive={interactive}
             showCounterLabels={showCounterLabels}
@@ -264,6 +272,8 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
             model={backModel}
             imageClassName={imageClassName}
             imageTransform={imageTransform}
+            imageLoading={imageLoading}
+            imageFetchPriority={imageFetchPriority}
             countersClassName={countersClassName}
             interactive={interactive}
             showCounterLabels={showCounterLabels}

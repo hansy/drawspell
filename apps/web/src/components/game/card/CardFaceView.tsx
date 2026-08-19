@@ -15,6 +15,8 @@ interface CardFaceViewProps {
   model: CardFaceModel;
   imageClassName?: string;
   imageTransform?: string;
+  imageLoading?: React.ImgHTMLAttributes<HTMLImageElement>["loading"];
+  imageFetchPriority?: React.ImgHTMLAttributes<HTMLImageElement>["fetchPriority"];
   countersClassName?: string;
   interactive?: boolean;
   showCounterLabels?: boolean;
@@ -34,6 +36,8 @@ export const CardFaceView: React.FC<CardFaceViewProps> = ({
   model,
   imageClassName,
   imageTransform,
+  imageLoading,
+  imageFetchPriority,
   countersClassName,
   interactive,
   showCounterLabels,
@@ -53,6 +57,8 @@ export const CardFaceView: React.FC<CardFaceViewProps> = ({
         displayName={model.displayName}
         imageClassName={imageClassName}
         imageTransform={imageTransform}
+        imageLoading={imageLoading}
+        imageFetchPriority={imageFetchPriority}
       />
 
       <CardFacePTBadge

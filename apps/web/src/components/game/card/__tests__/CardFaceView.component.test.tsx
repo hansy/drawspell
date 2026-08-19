@@ -32,6 +32,23 @@ describe("CardFaceView", () => {
     expect(img.getAttribute("src")).toBe("https://example.com/island.jpg");
   });
 
+  it("supports eager, high-priority artwork for previews", () => {
+    render(
+      <CardFaceView
+        model={buildModel({
+          displayName: "Island",
+          displayImageUrl: "https://example.com/island.jpg",
+        })}
+        imageLoading="eager"
+        imageFetchPriority="high"
+      />
+    );
+
+    const img = screen.getByRole("img", { name: "Island" });
+    expect(img.getAttribute("loading")).toBe("eager");
+    expect(img.getAttribute("fetchpriority")).toBe("high");
+  });
+
   it("renders fallback text when no image is available", () => {
     render(<CardFaceView model={buildModel({ displayName: "Mystery Card" })} />);
     expect(screen.getByText("Mystery Card")).toBeTruthy();

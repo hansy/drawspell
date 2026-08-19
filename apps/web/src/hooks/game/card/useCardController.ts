@@ -11,6 +11,7 @@ import {
   canViewerSeeLibraryTopCard,
 } from "@/lib/reveal";
 import { getFlipRotation } from "@/lib/cardDisplay";
+import { preloadCardPreviewImage } from "@/lib/cardImagePreload";
 import {
   selectIsCardSelected,
   useSelectionStore,
@@ -276,6 +277,7 @@ export const useCardController = (props: CardProps): CardController => {
       if (Date.now() < suppressMouseHoverPreviewUntilRef.current) return;
       const policy = resolvePreviewPolicy();
       if (policy.kind === "none") return;
+      preloadCardPreviewImage(card, "high");
 
       clearHoverTimeout();
 
@@ -517,6 +519,9 @@ export const useCardController = (props: CardProps): CardController => {
       }
       suppressMouseHoverPreviewUntilRef.current =
         Date.now() + SUPPRESS_MOUSE_HOVER_AFTER_TOUCH_MS;
+      if (resolvePreviewPolicy().kind !== "none") {
+        preloadCardPreviewImage(card, "high");
+      }
 
       touchPointsRef.current.set(event.pointerId, {
         startX: event.clientX,
@@ -540,7 +545,9 @@ export const useCardController = (props: CardProps): CardController => {
     [
       beginTouchContextMenuHold,
       cancelContextMenuHold,
+      card,
       interactionsDisabled,
+      resolvePreviewPolicy,
     ]
   );
 

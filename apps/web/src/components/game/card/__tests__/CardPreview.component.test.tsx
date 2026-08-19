@@ -19,6 +19,10 @@ import { Card } from "../Card";
 import { CardPreview } from "../CardPreview";
 import { CardPreviewProvider } from "../CardPreviewProvider";
 
+const preloadCardPreviewImage = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/cardImagePreload", () => ({ preloadCardPreviewImage }));
+
 const buildZone = (id: string, type: keyof typeof ZONE, ownerId: string, cardIds: string[] = []) =>
   ({
     id,
@@ -69,6 +73,7 @@ const createPointerEvent = (
 describe("CardPreview", () => {
   beforeEach(() => {
     vi.useRealTimers();
+    preloadCardPreviewImage.mockClear();
     useGameStore.setState({
       zones: {},
       cards: {},
@@ -82,6 +87,70 @@ describe("CardPreview", () => {
       isGroupDragging: false,
       overCardScale: 1,
     });
+  });
+
+  it("preloads permitted card artwork as soon as hover begins", () => {
+    const zoneId = "me-hand";
+    const cardId = "hover-card";
+    const zone = buildZone(zoneId, "HAND", "me", [cardId]);
+    const card = buildCard(cardId, "Hover Card", zoneId);
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me") },
+      myPlayerId: "me",
+      viewerRole: "player",
+    }));
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Card card={card} />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+    const cardElement = container.querySelector(`[data-card-id="${cardId}"]`);
+    if (!cardElement) throw new Error("Expected card element to be present.");
+
+    fireEvent.mouseEnter(cardElement);
+
+    expect(preloadCardPreviewImage).toHaveBeenCalledWith(card, "high");
+  });
+
+  it("does not preload artwork when the viewer cannot see the card identity", () => {
+    const zoneId = "opponent-hand";
+    const cardId = "hidden-card";
+    const zone = buildZone(zoneId, "HAND", "opp", [cardId]);
+    const card = {
+      ...buildCard(cardId, "Hidden Card", zoneId),
+      ownerId: "opp",
+      controllerId: "opp",
+    };
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me"), opp: buildPlayer("opp", "Opp") },
+      myPlayerId: "me",
+      viewerRole: "player",
+    }));
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Card card={card} />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+    const cardElement = container.querySelector(`[data-card-id="${cardId}"]`);
+    if (!cardElement) throw new Error("Expected card element to be present.");
+
+    fireEvent.mouseEnter(cardElement);
+
+    expect(preloadCardPreviewImage).not.toHaveBeenCalled();
   });
 
   afterEach(() => {
@@ -1215,6 +1284,7 @@ describe("CardPreview", () => {
       );
     });
 
+    expect(preloadCardPreviewImage).toHaveBeenCalledWith(card, "high");
     expect(document.querySelector("[data-card-preview]")).not.toBeNull();
   });
 

@@ -4,6 +4,7 @@ import type { Card } from "@/types";
 import type { LibraryCardGroup, LibraryManaSection } from "@/models/game/zone-viewer/zoneViewerModel";
 import { useOptionalCardPreview } from "../card/CardPreviewProvider";
 import { ManaCost } from "../mana/ManaCost";
+import { preloadCardPreviewImage } from "@/lib/cardImagePreload";
 import { cn } from "@/lib/utils";
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
@@ -46,6 +47,7 @@ const LibraryCardRow: React.FC<LibraryCardRowProps> = ({
   onCardContextMenu,
 }) => {
   const preview = useOptionalCardPreview();
+  const rowRef = React.useRef<HTMLDivElement>(null);
   const holdTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointersRef = React.useRef<Map<number, PointerState>>(new Map());
   const longPressTriggeredRef = React.useRef(false);
@@ -57,6 +59,30 @@ const LibraryCardRow: React.FC<LibraryCardRowProps> = ({
   }, []);
 
   React.useEffect(() => clearHold, [clearHold]);
+
+  React.useEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+
+    if (typeof IntersectionObserver === "undefined") {
+      preloadCardPreviewImage(group.representative);
+      return;
+    }
+
+    const section = row.closest<HTMLElement>(".library-mana-section");
+    const scrollRoot =
+      section && section.scrollHeight > section.clientHeight ? section : null;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        preloadCardPreviewImage(group.representative);
+        observer.disconnect();
+      },
+      { root: scrollRoot, rootMargin: "320px" },
+    );
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [group.representative]);
 
   const openContextMenu = React.useCallback(
     (event: React.MouseEvent) => {
@@ -137,6 +163,7 @@ const LibraryCardRow: React.FC<LibraryCardRowProps> = ({
 
   return (
     <div
+      ref={rowRef}
       data-zone-viewer-card-id={group.representative.id}
       data-library-card-group={group.key}
       className={cn(
@@ -155,6 +182,7 @@ const LibraryCardRow: React.FC<LibraryCardRowProps> = ({
         }
       }}
       onContextMenu={openContextMenu}
+      onPointerEnter={() => preloadCardPreviewImage(group.representative, "high")}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
