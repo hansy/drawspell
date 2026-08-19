@@ -15,6 +15,12 @@ export { buildDuplicateTokenCard } from "@mtg/shared/cards";
 const normalizeFaceIndex = (faceIndex: number, faceCount: number): number =>
   Math.min(Math.max(faceIndex, 0), faceCount - 1);
 
+const normalizeCommanderTax = (value: number | undefined) => {
+  if (value === undefined) return value;
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(99, Math.floor(value)));
+};
+
 export const normalizeCardForAdd = (card: Card): Card => {
   const faces = getCardFaces(card);
   const initialFaceIndex = card.currentFaceIndex ?? 0;
@@ -34,12 +40,6 @@ export const normalizeCardForAdd = (card: Card): Card => {
 };
 
 export const buildUpdateCardPatch = (cardBefore: Card, updates: Partial<Card>): { next: Card; patch: CardPatch } => {
-  const normalizeCommanderTax = (value: number | undefined) => {
-    if (value === undefined) return value;
-    if (!Number.isFinite(value)) return 0;
-    return Math.max(0, Math.min(99, Math.floor(value)));
-  };
-
   const merged = { ...cardBefore, ...updates };
   const hasFaceDownModeUpdate = Object.prototype.hasOwnProperty.call(updates, "faceDownMode");
   if (updates.faceDown === false) {
