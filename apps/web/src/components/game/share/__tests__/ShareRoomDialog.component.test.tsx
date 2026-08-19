@@ -58,15 +58,20 @@ describe("ShareRoomDialog", () => {
   it("copies the active player link", async () => {
     renderDialog();
 
-    const playerLabel = screen.getByText("Player invite link");
+    const playerLabel = screen.getByText("Invite player");
     const playerInput = screen.getByDisplayValue("https://example.com/room");
     expect(playerLabel).toBeTruthy();
     expect(playerInput).toBeTruthy();
+    expect((playerInput as HTMLInputElement).className).toContain(
+      "focus-visible:ring-inset"
+    );
 
     const playerField = playerLabel.closest("div")?.parentElement;
     const copyButton = playerField
-      ? within(playerField).getByRole("button", { name: "Copy" })
-      : screen.getAllByRole("button", { name: "Copy" })[0];
+      ? within(playerField).getByRole("button", {
+          name: "Copy Player invite link",
+        })
+      : screen.getByRole("button", { name: "Copy Player invite link" });
     fireEvent.click(copyButton);
 
     await waitFor(() => {
@@ -82,7 +87,7 @@ describe("ShareRoomDialog", () => {
   it("shows the spectator link", () => {
     renderDialog();
 
-    expect(screen.getByText("Spectator invite link")).toBeTruthy();
+    expect(screen.getByText("Invite spectator")).toBeTruthy();
     expect(
       screen.getByDisplayValue("https://example.com/room?role=spectator")
     ).toBeTruthy();
@@ -95,6 +100,12 @@ describe("ShareRoomDialog", () => {
     const resumeInput = screen.getByDisplayValue(resumeLink) as HTMLInputElement;
     expect(resumeInput).toBeTruthy();
     expect(resumeInput.readOnly).toBe(true);
+    expect(screen.getByText("Switch device")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Open this link on another device to continue as this player."
+      )
+    ).toBeTruthy();
     expect(screen.getAllByRole("textbox")).toHaveLength(3);
   });
 
@@ -106,10 +117,11 @@ describe("ShareRoomDialog", () => {
     });
 
     expect(
-      screen.getByText("Invite links could not be refreshed.")
+      screen.getByText(
+        "Links may be outdated. Unable to refresh invite links."
+      )
     ).toBeTruthy();
-    expect(screen.getByText("Unable to refresh invite links.")).toBeTruthy();
-    expect(screen.getByText("Player invite link")).toBeTruthy();
+    expect(screen.getByText("Invite player")).toBeTruthy();
     expect(
       screen.getByDisplayValue("https://example.com/room")
     ).toBeTruthy();
@@ -119,12 +131,9 @@ describe("ShareRoomDialog", () => {
   it("shows a loading state before links are ready", () => {
     renderDialog({ linksReady: false });
 
-    expect(screen.getByText("Generating invite links")).toBeTruthy();
-    expect(
-      screen.getByText("Player and spectator links will appear here.")
-    ).toBeTruthy();
-    expect(screen.queryByText("Player invite link")).toBeNull();
-    expect(screen.queryByText("Spectator invite link")).toBeNull();
+    expect(screen.getByText("Creating links…")).toBeTruthy();
+    expect(screen.queryByText("Invite player")).toBeNull();
+    expect(screen.queryByText("Invite spectator")).toBeNull();
     expect(screen.queryByDisplayValue("https://example.com/room")).toBeNull();
   });
 
@@ -136,7 +145,7 @@ describe("ShareRoomDialog", () => {
 
     expect(screen.getByText("Unable to load invite links.")).toBeTruthy();
     expect(screen.getByText("Network unavailable.")).toBeTruthy();
-    expect(screen.queryByText("Generating invite links")).toBeNull();
+    expect(screen.queryByText("Creating links…")).toBeNull();
   });
 
   it("ignores transient undefined players when sorting", () => {
@@ -147,7 +156,8 @@ describe("ShareRoomDialog", () => {
       } as any,
     });
 
-    expect(screen.getByText("Players (1/4)")).toBeTruthy();
+    expect(screen.getByText("Players")).toBeTruthy();
+    expect(screen.getByText("1/4")).toBeTruthy();
     expect(screen.getByText("Alice")).toBeTruthy();
   });
 });

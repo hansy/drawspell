@@ -1,5 +1,5 @@
 import React from "react";
-import { Copy, Loader2 } from "lucide-react";
+import { Copy, Eye, KeyRound, Loader2, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { GameDialogActionButton } from "@/components/game/dialog/GameDialogActionButton";
@@ -7,7 +7,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -28,38 +27,57 @@ type ShareRoomDialogProps = {
 
 type ShareLinkFieldProps = {
   label: string;
+  copyLabel?: string;
   value: string;
   onCopy: (label: string, value: string) => void;
+  icon: React.ReactNode;
+  description?: string;
+  privateLink?: boolean;
 };
 
 const ShareLinkField: React.FC<ShareLinkFieldProps> = ({
   label,
+  copyLabel = label,
   value,
   onCopy,
+  icon,
+  description,
+  privateLink,
 }) => {
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          {label}
-        </span>
+    <div className="space-y-2.5">
+      <div className="grid grid-cols-[auto_1fr_auto] items-start gap-x-2 text-zinc-300">
+        <span className="mt-0.5 text-zinc-500">{icon}</span>
+        <span className="text-sm font-medium">{label}</span>
+        {privateLink ? (
+          <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-300">
+            Private
+          </span>
+        ) : null}
+        {description ? (
+          <p className="col-start-2 col-end-4 mt-1 text-xs leading-relaxed text-zinc-500">
+            {description}
+          </p>
+        ) : null}
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="relative">
         <Input
           value={value}
           readOnly
           onFocus={(e) => e.currentTarget.select()}
-          className="bg-zinc-950 border-zinc-800 text-zinc-100"
+          aria-label={label}
+          className="w-full border-zinc-800 bg-zinc-950 pr-11 font-mono text-xs text-zinc-300 focus-visible:ring-inset"
         />
         <GameDialogActionButton
           type="button"
           intent="secondary"
           size="sm"
+          aria-label={`Copy ${copyLabel}`}
+          className="absolute right-1 top-1 h-8 w-8 border-0 bg-transparent px-0 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
           disabled={!value}
-          onClick={() => onCopy(label, value)}
+          onClick={() => onCopy(copyLabel, value)}
         >
           <Copy size={16} />
-          Copy
         </GameDialogActionButton>
       </div>
     </div>
@@ -112,77 +130,74 @@ export const ShareRoomDialog: React.FC<ShareRoomDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="ds-dialog-size-lg bg-zinc-950 border-zinc-800 text-zinc-100">
+      <DialogContent className="ds-dialog-size-xs bg-zinc-950 border-zinc-800 text-zinc-100">
         <DialogHeader>
           <DialogTitle>Share room</DialogTitle>
           <DialogDescription className="text-zinc-400">
-            Share the link below with players or spectators.
+            Invite someone to play or watch.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="ds-dialog-scroll space-y-4">
-          <section className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-            <div>
-              <p className="text-sm font-semibold text-zinc-100">
-                Players ({sortedPlayers.length}/{MAX_PLAYERS})
+        <div className="ds-dialog-scroll space-y-5">
+          <section aria-label="Players in room">
+            <div className="flex items-center gap-2">
+              <Users size={15} className="text-zinc-500" />
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Players
               </p>
-              <p className="text-xs text-zinc-500">
-                Players currently in the room
-              </p>
+              <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] font-medium text-zinc-300">
+                {sortedPlayers.length}/{MAX_PLAYERS}
+              </span>
             </div>
 
-            <ul className="mt-3 space-y-1">
+            <ul className="mt-2.5 flex flex-wrap gap-2">
               {sortedPlayers.length > 0 ? (
                 sortedPlayers.map((player, index) => (
-                  <li key={player.id} className="text-sm text-zinc-200">
+                  <li
+                    key={player.id}
+                    className="rounded-full border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-300"
+                  >
                     {formatPlayerName(player, index)}
                   </li>
                 ))
               ) : (
-                <li className="text-sm text-zinc-500">No players yet</li>
+                <li className="text-xs text-zinc-500">No players yet</li>
               )}
             </ul>
           </section>
 
-          <section className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 space-y-4">
-            <div>
-              <p className="text-sm font-semibold text-zinc-100">
-                Invite links
-              </p>
-              <p className="text-xs text-zinc-500">
-                Copy a player or spectator link to share this room.
-              </p>
-            </div>
-
+          <section className="space-y-4 border-t border-zinc-800 pt-4">
             {linksReady ? (
               <>
                 {errorMessage ? (
-                  <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
-                    <p className="font-medium">
-                      Invite links could not be refreshed.
-                    </p>
-                    <p className="text-amber-100/80">{errorMessage}</p>
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+                    Links may be outdated. {errorMessage}
                   </div>
                 ) : null}
                 <ShareLinkField
-                  label="Player invite link"
+                  label="Invite player"
+                  copyLabel="Player invite link"
                   value={resolvedPlayerLink}
                   onCopy={handleCopy}
+                  icon={<Users size={16} />}
                 />
                 <ShareLinkField
-                  label="Spectator invite link"
+                  label="Invite spectator"
+                  copyLabel="Spectator invite link"
                   value={resolvedSpectatorLink}
                   onCopy={handleCopy}
+                  icon={<Eye size={16} />}
                 />
                 {resumeLink ? (
-                  <div className="border-t border-zinc-800 pt-4 space-y-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-400">
-                      Private link (only for you)
-                    </p>
+                  <div className="border-t border-zinc-800 pt-4">
                     <ShareLinkField
-                      label="New device link (resume this session on another device)"
+                      label="Switch device"
+                      copyLabel="Device switch link"
                       value={resumeLink}
                       onCopy={handleCopy}
+                      icon={<KeyRound size={16} />}
+                      description="Open this link on another device to continue as this player."
+                      privateLink
                     />
                   </div>
                 ) : null}
@@ -193,29 +208,15 @@ export const ShareRoomDialog: React.FC<ShareRoomDialogProps> = ({
                 <p className="text-red-100/80">{errorMessage}</p>
               </div>
             ) : (
-              <div className="flex min-h-28 flex-col items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/50 px-4 py-6 text-center">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-400">
+              <div className="flex min-h-24 items-center justify-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900 text-zinc-400">
                   <Loader2 size={17} className="motion-safe:animate-spin" />
                 </div>
-                <div className="text-sm font-medium text-zinc-300">
-                  Generating invite links
-                </div>
-                <div className="max-w-56 text-xs leading-snug text-zinc-500">
-                  Player and spectator links will appear here.
-                </div>
+                <div className="text-sm font-medium text-zinc-300">Creating links…</div>
               </div>
             )}
           </section>
         </div>
-
-        <DialogFooter>
-          <GameDialogActionButton
-            intent="secondary"
-            onClick={onClose}
-          >
-            Close
-          </GameDialogActionButton>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
