@@ -118,6 +118,12 @@ describe("ZoneViewerModalView", () => {
     expect(screen.getByText("Top card")).toBeTruthy();
     expect(screen.getByText("Card1")).toBeTruthy();
     expect(screen.getByText("Card2")).toBeTruthy();
+    const cardSlot = document.querySelector<HTMLElement>('[data-zone-viewer-card-id="c1"]');
+    const list = cardSlot?.parentElement;
+    const cardWidth = Number.parseFloat(cardSlot?.firstElementChild?.getAttribute("style")?.match(/width: ([\d.]+)px/)?.[1] ?? "0");
+    const slotWidth = Number.parseFloat(cardSlot?.style.width ?? "0");
+    const sidePadding = Number.parseFloat(list?.style.paddingLeft ?? "0");
+    expect(sidePadding).toBeGreaterThan((cardWidth - slotWidth) / 2);
   });
 
   it("renders grouped columns for the library", () => {
@@ -176,5 +182,51 @@ describe("ZoneViewerModalView", () => {
     expect(libraryView?.classList.contains("h-full")).toBe(false);
     expect(libraryView?.firstElementChild?.classList.contains("flex-1")).toBe(true);
     expect(libraryView?.firstElementChild?.classList.contains("h-full")).toBe(false);
+  });
+
+  it("centers a top-X library fan when it fits", () => {
+    const zone = buildZone({ type: ZONE.LIBRARY, id: "lib-top-me" });
+    const cards = [
+      buildCard("top-1", "Top 1", zone.id),
+      buildCard("top-2", "Top 2", zone.id),
+    ];
+
+    render(
+      <ZoneViewerModalView
+        isOpen
+        onClose={vi.fn()}
+        zone={zone}
+        count={2}
+        isLoading={false}
+        expectedViewCount={2}
+        filterText=""
+        setFilterText={vi.fn()}
+        containerRef={React.createRef<HTMLDivElement>()}
+        listRef={React.createRef<HTMLDivElement>()}
+        displayCards={cards}
+        viewMode="linear"
+        groupedCards={{}}
+        sortedKeys={[]}
+        librarySections={[]}
+        uniqueCardCount={0}
+        canReorder
+        orderedCards={cards}
+        orderedCardIds={cards.map((card) => card.id)}
+        setOrderedCardIds={vi.fn() as any}
+        draggingId={null}
+        setDraggingId={vi.fn() as any}
+        reorderList={(ids) => ids}
+        commitReorder={vi.fn()}
+        handleContextMenu={vi.fn()}
+        contextMenu={null}
+        closeContextMenu={vi.fn()}
+        interactionsDisabled={false}
+        pinnedCardId={undefined}
+      />
+    );
+
+    const slots = document.querySelectorAll<HTMLElement>("[data-zone-viewer-card-id]");
+    expect(slots[0]?.classList.contains("ml-auto")).toBe(true);
+    expect(slots[1]?.classList.contains("mr-auto")).toBe(true);
   });
 });

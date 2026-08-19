@@ -42,7 +42,7 @@ export const createZoneActions = (
     });
   },
 
-  reorderZoneCards: (zoneId, orderedCardIds, actorId, _isRemote) => {
+  reorderZoneCards: (zoneId, orderedCardIds, actorId, _isRemote, visibleOnly = false) => {
     const actor = actorId ?? get().myPlayerId;
     const role = actor === get().myPlayerId ? get().viewerRole : "player";
     const zone = get().zones[zoneId];
@@ -71,11 +71,15 @@ export const createZoneActions = (
     }
 
     const currentIds = zone.cardIds;
-    if (!containsSameCardIds(currentIds, orderedCardIds)) return;
+    if (
+      visibleOnly
+        ? orderedCardIds.some((id) => !currentIds.includes(id))
+        : !containsSameCardIds(currentIds, orderedCardIds)
+    ) return;
 
     dispatchIntent({
       type: "zone.reorder",
-      payload: { zoneId, orderedCardIds, actorId: actor },
+      payload: { zoneId, orderedCardIds, actorId: actor, visibleOnly },
       applyLocal: (state) => ({
         zones: {
           ...state.zones,

@@ -67,6 +67,34 @@ const handleZoneReorder: IntentHandler = ({ actorId, maps, hidden, payload, mark
         ? hidden.libraryOrder[zone.ownerId] ?? []
         : hidden.sideboardOrder[zone.ownerId] ?? []
     : zone.cardIds;
+  const visibleOnly = payload.visibleOnly === true;
+  if (visibleOnly) {
+    if (zone.type !== ZONE.LIBRARY || orderedCardIds.length === 0) {
+      return { ok: false, error: "invalid reorder" };
+    }
+    const orderedSet = new Set(orderedCardIds);
+    if (
+      orderedSet.size !== orderedCardIds.length ||
+      orderedCardIds.some((id) => !currentOrder.includes(id))
+    ) {
+      return { ok: false, error: "invalid reorder" };
+    }
+    let nextIndex = 0;
+    hidden.libraryOrder[zone.ownerId] = currentOrder.map((id) =>
+      orderedSet.has(id) ? orderedCardIds[nextIndex++] : id
+    );
+    updatePlayerCounts(maps, hidden, zone.ownerId);
+    syncLibraryRevealsToAllForPlayer(maps, hidden, zone.ownerId, zone.id);
+    const player = readPlayer(maps, zone.ownerId);
+    markHiddenChanged({
+      ownerId: zone.ownerId,
+      zoneId: zone.id,
+      ...(player?.libraryTopReveal
+        ? { reveal: buildLibraryTopRevealScope(maps, zone.ownerId, player.libraryTopReveal) }
+        : null),
+    });
+    return { ok: true };
+  }
   if (!hasSameMembers(currentOrder, orderedCardIds)) {
     return { ok: false, error: "invalid reorder" };
   }

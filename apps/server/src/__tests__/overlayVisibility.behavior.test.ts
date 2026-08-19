@@ -1070,6 +1070,33 @@ describe("server migration behavior", () => {
     }
   });
 
+  it("reorders only visible library cards against the authoritative hidden order", () => {
+    const doc = createDoc();
+    seedPlayers(doc, [createPlayer("p1")]);
+    const library = createZone("library-p1", "library", "p1", []);
+    seedZones(doc, [library]);
+    const hidden = createEmptyHiddenState();
+    hidden.libraryOrder = { p1: ["c1", "c2", "c3", "c4", "c5"] };
+
+    const result = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-visible-library-reorder",
+        type: "zone.reorder",
+        payload: {
+          actorId: "p1",
+          zoneId: library.id,
+          orderedCardIds: ["c5", "c3", "c4"],
+          visibleOnly: true,
+        },
+      },
+      hidden
+    );
+
+    expect(result.ok).toBe(true);
+    expect(hidden.libraryOrder.p1).toEqual(["c1", "c2", "c5", "c3", "c4"]);
+  });
+
   it("sets battlefield scale for the requesting player only", () => {
     const doc = createDoc();
     seedPlayers(doc, [createPlayer("p1")]);

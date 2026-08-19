@@ -93,7 +93,8 @@ export interface GameState {
     zoneId: ZoneId,
     orderedCardIds: CardId[],
     actorId?: PlayerId,
-    isRemote?: boolean
+    isRemote?: boolean,
+    visibleOnly?: boolean
   ) => void;
   removeCard: (
     cardId: CardId,

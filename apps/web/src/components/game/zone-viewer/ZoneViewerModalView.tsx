@@ -152,6 +152,7 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
                 cardWidthPx={previewWidthPx}
                 cardHeightPx={previewHeightPx}
                 mobileCoverFlow={enableLinearCoverFlow}
+                centerCards={zone.type === "library" && Boolean(count && count > 0)}
               />
             )}
           </div>

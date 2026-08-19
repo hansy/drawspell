@@ -44,6 +44,7 @@ export interface ZoneViewerLinearViewProps {
   cardWidthPx: number;
   cardHeightPx: number;
   mobileCoverFlow?: boolean;
+  centerCards?: boolean;
 }
 
 export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
@@ -63,6 +64,7 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
   cardWidthPx,
   cardHeightPx,
   mobileCoverFlow = false,
+  centerCards = false,
 }) => {
   const renderCards = React.useMemo(() => [...orderedCards].reverse(), [orderedCards]);
   const cardsById = React.useMemo(
@@ -347,6 +349,7 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
   const maxSpreadPx = Math.round(effectiveCardWidthPx * 0.5);
   const decayPx = Math.max(8, Math.round(effectiveCardWidthPx * 0.07));
   const mobileTopBottomPaddingPx = Math.max(40, Math.round(effectiveCardHeightPx * 0.12));
+  const desktopSidePaddingPx = Math.ceil((effectiveCardWidthPx - slotWidthPx) / 2) + 16;
 
   return (
     <div
@@ -355,16 +358,18 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
         "flex h-full min-h-0 items-center overflow-x-auto",
         mobileCoverFlow
           ? "touch-pan-x snap-x snap-mandatory overscroll-x-contain scroll-smooth"
-          : "px-24 py-8 touch-none"
+          : "py-8 touch-none"
       )}
       onScroll={mobileCoverFlow ? scheduleCenteredUpdate : undefined}
       style={{
         pointerEvents: interactionsDisabled ? "none" : "auto",
         WebkitOverflowScrolling: "touch",
-        paddingLeft: mobileCoverFlow ? `calc(50% - ${Math.round(slotWidthPx / 2)}px)` : undefined,
+        paddingLeft: mobileCoverFlow
+          ? `calc(50% - ${Math.round(slotWidthPx / 2)}px)`
+          : `${desktopSidePaddingPx}px`,
         paddingRight: mobileCoverFlow
           ? `calc(50% - ${Math.round(slotWidthPx / 2)}px)`
-          : undefined,
+          : `${desktopSidePaddingPx}px`,
         paddingTop: mobileCoverFlow ? `${mobileTopBottomPaddingPx}px` : undefined,
         paddingBottom: mobileCoverFlow ? `${mobileTopBottomPaddingPx}px` : undefined,
       }}
@@ -437,7 +442,9 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
             onPointerCancel={finishTouchPointer}
             onPointerLeave={finishTouchPointer}
             className={cn(
-              "shrink-0 transition-transform duration-200 ease-out relative group flex items-start justify-center"
+              "shrink-0 transition-transform duration-200 ease-out relative group flex items-start justify-center",
+              centerCards && index === 0 && "ml-auto",
+              centerCards && index === renderCards.length - 1 && "mr-auto"
             )}
             style={{
               width: slotWidthPx,

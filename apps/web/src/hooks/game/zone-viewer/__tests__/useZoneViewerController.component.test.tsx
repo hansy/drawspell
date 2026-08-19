@@ -145,8 +145,8 @@ describe("useZoneViewerController", () => {
       controller.handleContextMenu(
         {
           preventDefault: () => {},
-          clientX: 0,
-          clientY: 0,
+          clientX: 320,
+          clientY: 240,
         } as React.MouseEvent,
         card
       );
@@ -154,6 +154,8 @@ describe("useZoneViewerController", () => {
 
     await waitFor(() => expect(latestController?.contextMenu).not.toBeNull());
     const menu = latestController!.contextMenu!;
+    expect(menu.x).toBe(320);
+    expect(menu.y).toBe(240);
     const moveMenu = menu.items.find(
       (item): item is ContextMenuAction =>
         item.type === "action" && item.label === "Move to Library ..."
@@ -169,6 +171,41 @@ describe("useZoneViewerController", () => {
     });
 
     await waitFor(() => expect(listEl.scrollLeft).toBe(0));
+  });
+
+  it("submits top-X library reorders as visible-only", async () => {
+    const reorderZoneCards = vi.fn();
+    const library = buildZone({
+      id: "library-me",
+      type: ZONE.LIBRARY,
+      cardIds: ["c1", "c2", "c3"],
+    });
+    useGameStore.setState((state) => ({
+      ...state,
+      reorderZoneCards,
+      zones: { ...state.zones, [library.id]: library },
+      players: {
+        me: { id: "me", name: "Me", libraryCount: 3 } as any,
+      },
+      cards: {
+        c1: buildCard("c1", "Card1", library.id),
+        c2: buildCard("c2", "Card2", library.id),
+        c3: buildCard("c3", "Card3", library.id),
+      },
+    }));
+
+    render(<Harness zoneId={library.id} count={2} />);
+    await waitFor(() => expect(latestController?.displayCards).toHaveLength(2));
+
+    act(() => latestController!.commitReorder(["c3", "c2"]));
+
+    expect(reorderZoneCards).toHaveBeenCalledWith(
+      library.id,
+      ["c1", "c3", "c2"],
+      "me",
+      undefined,
+      true
+    );
   });
 
   it("removes a moved card from the top-X library view", async () => {

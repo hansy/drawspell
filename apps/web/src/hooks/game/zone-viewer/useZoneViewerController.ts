@@ -238,9 +238,9 @@ export const useZoneViewerController = ({
         zoneCardIds: zone.cardIds,
         reorderedIds: newOrder,
       });
-      reorderZoneCards(zone.id, mergedOrder, myPlayerId);
+      reorderZoneCards(zone.id, mergedOrder, myPlayerId, undefined, Boolean(count && count > 0));
     },
-    [myPlayerId, reorderZoneCards, zone]
+    [count, myPlayerId, reorderZoneCards, zone]
   );
 
   const handleContextMenu = React.useCallback(
@@ -264,10 +264,9 @@ export const useZoneViewerController = ({
         : [];
 
       if (items.length > 0 && containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
         setContextMenu({
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
+          x: e.clientX,
+          y: e.clientY,
           items,
           title: getDisplayName(card),
           cardId: card.id,
