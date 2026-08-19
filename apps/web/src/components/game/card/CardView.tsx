@@ -1,7 +1,7 @@
 import React from "react";
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CARD_BASE_CLASS } from "@/lib/constants";
+import { CARD_BASE_CLASS, CARD_CORNER_CLASS } from "@/lib/constants";
 
 import type { CardViewProps } from "./types";
 import { CardFace } from "./CardFace";
@@ -51,7 +51,8 @@ export const CardView = React.memo(
           draggable={false}
           className={cn(
             CARD_BASE_CLASS,
-            "origin-center bg-zinc-800 rounded-lg shadow-md shadow-[inset_0_0_24px_rgba(0,0,0,0.35)] flex flex-col items-center justify-center select-none relative z-0 transition-transform duration-200 ease-out",
+            CARD_CORNER_CLASS,
+            "origin-center bg-zinc-800 shadow-md shadow-[inset_0_0_24px_rgba(0,0,0,0.35)] flex flex-col items-center justify-center select-none relative z-0 transition-transform duration-200 ease-out",
             !isDragging &&
               !disableHoverAnimation &&
               "hover:scale-105 hover:shadow-xl hover:z-10 hover:border-indigo-500/50 cursor-grab active:cursor-grabbing",

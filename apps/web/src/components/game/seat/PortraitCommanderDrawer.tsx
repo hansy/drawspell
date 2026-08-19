@@ -7,7 +7,7 @@ import { Zone } from "@/components/game/zone/Zone";
 import { useCommanderZoneController } from "@/hooks/game/seat/useCommanderZoneController";
 import { cn } from "@/lib/utils";
 import type { Card as CardType, Zone as ZoneType, ZoneId } from "@/types";
-import { CARD_ASPECT_RATIO } from "@/lib/constants";
+import { CARD_ASPECT_CLASS, CARD_ASPECT_RATIO } from "@/lib/constants";
 
 interface PortraitCommanderDrawerProps {
   open: boolean;
@@ -72,7 +72,12 @@ export const PortraitCommanderDrawer: React.FC<PortraitCommanderDrawerProps> = (
                     key={card.id}
                     className="relative flex h-full min-h-0 w-[var(--cmdr-slot-w)] items-center justify-center"
                   >
-                    <div className="relative h-[var(--cmdr-card-h)] w-auto aspect-[11/15]">
+                    <div
+                      className={cn(
+                        "relative h-[var(--cmdr-card-h)] w-auto",
+                        CARD_ASPECT_CLASS,
+                      )}
+                    >
                       <Card
                         card={card}
                         className="shadow-lg !h-full !w-full !aspect-auto"

@@ -1,6 +1,7 @@
 import React from "react";
 
 import { cn } from "@/lib/utils";
+import { CARD_CORNER_CLASS } from "@/lib/constants";
 
 export const CardFaceArtwork: React.FC<{
   faceDown?: boolean;
@@ -21,7 +22,13 @@ export const CardFaceArtwork: React.FC<{
 }) => {
   if (faceDown) {
     return (
-      <div className="w-full h-full bg-indigo-900/50 rounded flex items-center justify-center bg-[url('/mtg_card_back.jpeg')] bg-cover bg-center" />
+      <div
+        data-card-face-artwork="back"
+        className={cn(
+          "w-full h-full overflow-hidden bg-indigo-900/50 flex items-center justify-center bg-[url('/mtg_card_back.jpeg')] bg-cover bg-center",
+          CARD_CORNER_CLASS,
+        )}
+      />
     );
   }
 
@@ -34,8 +41,10 @@ export const CardFaceArtwork: React.FC<{
         fetchPriority={imageFetchPriority}
         decoding="async"
         draggable={false}
+        data-card-face-artwork="front"
         className={cn(
-          "w-full h-full object-cover rounded pointer-events-none transition-transform duration-300 ease-out",
+          "block w-full h-full overflow-hidden object-cover pointer-events-none transition-transform duration-300 ease-out",
+          CARD_CORNER_CLASS,
           imageClassName
         )}
         style={

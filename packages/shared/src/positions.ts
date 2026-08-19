@@ -1,5 +1,6 @@
 import {
   BASE_CARD_HEIGHT,
+  BATTLEFIELD_SLOT_ASPECT_RATIO,
   CARD_ASPECT_RATIO,
   GRID_STEP_X,
   GRID_STEP_Y,
@@ -9,6 +10,7 @@ import {
 
 export {
   BASE_CARD_HEIGHT,
+  BATTLEFIELD_SLOT_ASPECT_RATIO,
   CARD_ASPECT_RATIO,
   GRID_STEP_X,
   GRID_STEP_Y,
@@ -101,7 +103,7 @@ const resolveCanonicalBattlefieldCardPixelSize = (params?: CardOrientationOption
   getCanonicalCardPixelSize({
     isTapped: params?.isTapped,
     baseCardHeight: BASE_CARD_HEIGHT,
-    baseCardWidth: BASE_CARD_HEIGHT * CARD_ASPECT_RATIO,
+    baseCardWidth: BASE_CARD_HEIGHT * BATTLEFIELD_SLOT_ASPECT_RATIO,
   });
 
 export const getNormalizedGridSteps = (
@@ -142,7 +144,7 @@ export const getCanonicalBattlefieldGridSteps = (params?: CardOrientationOptions
     zoneWidth: LEGACY_BATTLEFIELD_WIDTH,
     zoneHeight: LEGACY_BATTLEFIELD_HEIGHT,
     baseCardHeight: BASE_CARD_HEIGHT,
-    baseCardWidth: BASE_CARD_HEIGHT * CARD_ASPECT_RATIO,
+    baseCardWidth: BASE_CARD_HEIGHT * BATTLEFIELD_SLOT_ASPECT_RATIO,
   });
 
 export const BATTLEFIELD_PLACEMENT_GRID_WIDTH_FRACTION = 1 / 2;
@@ -154,21 +156,23 @@ const snapNormalizedValueToStep = (value: number, step: number) =>
 export const getCanonicalBattlefieldPlacementGridSteps = (
   params?: BattlefieldPlacementGridOptions
 ) => {
-  const { baseCardWidth } = resolveBaseCardDimensions({
+  const { baseCardHeight } = resolveBaseCardDimensions({
     baseCardHeight: params?.baseCardHeight,
     baseCardWidth: params?.baseCardWidth,
   });
+  const battlefieldSlotWidth =
+    baseCardHeight * BATTLEFIELD_SLOT_ASPECT_RATIO;
   const zoneWidth = params?.zoneWidth ?? LEGACY_BATTLEFIELD_WIDTH;
   const zoneHeight = params?.zoneHeight ?? LEGACY_BATTLEFIELD_HEIGHT;
   const viewScale = params?.viewScale ?? 1;
 
   return {
     stepX: zoneWidth
-      ? (baseCardWidth * viewScale * BATTLEFIELD_PLACEMENT_GRID_WIDTH_FRACTION) /
+      ? (battlefieldSlotWidth * viewScale * BATTLEFIELD_PLACEMENT_GRID_WIDTH_FRACTION) /
         zoneWidth
       : 0,
     stepY: zoneHeight
-      ? (baseCardWidth * viewScale * BATTLEFIELD_PLACEMENT_GRID_SHORT_SIDE_FRACTION) /
+      ? (battlefieldSlotWidth * viewScale * BATTLEFIELD_PLACEMENT_GRID_SHORT_SIDE_FRACTION) /
         zoneHeight
       : 0,
   };

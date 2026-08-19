@@ -9,6 +9,8 @@ import { GameDialogActionButton } from "@/components/game/dialog/GameDialogActio
 import type { TokenCreationController } from "@/hooks/game/token-creation/useTokenCreationController";
 import { getPreviewDimensions } from "@/hooks/game/seat/useSeatSizing";
 import { useGameStore } from "@/store/gameStore";
+import { CARD_CORNER_CLASS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 export const TokenCreationModalView: React.FC<TokenCreationController> = ({
   isOpen,
@@ -91,20 +93,32 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
                       key={token.id}
                       role="listitem"
                       onClick={() => setSelectedToken(token)}
-                      className={`
-                        relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-all mx-auto
-                        ${isSelected ? "border-indigo-500 ring-2 ring-indigo-500/50" : "border-transparent hover:border-zinc-700"}
-                      `}
+                      className={cn(
+                        "relative group cursor-pointer overflow-hidden border-2 transition-all mx-auto",
+                        CARD_CORNER_CLASS,
+                        isSelected
+                          ? "border-indigo-500 ring-2 ring-indigo-500/50"
+                          : "border-transparent hover:border-zinc-700",
+                      )}
                       style={{ width: previewWidthPx, height: previewHeightPx }}
                     >
                       {imageUrl ? (
                         <img
                           src={imageUrl}
                           alt={token.name}
-                          className="w-full h-full object-cover"
+                          data-card-face-artwork="token-result"
+                          className={cn(
+                            "block w-full h-full object-cover",
+                            CARD_CORNER_CLASS,
+                          )}
                         />
                       ) : (
-                        <div className="w-full h-full bg-zinc-900 flex items-center justify-center p-2 text-center text-xs text-zinc-500">
+                        <div
+                          className={cn(
+                            "w-full h-full bg-zinc-900 flex items-center justify-center p-2 text-center text-xs text-zinc-500",
+                            CARD_CORNER_CLASS,
+                          )}
+                        >
                           No Image Available
                         </div>
                       )}

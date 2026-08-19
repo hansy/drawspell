@@ -30,6 +30,17 @@ describe("CardFaceView", () => {
 
     const img = screen.getByRole("img", { name: "Island" }) as HTMLImageElement;
     expect(img.getAttribute("src")).toBe("https://example.com/island.jpg");
+    expect(img.classList.contains("rounded-[4.5%]")).toBe(true);
+  });
+
+  it("masks the opaque card-back image to the same physical card radius", () => {
+    const { container } = render(
+      <CardFaceView faceDown model={buildModel({ displayName: "Hidden card" })} />
+    );
+
+    const artwork = container.querySelector('[data-card-face-artwork="back"]');
+    expect(artwork?.classList.contains("rounded-[4.5%]")).toBe(true);
+    expect(artwork?.classList.contains("overflow-hidden")).toBe(true);
   });
 
   it("supports eager, high-priority artwork for previews", () => {

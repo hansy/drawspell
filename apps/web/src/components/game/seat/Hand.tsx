@@ -5,7 +5,11 @@ import { Card } from "../card/Card";
 import { Zone } from "../zone/Zone";
 import { ZONE_LABEL } from "@/constants/zones";
 import { shouldRenderFaceDown } from "@/lib/reveal";
-import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from "@/lib/constants";
+import {
+  BASE_CARD_HEIGHT,
+  CARD_ASPECT_CLASS,
+  CARD_ASPECT_RATIO,
+} from "@/lib/constants";
 import {
   debugLog,
   isDebugEnabled,
@@ -19,6 +23,7 @@ import {
   HAND_CARD_SCROLL_EDGE_PADDING_PX,
   HAND_CARD_TOP_GAP_PX,
 } from "./handSizing";
+
 import {
   arrayMove,
   SortableContext,
@@ -228,7 +233,8 @@ const SortableCard = React.memo(
           }
           data-dnd-hand-card-frame-id={card.id}
           className={cn(
-            "ds-seat-upright w-auto aspect-[11/15] transition-transform duration-200",
+            "ds-seat-upright w-auto transition-transform duration-200",
+            CARD_ASPECT_CLASS,
             flipCard && "rotate-180",
           )}
           style={{
@@ -256,6 +262,8 @@ const SortableCard = React.memo(
                 "ring-2 ring-cyan-200 ring-offset-2 ring-offset-zinc-950",
             )}
             style={{
+              width: resolvedBaseHeight * CARD_ASPECT_RATIO,
+              height: resolvedBaseHeight,
               transformOrigin: alignVisualBounds ? "top left" : undefined,
               transition:
                 "transform 300ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 300ms cubic-bezier(0.22, 1, 0.36, 1), border-color 300ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms ease-out",

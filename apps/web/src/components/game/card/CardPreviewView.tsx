@@ -3,7 +3,7 @@ import { Eye, RotateCw, X } from "lucide-react";
 
 import type { Card as CardType } from "@/types";
 import { Tooltip } from "@/components/ui/tooltip";
-import { CARD_ASPECT_CLASS } from "@/lib/constants";
+import { CARD_ASPECT_CLASS, CARD_CORNER_CLASS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 import { CardFace } from "./CardFace";
@@ -70,9 +70,10 @@ export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewP
         data-card-preview-locked={String(locked)}
         data-card-preview-placement={placement}
         className={cn(
-          "fixed z-[9999] rounded-xl shadow-2xl bg-zinc-900 transition-opacity duration-200 ease-out",
+          "fixed z-[9999] shadow-2xl bg-zinc-900 transition-opacity duration-200 ease-out",
           locked ? "pointer-events-auto" : "pointer-events-none",
           CARD_ASPECT_CLASS,
+          CARD_CORNER_CLASS,
         )}
         style={style}
         onContextMenu={(e) => e.preventDefault()}

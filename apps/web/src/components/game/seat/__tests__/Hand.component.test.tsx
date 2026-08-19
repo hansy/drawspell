@@ -349,8 +349,11 @@ describe("Hand visual ownership", () => {
     const label = getByText("Hand - 2");
     const handZone = container.querySelector('[data-zone-id="p1-hand"]');
 
-    expect(frame?.style.width).toBe("100px");
+    expect(Number.parseFloat(frame?.style.width ?? "0")).toBeCloseTo(
+      120 * (63 / 88) * 1.25,
+    );
     expect(frame?.style.height).toBe("150px");
+    expect(frame?.classList.contains("aspect-[63/88]")).toBe(true);
     expect(frame?.classList.contains("rotate-180")).toBe(true);
     expect(frame?.classList.contains("ds-seat-upright")).toBe(true);
     expect(sortableSlot?.classList.contains("ds-seat-upright")).toBe(false);
@@ -407,8 +410,12 @@ describe("Hand visual ownership", () => {
     ) as HTMLElement | null;
 
     expect(sourceCard).not.toBeNull();
-    expect(sourceCard?.style.getPropertyValue("--hand-card-slot-width")).toBe(
-      "160px"
+    expect(
+      Number.parseFloat(
+        sourceCard?.style.getPropertyValue("--hand-card-slot-width") ?? "0",
+      ),
+    ).toBeCloseTo(
+      120 * (63 / 88) * 2,
     );
   });
 

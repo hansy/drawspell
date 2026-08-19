@@ -41,6 +41,34 @@ const expectEdgesAlignedToGrid = (params: {
 };
 
 describe("battlefield placement contracts", () => {
+  it("separates the rendered card size from the logical battlefield slot", () => {
+    const untapped = computeBattlefieldPlacement({
+      centerScreen: { x: 500, y: 300 },
+      overRect: zoneRect,
+      zoneScale: 1,
+      viewScale: 1,
+      mirrorY: false,
+      isTapped: false,
+    });
+    const tapped = computeBattlefieldPlacement({
+      centerScreen: { x: 500, y: 300 },
+      overRect: zoneRect,
+      zoneScale: 1,
+      viewScale: 1,
+      mirrorY: false,
+      isTapped: true,
+    });
+
+    expect(untapped.cardWidth).toBeCloseTo(120 * (63 / 88));
+    expect(untapped.cardHeight).toBe(120);
+    expect(untapped.slotWidth).toBe(80);
+    expect(untapped.slotHeight).toBe(120);
+    expect(tapped.cardWidth).toBe(120);
+    expect(tapped.cardHeight).toBeCloseTo(120 * (63 / 88));
+    expect(tapped.slotWidth).toBe(120);
+    expect(tapped.slotHeight).toBe(80);
+  });
+
   it("keeps the grabbed hand-card point under the cursor when the drag card resizes", () => {
     const pointerScreen = { x: 649.59375, y: 700 };
     const dragAnchor = {

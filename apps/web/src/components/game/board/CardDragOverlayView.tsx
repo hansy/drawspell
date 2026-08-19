@@ -5,7 +5,7 @@ import { computeCardContainerStyle } from "@/models/game/card/cardModel";
 
 import { CardView } from "../card/CardView";
 
-const CARD_WIDTH_VAR = "var(--card-w, 80px)";
+const CARD_WIDTH_VAR = "var(--card-w, 85.9091px)";
 const CARD_HEIGHT_VAR = "var(--card-h, 120px)";
 
 export const computeDragOverlayFrameStyle = (

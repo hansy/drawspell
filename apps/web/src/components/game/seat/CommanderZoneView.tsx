@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import type { Zone as ZoneType, Card as CardType, ZoneId } from "@/types";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ZONE_DRAG_OVERLAY_SCALE } from "@/lib/dndDragCue";
+import { CARD_ASPECT_CLASS } from "@/lib/constants";
 import { Card } from "../card/Card";
 import { Zone } from "../zone/Zone";
 import { COMMANDER_DRAWER_PADDING_PX } from "./handSizing";
@@ -286,7 +287,10 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
                 <div
                   key={card.id}
                   data-commander-drawer-card
-                  className="ds-seat-upright group/commander-card relative h-full shrink-0 aspect-[11/15]"
+                  className={cn(
+                    "ds-seat-upright group/commander-card relative h-full shrink-0",
+                    CARD_ASPECT_CLASS,
+                  )}
                 >
                   <Card
                     card={card}

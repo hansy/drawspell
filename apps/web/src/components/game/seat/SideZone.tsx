@@ -3,7 +3,11 @@ import { Card as CardType, Zone as ZoneType, ZoneId } from "@/types";
 import { Zone } from "../zone/Zone";
 import { Card } from "../card/Card";
 import { cn } from "@/lib/utils";
-import { CARD_ASPECT_RATIO, ZONE_SIDEWAYS_CLASSES } from "@/lib/constants";
+import {
+  CARD_ASPECT_CLASS,
+  CARD_ASPECT_RATIO,
+  ZONE_SIDEWAYS_CLASSES,
+} from "@/lib/constants";
 import { ZONE } from "@/constants/zones";
 import {
   TOUCH_CONTEXT_MENU_LONG_PRESS_MS,
@@ -284,7 +288,8 @@ export const SideZone: React.FC<SideZoneProps> = ({
           zone={zone}
           className={cn(
             "group absolute left-1/2 -translate-x-1/2 overflow-hidden rounded-lg bg-zinc-900/25 transition-colors duration-150",
-            cardHeight === undefined && "top-2 aspect-[11/15] w-[104%] max-w-44",
+            cardHeight === undefined && "top-2 w-[104%] max-w-44",
+            cardHeight === undefined && CARD_ASPECT_CLASS,
             cardHeight !== undefined && "top-0",
             !card &&
               zone.type !== ZONE.LIBRARY &&
@@ -404,7 +409,12 @@ export const SideZone: React.FC<SideZoneProps> = ({
         {card ? (
           <div className="w-full h-full relative overflow-hidden rounded-lg">
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="h-full aspect-[2/3] rotate-90 scale-[var(--sidezone-card-scale)] origin-center">
+              <div
+                className={cn(
+                  "h-full rotate-90 scale-[var(--sidezone-card-scale)] origin-center",
+                  CARD_ASPECT_CLASS,
+                )}
+              >
                 <Card
                   card={card}
                   style={{ width: "100%", height: "100%" }}

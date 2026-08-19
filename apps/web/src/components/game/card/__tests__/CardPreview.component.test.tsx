@@ -950,7 +950,7 @@ describe("CardPreview", () => {
       expect(
         expectedDimensions.previewHeightPx + PREVIEW_TOP_CHROME_HEIGHT_PX,
       ).toBeLessThanOrEqual(619 - PREVIEW_VIEWPORT_PADDING_PX * 2);
-      expect(previewEl?.className).toContain("aspect-[2/3]");
+      expect(previewEl?.className).toContain("aspect-[63/88]");
       expect(previewEl?.className).not.toContain("flex");
 
       const controls = previewEl?.querySelector("[data-card-preview-controls]");

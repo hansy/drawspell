@@ -67,16 +67,16 @@ describe("CardDragOverlayView", () => {
     expect(frameStyle).toEqual({
       position: "relative",
       width: "var(--card-h, 120px)",
-      height: "var(--card-w, 80px)",
+      height: "var(--card-w, 85.9091px)",
     });
     expect(cardStyle.position).toBe("absolute");
-    expect(cardStyle.width).toBe("var(--card-w, 80px)");
+    expect(cardStyle.width).toBe("var(--card-w, 85.9091px)");
     expect(cardStyle.height).toBe("var(--card-h, 120px)");
     expect(cardStyle.left).toBe(
-      "calc((var(--card-h, 120px) - var(--card-w, 80px)) / 2)"
+      "calc((var(--card-h, 120px) - var(--card-w, 85.9091px)) / 2)"
     );
     expect(cardStyle.top).toBe(
-      "calc((var(--card-w, 80px) - var(--card-h, 120px)) / 2)"
+      "calc((var(--card-w, 85.9091px) - var(--card-h, 120px)) / 2)"
     );
   });
 });

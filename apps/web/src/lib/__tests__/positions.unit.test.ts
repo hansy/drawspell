@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BASE_CARD_HEIGHT,
+  BATTLEFIELD_SLOT_ASPECT_RATIO,
   CARD_ASPECT_RATIO,
   GRID_STEP_X,
   GRID_STEP_Y,
@@ -21,7 +22,7 @@ import {
 
 describe('positions', () => {
   it('exposes expected grid constants', () => {
-    const baseWidth = BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;
+    const baseWidth = BASE_CARD_HEIGHT * BATTLEFIELD_SLOT_ASPECT_RATIO;
     expect(LEGACY_BATTLEFIELD_WIDTH).toBe(1000);
     expect(LEGACY_BATTLEFIELD_HEIGHT).toBe(600);
     expect(GRID_STEP_X).toBeCloseTo(baseWidth / LEGACY_BATTLEFIELD_WIDTH, 8);
@@ -89,7 +90,8 @@ describe('positions', () => {
     expect(normal.stepY).toBeCloseTo(GRID_STEP_Y, 8);
     expect(tapped.stepX).toBeCloseTo(BASE_CARD_HEIGHT / LEGACY_BATTLEFIELD_WIDTH, 8);
     expect(tapped.stepY).toBeCloseTo(
-      ((BASE_CARD_HEIGHT * CARD_ASPECT_RATIO) / 4) / LEGACY_BATTLEFIELD_HEIGHT,
+      ((BASE_CARD_HEIGHT * BATTLEFIELD_SLOT_ASPECT_RATIO) / 4) /
+        LEGACY_BATTLEFIELD_HEIGHT,
       8
     );
   });

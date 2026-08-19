@@ -40,4 +40,15 @@ describe("TokenCreationModalView", () => {
       `repeat(auto-fill, minmax(${preview.style.width}, 1fr))`,
     );
   });
+
+  it("uses the shared physical-card corner mask for token results", () => {
+    render(<TokenCreationModalView {...controller} />);
+
+    const preview = screen.getAllByRole("listitem")[0];
+    const artwork = screen.getAllByRole("img", { name: "Treasure" })[0];
+
+    expect(preview.classList.contains("rounded-[4.5%]")).toBe(true);
+    expect(preview.classList.contains("overflow-hidden")).toBe(true);
+    expect(artwork.classList.contains("rounded-[4.5%]")).toBe(true);
+  });
 });

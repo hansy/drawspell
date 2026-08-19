@@ -157,7 +157,7 @@ export const computeDragMoveUiState = (params: {
       zoneId: targetZone.id,
       position: placement.ghostPosition,
       tapped: isTapped,
-      size: { width: placement.cardWidth, height: placement.cardHeight },
+      size: { width: placement.slotWidth, height: placement.slotHeight },
     },
     overCardScale,
     ...(params.over.dragOverlayScale !== undefined

@@ -1,4 +1,8 @@
-import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from './constants';
+import {
+  BASE_CARD_HEIGHT,
+  BATTLEFIELD_SLOT_ASPECT_RATIO,
+  CARD_ASPECT_RATIO,
+} from './constants';
 import {
   clampNormalizedToCanonicalBattlefieldBounds,
   fromNormalizedPosition,
@@ -137,6 +141,12 @@ export const computeBattlefieldPlacement = (params: {
     baseCardHeight: params.baseCardHeight,
     baseCardWidth: params.baseCardWidth,
   });
+  const baseCardHeight = params.baseCardHeight ?? BASE_CARD_HEIGHT;
+  const baseSlotWidth = baseCardHeight * BATTLEFIELD_SLOT_ASPECT_RATIO;
+  const slotWidth =
+    (params.isTapped ? baseCardHeight : baseSlotWidth) * params.viewScale;
+  const slotHeight =
+    (params.isTapped ? baseSlotWidth : baseCardHeight) * params.viewScale;
   const centerScreen =
     params.pointerScreen && params.dragAnchor
       ? {
@@ -174,12 +184,12 @@ export const computeBattlefieldPlacement = (params: {
   const snappedViewPosition = {
     x: snapCardEdgeToGrid({
       center: previewPosition.x,
-      size: cardWidth,
+      size: slotWidth,
       step: gridStepX,
     }),
     y: snapCardEdgeToGrid({
       center: previewPosition.y,
-      size: cardHeight,
+      size: slotHeight,
       step: gridStepY,
     }),
   };
@@ -229,6 +239,8 @@ export const computeBattlefieldPlacement = (params: {
   return {
     cardWidth,
     cardHeight,
+    slotWidth,
+    slotHeight,
     zoneWidth,
     zoneHeight,
     livePosition,

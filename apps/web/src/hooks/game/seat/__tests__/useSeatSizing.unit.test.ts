@@ -55,9 +55,9 @@ describe("computeSeatSizing", () => {
     expect(result.handHeightPx).toBeCloseTo(200);
     expect(result.battlefieldHeightPx).toBeCloseTo(600);
     expect(result.baseCardHeightPx).toBeCloseTo(150);
-    expect(result.baseCardWidthPx).toBeCloseTo(100);
+    expect(result.baseCardWidthPx).toBeCloseTo(150 * (63 / 88));
     expect(result.sidebarWidthPx).toBeCloseTo(expectedSidebarWidth, 6);
-    expect(result.previewWidthPx).toBeCloseTo(160);
+    expect(result.previewWidthPx).toBeCloseTo(150 * (63 / 88) * 1.6);
     expect(result.previewHeightPx).toBeCloseTo(240);
   });
 
@@ -122,7 +122,10 @@ describe("computeSeatSizing", () => {
     expect(result.previewHeightPx + PREVIEW_TOP_CHROME_HEIGHT_PX).toBeLessThanOrEqual(
       619 - PREVIEW_VIEWPORT_PADDING_PX * 2,
     );
-    expect(result.previewHeightPx).toBeCloseTo(result.previewWidthPx * 1.5, 6);
+    expect(result.previewHeightPx).toBeCloseTo(
+      result.previewWidthPx / (63 / 88),
+      6,
+    );
   });
 
   it("caps portrait preview width when base scale would exceed chrome-safe viewport width", () => {

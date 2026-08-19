@@ -1,22 +1,28 @@
 import {
   BASE_CARD_HEIGHT,
+  BATTLEFIELD_SLOT_ASPECT_RATIO,
   CARD_ASPECT_RATIO,
   LEGACY_BATTLEFIELD_HEIGHT,
   LEGACY_BATTLEFIELD_WIDTH,
 } from "@mtg/shared/constants/geometry";
 
 // Core dimensions
-export { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO };
+export {
+  BASE_CARD_HEIGHT,
+  BATTLEFIELD_SLOT_ASPECT_RATIO,
+  CARD_ASPECT_RATIO,
+};
 
 // Derived helper
 export const getCardWidth = (height: number) => height * CARD_ASPECT_RATIO;
 
 // Tailwind classes (derived from base)
 export const CARD_HEIGHT_CLASS =
-  "h-[120px] lg:h-[var(--card-h,120px)] lg:w-[var(--card-w,80px)] lg:aspect-auto";
-export const CARD_ASPECT_CLASS = "aspect-[2/3]";
+  "h-[120px] lg:h-[var(--card-h,120px)] lg:w-[var(--card-w,85.9091px)] lg:aspect-auto";
+export const CARD_ASPECT_CLASS = "aspect-[63/88]";
+export const CARD_CORNER_CLASS = "rounded-[4.5%]";
 export const CARD_BASE_CLASS =
-  "h-[120px] aspect-[2/3] lg:h-[var(--card-h,120px)] lg:w-[var(--card-w,80px)]";
+  "h-[120px] aspect-[63/88] lg:h-[var(--card-h,120px)] lg:w-[var(--card-w,85.9091px)]";
 export const ZONE_BASE_CLASSES = CARD_BASE_CLASS;
 export const ZONE_SIDEWAYS_CLASSES =
   "h-full w-auto max-w-full aspect-[var(--sidezone-aspect)]";
