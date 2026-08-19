@@ -73,7 +73,14 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
                 <div className="text-zinc-400">Searching tokens</div>
               </div>
             ) : results.length > 0 ? (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3 xs:gap-4 items-start">
+              <div
+                role="list"
+                aria-label="Token search results"
+                className="grid gap-3 xs:gap-4 items-start"
+                style={{
+                  gridTemplateColumns: `repeat(auto-fill, minmax(${previewWidthPx}px, 1fr))`,
+                }}
+              >
                 {results.map((token) => {
                   const imageUrl =
                     token.image_uris?.normal || token.card_faces?.[0]?.image_uris?.normal;
@@ -82,6 +89,7 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
                   return (
                     <div
                       key={token.id}
+                      role="listitem"
                       onClick={() => setSelectedToken(token)}
                       className={`
                         relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-all mx-auto
