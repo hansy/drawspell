@@ -15,9 +15,11 @@ import {
   toNormalizedPosition,
 } from "@/lib/positions";
 
+type Point = { x: number; y: number };
+
 export type GhostCardState = {
   zoneId: ZoneId;
-  position: { x: number; y: number };
+  position: Point;
   tapped?: boolean;
   size?: { width: number; height: number };
 };
@@ -25,7 +27,7 @@ export type GhostCardState = {
 export type GroupGhostCardState = {
   cardId: CardId;
   zoneId: ZoneId;
-  position: { x: number; y: number };
+  position: Point;
   tapped: boolean;
   size: { width: number; height: number };
 };
@@ -36,10 +38,10 @@ export type DragMoveUiState = {
   dragOverlayScale?: number;
   debug?: {
     activeRect?: RectLike | null;
-    centerScreen: { x: number; y: number };
-    pointerScreen?: { x: number; y: number } | null;
-    movementScreen?: { x: number; y: number } | null;
-    dragAnchor?: { x: number; y: number } | null;
+    centerScreen: Point;
+    pointerScreen?: Point | null;
+    movementScreen?: Point | null;
+    dragAnchor?: Point | null;
     pointerProjection:
       | {
           accepted: boolean;
@@ -62,9 +64,9 @@ export const computeDragMoveUiState = (params: {
   zones: Record<ZoneId, Zone>;
   activeCardId?: CardId;
   activeRect?: RectLike | null;
-  pointerScreen?: { x: number; y: number } | null;
-  movementScreen?: { x: number; y: number } | null;
-  dragAnchor?: { x: number; y: number } | null;
+  pointerScreen?: Point | null;
+  movementScreen?: Point | null;
+  dragAnchor?: Point | null;
   activeTapped?: boolean;
   over:
     | null
@@ -181,11 +183,11 @@ export const computeDragMoveUiState = (params: {
 
 const resolvePointerProjection = (params: {
   activeRect: RectLike;
-  pointerScreen?: { x: number; y: number } | null;
-  dragAnchor?: { x: number; y: number } | null;
+  pointerScreen?: Point | null;
+  dragAnchor?: Point | null;
 }): {
-  pointerScreen?: { x: number; y: number };
-  dragAnchor?: { x: number; y: number };
+  pointerScreen?: Point;
+  dragAnchor?: Point;
   reliability:
     | {
         accepted: boolean;
@@ -223,10 +225,10 @@ const resolvePointerProjection = (params: {
 export const computeBattlefieldGroupGhostCards = (params: {
   groupCardIds: CardId[];
   activeCardId: CardId;
-  startPositions: Record<CardId, { x: number; y: number } | undefined>;
+  startPositions: Record<CardId, Point | undefined>;
   cards: Record<CardId, Pick<Card, "id" | "tapped"> | undefined>;
   targetZoneId: ZoneId;
-  activeGhostPosition: { x: number; y: number };
+  activeGhostPosition: Point;
   zoneWidth: number;
   zoneHeight: number;
   mirrorY: boolean;
@@ -303,12 +305,12 @@ export type DragEndPlan =
       kind: "moveCard";
       cardId: CardId;
       toZoneId: ZoneId;
-      position: { x: number; y: number } | undefined;
+      position: Point | undefined;
       targetIndex?: number;
     };
 
 export const isPointInsideRect = (
-  point: { x: number; y: number },
+  point: Point,
   rect: RectLike
 ) =>
   point.x >= rect.left &&
@@ -317,7 +319,7 @@ export const isPointInsideRect = (
   point.y <= rect.bottom;
 
 export const isPointInsideRectVerticalBand = (
-  point: { x: number; y: number },
+  point: Point,
   rect: Pick<RectLike, "top" | "bottom">
 ) => point.y >= rect.top && point.y <= rect.bottom;
 
@@ -328,7 +330,7 @@ export const computeHandDropPreviewTargetIndex = (params: {
   targetZone: Pick<Zone, "type" | "cardIds"> | null | undefined;
   activeCardId: CardId;
   overCardId?: CardId;
-  pointerScreen?: { x: number; y: number } | null;
+  pointerScreen?: Point | null;
   handRect?: RectLike | null;
 }) => {
   if (params.targetZone?.type !== ZONE.HAND) return null;
@@ -359,7 +361,7 @@ export const computeHandDropPreviewTargetIndex = (params: {
 export const computeSameHandEdgePreviewIndex = (params: {
   sourceZone: Pick<Zone, "type"> | null | undefined;
   sourceHandRect: RectLike | null | undefined;
-  pointerScreen: { x: number; y: number } | null | undefined;
+  pointerScreen: Point | null | undefined;
   cardCount: number;
 }) => {
   if (params.sourceZone?.type !== ZONE.HAND) return null;
@@ -383,7 +385,7 @@ export const shouldUseSameHandDropFallback = (params: {
   activeId: string;
   sourceZone: Pick<Zone, "id" | "type"> | null | undefined;
   sourceHandRect: RectLike | null | undefined;
-  pointerScreen: { x: number; y: number } | null | undefined;
+  pointerScreen: Point | null | undefined;
   over:
     | null
     | undefined
@@ -411,16 +413,16 @@ export const computeDragEndPlan = (params: {
   toZoneId: ZoneId;
   overCardId?: CardId;
   activeRect?: RectLike | null;
-  pointerScreen?: { x: number; y: number } | null;
-  movementScreen?: { x: number; y: number } | null;
-  dragAnchor?: { x: number; y: number } | null;
+  pointerScreen?: Point | null;
+  movementScreen?: Point | null;
+  dragAnchor?: Point | null;
   overRect?: RectLike | null;
   handZoneRect?: RectLike | null;
   overScale?: number;
   overCardScale?: number;
   overCardBaseHeight?: number;
   overCardBaseWidth?: number;
-  releasePreviewPosition?: { x: number; y: number } | null;
+  releasePreviewPosition?: Point | null;
   mirrorY?: boolean;
   activeTapped?: boolean;
 }): DragEndPlan => {
