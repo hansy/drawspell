@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   BASE_CARD_HEIGHT,
   BATTLEFIELD_SLOT_ASPECT_RATIO,
-  CARD_ASPECT_RATIO,
   GRID_STEP_X,
   GRID_STEP_Y,
   LEGACY_BATTLEFIELD_HEIGHT,
