@@ -10,14 +10,8 @@ import {
   isDeckLoadedForShortcut,
   isTypingTarget,
   runGameShortcut,
+  type CountPromptOptions,
 } from "./model";
-
-type CountPromptOptions = {
-  title: string;
-  message: string;
-  onSubmit: (count: number) => void;
-  initialValue?: number;
-};
 
 export type UseGameShortcutsArgs = {
   viewerRole?: ViewerRole;

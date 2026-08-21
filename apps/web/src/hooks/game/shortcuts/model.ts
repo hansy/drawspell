@@ -6,7 +6,7 @@ import type {
   GameShortcutId,
 } from "@/models/game/shortcuts/gameShortcuts";
 
-type CountPromptOptions = {
+export type CountPromptOptions = {
   title: string;
   message: string;
   onSubmit: (count: number) => void;
