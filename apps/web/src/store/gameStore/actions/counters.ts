@@ -1,8 +1,7 @@
 import { getNormalizedCounterTotal, normalizeCounterType } from "@mtg/shared/counters";
-import type { StoreApi } from "zustand";
-
 import type { GameState } from "@/types";
 import type { DispatchIntent } from "@/store/gameStore/dispatchIntent";
+import type { GetState, SetState } from "./types";
 
 import { canModifyCardState } from "@/rules/permissions";
 import { logPermission } from "@/rules/logger";
@@ -13,9 +12,6 @@ import {
   mergeCounters,
   resolveCounterColor,
 } from "@/lib/counters";
-
-type SetState = StoreApi<GameState>["setState"];
-type GetState = StoreApi<GameState>["getState"];
 
 type Deps = {
   dispatchIntent: DispatchIntent;

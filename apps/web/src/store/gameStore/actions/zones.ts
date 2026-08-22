@@ -1,12 +1,8 @@
-import type { StoreApi } from "zustand";
-
 import type { GameState, Zone } from "@/types";
 import type { DispatchIntent } from "@/store/gameStore/dispatchIntent";
+import type { GetState, SetState } from "./types";
 
 import { logPermission } from "@/rules/logger";
-
-type SetState = StoreApi<GameState>["setState"];
-type GetState = StoreApi<GameState>["getState"];
 
 type Deps = {
   dispatchIntent: DispatchIntent;

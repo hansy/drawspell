@@ -1,13 +1,9 @@
-import type { StoreApi } from "zustand";
-
 import type { GameState } from "@/types";
 import type { PrivateOverlayDiffPayload, PrivateOverlayPayload } from "@/partykit/messages";
 import { applyPendingIntents, getPublicAuthoritativeState, setAuthoritativeState } from "@/store/gameStore/dispatchIntent";
 import { mergePrivateOverlay } from "@/store/gameStore/overlay";
 import { debugLog, isDebugEnabled, type DebugFlagKey } from "@/lib/debug";
-
-type SetState = StoreApi<GameState>["setState"];
-type GetState = StoreApi<GameState>["getState"];
+import type { GetState, SetState } from "./types";
 
 export const createPrivateOverlayActions = (
   set: SetState,

@@ -1,4 +1,3 @@
-import type { StoreApi } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 
 import type { GameState } from "@/types";
@@ -11,9 +10,7 @@ import { resetIntentState } from "@/store/gameStore/dispatchIntent";
 import { clearRoomHostPending, writeRoomTokensToStorage } from "@/lib/partyKitToken";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
 import { clearIntentTransport } from "@/partykit/intentTransport";
-
-type SetState = StoreApi<GameState>["setState"];
-type GetState = StoreApi<GameState>["getState"];
+import type { GetState, SetState } from "./types";
 
 const INITIAL_SESSION_ID = "";
 const INITIAL_PLAYER_ID = "";

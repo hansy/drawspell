@@ -1,14 +1,10 @@
-import type { StoreApi } from "zustand";
-
 import type { GameState } from "@/types";
 import type { DispatchIntent } from "@/store/gameStore/dispatchIntent";
+import type { GetState, SetState } from "./types";
 import { MAX_PLAYER_LIFE, MIN_PLAYER_LIFE } from "@/lib/limits";
 
 import { canUpdatePlayer } from "@/rules/permissions";
 import { logPermission } from "@/rules/logger";
-
-type SetState = StoreApi<GameState>["setState"];
-type GetState = StoreApi<GameState>["getState"];
 
 type Deps = {
   dispatchIntent: DispatchIntent;

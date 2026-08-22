@@ -1,12 +1,7 @@
-import type { StoreApi } from "zustand";
-
 import type { BattlefieldGridSizing, GameState } from "@/types";
 import type { DispatchIntent } from "@/store/gameStore/dispatchIntent";
 import { debugLog, type DebugFlagKey } from "@/lib/debug";
-
-
-type SetState = StoreApi<GameState>["setState"];
-type GetState = StoreApi<GameState>["getState"];
+import type { GetState, SetState } from "./types";
 
 type Deps = {
   dispatchIntent: DispatchIntent;
