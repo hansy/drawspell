@@ -47,6 +47,9 @@ export const chunkArray = <T,>(items: T[], chunkSize: number): T[][] => {
 export const shouldConfirmCuratedDeckReplacement = (importText: string): boolean =>
   importText.trim().length > 0;
 
+export const getStartingLifeForDeck = (parsedDeck: ParsedCard[]): 20 | 40 =>
+  getRequestedCounts(parsedDeck).commander > 0 ? 40 : 20;
+
 export type DeckImportCardData = Partial<Card> & {
   deckSection?: "main" | "commander" | "sideboard";
   section?: string;
@@ -84,7 +87,7 @@ export const planDeckImport = async (params: {
     fetchResult: FetchScryfallResult
   ) => { ok: true; warnings: string[] } | { ok: false; error: string };
   chunkSize?: number;
-}): Promise<{ chunks: DeckImportCardPlan[][]; warnings: string[] }> => {
+}): Promise<{ chunks: DeckImportCardPlan[][]; warnings: string[]; startingLife: 20 | 40 }> => {
   if (params.targetDeckLoaded) {
     throw new Error("Unload your current deck before importing another.");
   }
@@ -100,6 +103,7 @@ export const planDeckImport = async (params: {
   }
 
   const requestedCounts = getRequestedCounts(parsedDeck);
+  const startingLife = getStartingLifeForDeck(parsedDeck);
   if (requestedCounts.commander > 0) {
     const { commanderZoneId } = resolveDeckZoneIds({
       zones: params.zones,
@@ -153,5 +157,5 @@ export const planDeckImport = async (params: {
   });
 
   const chunks = chunkArray(planned, params.chunkSize ?? 20);
-  return { chunks, warnings: validation.warnings };
+  return { chunks, warnings: validation.warnings, startingLife };
 };

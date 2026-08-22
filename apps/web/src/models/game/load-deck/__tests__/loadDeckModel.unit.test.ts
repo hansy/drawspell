@@ -6,6 +6,7 @@ import type { FetchScryfallResult, ParsedCard } from "@/services/deck-import/dec
 import { ZONE } from "@/constants/zones";
 
 import {
+  getStartingLifeForDeck,
   isMultiplayerProviderReady,
   planDeckImport,
   resolveDeckZoneIds,
@@ -51,6 +52,19 @@ describe("loadDeckModel", () => {
     expect(shouldConfirmCuratedDeckReplacement("1 Lightning Bolt")).toBe(true);
   });
 
+  it("uses the commander section, not deck size, to choose starting life", () => {
+    const hundredCardMainDeck: ParsedCard[] = [
+      { quantity: 100, name: "A", set: "set", collectorNumber: "1", section: "main" },
+    ];
+    const commanderDeck: ParsedCard[] = [
+      { quantity: 99, name: "A", set: "set", collectorNumber: "1", section: "main" },
+      { quantity: 1, name: "B", set: "set", collectorNumber: "2", section: "commander" },
+    ];
+
+    expect(getStartingLifeForDeck(hundredCardMainDeck)).toBe(20);
+    expect(getStartingLifeForDeck(commanderDeck)).toBe(40);
+  });
+
   it("planDeckImport chunks cards and sets library cards face-down", async () => {
     const parsed: ParsedCard[] = [
       { quantity: 1, name: "A", set: "set", collectorNumber: "1", section: "main" },
@@ -87,6 +101,7 @@ describe("loadDeckModel", () => {
     });
 
     expect(result.warnings).toEqual(["warn"]);
+    expect(result.startingLife).toBe(40);
     expect(result.chunks).toHaveLength(3);
 
     expect(result.chunks[0]?.[0]?.zoneId).toBe("lib");

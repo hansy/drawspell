@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   addCards: vi.fn(),
   addZone: vi.fn(),
   setDeckLoaded: vi.fn(),
+  updatePlayer: vi.fn(),
   shuffleLibrary: vi.fn(),
   setLastImportedDeckText: vi.fn(),
 }));
@@ -35,6 +36,7 @@ vi.mock("@/store/gameStore", () => ({
       addCards: mocks.addCards,
       addZone: mocks.addZone,
       setDeckLoaded: mocks.setDeckLoaded,
+      updatePlayer: mocks.updatePlayer,
       shuffleLibrary: mocks.shuffleLibrary,
       zones: {},
       cards: {},
@@ -57,6 +59,7 @@ describe("useLoadDeckController", () => {
     mocks.planDeckImport.mockResolvedValue({
       chunks: [],
       warnings: [],
+      startingLife: 20,
     });
   });
 
@@ -96,6 +99,7 @@ describe("useLoadDeckController", () => {
       expect.objectContaining({ importText: curatedDecks[0].decklist })
     );
     expect(mocks.setLastImportedDeckText).not.toHaveBeenCalled();
+    expect(mocks.updatePlayer).toHaveBeenCalledWith("p1", { life: 20 }, "p1");
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

@@ -41,6 +41,7 @@ export const useLoadDeckController = ({
   const addCards = useGameStore((state) => state.addCards);
   const addZone = useGameStore((state) => state.addZone);
   const setDeckLoaded = useGameStore((state) => state.setDeckLoaded);
+  const updatePlayer = useGameStore((state) => state.updatePlayer);
   const shuffleLibrary = useGameStore((state) => state.shuffleLibrary);
   const zones = useGameStore((state) => state.zones);
   const cards = useGameStore((state) => state.cards);
@@ -139,6 +140,7 @@ export const useLoadDeckController = ({
           addCards(batch);
         });
 
+        updatePlayer(playerId, { life: planned.startingLife }, playerId);
         setDeckLoaded(playerId, true);
         shuffleLibrary(playerId, playerId);
 
@@ -161,6 +163,7 @@ export const useLoadDeckController = ({
       playerId,
       players,
       setDeckLoaded,
+      updatePlayer,
       setLastImportedDeckText,
       shuffleLibrary,
       viewerRole,

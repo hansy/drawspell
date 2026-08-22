@@ -38,3 +38,7 @@ Tags, color identity, card count, and sorting date.
 Commander Curated Decks include an explicit `Commander:` section so Drawspell can
 place the intended primary commander in the Commander Zone. Alternate commanders
 remain in the main deck unless a product explicitly uses co-commanders.
+
+On successful import, Drawspell also sets the importing player's life to 40 when
+the parsed list has a `Commander:` section, or 20 otherwise. Deck size is not used
+as the format signal because other formats can also use 100-card decks.

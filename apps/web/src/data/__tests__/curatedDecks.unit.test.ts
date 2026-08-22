@@ -28,15 +28,13 @@ describe("curatedDecks", () => {
       });
   });
 
-  it("tracks Moxfield source URLs for commander decks", () => {
-    curatedDecks
-      .filter((deck) => deck.primaryFormatTag === "commander")
-      .forEach((deck) => {
-        expect(deck.sourceUrl, deck.name).toMatch(/^https:\/\/moxfield\.com\/decks\//);
-        expect(deck.backgroundImageUrl, deck.name).toMatch(
-          /^https:\/\/cards\.scryfall\.io\/art_crop\//
-        );
-      });
+  it("links The Hobbit decks to Wizards' official decklists", () => {
+    curatedDecks.forEach((deck) => {
+      expect(deck.id, deck.name).toMatch(/^hob-welcome-/);
+      expect(deck.sourceUrl, deck.name).toBe(
+        "https://magic.wizards.com/en/news/announcements/the-hobbit-welcome-decks"
+      );
+    });
   });
 
   it("does not use the standard tag for starter decks", () => {
@@ -67,8 +65,7 @@ describe("curatedDecks", () => {
     const orderIndexes = groups.map((group) => FORMAT_TAG_ORDER.indexOf(group.tag));
 
     expect(orderIndexes).toEqual([...orderIndexes].sort((a, b) => a - b));
-    expect(groups[0]?.tag).toBe("commander");
-    expect(groups[1]?.tag).toBe("starter");
+    expect(groups[0]?.tag).toBe("starter");
   });
 
   it("normalizes color identity in WUBRGC order", () => {
