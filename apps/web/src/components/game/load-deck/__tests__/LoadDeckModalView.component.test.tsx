@@ -35,8 +35,9 @@ describe("LoadDeckModalView", () => {
     expect(screen.queryByText("Pick one to fill the list and load it.")).toBeNull();
     expect(screen.queryByText("Dwarves, riders, and protective white magic.")).toBeNull();
     expect(screen.queryByText("40 cards")).toBeNull();
-    expect(screen.queryByText("Commander")).toBeNull();
+    expect(screen.getAllByText("Commander").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Starter").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Avengers Assemble/ })).not.toBeNull();
     expect(screen.getByRole("button", { name: /White Welcome Deck/ })).not.toBeNull();
     expect(document.body.querySelector(".ms.ms-cost.ms-w")).not.toBeNull();
     expect(document.body.querySelector(".ms.ms-cost.ms-u")).not.toBeNull();
