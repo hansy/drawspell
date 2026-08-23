@@ -3,6 +3,7 @@ export type { CounterType, Counter } from "./counters";
 export type { CardIdentity, Card, CardLite, FaceDownMode, TokenCard } from "./cards";
 export { isTokenCard } from "./cards";
 export type {
+  CardReveal,
   HandRevealsToAll,
   LibraryRevealEntry,
   LibraryRevealsToAll,

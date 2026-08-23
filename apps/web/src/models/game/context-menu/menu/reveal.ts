@@ -1,10 +1,10 @@
-import type { Card, CardId, Player, PlayerId } from "@/types";
+import type { Card, CardId, CardReveal, Player, PlayerId } from "@/types";
 
 import type { ContextMenuItem } from "./types";
 
 type SetCardReveal = (
   cardId: CardId,
-  reveal: { toAll?: boolean; to?: PlayerId[] } | null
+  reveal: CardReveal
 ) => void;
 
 export const buildRevealMenu = (opts: {

@@ -4,6 +4,7 @@ import type { Player } from "./players";
 import type { CardId, PlayerId, ViewerRole, ZoneId } from "./ids";
 import type { Zone } from "./zones";
 import type {
+  CardReveal,
   FaceDownRevealsToAll,
   HandRevealsToAll,
   LibraryRevealsToAll,
@@ -133,7 +134,7 @@ export interface GameState {
   ) => void;
   setCardReveal: (
     cardId: CardId,
-    reveal: { toAll?: boolean; to?: PlayerId[] } | null,
+    reveal: CardReveal,
     actorId?: PlayerId,
     isRemote?: boolean
   ) => void;

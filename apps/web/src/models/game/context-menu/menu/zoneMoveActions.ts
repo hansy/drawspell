@@ -1,6 +1,7 @@
 import type {
   Card,
   CardId,
+  CardReveal,
   FaceDownMode,
   Player,
   PlayerId,
@@ -30,7 +31,7 @@ export const buildZoneMoveActions = (
   players?: Record<PlayerId, Player>,
   setCardReveal?: (
     cardId: CardId,
-    reveal: { toAll?: boolean; to?: PlayerId[] } | null
+    reveal: CardReveal
   ) => void,
   viewerRole?: ViewerRole
 ): ContextMenuItem[] => {

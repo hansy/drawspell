@@ -1,4 +1,4 @@
-import type { Card, CardId, GameState, PlayerId, ZoneId } from "@/types";
+import type { Card, CardId, CardReveal, GameState, PlayerId, ZoneId } from "@/types";
 import type { ScryfallRelatedCard } from "@/types/scryfall";
 import { useSelectionStore } from "@/store/selectionStore";
 import { resolveSelectedCardIds } from "@/models/game/selection/selectionModel";
@@ -140,7 +140,7 @@ export const createCardActionAdapters = (params: {
       ),
     setCardReveal: (
       cardId: CardId,
-      reveal: { toAll?: boolean; to?: PlayerId[] } | null
+      reveal: CardReveal
     ) =>
       applyToTargetCards(cardId, (card) =>
         params.store.setCardReveal(card.id, reveal, params.myPlayerId)

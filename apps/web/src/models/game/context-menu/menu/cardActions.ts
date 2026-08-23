@@ -1,6 +1,7 @@
 import type {
   Card,
   CardId,
+  CardReveal,
   Player,
   PlayerId,
   ViewerRole,
@@ -57,7 +58,7 @@ interface CardActionBuilderParams {
   openRandomDiscardPrompt?: (handCount: number) => void;
   setCardReveal?: (
     cardId: CardId,
-    reveal: { toAll?: boolean; to?: PlayerId[] } | null
+    reveal: CardReveal
   ) => void;
   lockPreview?: (card: Card, anchorEl: HTMLElement) => void;
   previewAnchorEl?: HTMLElement | null;

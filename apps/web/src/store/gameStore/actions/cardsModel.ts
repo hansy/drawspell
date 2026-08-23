@@ -1,4 +1,4 @@
-import type { Card } from "@/types";
+import type { Card, CardReveal } from "@/types";
 import type { CardPatch } from "@/yjs/yMutations";
 
 import { getCardFaces, getCurrentFaceIndex, syncCardStatsToFace } from "@/lib/cardDisplay";
@@ -80,7 +80,7 @@ export const buildUpdateCardPatch = (cardBefore: Card, updates: Partial<Card>): 
 
 export const buildRevealPatch = (
   card: Card,
-  reveal: { toAll?: boolean; to?: string[] } | null,
+  reveal: CardReveal,
   opts?: { excludeId?: string }
 ): Pick<CardPatch, "revealedToAll" | "revealedTo"> => {
   if (!reveal) {
