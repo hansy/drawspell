@@ -10,21 +10,12 @@ import { CARD_ASPECT_CLASS } from "@/lib/constants";
 import { Card } from "../card/Card";
 import { Zone } from "../zone/Zone";
 import { COMMANDER_DRAWER_PADDING_PX } from "./handSizing";
+import type { TouchContextMenuPressState } from "../touchContextMenu";
 
 import type { CommanderZoneController } from "@/hooks/game/seat/useCommanderZoneController";
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
-
-type TouchPressState = {
-  pointerId: number;
-  startX: number;
-  startY: number;
-  clientX: number;
-  clientY: number;
-  target: HTMLDivElement;
-  moved: boolean;
-};
 
 export interface CommanderZoneViewProps extends CommanderZoneController {
   zone: ZoneType;
@@ -81,7 +72,7 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
   const touchPressTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-  const touchPressRef = React.useRef<TouchPressState | null>(null);
+  const touchPressRef = React.useRef<TouchContextMenuPressState | null>(null);
 
   const clearTouchPressTimeout = React.useCallback(() => {
     if (touchPressTimeoutRef.current) {
@@ -113,7 +104,7 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
         return;
       }
 
-      const press: TouchPressState = {
+      const press: TouchContextMenuPressState = {
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,

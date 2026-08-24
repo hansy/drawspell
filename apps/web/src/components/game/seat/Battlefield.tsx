@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Zone as ZoneType, Card as CardType, Player, ViewerRole } from '@/types';
 import { Card } from '../card/Card';
 import { Zone } from '../zone/Zone';
+import type { TouchContextMenuPressState } from "../touchContextMenu";
 import { useDragStore } from '@/store/dragStore';
 import { useGameStore } from '@/store/gameStore';
 import { selectIsCardSelected, useSelectionStore } from '@/store/selectionStore';
@@ -50,16 +51,6 @@ const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
 const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 const EMPTY_SELECTED_CARD_IDS: string[] = [];
-
-type TouchPressState = {
-    pointerId: number;
-    startX: number;
-    startY: number;
-    clientX: number;
-    clientY: number;
-    target: HTMLDivElement;
-    moved: boolean;
-};
 
 // Memoized card wrapper to prevent unnecessary re-renders
 const BattlefieldCard = React.memo<{
@@ -361,7 +352,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
         isSelectionEnabled,
     });
     const touchPressTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    const touchPressRef = React.useRef<TouchPressState | null>(null);
+    const touchPressRef = React.useRef<TouchContextMenuPressState | null>(null);
 
     const clearTouchPressTimeout = React.useCallback(() => {
         if (touchPressTimeoutRef.current) {
@@ -388,7 +379,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
             return;
         }
 
-        const press: TouchPressState = {
+        const press: TouchContextMenuPressState = {
             pointerId: event.pointerId,
             startX: event.clientX,
             startY: event.clientY,

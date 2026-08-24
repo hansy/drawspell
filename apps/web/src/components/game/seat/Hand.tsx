@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { Zone as ZoneType, Card as CardType, ViewerRole } from "@/types";
 import { Card } from "../card/Card";
 import { Zone } from "../zone/Zone";
+import type { TouchContextMenuPressState } from "../touchContextMenu";
 import { ZONE_LABEL } from "@/constants/zones";
 import { shouldRenderFaceDown } from "@/lib/reveal";
 import {
@@ -66,16 +67,6 @@ interface HandProps {
 
 const HAND_SCROLLBAR_MIN_OVERFLOW_PX = 1;
 const HAND_SCROLL_DEBUG_MIN_DELTA_PX = 4;
-
-type TouchPressState = {
-  pointerId: number;
-  startX: number;
-  startY: number;
-  clientX: number;
-  clientY: number;
-  target: HTMLDivElement;
-  moved: boolean;
-};
 
 const SortableCard = React.memo(
   ({
@@ -330,7 +321,7 @@ const HandInner: React.FC<HandProps> = ({
   );
   const isSingleCardHand = displayCards.length === 1;
   const touchPressTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const touchPressRef = React.useRef<TouchPressState | null>(null);
+  const touchPressRef = React.useRef<TouchContextMenuPressState | null>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
   const lastLoggedScrollLeftRef = React.useRef<number | null>(null);
   const [scrollbarState, setScrollbarState] = React.useState({
@@ -481,7 +472,7 @@ const HandInner: React.FC<HandProps> = ({
         return;
       }
 
-      const press: TouchPressState = {
+      const press: TouchContextMenuPressState = {
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,

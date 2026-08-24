@@ -15,6 +15,7 @@ import {
 } from "@floating-ui/react";
 
 import { Tooltip } from "@/components/ui/tooltip";
+import type { TouchContextMenuPressState } from "../touchContextMenu";
 import { MAX_PLAYER_LIFE, MIN_PLAYER_LIFE } from "@/lib/limits";
 import { cn } from "@/lib/utils";
 
@@ -22,16 +23,6 @@ import type { LifeBoxController } from "@/hooks/game/player/useLifeBoxController
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
-
-type TouchPressState = {
-  pointerId: number;
-  startX: number;
-  startY: number;
-  clientX: number;
-  clientY: number;
-  target: HTMLDivElement;
-  moved: boolean;
-};
 
 export const LifeBoxView: React.FC<LifeBoxController> = ({
   player,
@@ -94,7 +85,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
   const touchPressTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-  const touchPressRef = React.useRef<TouchPressState | null>(null);
+  const touchPressRef = React.useRef<TouchContextMenuPressState | null>(null);
 
   const clearTouchPressTimeout = React.useCallback(() => {
     if (touchPressTimeoutRef.current) {
@@ -122,7 +113,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
         return;
       }
 
-      const press: TouchPressState = {
+      const press: TouchContextMenuPressState = {
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
