@@ -45,6 +45,8 @@ type IntentTransportOptions = {
   };
 };
 
+type IntentSocket = ReturnType<typeof createIntentSocket>;
+
 let activeTransport: IntentTransport | null = null;
 const intentMetaListeners = new Set<() => void>();
 const initialIntentMeta = (): IntentConnectionMeta => ({
@@ -109,8 +111,8 @@ export const createIntentTransport = ({
   socketOptions,
 }: IntentTransportOptions): IntentTransport => {
   let transport: IntentTransport | null = null;
-  let socket: ReturnType<typeof createIntentSocket> | null = null;
-  let socketPromise: Promise<ReturnType<typeof createIntentSocket> | null> | null = null;
+  let socket: IntentSocket | null = null;
+  let socketPromise: Promise<IntentSocket | null> | null = null;
 
   const handleOpen = () => {
     if (transport && activeTransport === transport) {
