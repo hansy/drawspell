@@ -12,14 +12,8 @@ import { ScryfallCard } from '@/types/scryfall';
 import { getCard, getCards } from '@/services/scryfall/scryfallCache';
 import { formatScryfallErrors } from '@/services/scryfall/scryfallErrors';
 
-interface UseScryfallCardResult {
-  data: ScryfallCard | null;
-  isLoading: boolean;
-  error: Error | null;
-}
-
-interface UseScryfallCardsResult {
-  data: Map<string, ScryfallCard>;
+interface UseScryfallResult<T> {
+  data: T;
   isLoading: boolean;
   error: Error | null;
 }
@@ -29,7 +23,7 @@ interface UseScryfallCardsResult {
  */
 export function useScryfallCard(
   scryfallId: string | undefined
-): UseScryfallCardResult {
+): UseScryfallResult<ScryfallCard | null> {
   const [data, setData] = useState<ScryfallCard | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -81,7 +75,7 @@ export function useScryfallCard(
  */
 export function useScryfallCards(
   scryfallIds: string[]
-): UseScryfallCardsResult {
+): UseScryfallResult<Map<string, ScryfallCard>> {
   const [data, setData] = useState<Map<string, ScryfallCard>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
