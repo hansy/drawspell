@@ -10,6 +10,12 @@ export interface ProviderLike {
   synced?: boolean;
 }
 
+type DeckZoneIds = {
+  libraryZoneId: ZoneId;
+  commanderZoneId: ZoneId;
+  sideboardZoneId: ZoneId;
+};
+
 export const isMultiplayerProviderReady = (params: {
   handles: unknown;
   provider: ProviderLike | null;
@@ -22,7 +28,7 @@ export const isMultiplayerProviderReady = (params: {
 export const resolveDeckZoneIds = (params: {
   zones: Record<ZoneId, Zone>;
   playerId: PlayerId;
-}): { libraryZoneId: ZoneId; commanderZoneId: ZoneId; sideboardZoneId: ZoneId } => {
+}): DeckZoneIds => {
   const libraryZone = getZoneByType(params.zones, params.playerId, ZONE.LIBRARY);
   const commanderZone = getZoneByType(params.zones, params.playerId, ZONE.COMMANDER);
   const sideboardZone = getZoneByType(params.zones, params.playerId, ZONE.SIDEBOARD);
