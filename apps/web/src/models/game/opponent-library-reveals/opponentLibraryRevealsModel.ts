@@ -11,6 +11,11 @@ import { ZONE } from "@/constants/zones";
 import { canViewerSeeLibraryCardByReveal } from "@/lib/reveal";
 import { libraryTopRevealIsAllPlayers } from "@mtg/shared/types/players";
 
+export type RevealedOpponentLibraryCards = {
+  cards: Card[];
+  actualTopCardId: string | null;
+};
+
 export const resolveZoneOwnerName = (params: {
   zone: Pick<Zone, "ownerId"> | null;
   players: Record<PlayerId, Pick<Player, "name">>;
@@ -57,7 +62,7 @@ export const computeRevealedOpponentLibraryCards = (params: {
   viewerId: PlayerId;
   libraryRevealsToAll: LibraryRevealsToAll;
   libraryTopReveal?: LibraryTopRevealMode | null;
-}): { cards: Card[]; actualTopCardId: string | null } => {
+}): RevealedOpponentLibraryCards => {
   if (!params.zone || params.zone.type !== ZONE.LIBRARY) {
     return { cards: [], actualTopCardId: null };
   }
