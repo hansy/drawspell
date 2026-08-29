@@ -1,5 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createJoinToken } from "@mtg/shared/security/joinToken";
+import {
+  isDevelopmentEnv,
+  isOriginAllowed,
+  normalizeOrigin,
+} from "@mtg/shared/security/origin";
 import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
 
 type JoinTokenRequest = {
@@ -15,28 +20,6 @@ const JOIN_TOKEN_TTL_MS = 5 * 60_000;
 const origins = resolveOriginsForEnv(import.meta.env.VITE_ENV);
 
 const joinTokenValidator = (input: JoinTokenRequest) => input;
-
-const normalizeOrigin = (value: string | undefined) => {
-  if (!value) return null;
-  try {
-    return new URL(value).origin;
-  } catch (_err) {
-    return null;
-  }
-};
-
-const isOriginAllowed = (
-  origin: string | null,
-  allowedOrigin: string | null,
-) => {
-  if (!allowedOrigin) return false;
-  if (!origin) return false;
-  const normalized = normalizeOrigin(origin);
-  if (!normalized) return false;
-  return normalized === allowedOrigin;
-};
-
-const isDevelopmentEnv = (envName: string | undefined) => envName === "development";
 
 export const getJoinToken = createServerFn({ method: "POST" })
   .inputValidator(joinTokenValidator)

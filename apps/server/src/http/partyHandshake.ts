@@ -1,24 +1,12 @@
 import { ORIGINS } from "@mtg/shared/constants/hosts";
 import { verifyJoinToken } from "@mtg/shared/security/joinToken";
+import {
+  isDevelopmentEnv,
+  isOriginAllowed,
+  normalizeOrigin,
+} from "@mtg/shared/security/origin";
 
 const JOIN_TOKEN_MAX_SKEW_MS = 30_000;
-
-const normalizeOrigin = (value: string | undefined) => {
-  if (!value) return null;
-  try {
-    return new URL(value).origin;
-  } catch (_error) {
-    return null;
-  }
-};
-
-const isOriginAllowed = (origin: string | null, allowedOrigin: string | null) => {
-  if (!allowedOrigin) return false;
-  if (!origin) return false;
-  const normalized = normalizeOrigin(origin);
-  if (!normalized) return false;
-  return normalized === allowedOrigin;
-};
 
 const isDefaultPortForProtocol = (port: number, protocol: string) => {
   if (protocol === "https:" || protocol === "wss:") return port === 443;
@@ -56,8 +44,6 @@ const normalizeHostFromOrigin = (value: string | undefined): string | null => {
     return null;
   }
 };
-
-const isDevelopmentEnv = (envName: string | undefined) => envName === "development";
 
 const getPartyRequestInfo = (url: URL) => {
   const parts = url.pathname.split("/").filter(Boolean);

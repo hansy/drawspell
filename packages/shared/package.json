@@ -20,6 +20,7 @@
     "./positions": "./src/positions.ts",
     "./rules/types": "./src/rules/types.ts",
     "./rules/permissions": "./src/rules/permissions.ts",
-    "./security/joinToken": "./src/security/joinToken.ts"
+    "./security/joinToken": "./src/security/joinToken.ts",
+    "./security/origin": "./src/security/origin.ts"
   }
 }
