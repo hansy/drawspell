@@ -26,14 +26,14 @@ export const createEmptyHiddenState = (): HiddenState => ({
   faceDownReveals: {},
 });
 
-const recordEntries = (value: unknown): [string, unknown][] => {
+const readRecordEntries = (value: unknown): [string, unknown][] => {
   const record = readRecord(value);
   return record ? Object.entries(record) : [];
 };
 
 const readOrderMap = (value: unknown): Record<string, string[]> => {
   const result: Record<string, string[]> = {};
-  recordEntries(value).forEach(([key, raw]) => {
+  readRecordEntries(value).forEach(([key, raw]) => {
     if (!Array.isArray(raw)) return;
     result[key] = uniqueStrings(raw);
   });
@@ -42,7 +42,7 @@ const readOrderMap = (value: unknown): Record<string, string[]> => {
 
 const readRevealMap = (value: unknown): Record<string, HiddenReveal> => {
   const result: Record<string, HiddenReveal> = {};
-  recordEntries(value).forEach(([key, raw]) => {
+  readRecordEntries(value).forEach(([key, raw]) => {
     if (!raw || typeof raw !== "object") return;
     const reveal = raw as HiddenReveal;
     const toAll = reveal.toAll === true;
