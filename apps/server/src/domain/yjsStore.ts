@@ -190,19 +190,20 @@ export const buildSnapshot = (maps: Maps): Snapshot => {
 
 export const applyRecordToMap = (map: Y.Map<unknown>, next: Record<string, unknown>) => {
   const seen = new Set(Object.keys(next));
-  map.forEach((_value, key) => {
-    const keyStr = String(key);
-    if (!seen.has(keyStr)) map.delete(keyStr);
-  });
+  deleteYMapEntries(map, (key) => !seen.has(String(key)));
   Object.entries(next).forEach(([key, value]) => {
     map.set(key, value);
   });
 };
 
-export const clearYMap = <T>(map: Y.Map<T>) => {
+const deleteYMapEntries = <T>(map: Y.Map<T>, shouldDelete: (key: string) => boolean) => {
   map.forEach((_value, key) => {
-    map.delete(key);
+    if (shouldDelete(key)) map.delete(key);
   });
+};
+
+export const clearYMap = <T>(map: Y.Map<T>) => {
+  deleteYMapEntries(map, () => true);
 };
 
 export const syncPlayerOrder = (order: Y.Array<string>, ids: string[]) => {
