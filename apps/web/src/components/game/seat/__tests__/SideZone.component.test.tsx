@@ -40,8 +40,8 @@ describe("SideZone touch gestures", () => {
     vi.useRealTimers();
   });
 
-  it("never exposes the displayed library card as a drag handle", () => {
-    expect(shouldDisableSideZoneCardDrag(ZONE.LIBRARY, false)).toBe(true);
+  it("allows library cards to drag unless the caller disables them", () => {
+    expect(shouldDisableSideZoneCardDrag(ZONE.LIBRARY, false)).toBe(false);
     expect(shouldDisableSideZoneCardDrag(ZONE.GRAVEYARD, false)).toBe(false);
     expect(shouldDisableSideZoneCardDrag(ZONE.EXILE, true)).toBe(true);
   });
@@ -124,7 +124,7 @@ describe("SideZone touch gestures", () => {
     const card = container.querySelector('[data-card-id="card-1"]');
     expect(dropZone?.classList.contains("border-dotted")).toBe(false);
     expect(card?.classList.contains("rotate-180")).toBe(true);
-    expect(card?.getAttribute("aria-disabled")).toBe("true");
+    expect(card?.getAttribute("aria-disabled")).not.toBe("true");
   });
 
   it("maps touch double tap to onDoubleClick", () => {

@@ -24,6 +24,7 @@ interface ZoneActionBuilderParams {
   onViewZone?: (zoneId: ZoneId, count?: number) => void;
   drawCard: (playerId: PlayerId) => void;
   discardFromLibrary: (playerId: PlayerId, count?: number) => void;
+  exileFromLibrary: (playerId: PlayerId, count?: number) => void;
   shuffleLibrary: (playerId: PlayerId) => void;
   resetDeck: (playerId: PlayerId) => void;
   mulligan: (playerId: PlayerId, count: number) => void;
@@ -146,6 +147,43 @@ const buildLibraryDiscardMenu = ({
   };
 };
 
+const buildLibraryExileMenu = ({
+  myPlayerId,
+  exileFromLibrary,
+  libraryCount,
+  openCountPrompt,
+}: {
+  myPlayerId: PlayerId;
+  exileFromLibrary: (playerId: PlayerId, count?: number) => void;
+  libraryCount?: number;
+  openCountPrompt?: ZoneActionBuilderParams["openCountPrompt"];
+}): ContextMenuItem => ({
+  type: "action",
+  label: "Exile ...",
+  onSelect: () => {},
+  submenu: [
+    {
+      type: "action",
+      label: "Exile 1",
+      onSelect: () => exileFromLibrary(myPlayerId, 1),
+    },
+    buildCountPromptAction({
+      label: "Exile Top X...",
+      openCountPrompt,
+      buildPromptOptions: () => ({
+        title: "Exile Top Cards",
+        message: "How many cards from the top of your library?",
+        onSubmit: (count) => exileFromLibrary(myPlayerId, count),
+        minValue: 1,
+        ...(typeof libraryCount === "number" && libraryCount > 0
+          ? { maxValue: libraryCount, showMaxButton: true }
+          : null),
+        confirmLabel: "Exile",
+      }),
+    }),
+  ],
+});
+
 const buildLibraryViewMenu = ({
   zoneId,
   onViewZone,
@@ -189,6 +227,7 @@ export const buildZoneViewActions = ({
   onViewZone,
   drawCard,
   discardFromLibrary,
+  exileFromLibrary,
   shuffleLibrary,
   resetDeck,
   mulligan,
@@ -216,6 +255,14 @@ export const buildZoneViewActions = ({
         discardFromLibrary,
         openCountPrompt,
       })
+    );
+    items.push(
+      buildLibraryExileMenu({
+        myPlayerId,
+        exileFromLibrary,
+        libraryCount: players?.[myPlayerId]?.libraryCount,
+        openCountPrompt,
+      }),
     );
 
     if (onViewZone) {

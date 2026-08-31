@@ -89,6 +89,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const dragOverlayScale = useDragStore((state) => state.dragOverlayScale);
   const dragOverlayCue = useDragStore((state) => state.dragOverlayCue);
   const activeCardId = useDragStore((state) => state.activeCardId);
+  const activeCardSnapshot = useDragStore((state) => state.activeCardSnapshot);
   const activeCardScale = useDragStore((state) => state.activeCardScale);
   const activeCardTransformOrigin = useDragStore(
     (state) => state.activeCardTransformOrigin,
@@ -548,6 +549,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     dragOverlayScale,
     dragOverlayCue,
     activeCardId,
+    activeCardSnapshot,
     activeCardScale,
     activeCardTransformOrigin,
     activeCardDragAnchor,

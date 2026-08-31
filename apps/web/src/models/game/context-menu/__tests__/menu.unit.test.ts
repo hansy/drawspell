@@ -247,6 +247,58 @@ describe("buildZoneMoveActions", () => {
 });
 
 describe("buildZoneViewActions", () => {
+  it("offers Exile 1 and Exile Top X from the library", () => {
+    const zone = makeZone("lib", ZONE.LIBRARY, "owner");
+    const exileFromLibrary = vi.fn();
+    const openCountPrompt = vi.fn();
+    const items = buildZoneViewActions({
+      zone,
+      myPlayerId: "owner",
+      viewerRole: "player",
+      drawCard: vi.fn(),
+      discardFromLibrary: vi.fn(),
+      exileFromLibrary,
+      shuffleLibrary: vi.fn(),
+      resetDeck: vi.fn(),
+      mulligan: vi.fn(),
+      unloadDeck: vi.fn(),
+      players: {
+        owner: { ...makePlayer("owner", "Owner"), libraryCount: 7 },
+      },
+      openCountPrompt,
+    });
+
+    const exileMenu = items.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "Exile ...",
+    );
+    const exileOne = exileMenu?.submenu?.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "Exile 1",
+    );
+    const exileTopX = exileMenu?.submenu?.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "Exile Top X...",
+    );
+
+    exileOne?.onSelect();
+    expect(exileFromLibrary).toHaveBeenCalledWith("owner", 1);
+
+    exileTopX?.onSelect();
+    expect(openCountPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Exile Top Cards",
+        minValue: 1,
+        maxValue: 7,
+        showMaxButton: true,
+        confirmLabel: "Exile",
+      }),
+    );
+    const prompt = openCountPrompt.mock.calls[0]?.[0];
+    prompt?.onSubmit(4);
+    expect(exileFromLibrary).toHaveBeenCalledWith("owner", 4);
+  });
+
   it("disables count prompts when handler missing", () => {
     const zone = makeZone("lib", ZONE.LIBRARY, "owner");
     const items = buildZoneViewActions({
@@ -255,6 +307,7 @@ describe("buildZoneViewActions", () => {
       viewerRole: "player",
       drawCard: vi.fn(),
       discardFromLibrary: vi.fn(),
+      exileFromLibrary: vi.fn(),
       shuffleLibrary: vi.fn(),
       resetDeck: vi.fn(),
       mulligan: vi.fn(),
@@ -291,6 +344,7 @@ describe("buildZoneViewActions", () => {
       viewerRole: "player",
       drawCard: vi.fn(),
       discardFromLibrary: vi.fn(),
+      exileFromLibrary: vi.fn(),
       shuffleLibrary: vi.fn(),
       resetDeck: vi.fn(),
       mulligan: vi.fn(),
@@ -333,6 +387,7 @@ describe("buildZoneViewActions", () => {
       viewerRole: "player",
       drawCard: vi.fn(),
       discardFromLibrary: vi.fn(),
+      exileFromLibrary: vi.fn(),
       shuffleLibrary: vi.fn(),
       resetDeck: vi.fn(),
       mulligan: vi.fn(),

@@ -12,7 +12,7 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { useGameStore } from "@/store/gameStore";
 import { useDragStore } from "@/store/dragStore";
 import { useSelectionStore } from "@/store/selectionStore";
-import type { CardId, ViewerRole, ZoneId } from "@/types";
+import type { Card, CardId, ViewerRole, ZoneId } from "@/types";
 import {
   computeBattlefieldGroupGhostCards,
   computeDragEndPlan,
@@ -356,9 +356,13 @@ const getInitialBattlefieldGroupGhostCards = (params: {
 
 export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
   const moveCard = useGameStore((state) => state.moveCard);
+  const moveTopLibraryCard = useGameStore((state) => state.moveTopLibraryCard);
   const reorderZoneCards = useGameStore((state) => state.reorderZoneCards);
   const setGhostCards = useDragStore((state) => state.setGhostCards);
   const setActiveCardId = useDragStore((state) => state.setActiveCardId);
+  const setActiveCardSnapshot = useDragStore(
+    (state) => state.setActiveCardSnapshot,
+  );
   const setHandDragPreview = useDragStore((state) => state.setHandDragPreview);
   const setActiveCardScale = useDragStore((state) => state.setActiveCardScale);
   const setActiveCardTransformOrigin = useDragStore(
@@ -478,6 +482,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     setIsGroupDragging(false);
     setDragOverlayScale(1);
     setDragOverlayCue(null);
+    setActiveCardSnapshot(null);
     if (event.active.data.current?.cardId) {
       const cardId = event.active.data.current.cardId as CardId;
       setActiveCardId(cardId);
@@ -521,8 +526,10 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       );
 
       const state = useGameStore.getState();
-      const activeCard = state.cards[cardId];
+      const cardSnapshot = event.active.data.current?.cardSnapshot as Card | undefined;
+      const activeCard = state.cards[cardId] ?? cardSnapshot;
       if (!activeCard) return;
+      setActiveCardSnapshot(activeCard);
       const activeZone = state.zones[activeCard.zoneId];
       debugLog(BATTLEFIELD_DND_DEBUG_KEY, "drag-start", {
         seq: currentDragSeq.current,
@@ -583,6 +590,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         });
       }
 
+      if (!state.cards[cardId]) return;
       const selectionState = useSelectionStore.getState();
       const groupIds = resolveSelectedCardIds({
         seedCardId: cardId,
@@ -654,7 +662,14 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     );
 
     const activeCardId = active.data.current?.cardId as CardId | undefined;
-    const activeCard = activeCardId ? state.cards[activeCardId] : undefined;
+    const cardSnapshot = active.data.current?.cardSnapshot as Card | undefined;
+    const activeCard = activeCardId
+      ? state.cards[activeCardId] ?? cardSnapshot
+      : undefined;
+    const cardsForDrag =
+      activeCardId && activeCard && !state.cards[activeCardId]
+        ? { ...state.cards, [activeCardId]: activeCard }
+        : state.cards;
     const pointerScreenResult = getCurrentPointerScreen({
       activatorEvent: event.activatorEvent,
       delta: event.delta,
@@ -748,7 +763,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
     const result = computeDragMoveUiState({
       myPlayerId,
       viewerRole: params.viewerRole,
-      cards: state.cards,
+      cards: cardsForDrag,
       zones: state.zones,
       activeCardId,
       activeRect: active.rect.current?.translated,
@@ -1025,6 +1040,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
   const cleanupDragState = React.useCallback(() => {
     setGhostCards(null);
     setActiveCardId(null);
+    setActiveCardSnapshot(null);
     setActiveCardScale(1);
     setActiveCardTransformOrigin(DEFAULT_DRAG_TRANSFORM_ORIGIN);
     setActiveCardDragAnchor(null);
@@ -1042,6 +1058,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
   }, [
     setActiveCardDragAnchor,
     setActiveCardId,
+    setActiveCardSnapshot,
     setActiveCardScale,
     setActiveCardSourceSize,
     setActiveCardTransformOrigin,
@@ -1155,8 +1172,12 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         const cardId = active.data.current?.cardId as CardId | undefined;
         if (!cardId) return;
         const state = useGameStore.getState();
-        const activeCard = state.cards[cardId];
+        const cardSnapshot = active.data.current?.cardSnapshot as Card | undefined;
+        const activeCard = state.cards[cardId] ?? cardSnapshot;
         if (!activeCard) return;
+        const cardsForDrag = state.cards[cardId]
+          ? state.cards
+          : { ...state.cards, [cardId]: activeCard };
 
         const pointerScreenResult = getCurrentPointerScreen({
           activatorEvent: event.activatorEvent,
@@ -1193,7 +1214,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         const plan = computeDragEndPlan({
           myPlayerId,
           viewerRole: params.viewerRole,
-          cards: state.cards,
+          cards: cardsForDrag,
           zones: state.zones,
           cardId,
           toZoneId,
@@ -1289,6 +1310,15 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
         }
 
         if (plan.kind === "moveCard") {
+          if (sourceZone?.type === ZONE.LIBRARY) {
+            moveTopLibraryCard(
+              sourceZone.ownerId,
+              plan.toZoneId,
+              plan.position,
+              myPlayerId,
+            );
+            return;
+          }
           if (group && group.groupCardIds.length > 1) {
             const targetZone = state.zones[plan.toZoneId];
             if (!targetZone) return;
@@ -1519,6 +1549,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       clearSelection,
       isSpectator,
       moveCard,
+      moveTopLibraryCard,
       myPlayerId,
       params.viewerRole,
       reorderZoneCards,

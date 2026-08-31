@@ -16,8 +16,10 @@ import {
 } from "@/lib/dndBattlefield";
 import { cn } from "@/lib/utils";
 import { CardPreviewProvider } from "../card/CardPreviewProvider";
-import { shouldRenderFaceDown } from "@/lib/reveal";
-import { CardDragOverlayView } from "./CardDragOverlayView";
+import {
+  CardDragOverlayView,
+  shouldRenderDragOverlayFaceDown,
+} from "./CardDragOverlayView";
 import { ZONE_DRAG_OVERLAY_POINTER_OFFSET_PX } from "@/lib/dndDragCue";
 import { bottomBarAwarePointerWithin } from "@/lib/bottomBarCollision";
 import { Seat } from "../seat/Seat";
@@ -237,6 +239,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   dragOverlayScale,
   dragOverlayCue,
   activeCardId,
+  activeCardSnapshot,
   activeCardScale,
   activeCardTransformOrigin,
   activeCardDragAnchor,
@@ -299,7 +302,9 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
 }) => {
   const suppressSingleOverlay = isGroupDragging && !showGroupDragOverlay;
   const showConnectingOverlay = syncStatus === "connecting";
-  const activeCard = activeCardId ? cards[activeCardId] : null;
+  const activeCard = activeCardId
+    ? cards[activeCardId] ?? activeCardSnapshot
+    : null;
   const activeZone = activeCard ? zones[activeCard.zoneId] : undefined;
   const activeOwnerId =
     activeZone?.ownerId ?? activeCard?.ownerId ?? undefined;
@@ -1022,7 +1027,9 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
         <DragOverlay dropAnimation={null}>
           {showGroupDragOverlay
             ? (() => {
-                const overlayCard = activeCardId ? cards[activeCardId] : null;
+                const overlayCard = activeCardId
+                  ? cards[activeCardId] ?? activeCardSnapshot
+                  : null;
                 if (!overlayCard) return null;
                 const overlayZone = zones[overlayCard.zoneId];
                 const overlayPreferArtCrop = false;
@@ -1076,15 +1083,12 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                     >
                       {overlayCards.map((card, index) => {
                         const overlayZoneType = zones[card.zoneId]?.type;
-                        const faceDown =
-                          overlayZoneType === ZONE.LIBRARY
-                            ? true
-                            : shouldRenderFaceDown(
-                                card,
-                                overlayZoneType,
-                                myPlayerId,
-                                viewerRole
-                              );
+                        const faceDown = shouldRenderDragOverlayFaceDown({
+                          card,
+                          zoneType: overlayZoneType,
+                          viewerId: myPlayerId,
+                          viewerRole,
+                        });
 
                         return (
                           <div
@@ -1113,9 +1117,9 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                   </div>
                 );
               })()
-            : activeCardId && cards[activeCardId] && !suppressSingleOverlay
+            : activeCardId && activeCard && !suppressSingleOverlay
               ? (() => {
-                  const overlayCard = cards[activeCardId];
+                  const overlayCard = activeCard;
                   const overlayZone = zones[overlayCard.zoneId];
                   const overlayPreferArtCrop = false;
                   const viewScale =
@@ -1132,15 +1136,12 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                     overlayCard,
                     overlayScale
                   );
-                  const overlayFaceDown =
-                    overlayZone?.type === ZONE.LIBRARY
-                      ? true
-                      : shouldRenderFaceDown(
-                          overlayCard,
-                          overlayZone?.type,
-                          myPlayerId,
-                          viewerRole
-                        );
+                  const overlayFaceDown = shouldRenderDragOverlayFaceDown({
+                    card: overlayCard,
+                    zoneType: overlayZone?.type,
+                    viewerId: myPlayerId,
+                    viewerRole,
+                  });
                   return (
                     <div
                       data-dnd-drag-overlay-card-id={overlayCard.id}

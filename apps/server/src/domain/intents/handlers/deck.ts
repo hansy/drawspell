@@ -1,11 +1,11 @@
-import { ZONE } from "../../constants";
+import { isCommanderZoneType, ZONE } from "../../constants";
 import { syncLibraryRevealsToAllForPlayer, updatePlayerCounts } from "../../hiddenState";
 import { buildLibraryTopRevealScope } from "../../libraryTopReveal";
 import { applyMulligan, applyResetDeck, applyUnloadDeck } from "../../deck";
 import { shuffle } from "../../random";
 import { findZoneByTypeInMaps } from "../../zones";
-import { canViewHiddenZone } from "../../permissions";
-import { readPlayer, writePlayer } from "../../yjsStore";
+import { canMoveCard, canViewHiddenZone } from "../../permissions";
+import { readLiveZoneCardIds, readPlayer, readZone, writePlayer } from "../../yjsStore";
 import { applyCardMove } from "../../movement";
 import { ensurePermission, readNumber, requireNonEmptyStringProp } from "../validation";
 import type { IntentHandler, IntentHandlerContext } from "./types";
@@ -104,6 +104,110 @@ const handleLibraryDiscard: IntentHandler = ({ actorId, maps, hidden, payload, p
   }
   syncLibraryRevealsToAllForPlayer(maps, hidden, playerId, libraryZone.id);
   return { ok: true };
+};
+
+const moveCurrentTopLibraryCard = (
+  context: Pick<
+    IntentHandlerContext,
+    "actorId" | "maps" | "hidden" | "pushLogEvent" | "markHiddenChanged"
+  >,
+  playerId: string,
+  libraryZone: NonNullable<ReturnType<typeof findZoneByTypeInMaps>>,
+  toZoneId: string,
+  position?: unknown,
+) => {
+  const order = context.hidden.libraryOrder[playerId] ?? [];
+  const cardId = getTopLibraryCardId(order);
+  if (!cardId) return { ok: true as const };
+
+  const card = context.hidden.cards[cardId];
+  const toZone = readZone(context.maps, toZoneId);
+  if (!card) return { ok: false as const, error: "card not found" };
+  if (!toZone) return { ok: false as const, error: "zone not found" };
+
+  const toZoneForPermission = isCommanderZoneType(toZone.type)
+    ? {
+        ...toZone,
+        cardIds: readLiveZoneCardIds(
+          context.maps,
+          toZone.id,
+          toZone.cardIds,
+        ),
+      }
+    : toZone;
+  const permission = canMoveCard(
+    context.actorId,
+    card,
+    libraryZone,
+    toZoneForPermission,
+  );
+  const allowed = ensurePermission(permission);
+  if (!allowed.ok) return allowed;
+
+  return applyCardMove(
+    context.maps,
+    context.hidden,
+    {
+      cardId,
+      toZoneId,
+      actorId: context.actorId,
+      ...(position !== undefined ? { position } : null),
+    },
+    "top",
+    context.pushLogEvent,
+    context.markHiddenChanged,
+  );
+};
+
+const handleLibraryExile: IntentHandler = ({
+  actorId,
+  maps,
+  hidden,
+  payload,
+  pushLogEvent,
+  markHiddenChanged,
+}) => {
+  const libraryContext = resolveLibraryContext(actorId, maps, payload);
+  if (!libraryContext.ok) return libraryContext;
+
+  const { playerId, libraryZone } = libraryContext;
+  const exileZone = findZoneByTypeInMaps(maps, playerId, ZONE.EXILE);
+  if (!exileZone) return { ok: false, error: "zone not found" };
+
+  const count = normalizeNonNegativeCount(readNumber(payload.count) ?? 1);
+  for (let i = 0; i < count; i += 1) {
+    const result = moveCurrentTopLibraryCard(
+      { actorId, maps, hidden, pushLogEvent, markHiddenChanged },
+      playerId,
+      libraryZone,
+      exileZone.id,
+    );
+    if (!result.ok) return result;
+    if ((hidden.libraryOrder[playerId] ?? []).length === 0) break;
+  }
+  return { ok: true };
+};
+
+const handleLibraryMoveTop: IntentHandler = ({
+  actorId,
+  maps,
+  hidden,
+  payload,
+  pushLogEvent,
+  markHiddenChanged,
+}) => {
+  const libraryContext = resolveLibraryContext(actorId, maps, payload);
+  if (!libraryContext.ok) return libraryContext;
+  const toZoneIdResult = requireNonEmptyStringProp(payload, "toZoneId", "invalid move");
+  if (!toZoneIdResult.ok) return toZoneIdResult;
+
+  return moveCurrentTopLibraryCard(
+    { actorId, maps, hidden, pushLogEvent, markHiddenChanged },
+    libraryContext.playerId,
+    libraryContext.libraryZone,
+    toZoneIdResult.value,
+    payload.position,
+  );
 };
 
 const handleHandDiscardRandom: IntentHandler = ({ actorId, maps, hidden, payload, pushLogEvent, markHiddenChanged }) => {
@@ -259,6 +363,8 @@ export const deckIntentHandlers: Record<string, IntentHandler> = {
   "hand.discardRandom": handleHandDiscardRandom,
   "library.draw": handleLibraryDraw,
   "library.discard": handleLibraryDiscard,
+  "library.exile": handleLibraryExile,
+  "library.moveTop": handleLibraryMoveTop,
   "library.shuffle": handleLibraryShuffle,
   "deck.reset": handleDeckReset,
   "deck.unload": handleDeckUnload,

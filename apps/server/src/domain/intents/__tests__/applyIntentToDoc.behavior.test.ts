@@ -981,6 +981,98 @@ describe("applyIntentToDoc", () => {
     expect(readZone(maps, graveyard.id)?.cardIds.length).toBe(2);
   });
 
+  it("exiles the current top cards in order and reveals them only in exile", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    const library = makeZone("lib-p1", ZONE.LIBRARY, "p1");
+    const exile = makeZone("exile-p1", ZONE.EXILE, "p1");
+    writeZone(maps, library);
+    writeZone(maps, exile);
+    hidden.libraryOrder.p1 = ["c1", "c2", "c3"];
+    hidden.cards.c1 = makeCard("c1", "p1", library.id);
+    hidden.cards.c2 = makeCard("c2", "p1", library.id);
+    hidden.cards.c3 = makeCard("c3", "p1", library.id);
+
+    const result = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-exile-top",
+        type: "library.exile",
+        payload: { actorId: "p1", playerId: "p1", count: 2 },
+      },
+      hidden,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(hidden.libraryOrder.p1).toEqual(["c1"]);
+    expect(hidden.cards.c2).toBeUndefined();
+    expect(hidden.cards.c3).toBeUndefined();
+    expect(readZone(maps, exile.id)?.cardIds).toEqual(["c3", "c2"]);
+    expect(maps.cards.get("c3")).toMatchObject({ name: "Card c3", zoneId: exile.id });
+    expect(maps.cards.get("c2")).toMatchObject({ name: "Card c2", zoneId: exile.id });
+    if (result.ok) {
+      expect(result.logEvents.map((event) => event.payload.cardName)).toEqual([
+        "Card c3",
+        "Card c2",
+      ]);
+    }
+  });
+
+  it("resolves a dragged library top card on the server and rejects other players", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    const library = makeZone("lib-p1", ZONE.LIBRARY, "p1");
+    const battlefield = makeZone("bf-p1", ZONE.BATTLEFIELD, "p1");
+    writeZone(maps, library);
+    writeZone(maps, battlefield);
+    hidden.libraryOrder.p1 = ["c1", "c2"];
+    hidden.cards.c1 = makeCard("c1", "p1", library.id);
+    hidden.cards.c2 = makeCard("c2", "p1", library.id);
+
+    const rejected = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-move-top-rejected",
+        type: "library.moveTop",
+        payload: {
+          actorId: "p2",
+          playerId: "p1",
+          toZoneId: battlefield.id,
+          position: { x: 0.25, y: 0.75 },
+        },
+      },
+      hidden,
+    );
+    expect(rejected).toMatchObject({ ok: false, error: "Hidden zone" });
+    expect(hidden.libraryOrder.p1).toEqual(["c1", "c2"]);
+
+    const moved = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-move-top",
+        type: "library.moveTop",
+        payload: {
+          actorId: "p1",
+          playerId: "p1",
+          toZoneId: battlefield.id,
+          position: { x: 0.25, y: 0.75 },
+        },
+      },
+      hidden,
+    );
+    expect(moved.ok).toBe(true);
+    expect(hidden.libraryOrder.p1).toEqual(["c1"]);
+    expect(maps.cards.get("c2")).toMatchObject({
+      zoneId: battlefield.id,
+      position: { x: 0.25, y: 0.75 },
+    });
+    expect(readZone(maps, battlefield.id)?.cardIds).toEqual(["c2"]);
+  });
+
   it("should remove tokens when card.remove is called for a public token", () => {
     const doc = createDoc();
     const maps = getMaps(doc);

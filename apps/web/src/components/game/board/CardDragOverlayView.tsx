@@ -1,12 +1,28 @@
 import React from "react";
 
-import type { Card as CardType } from "@/types";
+import type { Card as CardType, ViewerRole, ZoneType } from "@/types";
 import { computeCardContainerStyle } from "@/models/game/card/cardModel";
+import { ZONE } from "@/constants/zones";
+import { shouldRenderFaceDown } from "@/lib/reveal";
 
 import { CardView } from "../card/CardView";
 
 const CARD_WIDTH_VAR = "var(--card-w, 85.9091px)";
 const CARD_HEIGHT_VAR = "var(--card-h, 120px)";
+
+export const shouldRenderDragOverlayFaceDown = (params: {
+  card: CardType;
+  zoneType?: ZoneType;
+  viewerId: string;
+  viewerRole?: ViewerRole;
+}) =>
+  params.zoneType === ZONE.LIBRARY ||
+  shouldRenderFaceDown(
+    params.card,
+    params.zoneType,
+    params.viewerId,
+    params.viewerRole,
+  );
 
 export const computeDragOverlayFrameStyle = (
   card: CardType

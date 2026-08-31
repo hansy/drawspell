@@ -243,15 +243,15 @@ export const SeatView: React.FC<SeatViewProps> = ({
   const graveyardTopCard = graveyardCards[graveyardCards.length - 1];
   const exileTopCard = exileCards[exileCards.length - 1];
   const libraryPreviewCard =
-    isLg && libraryTopCard && !libraryFaceDown && !libraryTopIsPlaceholder
+    libraryTopCard && !libraryFaceDown && !libraryTopIsPlaceholder
       ? libraryTopCard
       : undefined;
   const graveyardPreviewCard =
-    isLg && graveyardTopCard && !graveyardTopCard.faceDown
+    graveyardTopCard && !graveyardTopCard.faceDown
       ? graveyardTopCard
       : undefined;
   const exilePreviewCard =
-    isLg && exileTopCard && !exileTopCard.faceDown ? exileTopCard : undefined;
+    exileTopCard && !exileTopCard.faceDown ? exileTopCard : undefined;
   const sideZonePreviewCardIdsRef = React.useRef<{
     library?: string;
     graveyard?: string;
@@ -322,7 +322,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               count={libraryCount}
               onContextMenu={onZoneContextMenu}
               faceDown={libraryFaceDown}
-              disableCardDrag={libraryTopIsPlaceholder}
+              disableCardDrag={!isMe}
               showContextMenuCursor={showLibraryContextMenuCursor}
               indicatorSide={isRight ? "left" : "right"}
               onClick={
@@ -777,7 +777,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                   count={libraryCount}
                   onContextMenu={onZoneContextMenu}
                   faceDown={libraryFaceDown}
-                  disableCardDrag={libraryTopIsPlaceholder}
+                  disableCardDrag={!isMe}
                   showContextMenuCursor={showLibraryContextMenuCursor}
                   onClick={
                     !isMe &&

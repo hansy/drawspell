@@ -3,8 +3,10 @@ import type { GameState } from "@/types";
 import type { Deps, GetState, SetState } from "./types";
 import { createDrawCard } from "./drawCard";
 import { createDiscardFromLibrary } from "./discardFromLibrary";
+import { createExileFromLibrary } from "./exileFromLibrary";
 import { createDiscardRandomFromHand } from "./discardRandomFromHand";
 import { createMulligan } from "./mulligan";
+import { createMoveTopLibraryCard } from "./moveTopLibraryCard";
 import { createResetDeck } from "./resetDeck";
 import { createShuffleLibrary } from "./shuffleLibrary";
 import { createUnloadDeck } from "./unloadDeck";
@@ -17,6 +19,8 @@ export const createDeckActions = (
   GameState,
   | "drawCard"
   | "discardFromLibrary"
+  | "exileFromLibrary"
+  | "moveTopLibraryCard"
   | "discardRandomFromHand"
   | "shuffleLibrary"
   | "resetDeck"
@@ -25,6 +29,8 @@ export const createDeckActions = (
 > => ({
   drawCard: createDrawCard(set, get, deps),
   discardFromLibrary: createDiscardFromLibrary(set, get, deps),
+  exileFromLibrary: createExileFromLibrary(set, get, deps),
+  moveTopLibraryCard: createMoveTopLibraryCard(set, get, deps),
   discardRandomFromHand: createDiscardRandomFromHand(set, get, deps),
   shuffleLibrary: createShuffleLibrary(set, get, deps),
   resetDeck: createResetDeck(set, get, deps),

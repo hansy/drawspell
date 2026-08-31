@@ -52,9 +52,9 @@ interface SideZoneProps {
 }
 
 export const shouldDisableSideZoneCardDrag = (
-  zoneType: ZoneType["type"],
+  _zoneType: ZoneType["type"],
   disableCardDrag = false,
-) => disableCardDrag || zoneType === ZONE.LIBRARY;
+) => disableCardDrag;
 
 // Shared rendering for vertical sidebar zones (library/graveyard/exile).
 export const SideZone: React.FC<SideZoneProps> = ({

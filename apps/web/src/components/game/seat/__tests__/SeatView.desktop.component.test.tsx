@@ -132,6 +132,55 @@ describe("SeatView desktop side-zone previews", () => {
     hoverZone(exileZone.id);
   });
 
+  it("shows public side-zone previews below the desktop layout breakpoint", () => {
+    setMatchMedia(false);
+    const graveyardZone = makeZone("graveyard-p1", "graveyard", ["c-graveyard"]);
+    const exileZone = makeZone("exile-p1", "exile", ["c-exile"]);
+    const graveyardCard = makeCard("c-graveyard", graveyardZone.id, "Graveyard Card");
+    const exileCard = makeCard("c-exile", exileZone.id, "Exile Card");
+    const model = {
+      isTop: false,
+      isRight: false,
+      mirrorBattlefieldY: false,
+      inverseScalePercent: 100,
+      zones: { graveyard: graveyardZone, exile: exileZone },
+      cards: {
+        library: [],
+        graveyard: [graveyardCard],
+        exile: [exileCard],
+        battlefield: [],
+        commander: [],
+        hand: [],
+      },
+      opponentLibraryRevealCount: 0,
+    } as const;
+
+    const { container } = render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer()}
+            color="sky"
+            isMe
+            viewerPlayerId="p1"
+            opponentColors={{ p1: "sky" }}
+            model={model as any}
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    for (const zoneId of [graveyardZone.id, exileZone.id]) {
+      const zone = container.querySelector(`[data-zone-id="${zoneId}"]`);
+      if (!(zone instanceof HTMLElement)) {
+        throw new Error(`Expected zone ${zoneId}`);
+      }
+      fireEvent.mouseEnter(zone);
+      expect(container.querySelector("[data-card-preview]")).not.toBeNull();
+      fireEvent.mouseLeave(zone);
+    }
+  });
+
   it("closes the active side-zone preview after the hovered top card changes", () => {
     const graveyardZone = makeZone("graveyard-p1", "graveyard", ["c-graveyard-1"]);
     const firstCard = makeCard("c-graveyard-1", graveyardZone.id, "First Card");

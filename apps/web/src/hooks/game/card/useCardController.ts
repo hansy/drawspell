@@ -137,6 +137,7 @@ export const useCardController = (props: CardProps): CardController => {
     id: card.id,
     data: {
       cardId: card.id,
+      cardSnapshot: card,
       zoneId: card.zoneId,
       ownerId: card.ownerId,
       tapped: card.tapped,

@@ -7,6 +7,7 @@ import {
   CardDragOverlayView,
   computeDragOverlayCardStyle,
   computeDragOverlayFrameStyle,
+  shouldRenderDragOverlayFaceDown,
 } from "../CardDragOverlayView";
 
 vi.mock("../../card/CardView", () => ({
@@ -43,6 +44,17 @@ const createCard = (overrides: Partial<Card> = {}): Card => ({
 });
 
 describe("CardDragOverlayView", () => {
+  it("always hides a library card during the drag, even if it is revealed", () => {
+    expect(
+      shouldRenderDragOverlayFaceDown({
+        card: createCard({ knownToAll: true, revealedToAll: true }),
+        zoneType: "library",
+        viewerId: "me",
+        viewerRole: "player",
+      }),
+    ).toBe(true);
+  });
+
   it("renders a tapped overlay card in the same orientation as the real card", () => {
     render(
       <CardDragOverlayView

@@ -20,6 +20,8 @@ export const INTENT_TYPES = [
   "hand.discardRandom",
   "library.discard",
   "library.draw",
+  "library.exile",
+  "library.moveTop",
   "library.shuffle",
   "library.view",
   "library.view.close",

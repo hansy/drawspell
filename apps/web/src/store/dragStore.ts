@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import type { PendingDropVisualClaim } from "@/lib/dndVisualOwnership";
 import type { DragOverlayCue } from "@/lib/dndDragCue";
+import type { Card } from "@/types";
 
 interface GhostCardState {
     cardId: string;
@@ -14,6 +15,7 @@ interface GhostCardState {
 interface DragStore {
     ghostCards: GhostCardState[] | null;
     activeCardId: string | null;
+    activeCardSnapshot: Card | null;
     handDragPreview: {
         cardId: string;
         zoneId: string;
@@ -35,6 +37,7 @@ interface DragStore {
     dragOverlayCue: DragOverlayCue | null;
     setGhostCards: (ghostCards: GhostCardState[] | null) => void;
     setActiveCardId: (activeCardId: string | null) => void;
+    setActiveCardSnapshot: (activeCardSnapshot: Card | null) => void;
     setHandDragPreview: (
         preview: {
             cardId: string;
@@ -64,6 +67,7 @@ interface DragStore {
 export const useDragStore = create<DragStore>((set) => ({
     ghostCards: null,
     activeCardId: null,
+    activeCardSnapshot: null,
     handDragPreview: null,
     activeCardScale: 1,
     activeCardTransformOrigin: "50% 50%",
@@ -76,6 +80,7 @@ export const useDragStore = create<DragStore>((set) => ({
     dragOverlayCue: null,
     setGhostCards: (ghostCards) => set({ ghostCards }),
     setActiveCardId: (activeCardId) => set({ activeCardId }),
+    setActiveCardSnapshot: (activeCardSnapshot) => set({ activeCardSnapshot }),
     setHandDragPreview: (handDragPreview) => set({ handDragPreview }),
     setActiveCardScale: (activeCardScale) => set({ activeCardScale }),
     setActiveCardTransformOrigin: (activeCardTransformOrigin) =>

@@ -115,6 +115,19 @@ export interface GameState {
     actorId?: PlayerId,
     isRemote?: boolean
   ) => void;
+  exileFromLibrary: (
+    playerId: PlayerId,
+    count?: number,
+    actorId?: PlayerId,
+    isRemote?: boolean
+  ) => void;
+  moveTopLibraryCard: (
+    playerId: PlayerId,
+    toZoneId: ZoneId,
+    position?: { x: number; y: number },
+    actorId?: PlayerId,
+    isRemote?: boolean
+  ) => void;
   discardRandomFromHand: (
     playerId: PlayerId,
     count?: number,

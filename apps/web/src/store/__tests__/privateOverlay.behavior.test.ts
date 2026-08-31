@@ -58,6 +58,8 @@ const buildBaseState = (): GameState =>
     untapAll: (() => {}) as any,
     drawCard: (() => {}) as any,
     discardFromLibrary: (() => {}) as any,
+    exileFromLibrary: (() => {}) as any,
+    moveTopLibraryCard: (() => {}) as any,
     discardRandomFromHand: (() => {}) as any,
     shuffleLibrary: (() => {}) as any,
     mulligan: (() => {}) as any,
