@@ -5,6 +5,10 @@ import type { Card } from "@/types";
 import { cn } from "@/lib/utils";
 import { CardView } from "../card/Card";
 import { useTwoFingerScroll } from "@/hooks/shared/useTwoFingerScroll";
+import { useExclusiveActivation } from "@/hooks/shared/useExclusiveActivation";
+import { useOptionalCardPreview } from "../card/CardPreviewProvider";
+import { getSelectedCardIdSet, useSelectionStore } from "@/store/selectionStore";
+import { preloadCardPreviewImage } from "@/lib/cardImagePreload";
 import { getCoverFlowVisuals, useHorizontalCoverFlow } from "./coverFlow";
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
@@ -25,6 +29,11 @@ type TouchDragState = {
   pointerId: number;
   draggedCardId: string;
   started: boolean;
+};
+
+type ZoneCardActivation = {
+  card: Card;
+  target: HTMLDivElement;
 };
 
 export interface ZoneViewerLinearViewProps {
@@ -66,6 +75,14 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
   mobileCoverFlow = false,
   centerCards = false,
 }) => {
+  const preview = useOptionalCardPreview();
+  const selectedCardIds = useSelectionStore((state) => state.selectedCardIds);
+  const selectionZoneId = useSelectionStore((state) => state.selectionZoneId);
+  const toggleCardSelection = useSelectionStore((state) => state.toggleCard);
+  const selectedCardIdSet = React.useMemo(
+    () => getSelectedCardIdSet(selectedCardIds),
+    [selectedCardIds]
+  );
   const renderCards = React.useMemo(() => [...orderedCards].reverse(), [orderedCards]);
   const cardsById = React.useMemo(
     () => new Map(renderCards.map((card) => [card.id, card])),
@@ -83,6 +100,22 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
   const touchHoldPointerIdRef = React.useRef<number | null>(null);
   const touchDragRef = React.useRef<TouchDragState | null>(null);
   const touchContextMenuTriggeredRef = React.useRef(false);
+  const desktopPressRef = React.useRef<{
+    cardId: string;
+    startX: number;
+    startY: number;
+    target: HTMLDivElement;
+  } | null>(null);
+
+  const { activate, activateDouble, flushPending } =
+    useExclusiveActivation<ZoneCardActivation>({
+      getKey: ({ card }) => card.id,
+      onSingle: ({ card }) => toggleCardSelection(card.id, card.zoneId),
+      onDouble: ({ card, target }) => {
+        preloadCardPreviewImage(card, "high");
+        preview?.toggleLock(card, target);
+      },
+    });
   const coverFlowItemIds = React.useMemo(
     () => renderCards.map((card) => card.id),
     [renderCards]
@@ -312,11 +345,70 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
         setCenteredId(point.cardId);
       }
 
+      if (
+        !point.moved &&
+        !touchContextMenuTriggeredRef.current &&
+        !drag?.started
+      ) {
+        const card = cardsById.get(point.cardId);
+        if (card) activate({ card, target: point.target });
+      }
+
       if (touchPointsRef.current.size === 0) {
         touchContextMenuTriggeredRef.current = false;
       }
     },
-    [cancelTouchHold, commitReorder, mobileCoverFlow, setDraggingId]
+    [
+      activate,
+      cancelTouchHold,
+      cardsById,
+      commitReorder,
+      mobileCoverFlow,
+      setDraggingId,
+    ]
+  );
+
+  const handleDesktopPointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>, card: Card) => {
+      if (event.pointerType === "touch") return;
+      if (interactionsDisabled || event.button !== 0) return;
+      if (event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return;
+      desktopPressRef.current = {
+        cardId: card.id,
+        startX: event.clientX,
+        startY: event.clientY,
+        target: event.currentTarget,
+      };
+    },
+    [interactionsDisabled]
+  );
+
+  const handleDesktopPointerMove = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType === "touch") return;
+      const press = desktopPressRef.current;
+      if (!press) return;
+      if (
+        Math.hypot(event.clientX - press.startX, event.clientY - press.startY) >
+        TOUCH_MOVE_TOLERANCE_PX
+      ) {
+        desktopPressRef.current = null;
+      }
+    },
+    []
+  );
+
+  const finishDesktopPointer = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType === "touch") return;
+      const press = desktopPressRef.current;
+      desktopPressRef.current = null;
+      if (!press || interactionsDisabled || draggingId) return;
+      if (press.cardId !== event.currentTarget.dataset.zoneViewerCardId) return;
+      const card = cardsById.get(press.cardId);
+      if (card) activate({ card, target: press.target });
+    },
+    [activate, cardsById, draggingId, interactionsDisabled]
   );
 
   React.useEffect(() => {
@@ -409,7 +501,11 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
             data-zone-viewer-card-id={card.id}
             data-zone-viewer-focused={isHovered ? "true" : "false"}
             draggable={canReorder && !mobileCoverFlow}
-            onDragStart={() => canReorder && !mobileCoverFlow && setDraggingId(card.id)}
+            onDragStart={() => {
+              desktopPressRef.current = null;
+              flushPending();
+              if (canReorder && !mobileCoverFlow) setDraggingId(card.id);
+            }}
             onDragEnter={(e) => {
               if (!canReorder || mobileCoverFlow || !draggingId) return;
               e.preventDefault();
@@ -436,11 +532,30 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
             onMouseLeave={() =>
               setHoveredId((prev) => (prev === card.id ? null : prev))
             }
-            onPointerDown={(event) => handleTouchPointerDown(event, card)}
-            onPointerMove={handleTouchPointerMove}
-            onPointerUp={finishTouchPointer}
-            onPointerCancel={finishTouchPointer}
-            onPointerLeave={finishTouchPointer}
+            onPointerDown={(event) => {
+              handleDesktopPointerDown(event, card);
+              handleTouchPointerDown(event, card);
+            }}
+            onPointerMove={(event) => {
+              handleDesktopPointerMove(event);
+              handleTouchPointerMove(event);
+            }}
+            onPointerUp={(event) => {
+              finishDesktopPointer(event);
+              finishTouchPointer(event);
+            }}
+            onPointerCancel={(event) => {
+              desktopPressRef.current = null;
+              finishTouchPointer(event);
+            }}
+            onPointerLeave={(event) => {
+              if (event.pointerType !== "touch") desktopPressRef.current = null;
+              finishTouchPointer(event);
+            }}
+            onDoubleClick={(event) => {
+              if (interactionsDisabled || draggingId) return;
+              activateDouble({ card, target: event.currentTarget });
+            }}
             className={cn(
               "shrink-0 transition-transform duration-200 ease-out relative group flex items-start justify-center",
               centerCards && index === 0 && "ml-auto",
@@ -473,6 +588,9 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
                 preferArtCrop={false}
                 disableHoverAnimation
                 onContextMenu={(e) => onCardContextMenu(e, card)}
+                isSelected={
+                  selectionZoneId === card.zoneId && selectedCardIdSet.has(card.id)
+                }
               />
               {index === 0 && (
                 <div className="pointer-events-none absolute left-1/2 top-1.5 z-[101] -translate-x-1/2 rounded-full border border-indigo-300/60 bg-indigo-500/95 px-2 py-0.5 text-[10px] font-bold text-white shadow-md">

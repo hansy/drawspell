@@ -121,6 +121,39 @@ describe('gameStore move/tap interactions', () => {
     expect(moved.revealedTo ?? []).toHaveLength(0);
   });
 
+  it('moves a card to an exact position counted from the top of the library', () => {
+    const graveyard = makeZone('gy-me', 'GRAVEYARD', 'me', ['moving']);
+    const library = makeZone('lib-me', 'LIBRARY', 'me', ['bottom', 'middle', 'top']);
+    const moving = makeCard('moving', graveyard.id, 'me');
+
+    useGameStore.setState((state) => ({
+      zones: { ...state.zones, [graveyard.id]: graveyard, [library.id]: library },
+      cards: {
+        ...state.cards,
+        moving,
+        bottom: makeCard('bottom', library.id, 'me'),
+        middle: makeCard('middle', library.id, 'me'),
+        top: makeCard('top', library.id, 'me'),
+      },
+    }));
+
+    useGameStore.getState().moveCard(
+      moving.id,
+      library.id,
+      undefined,
+      'me',
+      undefined,
+      { libraryPositionFromTop: 3 },
+    );
+
+    expect(useGameStore.getState().zones[library.id].cardIds).toEqual([
+      'bottom',
+      'moving',
+      'middle',
+      'top',
+    ]);
+  });
+
   it('bumps exact occupied centers by one visible placement grid row when moving to the battlefield', () => {
     const battlefield = makeZone('bf-me', 'BATTLEFIELD', 'me', ['c2']);
     const hand = makeZone('hand-me', 'HAND', 'me', ['c1']);

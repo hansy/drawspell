@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ZONE } from "@/constants/zones";
 import { useDragStore } from "@/store/dragStore";
 import { useGameStore } from "@/store/gameStore";
+import { useSelectionStore } from "@/store/selectionStore";
 import { requestCardPreviewLock } from "@/lib/cardPreviewLock";
 import type { Card, Zone } from "@/types";
 import { CardPreviewProvider } from "../../card/CardPreviewProvider";
@@ -36,6 +37,7 @@ const buildCard = (id: string, zoneId: string): Card => ({
 
 describe("Hand visual ownership", () => {
   beforeEach(() => {
+    useSelectionStore.setState({ selectedCardIds: [], selectionZoneId: null });
     useDragStore.setState({
       ghostCards: null,
       activeCardId: null,
@@ -668,6 +670,44 @@ describe("Hand visual ownership", () => {
     expect(card?.classList.contains("group-hover:ring-cyan-200/90")).toBe(true);
     expect(card?.classList.contains("hover:ring-2")).toBe(true);
     expect(card?.getAttribute("style")).toContain("transform 300ms");
+  });
+
+  it("keeps a selected own-hand card raised with a violet selection outline", () => {
+    const card = buildCard("c1", "p1-hand");
+    const zone = buildHandZone("p1-hand", "p1", [card.id]);
+    useSelectionStore.getState().selectOnly(card.id, zone.id);
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Hand
+            zone={zone}
+            cards={[card]}
+            isTop={false}
+            isRight={false}
+            isMe
+            viewerPlayerId="p1"
+            viewerRole="player"
+            showLabel={false}
+          />
+        </CardPreviewProvider>
+      </DndContext>,
+    );
+
+    const slot = container.querySelector(
+      '[data-dnd-hand-sortable-card-id="c1"]',
+    );
+    const cardElement = container.querySelector('[data-card-id="c1"]');
+
+    expect(slot?.getAttribute("data-hand-card-selected")).toBe("true");
+    expect(slot?.classList.contains("-translate-y-3")).toBe(true);
+    expect(cardElement?.classList.contains("outline-violet-400/90")).toBe(true);
+    expect(cardElement?.classList.contains("shadow-[0_16px_36px_rgba(167,139,250,0.35)]")).toBe(
+      true,
+    );
+    expect(cardElement?.classList.contains("group-hover:ring-cyan-200/90")).toBe(
+      false,
+    );
   });
 
   it("removes hover affordances from opponent hand cards", () => {

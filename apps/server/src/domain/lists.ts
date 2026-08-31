@@ -26,3 +26,21 @@ export const placeCardId = (
   if (placement === "bottom") return [cardId, ...without];
   return [...without, cardId];
 };
+
+export const placeCardIdFromTop = (
+  list: string[],
+  cardId: string,
+  requestedPosition: number,
+) => {
+  const without = removeFromArray(list, cardId);
+  const positionFromTop = Math.max(
+    1,
+    Math.min(without.length + 1, Math.floor(requestedPosition)),
+  );
+  const insertionIndex = without.length - positionFromTop + 1;
+  return [
+    ...without.slice(0, insertionIndex),
+    cardId,
+    ...without.slice(insertionIndex),
+  ];
+};

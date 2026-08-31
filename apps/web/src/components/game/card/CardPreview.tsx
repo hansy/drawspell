@@ -31,6 +31,7 @@ import {
   shouldShowZonePowerToughness,
 } from "@/lib/cardDisplay";
 import { canViewerSeeCardIdentity } from "@/lib/reveal";
+import { markLockedPreviewDismissal } from "@/lib/cardPreviewLock";
 import { CardPreviewView } from "./CardPreviewView";
 
 interface CardPreviewProps {
@@ -250,6 +251,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
       const target = event.target;
       if (!(target instanceof Element)) return;
       if (target.closest("[data-card-preview]")) return;
+      markLockedPreviewDismissal(event);
       onClose();
     };
 

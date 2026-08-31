@@ -19,6 +19,10 @@ import {
 } from "@/lib/debug";
 import { useDragStore } from "@/store/dragStore";
 import {
+  selectIsCardSelected,
+  useSelectionStore,
+} from "@/store/selectionStore";
+import {
   HAND_BASE_CARD_SCALE,
   HAND_CARD_OVERLAP_RATIO,
   HAND_CARD_SCROLL_EDGE_PADDING_PX,
@@ -129,6 +133,9 @@ const SortableCard = React.memo(
     const isActiveDragSource = useDragStore(
       (state) => state.activeCardId === card.id
     );
+    const isSelected = useSelectionStore((state) =>
+      selectIsCardSelected(state, card.id, renderedZoneId),
+    );
     const isCardFaceSuppressed = isActiveDragSource || isPendingDrop;
 
     const resolvedBaseHeight = baseCardHeight ?? BASE_CARD_HEIGHT;
@@ -208,10 +215,12 @@ const SortableCard = React.memo(
         data-dnd-hand-sortable-card-id={card.id}
         data-dnd-hand-card-scale={cardScale}
         data-hand-card-previewed={isPreviewed ? "true" : undefined}
+        data-hand-card-selected={isSelected ? "true" : undefined}
         className={cn(
           "relative flex shrink-0 h-full w-[var(--hand-card-slot-width)] items-center lg:items-start transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group",
           "touch-pan-x",
           isMe && "hover:-translate-y-3",
+          isMe && isSelected && "-translate-y-3 z-20",
           isActiveDragSource && "z-50",
           isPendingDrop && "z-50 opacity-0",
         )}
@@ -241,15 +250,17 @@ const SortableCard = React.memo(
             className={cn(
               "origin-top shadow-xl transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
               "origin-center lg:origin-top",
-              isMe &&
+              isMe && !isSelected &&
                 "group-hover:ring-2 group-hover:ring-cyan-200/90 group-hover:ring-offset-2 group-hover:ring-offset-zinc-950",
-              isMe &&
+              isMe && !isSelected &&
                 "hover:ring-2 hover:ring-cyan-200/90 hover:ring-offset-2 hover:ring-offset-zinc-950",
-              isMe &&
+              isMe && !isSelected &&
                 "group-hover:shadow-[0_16px_36px_rgba(103,232,249,0.3)]",
+              isMe && isSelected &&
+                "shadow-[0_16px_36px_rgba(167,139,250,0.35)]",
               isActiveDragSource &&
                 "ring-2 ring-cyan-200/90 ring-offset-2 ring-offset-zinc-950 shadow-[0_16px_36px_rgba(103,232,249,0.25)]",
-              isMe && isPreviewed &&
+              isMe && isPreviewed && !isSelected &&
                 "ring-2 ring-cyan-200 ring-offset-2 ring-offset-zinc-950",
             )}
             style={{
@@ -269,6 +280,7 @@ const SortableCard = React.memo(
             disableDrag // We use Sortable's drag handle
             disableHoverAnimation={!isMe}
             isDragging={isPendingDrop}
+            isSelected={isSelected}
             scale={cardScale}
           />
         </div>

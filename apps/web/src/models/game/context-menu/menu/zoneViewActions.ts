@@ -25,6 +25,7 @@ interface ZoneActionBuilderParams {
   drawCard: (playerId: PlayerId) => void;
   discardFromLibrary: (playerId: PlayerId, count?: number) => void;
   exileFromLibrary: (playerId: PlayerId, count?: number) => void;
+  moveBottomLibraryCardToHand: (playerId: PlayerId) => void;
   shuffleLibrary: (playerId: PlayerId) => void;
   resetDeck: (playerId: PlayerId) => void;
   mulligan: (playerId: PlayerId, count: number) => void;
@@ -228,6 +229,7 @@ export const buildZoneViewActions = ({
   drawCard,
   discardFromLibrary,
   exileFromLibrary,
+  moveBottomLibraryCardToHand,
   shuffleLibrary,
   resetDeck,
   mulligan,
@@ -264,6 +266,11 @@ export const buildZoneViewActions = ({
         openCountPrompt,
       }),
     );
+    items.push({
+      type: "action",
+      label: "Put bottom card into hand",
+      onSelect: () => moveBottomLibraryCardToHand(myPlayerId),
+    });
 
     if (onViewZone) {
       items.push(

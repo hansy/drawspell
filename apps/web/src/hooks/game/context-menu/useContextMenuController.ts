@@ -8,13 +8,10 @@ import {
   type VirtualElement,
 } from "@floating-ui/react";
 
-import type { ContextMenuItem } from "@/models/game/context-menu/menu";
-
 export type ContextMenuControllerInput = {
   x?: number;
   y?: number;
   referenceElement?: HTMLElement | VirtualElement | null;
-  items: ContextMenuItem[];
   onClose: () => void;
   isSubmenu: boolean;
 };
@@ -23,13 +20,10 @@ export const useContextMenuController = ({
   x,
   y,
   referenceElement,
-  items,
   onClose,
   isSubmenu,
 }: ContextMenuControllerInput) => {
   const menuRef = React.useRef<HTMLDivElement>(null);
-  const [activeSubmenuIndex, setActiveSubmenuIndex] = React.useState<number | null>(null);
-  const [submenuReference, setSubmenuReference] = React.useState<HTMLElement | null>(null);
 
   const anchorVirtualElement = React.useMemo<VirtualElement | null>(() => {
     if (x == null || y == null) return null;
@@ -113,26 +107,9 @@ export const useContextMenuController = ({
     };
   }, [onClose, isSubmenu]);
 
-  const handleMouseEnter = React.useCallback(
-    (index: number, e: React.MouseEvent<HTMLButtonElement>) => {
-      const item = items[index];
-      if (item?.type === "action" && item.submenu) {
-        setActiveSubmenuIndex(index);
-        setSubmenuReference(e.currentTarget);
-      } else {
-        setActiveSubmenuIndex(null);
-        setSubmenuReference(null);
-      }
-    },
-    [items]
-  );
-
   return {
     setFloating,
     floatingStyles,
-    activeSubmenuIndex,
-    submenuReference,
-    handleMouseEnter,
   };
 };
 

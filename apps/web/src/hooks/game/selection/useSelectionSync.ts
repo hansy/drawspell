@@ -1,12 +1,9 @@
 import React from "react";
 
-import { ZONE } from "@/constants/zones";
 import { useGameStore } from "@/store/gameStore";
 import { useSelectionStore } from "@/store/selectionStore";
 
-import type { PlayerId } from "@/types";
-
-export const useSelectionSync = (myPlayerId: PlayerId) => {
+export const useSelectionSync = () => {
   const selectedCardIds = useSelectionStore((state) => state.selectedCardIds);
   const selectionZoneId = useSelectionStore((state) => state.selectionZoneId);
   const setSelection = useSelectionStore((state) => state.setSelection);
@@ -23,7 +20,7 @@ export const useSelectionSync = (myPlayerId: PlayerId) => {
     }
 
     const zone = zones[selectionZoneId];
-    if (!zone || zone.type !== ZONE.BATTLEFIELD || zone.ownerId !== myPlayerId) {
+    if (!zone) {
       clearSelection();
       return;
     }
@@ -43,7 +40,6 @@ export const useSelectionSync = (myPlayerId: PlayerId) => {
   }, [
     cards,
     clearSelection,
-    myPlayerId,
     selectedCardIds,
     selectionZoneId,
     setSelection,

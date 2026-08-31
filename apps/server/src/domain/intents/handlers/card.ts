@@ -696,6 +696,67 @@ const handleCardRevealSet: IntentHandler = ({ actorId, maps, hidden, payload, ma
   return { ok: true };
 };
 
+const handleCardRevealSetBatch: IntentHandler = (context) => {
+  const cardIdsResult = requireArrayProp<unknown>(
+    context.payload,
+    "cardIds",
+    "invalid cards",
+  );
+  if (!cardIdsResult.ok) return cardIdsResult;
+  const cardIds = cardIdsResult.value.filter(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
+  const uniqueIds = Array.from(new Set(cardIds));
+  if (uniqueIds.length < 2 || uniqueIds.length !== cardIdsResult.value.length) {
+    return { ok: false, error: "invalid cards" };
+  }
+
+  let sourceZoneId: string | null = null;
+  for (const cardId of uniqueIds) {
+    const hiddenCard = context.hidden.cards[cardId];
+    if (hiddenCard) {
+      const zone = readZone(context.maps, hiddenCard.zoneId);
+      if (
+        hiddenCard.ownerId !== context.actorId ||
+        !zone ||
+        (zone.type !== ZONE.HAND && zone.type !== ZONE.LIBRARY)
+      ) {
+        return { ok: false, error: "not permitted" };
+      }
+      if (sourceZoneId === null) sourceZoneId = zone.id;
+      if (zone.id !== sourceZoneId) {
+        return { ok: false, error: "selected cards must share a zone" };
+      }
+      continue;
+    }
+
+    const publicCard = readCard(context.maps, cardId);
+    const zone = publicCard ? readZone(context.maps, publicCard.zoneId) : null;
+    if (
+      !publicCard ||
+      !zone ||
+      zone.type !== ZONE.BATTLEFIELD ||
+      !publicCard.faceDown ||
+      publicCard.controllerId !== context.actorId
+    ) {
+      return { ok: false, error: "not permitted" };
+    }
+    if (sourceZoneId === null) sourceZoneId = zone.id;
+    if (zone.id !== sourceZoneId) {
+      return { ok: false, error: "selected cards must share a zone" };
+    }
+  }
+
+  for (const cardId of uniqueIds) {
+    const result = handleCardRevealSet({
+      ...context,
+      payload: { ...context.payload, cardId },
+    });
+    if (!result.ok) return result;
+  }
+  return { ok: true };
+};
+
 const handleCardDuplicate: IntentHandler = ({ actorId, maps, payload, pushLogEvent }) => {
   const cardIdResult = requireNonEmptyStringProp(payload, "cardId", "invalid duplicate");
   if (!cardIdResult.ok) return cardIdResult;
@@ -767,7 +828,120 @@ const handleCardMove: IntentHandler = ({ actorId, maps, hidden, payload, pushLog
     (payload.placement === "bottom" || payload.placement === "top")
       ? payload.placement
       : "top";
-  return applyCardMove(maps, hidden, payload, placement, pushLogEvent, markHiddenChanged);
+  const rawOpts =
+    payload.opts && typeof payload.opts === "object" && !Array.isArray(payload.opts)
+      ? (payload.opts as Record<string, unknown>)
+      : {};
+  const requestedPosition = rawOpts.libraryPositionFromTop;
+  if (
+    requestedPosition !== undefined &&
+    (toZone.type !== ZONE.LIBRARY ||
+      typeof requestedPosition !== "number" ||
+      !Number.isFinite(requestedPosition))
+  ) {
+    return { ok: false, error: "invalid library position" };
+  }
+  const normalizedPayload =
+    typeof requestedPosition === "number"
+      ? {
+          ...payload,
+          opts: {
+            ...rawOpts,
+            libraryPositionFromTop: Math.max(
+              1,
+              Math.min(
+                removeFromArray(hidden.libraryOrder[toZone.ownerId] ?? [], card.id).length + 1,
+                Math.floor(requestedPosition),
+              ),
+            ),
+          },
+        }
+      : payload;
+  return applyCardMove(
+    maps,
+    hidden,
+    normalizedPayload,
+    placement,
+    pushLogEvent,
+    markHiddenChanged,
+  );
+};
+
+const handleCardMoveBatch: IntentHandler = (context) => {
+  const movesResult = requireArrayProp<unknown>(
+    context.payload,
+    "moves",
+    "invalid moves",
+  );
+  if (!movesResult.ok) return movesResult;
+  if (movesResult.value.length < 2 || movesResult.value.length > 250) {
+    return { ok: false, error: "invalid moves" };
+  }
+
+  const prepared: Array<{
+    payload: Record<string, unknown>;
+    placement: "top" | "bottom";
+  }> = [];
+  const cardIds = new Set<string>();
+  let sourceZoneId: string | null = null;
+
+  for (const rawMove of movesResult.value) {
+    const move = readRecordValue(rawMove);
+    if (!move) return { ok: false, error: "invalid move" };
+    const cardId = readNonEmptyString(move.cardId);
+    const toZoneId = readNonEmptyString(move.toZoneId);
+    if (!cardId || !toZoneId || cardIds.has(cardId)) {
+      return { ok: false, error: "invalid move" };
+    }
+    cardIds.add(cardId);
+
+    const publicCard = readCard(context.maps, cardId);
+    const card = publicCard ?? context.hidden.cards[cardId];
+    const fromZone = card ? readZone(context.maps, card.zoneId) : null;
+    const toZone = readZone(context.maps, toZoneId);
+    if (!card || !fromZone || !toZone) {
+      return { ok: false, error: "zone or card not found" };
+    }
+    if (sourceZoneId === null) sourceZoneId = fromZone.id;
+    if (fromZone.id !== sourceZoneId) {
+      return { ok: false, error: "selected cards must share a zone" };
+    }
+    if (isCommanderZoneType(toZone.type)) {
+      return { ok: false, error: "group commander moves are not supported" };
+    }
+    const permission = canMoveCard(context.actorId, card, fromZone, toZone);
+    const allowed = ensurePermission(permission);
+    if (!allowed.ok) return allowed;
+
+    const placement = move.placement === "bottom" ? "bottom" : "top";
+    const opts = readRecordValue(move.opts);
+    if (opts?.libraryPositionFromTop !== undefined) {
+      return { ok: false, error: "group library positions are not supported" };
+    }
+    prepared.push({
+      payload: {
+        ...move,
+        cardId,
+        toZoneId,
+        actorId: context.actorId,
+        ...(opts ? { opts } : null),
+      },
+      placement,
+    });
+  }
+
+  for (const move of prepared) {
+    const result = applyCardMove(
+      context.maps,
+      context.hidden,
+      move.payload,
+      move.placement,
+      context.pushLogEvent,
+      context.markHiddenChanged,
+    );
+    if (!result.ok) return result;
+  }
+  return { ok: true };
 };
 
 export const cardIntentHandlers: Record<string, IntentHandler> = {
@@ -780,6 +954,8 @@ export const cardIntentHandlers: Record<string, IntentHandler> = {
   "card.update": handleCardUpdate,
   "card.transform": handleCardTransform,
   "card.reveal.set": handleCardRevealSet,
+  "card.reveal.set.batch": handleCardRevealSetBatch,
   "card.duplicate": handleCardDuplicate,
   "card.move": handleCardMove,
+  "card.move.batch": handleCardMoveBatch,
 };

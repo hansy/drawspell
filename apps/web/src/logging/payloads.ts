@@ -19,6 +19,7 @@ import type { DiceRollPayload } from "./eventRegistry/diceEvents";
 import type {
   DiscardPayload,
   DrawPayload,
+  LibraryBottomToHandPayload,
   LibraryTopRevealPayload,
   LibraryViewPayload,
   ShufflePayload,
@@ -42,6 +43,7 @@ export type LogEventPayloadMap = {
   "dice.roll": DiceRollPayload;
   "card.draw": DrawPayload;
   "card.discard": DiscardPayload;
+  "library.bottomToHand": LibraryBottomToHandPayload;
   "library.shuffle": ShufflePayload;
   "library.view": LibraryViewPayload;
   "library.topReveal": LibraryTopRevealPayload;

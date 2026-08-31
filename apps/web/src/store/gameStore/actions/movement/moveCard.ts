@@ -126,6 +126,12 @@ export const createMoveCard =
         position: resolvedPosition,
         opts: resolvedOpts,
       });
+      const libraryPositionFromTop =
+        toZoneState.type === ZONE.LIBRARY &&
+        typeof resolvedOpts?.libraryPositionFromTop === "number" &&
+        Number.isFinite(resolvedOpts.libraryPositionFromTop)
+          ? resolvedOpts.libraryPositionFromTop
+          : undefined;
 
       if (workingCard.faceDown || plan.faceDown.effectiveFaceDown) {
         debugLog(debugKey, "apply-move", {
@@ -167,6 +173,7 @@ export const createMoveCard =
             fromZoneId: currentFromZoneId,
             toZoneId,
             placement: "top",
+            positionFromTop: libraryPositionFromTop,
           }),
         };
       }
@@ -181,6 +188,7 @@ export const createMoveCard =
           fromZoneId: currentFromZoneId,
           toZoneId,
           placement: "top",
+          positionFromTop: libraryPositionFromTop,
         }),
       };
     };

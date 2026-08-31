@@ -33,3 +33,15 @@ export interface ContextMenuCounterControl {
   onIncrement: () => void;
   onDecrement: () => void;
 }
+
+export type OpenCountPrompt = (opts: {
+  title: string;
+  message?: string;
+  onSubmit: (count: number) => void;
+  initialValue?: number;
+  minValue?: number;
+  maxValue?: number;
+  inputLabel?: string;
+  showMaxButton?: boolean;
+  confirmLabel?: string;
+}) => void;

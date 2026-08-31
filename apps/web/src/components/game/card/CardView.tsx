@@ -59,7 +59,7 @@ export const CardView = React.memo(
             card.tapped && "border-zinc-600 bg-zinc-900",
             isDragging &&
               "shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-indigo-500 cursor-grabbing",
-            isSelected && "outline outline-2 outline-indigo-400/80 outline-offset-2",
+            isSelected && "outline outline-2 outline-violet-400/90 outline-offset-2",
             highlightColor === "rose" &&
               "ring-2 ring-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.5)]",
             highlightColor === "violet" &&

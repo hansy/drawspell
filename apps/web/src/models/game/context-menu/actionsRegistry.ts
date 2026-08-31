@@ -1,4 +1,4 @@
-import { buildCardActions, buildZoneMoveActions, buildZoneViewActions } from './menu';
+import { buildCardActions, buildGroupActions, buildZoneMoveActions, buildZoneViewActions } from './menu';
 
 /**
  * Central action registry to keep card/zone action builders in one place for
@@ -6,6 +6,7 @@ import { buildCardActions, buildZoneMoveActions, buildZoneViewActions } from './
  */
 export const actionRegistry = {
   buildCardActions,
+  buildGroupActions,
   buildZoneMoveActions,
   buildZoneViewActions,
 };

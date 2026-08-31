@@ -13,6 +13,7 @@ const EVENT_IDS = [
   "dice.roll",
   "card.draw",
   "card.discard",
+  "library.bottomToHand",
   "library.shuffle",
   "library.view",
   "library.topReveal",
@@ -187,6 +188,24 @@ describe("logEventRegistry", () => {
     expect(parts.map((p) => p.text).join("")).toBe("Alice ended their turn");
   });
 
+  it("formats bottom-library-to-hand without exposing a card identity", () => {
+    const ctx: LogContext = {
+      players: { p1: makePlayer("p1", "Alice") },
+      cards: {},
+      zones: {},
+    };
+
+    const parts = logEventRegistry["library.bottomToHand"].format(
+      { actorId: "p1", playerId: "p1" },
+      ctx,
+    );
+
+    expect(parts.map((part) => part.text).join("")).toBe(
+      "Alice put the bottom card of Library into Hand",
+    );
+    expect(parts.some((part) => part.kind === "card")).toBe(false);
+  });
+
   it("formats reconnect events with reason and delay", () => {
     const ctx: LogContext = { players: {}, cards: {}, zones: {} };
 
@@ -326,6 +345,34 @@ describe("logEventRegistry", () => {
     );
     expect(random.map((p) => p.text).join("")).toBe(
       "Alice randomly sent Lightning Bolt from Hand to Graveyard"
+    );
+  });
+
+  it("formats indexed library placement without exposing the hidden card", () => {
+    const graveyard = makeZone("gy", "graveyard", "p1", ["c1"]);
+    const library = makeZone("lib", "library", "p1", []);
+    const ctx: LogContext = {
+      players: { p1: makePlayer("p1", "Alice") },
+      cards: {},
+      zones: { gy: graveyard, lib: library },
+    };
+
+    const parts = logEventRegistry["card.move"].format(
+      {
+        actorId: "p1",
+        cardId: "c1",
+        fromZoneId: graveyard.id,
+        toZoneId: library.id,
+        placement: "top",
+        libraryPositionFromTop: 3,
+        cardName: "a card",
+        forceHidden: true,
+      },
+      ctx,
+    );
+
+    expect(parts.map((part) => part.text).join("")).toBe(
+      "Alice moved a card from Graveyard to the 3rd position from the top of Library",
     );
   });
 

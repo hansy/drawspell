@@ -16,6 +16,9 @@ const normalizeNonNegativeCount = (count: number) =>
 const getTopLibraryCardId = (cardIds: string[]) =>
   cardIds.length ? cardIds[cardIds.length - 1] : null;
 
+const getBottomLibraryCardId = (cardIds: string[]) =>
+  cardIds.length ? cardIds[0] : null;
+
 const resolveLibraryContext = (
   actorId: string,
   maps: IntentHandlerContext["maps"],
@@ -210,6 +213,40 @@ const handleLibraryMoveTop: IntentHandler = ({
   );
 };
 
+const handleLibraryMoveBottomToHand: IntentHandler = ({
+  actorId,
+  maps,
+  hidden,
+  payload,
+  pushLogEvent,
+  markHiddenChanged,
+}) => {
+  const libraryContext = resolveLibraryContext(actorId, maps, payload);
+  if (!libraryContext.ok) return libraryContext;
+
+  const { playerId } = libraryContext;
+  const handZone = findZoneByTypeInMaps(maps, playerId, ZONE.HAND);
+  if (!handZone) return { ok: false, error: "zone not found" };
+
+  const cardId = getBottomLibraryCardId(hidden.libraryOrder[playerId] ?? []);
+  if (!cardId) return { ok: true };
+
+  const result = applyCardMove(
+    maps,
+    hidden,
+    { cardId, toZoneId: handZone.id, actorId },
+    // Hand index 0 renders at the left edge.
+    "bottom",
+    // This is a put effect, not a draw; emit its dedicated public-safe event below.
+    () => {},
+    markHiddenChanged,
+  );
+  if (!result.ok) return result;
+
+  pushLogEvent("library.bottomToHand", { actorId, playerId });
+  return { ok: true };
+};
+
 const handleHandDiscardRandom: IntentHandler = ({ actorId, maps, hidden, payload, pushLogEvent, markHiddenChanged }) => {
   const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid player");
   if (!playerIdResult.ok) return playerIdResult;
@@ -364,6 +401,7 @@ export const deckIntentHandlers: Record<string, IntentHandler> = {
   "library.draw": handleLibraryDraw,
   "library.discard": handleLibraryDiscard,
   "library.exile": handleLibraryExile,
+  "library.moveBottomToHand": handleLibraryMoveBottomToHand,
   "library.moveTop": handleLibraryMoveTop,
   "library.shuffle": handleLibraryShuffle,
   "deck.reset": handleDeckReset,

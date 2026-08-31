@@ -175,6 +175,129 @@ describe("applyIntentToDoc", () => {
     expect(nextGraveyard?.cardIds.every((id) => ["c1", "c2", "c3"].includes(id))).toBe(true);
   });
 
+  it("moves a selected hand batch to the library bottom in the supplied random order", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    const hand = makeZone("hand-p1", ZONE.HAND, "p1", ["c1", "c2"]);
+    const library = makeZone("library-p1", ZONE.LIBRARY, "p1");
+    writeZone(maps, hand);
+    writeZone(maps, library);
+    hidden.cards.c1 = makeCard("c1", "p1", hand.id);
+    hidden.cards.c2 = makeCard("c2", "p1", hand.id);
+    hidden.cards.existing = makeCard("existing", "p1", library.id);
+    hidden.handOrder.p1 = ["c1", "c2"];
+    hidden.libraryOrder.p1 = ["existing"];
+
+    const result = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-move-batch-bottom-random",
+        type: "card.move.batch",
+        payload: {
+          actorId: "p1",
+          moves: [
+            {
+              cardId: "c2",
+              toZoneId: library.id,
+              placement: "bottom",
+              opts: { random: true },
+            },
+            {
+              cardId: "c1",
+              toZoneId: library.id,
+              placement: "bottom",
+              opts: { random: true },
+            },
+          ],
+        },
+      },
+      hidden,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(hidden.handOrder.p1).toEqual([]);
+    expect(hidden.libraryOrder.p1).toEqual(["c1", "c2", "existing"]);
+    expect(hidden.cards.c1?.zoneId).toBe(library.id);
+    expect(hidden.cards.c2?.zoneId).toBe(library.id);
+    if (result.ok) {
+      expect(result.logEvents).toHaveLength(2);
+      expect(result.logEvents.every((event) => event.eventId === "card.move")).toBe(true);
+      expect(result.logEvents.every((event) => event.payload.random === true)).toBe(true);
+      expect(result.logEvents.every((event) => event.payload.placement === "bottom")).toBe(true);
+    }
+  });
+
+  it("rejects a movement batch whose cards do not share a source zone", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    const hand = makeZone("hand-p1", ZONE.HAND, "p1", ["c1"]);
+    const graveyard = makeZone("graveyard-p1", ZONE.GRAVEYARD, "p1", ["c2"]);
+    const exile = makeZone("exile-p1", ZONE.EXILE, "p1");
+    writeZone(maps, hand);
+    writeZone(maps, graveyard);
+    writeZone(maps, exile);
+    hidden.cards.c1 = makeCard("c1", "p1", hand.id);
+    hidden.handOrder.p1 = ["c1"];
+    writeCard(maps, makeCard("c2", "p1", graveyard.id));
+
+    const result = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-move-batch-mixed-source",
+        type: "card.move.batch",
+        payload: {
+          actorId: "p1",
+          moves: [
+            { cardId: "c1", toZoneId: exile.id },
+            { cardId: "c2", toZoneId: exile.id },
+          ],
+        },
+      },
+      hidden,
+    );
+
+    expect(result.ok).toBe(false);
+    expect(hidden.handOrder.p1).toEqual(["c1"]);
+    expect(readZone(maps, graveyard.id)?.cardIds).toEqual(["c2"]);
+    expect(readZone(maps, exile.id)?.cardIds).toEqual([]);
+  });
+
+  it("reveals a selected hand batch atomically", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    const hand = makeZone("hand-p1", ZONE.HAND, "p1", ["c1", "c2"]);
+    writeZone(maps, hand);
+    hidden.cards.c1 = makeCard("c1", "p1", hand.id);
+    hidden.cards.c2 = makeCard("c2", "p1", hand.id);
+    hidden.handOrder.p1 = ["c1", "c2"];
+
+    const result = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-reveal-batch",
+        type: "card.reveal.set.batch",
+        payload: {
+          actorId: "p1",
+          cardIds: ["c1", "c2"],
+          reveal: { toAll: true },
+        },
+      },
+      hidden,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(hidden.handReveals.c1).toEqual({ toAll: true });
+    expect(hidden.handReveals.c2).toEqual({ toAll: true });
+    expect(maps.handRevealsToAll.has("c1")).toBe(true);
+    expect(maps.handRevealsToAll.has("c2")).toBe(true);
+  });
+
   it("clamps random hand discard counts to the live hand size", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
@@ -591,6 +714,70 @@ describe("applyIntentToDoc", () => {
     expect(readZone(maps, battlefield.id)?.cardIds).toEqual([]);
   });
 
+  it("places and logs a card at an exact server-authoritative library position", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    const graveyard = makeZone("gy-p1", ZONE.GRAVEYARD, "p1", ["moving"]);
+    const library = makeZone("lib-p1", ZONE.LIBRARY, "p1");
+    writeZone(maps, graveyard);
+    writeZone(maps, library);
+    writeCard(maps, makeCard("moving", "p1", graveyard.id, { name: "Secret Card" }));
+    hidden.libraryOrder.p1 = ["bottom", "middle", "top"];
+    hidden.cards.bottom = makeCard("bottom", "p1", library.id);
+    hidden.cards.middle = makeCard("middle", "p1", library.id);
+    hidden.cards.top = makeCard("top", "p1", library.id);
+
+    const result = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-library-position",
+        type: "card.move",
+        payload: {
+          actorId: "p1",
+          cardId: "moving",
+          toZoneId: library.id,
+          opts: { libraryPositionFromTop: 3 },
+        },
+      },
+      hidden,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(hidden.libraryOrder.p1).toEqual(["bottom", "moving", "middle", "top"]);
+    if (result.ok) {
+      expect(result.logEvents).toContainEqual(
+        expect.objectContaining({
+          eventId: "card.move",
+          payload: expect.objectContaining({
+            libraryPositionFromTop: 3,
+            cardName: "a card",
+            forceHidden: true,
+          }),
+        }),
+      );
+    }
+
+    const reorderResult = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-library-reposition",
+        type: "card.move",
+        payload: {
+          actorId: "p1",
+          cardId: "moving",
+          toZoneId: library.id,
+          opts: { libraryPositionFromTop: 2 },
+        },
+      },
+      hidden,
+    );
+
+    expect(reorderResult.ok).toBe(true);
+    expect(hidden.libraryOrder.p1).toEqual(["bottom", "middle", "moving", "top"]);
+  });
+
   it("should log face-up reveals when turning a facedown battlefield card face up", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
@@ -950,6 +1137,64 @@ describe("applyIntentToDoc", () => {
     expect(result.ok).toBe(true);
     expect(hidden.handOrder.p1).toEqual(["c1", "h1", "h2"]);
     expect(readZone(maps, hand.id)?.cardIds).toEqual(["c1", "h1", "h2"]);
+  });
+
+  it("puts the hidden bottom library card into hand without logging its identity", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    writePlayer(maps, makePlayer("p1"));
+    const library = makeZone("lib-p1", ZONE.LIBRARY, "p1");
+    const hand = makeZone("hand-p1", ZONE.HAND, "p1", ["h1"]);
+    writeZone(maps, library);
+    writeZone(maps, hand);
+
+    hidden.libraryOrder.p1 = ["bottom", "middle", "top"];
+    hidden.handOrder.p1 = ["h1"];
+    hidden.cards.bottom = makeCard("bottom", "p1", library.id);
+    hidden.cards.middle = makeCard("middle", "p1", library.id);
+    hidden.cards.top = makeCard("top", "p1", library.id);
+    hidden.cards.h1 = makeCard("h1", "p1", hand.id);
+
+    const rejected = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-bottom-to-hand-rejected",
+        type: "library.moveBottomToHand",
+        payload: { actorId: "p2", playerId: "p1" },
+      },
+      hidden,
+    );
+    expect(rejected).toMatchObject({ ok: false, error: "Hidden zone" });
+    expect(hidden.libraryOrder.p1).toEqual(["bottom", "middle", "top"]);
+
+    const result = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-bottom-to-hand",
+        type: "library.moveBottomToHand",
+        payload: { actorId: "p1", playerId: "p1" },
+      },
+      hidden,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(hidden.libraryOrder.p1).toEqual(["middle", "top"]);
+    expect(hidden.handOrder.p1).toEqual(["bottom", "h1"]);
+    expect(hidden.cards.bottom).toMatchObject({ zoneId: hand.id });
+    expect(hidden.cards.top).toMatchObject({ zoneId: library.id });
+    expect(readZone(maps, hand.id)?.cardIds).toEqual(["bottom", "h1"]);
+    if (result.ok) {
+      expect(result.logEvents).toEqual([
+        {
+          eventId: "library.bottomToHand",
+          payload: { actorId: "p1", playerId: "p1" },
+        },
+      ]);
+      expect(result.logEvents[0]?.payload).not.toHaveProperty("cardId");
+      expect(result.logEvents[0]?.payload).not.toHaveProperty("cardName");
+    }
   });
 
   it("should discard from the library and emit per-card logs", () => {

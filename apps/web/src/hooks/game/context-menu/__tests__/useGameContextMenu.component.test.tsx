@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Card, Player, Zone } from "@/types";
 import { ZONE } from "@/constants/zones";
 import { useGameStore } from "@/store/gameStore";
+import { useSelectionStore } from "@/store/selectionStore";
 import { fetchBattlefieldRelatedParts } from "../relatedParts";
 import { useGameContextMenu } from "../useGameContextMenu";
 import type { ContextMenuItem } from "@/models/game/context-menu/menu/types";
@@ -82,6 +83,7 @@ const Probe: React.FC<{ myPlayerId: string; onValue: (value: HookValue) => void 
 describe("useGameContextMenu", () => {
   beforeEach(() => {
     resetStore();
+    useSelectionStore.setState({ selectedCardIds: [], selectionZoneId: null });
     vi.mocked(fetchBattlefieldRelatedParts).mockResolvedValue(undefined);
   });
 
@@ -195,6 +197,95 @@ describe("useGameContextMenu", () => {
         confirmLabel: "Discard",
       });
     });
+  });
+
+  it("opens the dedicated group menu for an own-hand selection", async () => {
+    const hand = createZone("me-hand", "me", ZONE.HAND, ["c1", "c2"]);
+    const battlefield = createZone("me-battlefield", "me", ZONE.BATTLEFIELD);
+    const graveyard = createZone("me-graveyard", "me", ZONE.GRAVEYARD);
+    const exile = createZone("me-exile", "me", ZONE.EXILE);
+    const library = createZone("me-library", "me", ZONE.LIBRARY);
+    const firstCard = createCard("c1", hand.id, "me");
+    const secondCard = createCard("c2", hand.id, "me");
+    resetStore({
+      players: { me: createPlayer("me", true) } as any,
+      zones: {
+        [hand.id]: hand,
+        [battlefield.id]: battlefield,
+        [graveyard.id]: graveyard,
+        [exile.id]: exile,
+        [library.id]: library,
+      } as any,
+      cards: { [firstCard.id]: firstCard, [secondCard.id]: secondCard } as any,
+    });
+    useSelectionStore.getState().setSelection([firstCard.id, secondCard.id], hand.id);
+
+    let value: HookValue | null = null;
+    render(<Probe myPlayerId="me" onValue={(v) => { value = v; }} />);
+    await waitFor(() => expect(value).not.toBeNull());
+
+    act(() => {
+      value!.handleCardContextMenu(createEvent(), firstCard);
+    });
+
+    expect(useSelectionStore.getState()).toMatchObject({
+      selectedCardIds: [firstCard.id, secondCard.id],
+      selectionZoneId: hand.id,
+    });
+    expect(value!.contextMenu?.title).toBe("2 cards selected");
+    expect(
+      value!.contextMenu?.items.map((item) =>
+        item.type === "action" ? item.label : "",
+      ),
+    ).toEqual(["Reveal to...", "Move to..."]);
+  });
+
+  it("uses group library placement rules for a graveyard selection", async () => {
+    const battlefield = createZone("me-battlefield", "me", ZONE.BATTLEFIELD);
+    const hand = createZone("me-hand", "me", ZONE.HAND);
+    const graveyard = createZone("me-graveyard", "me", ZONE.GRAVEYARD, ["c1", "c2"]);
+    const exile = createZone("me-exile", "me", ZONE.EXILE);
+    const library = createZone("me-library", "me", ZONE.LIBRARY);
+    const firstCard = createCard("c1", graveyard.id, "me");
+    const secondCard = createCard("c2", graveyard.id, "me");
+    resetStore({
+      players: { me: createPlayer("me", true) } as any,
+      zones: {
+        [battlefield.id]: battlefield,
+        [hand.id]: hand,
+        [graveyard.id]: graveyard,
+        [exile.id]: exile,
+        [library.id]: library,
+      } as any,
+      cards: { [firstCard.id]: firstCard, [secondCard.id]: secondCard } as any,
+    });
+    useSelectionStore.getState().setSelection(
+      [firstCard.id, secondCard.id],
+      graveyard.id,
+    );
+
+    let value: HookValue | null = null;
+    render(<Probe myPlayerId="me" onValue={(v) => { value = v; }} />);
+    await waitFor(() => expect(value).not.toBeNull());
+
+    act(() => {
+      value!.handleCardContextMenu(createEvent(), firstCard);
+    });
+
+    expect(value!.contextMenu?.title).toBe("2 cards selected");
+    const moveMenu = value!.contextMenu?.items.find(
+      (item): item is Extract<ContextMenuItem, { type: "action" }> =>
+        item.type === "action" && item.label === "Move to...",
+    );
+    const libraryMenu = moveMenu?.submenu?.find(
+      (item): item is Extract<ContextMenuItem, { type: "action" }> =>
+        item.type === "action" && item.label === "Library...",
+    );
+    expect(
+      libraryMenu?.submenu?.map((item) =>
+        item.type === "action" ? item.label : "",
+      ),
+    ).toEqual(["Bottom in random order"]);
   });
 
   it("does not open hand random discard menu for empty or non-owned hands", async () => {

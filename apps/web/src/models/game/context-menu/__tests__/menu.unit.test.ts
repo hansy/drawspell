@@ -3,6 +3,7 @@ import { ZONE, ZONE_LABEL } from "@/constants/zones";
 import { Card, Player, PlayerId, Zone } from "@/types";
 import {
   buildCardActions,
+  buildGroupActions,
   buildZoneMoveActions,
   buildZoneViewActions,
 } from "../menu";
@@ -47,7 +48,17 @@ describe("buildZoneMoveActions", () => {
     const exile = makeZone("exile", ZONE.EXILE, "p1");
     const hand = makeZone("hand", ZONE.HAND, "p1");
     const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1");
-    const zones = { lib: current, gy, exile, hand, bf: battlefield };
+    const commander = makeZone("commander", ZONE.COMMANDER, "p1");
+    const sideboard = makeZone("sideboard", ZONE.SIDEBOARD, "p1");
+    const zones = {
+      lib: current,
+      gy,
+      exile,
+      hand,
+      bf: battlefield,
+      commander,
+      sideboard,
+    };
 
     const actions = buildZoneMoveActions(
       { ...baseCard, zoneId: current.id, ownerId: "p1", controllerId: "p1" },
@@ -61,14 +72,21 @@ describe("buildZoneMoveActions", () => {
       "player"
     );
 
-    const labels = actions.map((a) => (a.type === "action" ? a.label : ""));
-    expect(labels).toContain(`Move to ${ZONE_LABEL.graveyard}`);
-    expect(labels).toContain(`Move to ${ZONE_LABEL.exile}`);
-    expect(labels).toContain(`Move to ${ZONE_LABEL.hand}`);
-
-    const battlefieldMenu = actions.find(
+    const moveMenu = actions.find(
       (a): a is Extract<typeof a, { type: "action" }> =>
-        a.type === "action" && a.label === `Move to ${ZONE_LABEL.battlefield} ...`
+        a.type === "action" && a.label === "Move to..."
+    );
+    const labels =
+      moveMenu?.submenu?.map((a) => (a.type === "action" ? a.label : "")) ?? [];
+    expect(labels).toContain(ZONE_LABEL.graveyard);
+    expect(labels).toContain(ZONE_LABEL.exile);
+    expect(labels).toContain(ZONE_LABEL.hand);
+    expect(labels).not.toContain(ZONE_LABEL.commander);
+    expect(labels).not.toContain(ZONE_LABEL.sideboard);
+
+    const battlefieldMenu = moveMenu?.submenu?.find(
+      (a): a is Extract<typeof a, { type: "action" }> =>
+        a.type === "action" && a.label === `${ZONE_LABEL.battlefield} ...`
     );
     const battlefieldLabels =
       battlefieldMenu?.submenu?.map((a) => (a.type === "action" ? a.label : "")) ?? [];
@@ -84,9 +102,9 @@ describe("buildZoneMoveActions", () => {
     expect(faceDownLabels).toContain("with morph (2/2)");
     expect(faceDownLabels).toContain("without morph");
 
-    const libraryMenu = actions.find(
+    const libraryMenu = moveMenu?.submenu?.find(
       (a): a is Extract<typeof a, { type: "action" }> =>
-        a.type === "action" && a.label === `Move to ${ZONE_LABEL.library} ...`
+        a.type === "action" && a.label === `${ZONE_LABEL.library} ...`
     );
     const libraryLabels =
       libraryMenu?.submenu?.map((a) => (a.type === "action" ? a.label : "")) ?? [];
@@ -94,7 +112,7 @@ describe("buildZoneMoveActions", () => {
     expect(libraryLabels).toContain("Bottom");
   });
 
-  it("includes bottom-of-library moves for graveyard and exile", () => {
+  it("uses the same nested library placement menu for graveyard and exile", () => {
     const library = makeZone("lib", ZONE.LIBRARY, "p1");
     const graveyard = makeZone("gy", ZONE.GRAVEYARD, "p1");
     const exile = makeZone("exile", ZONE.EXILE, "p1");
@@ -111,13 +129,19 @@ describe("buildZoneMoveActions", () => {
       undefined,
       "player"
     );
-    const graveyardLabels = graveyardActions.map((a) =>
-      a.type === "action" ? a.label : ""
+    const graveyardMoveMenu = graveyardActions.find(
+      (a): a is Extract<typeof a, { type: "action" }> =>
+        a.type === "action" && a.label === "Move to..."
     );
-    expect(graveyardLabels).toContain(
-      `Move to bottom of ${ZONE_LABEL.library}`
+    const graveyardLibraryMenu = graveyardMoveMenu?.submenu?.find(
+      (a): a is Extract<typeof a, { type: "action" }> =>
+        a.type === "action" && a.label === `${ZONE_LABEL.library} ...`
     );
-    expect(graveyardLabels).toContain(`Move to top of ${ZONE_LABEL.library}`);
+    const graveyardLibraryLabels =
+      graveyardLibraryMenu?.submenu?.map((a) =>
+        a.type === "action" ? a.label : ""
+      ) ?? [];
+    expect(graveyardLibraryLabels).toEqual(["Top", "Bottom"]);
 
     const exileActions = buildZoneMoveActions(
       { ...baseCard, zoneId: exile.id, ownerId: "p1", controllerId: "p1" },
@@ -130,11 +154,74 @@ describe("buildZoneMoveActions", () => {
       undefined,
       "player"
     );
-    const exileLabels = exileActions.map((a) =>
-      a.type === "action" ? a.label : ""
+    const exileMoveMenu = exileActions.find(
+      (a): a is Extract<typeof a, { type: "action" }> =>
+        a.type === "action" && a.label === "Move to..."
     );
-    expect(exileLabels).toContain(`Move to bottom of ${ZONE_LABEL.library}`);
-    expect(exileLabels).toContain(`Move to top of ${ZONE_LABEL.library}`);
+    const exileLibraryMenu = exileMoveMenu?.submenu?.find(
+      (a): a is Extract<typeof a, { type: "action" }> =>
+        a.type === "action" && a.label === `${ZONE_LABEL.library} ...`
+    );
+    const exileLibraryLabels =
+      exileLibraryMenu?.submenu?.map((a) =>
+        a.type === "action" ? a.label : ""
+      ) ?? [];
+    expect(exileLibraryLabels).toEqual(["Top", "Bottom"]);
+  });
+
+  it("prompts for an exact position through the shared library move menu", () => {
+    const library = makeZone("lib", ZONE.LIBRARY, "p1");
+    const graveyard = makeZone("gy", ZONE.GRAVEYARD, "p1");
+    const moveCard = vi.fn();
+    const openCountPrompt = vi.fn();
+    const players = {
+      p1: { ...makePlayer("p1", "Owner"), libraryCount: 3 },
+    };
+
+    const actions = buildZoneMoveActions(
+      { ...baseCard, zoneId: graveyard.id },
+      graveyard,
+      { [library.id]: library, [graveyard.id]: graveyard },
+      "p1",
+      moveCard,
+      vi.fn(),
+      players,
+      undefined,
+      "player",
+      openCountPrompt,
+    );
+    const moveMenu = actions.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "Move to...",
+    );
+    const libraryMenu = moveMenu?.submenu?.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "Library ...",
+    );
+    const nth = libraryMenu?.submenu?.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "Nth from Top...",
+    );
+
+    nth?.onSelect();
+    expect(openCountPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Move to Nth from Top",
+        initialValue: 2,
+        minValue: 1,
+        maxValue: 4,
+        confirmLabel: "Move card",
+      }),
+    );
+    openCountPrompt.mock.calls[0]?.[0]?.onSubmit(3);
+    expect(moveCard).toHaveBeenCalledWith(
+      "c1",
+      library.id,
+      undefined,
+      undefined,
+      undefined,
+      { libraryPositionFromTop: 3 },
+    );
   });
 
   it("includes reveal submenu for owner in library", () => {
@@ -250,6 +337,7 @@ describe("buildZoneViewActions", () => {
   it("offers Exile 1 and Exile Top X from the library", () => {
     const zone = makeZone("lib", ZONE.LIBRARY, "owner");
     const exileFromLibrary = vi.fn();
+    const moveBottomLibraryCardToHand = vi.fn();
     const openCountPrompt = vi.fn();
     const items = buildZoneViewActions({
       zone,
@@ -258,6 +346,7 @@ describe("buildZoneViewActions", () => {
       drawCard: vi.fn(),
       discardFromLibrary: vi.fn(),
       exileFromLibrary,
+      moveBottomLibraryCardToHand,
       shuffleLibrary: vi.fn(),
       resetDeck: vi.fn(),
       mulligan: vi.fn(),
@@ -297,6 +386,13 @@ describe("buildZoneViewActions", () => {
     const prompt = openCountPrompt.mock.calls[0]?.[0];
     prompt?.onSubmit(4);
     expect(exileFromLibrary).toHaveBeenCalledWith("owner", 4);
+
+    const bottomToHand = items.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "Put bottom card into hand",
+    );
+    bottomToHand?.onSelect();
+    expect(moveBottomLibraryCardToHand).toHaveBeenCalledWith("owner");
   });
 
   it("disables count prompts when handler missing", () => {
@@ -308,6 +404,7 @@ describe("buildZoneViewActions", () => {
       drawCard: vi.fn(),
       discardFromLibrary: vi.fn(),
       exileFromLibrary: vi.fn(),
+      moveBottomLibraryCardToHand: vi.fn(),
       shuffleLibrary: vi.fn(),
       resetDeck: vi.fn(),
       mulligan: vi.fn(),
@@ -345,6 +442,7 @@ describe("buildZoneViewActions", () => {
       drawCard: vi.fn(),
       discardFromLibrary: vi.fn(),
       exileFromLibrary: vi.fn(),
+      moveBottomLibraryCardToHand: vi.fn(),
       shuffleLibrary: vi.fn(),
       resetDeck: vi.fn(),
       mulligan: vi.fn(),
@@ -388,6 +486,7 @@ describe("buildZoneViewActions", () => {
       drawCard: vi.fn(),
       discardFromLibrary: vi.fn(),
       exileFromLibrary: vi.fn(),
+      moveBottomLibraryCardToHand: vi.fn(),
       shuffleLibrary: vi.fn(),
       resetDeck: vi.fn(),
       mulligan: vi.fn(),
@@ -426,6 +525,182 @@ describe("buildZoneViewActions", () => {
     expect(revealToAll?.checked).toBe(false);
     revealToAll?.onSelect();
     expect(setLibraryTopReveal).toHaveBeenCalledWith({ toAll: true });
+  });
+});
+
+describe("buildGroupActions", () => {
+  it("builds the restricted Hand group menu", () => {
+    const hand = makeZone("hand", ZONE.HAND, "p1");
+    const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1");
+    const graveyard = makeZone("gy", ZONE.GRAVEYARD, "p1");
+    const exile = makeZone("exile", ZONE.EXILE, "p1");
+    const library = makeZone("lib", ZONE.LIBRARY, "p1");
+    const commander = makeZone("commander", ZONE.COMMANDER, "p1");
+    const sideboard = makeZone("sideboard", ZONE.SIDEBOARD, "p1");
+    const cards = [
+      { ...baseCard, id: "c1", zoneId: hand.id },
+      { ...baseCard, id: "c2", zoneId: hand.id },
+    ];
+    hand.cardIds = cards.map((card) => card.id);
+    const moveCards = vi.fn();
+    const setCardsReveal = vi.fn();
+
+    const actions = buildGroupActions({
+      cards,
+      currentZone: hand,
+      zones: {
+        [hand.id]: hand,
+        [battlefield.id]: battlefield,
+        [graveyard.id]: graveyard,
+        [exile.id]: exile,
+        [library.id]: library,
+        [commander.id]: commander,
+        [sideboard.id]: sideboard,
+      },
+      players: {
+        p1: makePlayer("p1", "Player One"),
+        p2: makePlayer("p2", "Player Two"),
+      },
+      myPlayerId: "p1",
+      viewerRole: "player",
+      moveCards,
+      setCardsReveal,
+    });
+
+    expect(
+      actions.map((item) => (item.type === "action" ? item.label : "")),
+    ).toEqual(["Reveal to...", "Move to..."]);
+
+    const revealMenu = actions[0];
+    expect(revealMenu.type).toBe("action");
+    if (revealMenu.type !== "action") return;
+    expect(
+      revealMenu.submenu
+        ?.filter((item) => item.type === "action")
+        .map((item) => item.label),
+    ).toEqual(["Everyone", "Player Two", "Hide from everyone"]);
+
+    const moveMenu = actions[1];
+    expect(moveMenu.type).toBe("action");
+    if (moveMenu.type !== "action") return;
+    const moveLabels = moveMenu.submenu
+      ?.filter((item) => item.type === "action")
+      .map((item) => item.label);
+    expect(moveLabels).toEqual([
+      "Battlefield...",
+      "Graveyard",
+      "Exile",
+      "Library...",
+    ]);
+    expect(moveLabels).not.toContain("Commander");
+    expect(moveLabels).not.toContain("Sideboard");
+
+    const libraryMenu = moveMenu.submenu?.find(
+      (item) => item.type === "action" && item.label === "Library...",
+    );
+    expect(libraryMenu?.type).toBe("action");
+    if (!libraryMenu || libraryMenu.type !== "action") return;
+    expect(
+      libraryMenu.submenu?.map((item) =>
+        item.type === "action" ? item.label : "",
+      ),
+    ).toEqual(["Bottom in random order"]);
+    const randomBottom = libraryMenu.submenu?.[0];
+    if (!randomBottom || randomBottom.type !== "action") return;
+    randomBottom.onSelect();
+    expect(moveCards).toHaveBeenCalledTimes(1);
+    expect(moveCards.mock.calls[0]?.[0]).toEqual(
+      expect.arrayContaining([
+        {
+          cardId: "c1",
+          toZoneId: library.id,
+          placement: "bottom",
+          opts: { random: true },
+        },
+        {
+          cardId: "c2",
+          toZoneId: library.id,
+          placement: "bottom",
+          opts: { random: true },
+        },
+      ]),
+    );
+  });
+
+  it("builds the restricted move menu for a graveyard group", () => {
+    const hand = makeZone("hand", ZONE.HAND, "p1");
+    const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1");
+    const graveyard = makeZone("gy", ZONE.GRAVEYARD, "p1");
+    const exile = makeZone("exile", ZONE.EXILE, "p1");
+    const library = makeZone("lib", ZONE.LIBRARY, "p1");
+    const moveCards = vi.fn();
+    const setCardsReveal = vi.fn();
+    const params = {
+      cards: [
+        { ...baseCard, id: "c1", zoneId: graveyard.id },
+        { ...baseCard, id: "c2", zoneId: graveyard.id },
+      ],
+      currentZone: graveyard,
+      zones: {
+        [hand.id]: hand,
+        [battlefield.id]: battlefield,
+        [graveyard.id]: graveyard,
+        [exile.id]: exile,
+        [library.id]: library,
+      },
+      myPlayerId: "p1",
+      viewerRole: "player" as const,
+      moveCards,
+      setCardsReveal,
+    };
+    const actions = buildGroupActions(params);
+    expect(
+      actions.map((item) => (item.type === "action" ? item.label : "")),
+    ).toEqual(["Move to..."]);
+    const moveMenu = actions[0];
+    expect(moveMenu.type).toBe("action");
+    if (moveMenu.type !== "action") return;
+    expect(
+      moveMenu.submenu
+        ?.filter((item) => item.type === "action")
+        .map((item) => item.label),
+    ).toEqual(["Battlefield...", "Hand", "Exile", "Library..."]);
+    const libraryMenu = moveMenu.submenu?.find(
+      (item) => item.type === "action" && item.label === "Library...",
+    );
+    expect(libraryMenu?.type).toBe("action");
+    if (!libraryMenu || libraryMenu.type !== "action") return;
+    expect(
+      libraryMenu.submenu?.map((item) =>
+        item.type === "action" ? item.label : "",
+      ),
+    ).toEqual(["Bottom in random order"]);
+  });
+
+  it("does not build a group menu from one card or a mixed-zone selection", () => {
+    const hand = makeZone("hand", ZONE.HAND, "p1");
+    const graveyard = makeZone("gy", ZONE.GRAVEYARD, "p1");
+    const moveCards = vi.fn();
+    const setCardsReveal = vi.fn();
+    const params = {
+      cards: [{ ...baseCard, zoneId: hand.id }],
+      currentZone: hand,
+      zones: { [hand.id]: hand, [graveyard.id]: graveyard },
+      myPlayerId: "p1",
+      viewerRole: "player" as const,
+      moveCards,
+      setCardsReveal,
+    };
+    expect(buildGroupActions(params)).toEqual([]);
+    expect(
+      buildGroupActions({
+        ...params,
+        cards: [
+          { ...baseCard, id: "c1", zoneId: hand.id },
+          { ...baseCard, id: "c2", zoneId: graveyard.id },
+        ],
+      }),
+    ).toEqual([]);
   });
 });
 
@@ -551,7 +826,7 @@ describe("buildCardActions", () => {
     expect(labels).toContain("Inspect");
   });
 
-  it("adds random discard immediately after discard for hand cards", () => {
+  it("keeps single-card hand moves in the shared move menu", () => {
     const hand = makeZone("hand", ZONE.HAND, "p1");
     hand.cardIds = ["c1", "c2"];
     const graveyard = makeZone("gy", ZONE.GRAVEYARD, "p1");
@@ -578,9 +853,17 @@ describe("buildCardActions", () => {
     const labels = actions
       .filter((a): a is Extract<typeof a, { type: "action" }> => a.type === "action")
       .map((a) => a.label);
-    const discardIndex = labels.indexOf("Discard");
-    expect(discardIndex).toBeGreaterThanOrEqual(0);
-    expect(labels[discardIndex + 1]).toBe("Discard random card");
+    expect(labels).not.toContain("Play");
+    expect(labels).not.toContain("Discard");
+    expect(labels).toContain("Discard random card");
+
+    const moveMenu = actions.find(
+      (a): a is Extract<typeof a, { type: "action" }> =>
+        a.type === "action" && a.label === "Move to..."
+    );
+    const moveLabels =
+      moveMenu?.submenu?.map((a) => (a.type === "action" ? a.label : "")) ?? [];
+    expect(moveLabels).toContain(ZONE_LABEL.graveyard);
 
     const randomDiscard = actions.find(
       (a): a is Extract<typeof a, { type: "action" }> =>

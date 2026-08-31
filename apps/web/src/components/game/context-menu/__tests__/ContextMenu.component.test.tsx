@@ -107,4 +107,90 @@ describe("ContextMenu", () => {
     fireEvent.mouseDown(root!);
     expect(onClose).toHaveBeenCalledTimes(0);
   });
+
+  it("keeps its portal interactive when an open modal disables body pointer events", () => {
+    document.body.style.pointerEvents = "none";
+
+    try {
+      render(
+        <ContextMenu
+          x={10}
+          y={10}
+          items={createItems()}
+          onClose={vi.fn()}
+        />
+      );
+
+      const root = document.querySelector("[data-context-menu-root]");
+      expect(root).toBeTruthy();
+      expect(root?.classList.contains("pointer-events-auto")).toBe(true);
+    } finally {
+      document.body.style.pointerEvents = "";
+    }
+  });
+
+  it("protects the pointer path between a submenu trigger and its submenu", () => {
+    const { unmount } = render(
+      <ContextMenu
+        x={10}
+        y={10}
+        items={[
+          { type: "action", label: "Neighbor", onSelect: vi.fn() },
+          {
+            type: "action",
+            label: "Move to...",
+            onSelect: vi.fn(),
+            submenu: [{ type: "action", label: "Library...", onSelect: vi.fn() }],
+          },
+        ]}
+        onClose={vi.fn()}
+      />
+    );
+
+    const trigger = screen.getByRole("button", { name: "Move to..." });
+    fireEvent.mouseEnter(trigger);
+
+    expect(screen.getByRole("button", { name: "Library..." })).toBeTruthy();
+    expect(document.body.style.pointerEvents).toBe("none");
+    expect(trigger.style.pointerEvents).toBe("auto");
+
+    unmount();
+    expect(document.body.style.pointerEvents).toBe("");
+  });
+
+  it("supports selecting actions through multiple submenu levels", () => {
+    const onClose = vi.fn();
+    const onSelect = vi.fn();
+
+    render(
+      <ContextMenu
+        x={10}
+        y={10}
+        items={[
+          {
+            type: "action",
+            label: "Move to...",
+            onSelect: vi.fn(),
+            submenu: [
+              {
+                type: "action",
+                label: "Library...",
+                onSelect: vi.fn(),
+                submenu: [{ type: "action", label: "Bottom", onSelect }],
+              },
+            ],
+          },
+        ]}
+        onClose={onClose}
+      />
+    );
+
+    fireEvent.mouseEnter(screen.getByRole("button", { name: "Move to..." }));
+    fireEvent.mouseEnter(screen.getByRole("button", { name: "Library..." }));
+    fireEvent.click(screen.getByRole("button", { name: "Bottom" }));
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
 });

@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createCardActionAdapters, createZoneActionAdapters } from "../actionAdapters";
+import {
+  createCardActionAdapters,
+  createGroupActionAdapters,
+  createZoneActionAdapters,
+} from "../actionAdapters";
 import { useSelectionStore } from "@/store/selectionStore";
 
 beforeEach(() => {
@@ -25,6 +29,7 @@ describe("gameContextMenu actionAdapters", () => {
       setActiveModal: vi.fn(),
       removeCard: vi.fn(),
       drawCard: vi.fn(),
+      moveBottomLibraryCardToHand: vi.fn(),
       shuffleLibrary: vi.fn(),
       resetDeck: vi.fn(),
       mulligan: vi.fn(),
@@ -87,7 +92,7 @@ describe("gameContextMenu actionAdapters", () => {
     expect(adapters.openTextPrompt).toBe(openTextPrompt);
   });
 
-  it("card adapters apply actions to selected cards", () => {
+  it("keeps single-card adapters scoped to their seed card", () => {
     useSelectionStore.setState({
       selectedCardIds: ["c1", "c2"],
       selectionZoneId: "z1",
@@ -108,16 +113,42 @@ describe("gameContextMenu actionAdapters", () => {
 
     adapters.addCounter("c1", { type: "+1/+1", count: 1 });
 
-    expect(store.addCounterToCard).toHaveBeenCalledTimes(2);
+    expect(store.addCounterToCard).toHaveBeenCalledTimes(1);
     expect(store.addCounterToCard).toHaveBeenCalledWith(
       "c1",
       { type: "+1/+1", count: 1 },
       "me"
     );
-    expect(store.addCounterToCard).toHaveBeenCalledWith(
-      "c2",
-      { type: "+1/+1", count: 1 },
-      "me"
+  });
+
+  it("freezes group action targets", () => {
+    const store = {
+      moveCards: vi.fn(),
+      setCardsReveal: vi.fn(),
+    } as any;
+    const adapters = createGroupActionAdapters({
+      store,
+      myPlayerId: "me",
+      targetIds: ["c1", "c2"],
+    });
+
+    adapters.moveCards([
+      { cardId: "c1", toZoneId: "gy" },
+      { cardId: "c2", toZoneId: "gy" },
+    ]);
+    expect(store.moveCards).toHaveBeenCalledWith(
+      [
+        { cardId: "c1", toZoneId: "gy" },
+        { cardId: "c2", toZoneId: "gy" },
+      ],
+      "me",
+    );
+
+    adapters.setCardsReveal({ toAll: true });
+    expect(store.setCardsReveal).toHaveBeenCalledWith(
+      ["c1", "c2"],
+      { toAll: true },
+      "me",
     );
   });
 
@@ -134,6 +165,7 @@ describe("gameContextMenu actionAdapters", () => {
       setActiveModal: vi.fn(),
       removeCard: vi.fn(),
       drawCard: vi.fn(),
+      moveBottomLibraryCardToHand: vi.fn(),
       shuffleLibrary: vi.fn(),
       resetDeck: vi.fn(),
       mulligan: vi.fn(),
@@ -144,6 +176,9 @@ describe("gameContextMenu actionAdapters", () => {
 
     adapters.drawCard("me");
     expect(store.drawCard).toHaveBeenCalledWith("me", "me");
+
+    adapters.moveBottomLibraryCardToHand("me");
+    expect(store.moveBottomLibraryCardToHand).toHaveBeenCalledWith("me", "me");
 
     adapters.shuffleLibrary("me");
     expect(store.shuffleLibrary).toHaveBeenCalledWith("me", "me");

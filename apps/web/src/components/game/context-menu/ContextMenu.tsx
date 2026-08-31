@@ -1,4 +1,5 @@
 import React from "react";
+import { FloatingTree } from "@floating-ui/react";
 
 import type { ContextMenuItem } from "@/models/game/context-menu/menu";
 
@@ -30,7 +31,6 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     x,
     y,
     referenceElement,
-    items,
     onClose,
     isSubmenu,
   });
@@ -47,31 +47,17 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     [onClose]
   );
 
-  const renderSubmenu = React.useCallback(
-    (submenuItems: ContextMenuItem[], submenuReference: HTMLElement) => (
-      <ContextMenu
-        referenceElement={submenuReference}
-        items={submenuItems}
-        onClose={onClose}
-        isSubmenu={true}
-      />
-    ),
-    [onClose]
-  );
-
   return (
-    <ContextMenuView
-      setFloating={controller.setFloating}
-      floatingStyles={controller.floatingStyles}
-      items={items}
-      className={className}
-      title={title}
-      activeSubmenuIndex={controller.activeSubmenuIndex}
-      submenuReference={controller.submenuReference}
-      onItemMouseEnter={controller.handleMouseEnter}
-      onItemClick={handleItemClick}
-      renderSubmenu={renderSubmenu}
-    />
+    <FloatingTree>
+      <ContextMenuView
+        setFloating={controller.setFloating}
+        floatingStyles={controller.floatingStyles}
+        items={items}
+        className={className}
+        title={title}
+        onItemClick={handleItemClick}
+      />
+    </FloatingTree>
   );
 };
 

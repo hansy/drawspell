@@ -1,10 +1,24 @@
 import React from "react";
+import {
+  autoUpdate,
+  flip,
+  FloatingNode,
+  FloatingPortal,
+  offset,
+  safePolygon,
+  shift,
+  useFloating,
+  useFloatingNodeId,
+  useHover,
+  useInteractions,
+} from "@floating-ui/react";
 import { ChevronRight } from "lucide-react";
-import { FloatingPortal } from "@floating-ui/react";
 
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { ContextMenuItem } from "@/models/game/context-menu/menu";
+
+type ContextMenuAction = Extract<ContextMenuItem, { type: "action" }>;
 
 export type ContextMenuViewProps = {
   setFloating: (node: HTMLDivElement | null) => void;
@@ -12,11 +26,130 @@ export type ContextMenuViewProps = {
   items: ContextMenuItem[];
   className?: string;
   title?: string;
-  activeSubmenuIndex: number | null;
-  submenuReference: HTMLElement | null;
-  onItemMouseEnter: (index: number, e: React.MouseEvent<HTMLButtonElement>) => void;
+  floatingProps?: React.HTMLProps<HTMLDivElement>;
   onItemClick: (item: ContextMenuItem) => void;
-  renderSubmenu: (submenuItems: ContextMenuItem[], submenuReference: HTMLElement) => React.ReactNode;
+};
+
+type ContextMenuSubmenuItemProps = {
+  item: ContextMenuAction;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onItemClick: (item: ContextMenuItem) => void;
+};
+
+const SUBMENU_CLOSE_DELAY_MS = 80;
+
+const getActionButtonClassName = (
+  item: ContextMenuAction,
+  isOpen: boolean,
+  isDisabled: boolean
+) =>
+  cn(
+    "w-full text-left px-4 py-2 text-sm transition-colors flex items-center justify-between group",
+    item.danger ? "text-red-400 hover:bg-red-900/20" : "text-zinc-200",
+    isOpen && "bg-zinc-700",
+    !isDisabled && "hover:bg-zinc-700",
+    isDisabled && "opacity-60 cursor-not-allowed"
+  );
+
+const ContextMenuActionContents: React.FC<{
+  item: ContextMenuAction;
+}> = ({ item }) => (
+  <>
+    <span className="flex-1 mr-2">{item.label}</span>
+
+    {item.shortcut && (
+      <span className="mr-2 text-[10px] font-medium font-mono text-zinc-500 bg-zinc-950/40 px-1.5 py-0.5 rounded shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)] border-b border-white/5 mx-2 min-w-[20px] text-center">
+        {item.shortcut}
+      </span>
+    )}
+
+    {item.checked && (
+      <span className="mr-2 text-indigo-400">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </span>
+    )}
+
+    {item.submenu && (
+      <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-300" />
+    )}
+  </>
+);
+
+const ContextMenuSubmenuItem: React.FC<ContextMenuSubmenuItemProps> = ({
+  item,
+  isOpen,
+  onOpenChange,
+  onItemClick,
+}) => {
+  const nodeId = useFloatingNodeId();
+  const { refs, floatingStyles, context } = useFloating({
+    nodeId,
+    open: isOpen,
+    onOpenChange,
+    placement: "right-start",
+    strategy: "fixed",
+    middleware: [
+      offset({ mainAxis: 4, alignmentAxis: -8 }),
+      flip({ fallbackAxisSideDirection: "start" }),
+      shift({ padding: 8 }),
+    ],
+    whileElementsMounted: autoUpdate,
+  });
+  const hover = useHover(context, {
+    enabled: !item.disabledReason,
+    mouseOnly: true,
+    delay: { close: SUBMENU_CLOSE_DELAY_MS },
+    handleClose: safePolygon({ blockPointerEvents: true }),
+  });
+  const { getReferenceProps, getFloatingProps } = useInteractions([hover]);
+  const isDisabled = Boolean(item.disabledReason);
+
+  const menuButton = (
+    <button
+      ref={refs.setReference}
+      {...getReferenceProps({
+        className: getActionButtonClassName(item, isOpen, isDisabled),
+        disabled: isDisabled,
+      })}
+    >
+      <ContextMenuActionContents item={item} />
+    </button>
+  );
+
+  return (
+    <FloatingNode id={nodeId}>
+      {isDisabled && item.disabledReason ? (
+        <Tooltip content={item.disabledReason} placement="right">
+          <div className="w-full">{menuButton}</div>
+        </Tooltip>
+      ) : (
+        menuButton
+      )}
+
+      {isOpen && item.submenu && (
+        <ContextMenuView
+          setFloating={refs.setFloating}
+          floatingStyles={floatingStyles}
+          items={item.submenu}
+          floatingProps={getFloatingProps() as React.HTMLProps<HTMLDivElement>}
+          onItemClick={onItemClick}
+        />
+      )}
+    </FloatingNode>
+  );
 };
 
 export const ContextMenuView: React.FC<ContextMenuViewProps> = ({
@@ -25,19 +158,21 @@ export const ContextMenuView: React.FC<ContextMenuViewProps> = ({
   items,
   className,
   title,
-  activeSubmenuIndex,
-  submenuReference,
-  onItemMouseEnter,
+  floatingProps,
   onItemClick,
-  renderSubmenu,
 }) => {
+  const [activeSubmenuIndex, setActiveSubmenuIndex] = React.useState<
+    number | null
+  >(null);
+
   return (
     <FloatingPortal>
       <div
+        {...floatingProps}
         ref={setFloating}
         data-context-menu-root
         className={cn(
-          "z-[10000] pointer-events-auto min-w-[160px] max-w-[280px] max-h-[70vh] overflow-auto bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl py-1",
+          "pointer-events-auto z-[10000] min-w-[160px] max-w-[280px] max-h-[70vh] overflow-auto bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl py-1",
           className
         )}
         style={floatingStyles}
@@ -82,9 +217,9 @@ export const ContextMenuView: React.FC<ContextMenuViewProps> = ({
                     type="button"
                     className="flex h-6 w-6 items-center justify-center rounded-md border border-zinc-600 bg-zinc-800 text-sm font-semibold text-zinc-100 transition-colors hover:bg-zinc-700"
                     aria-label={`Remove ${item.label} counter`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
                       item.onDecrement();
                     }}
                   >
@@ -99,9 +234,9 @@ export const ContextMenuView: React.FC<ContextMenuViewProps> = ({
                     type="button"
                     className="flex h-6 w-6 items-center justify-center rounded-md border border-zinc-600 bg-zinc-800 text-sm font-semibold text-zinc-100 transition-colors hover:bg-zinc-700"
                     aria-label={`Add ${item.label} counter`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
                       item.onIncrement();
                     }}
                   >
@@ -112,58 +247,35 @@ export const ContextMenuView: React.FC<ContextMenuViewProps> = ({
             );
           }
 
-          const isDisabled = Boolean(item.disabledReason);
-          const showSubmenu = Boolean(
-            item.submenu && activeSubmenuIndex === index && submenuReference
-          );
+          if (item.submenu) {
+            return (
+              <ContextMenuSubmenuItem
+                key={index}
+                item={item}
+                isOpen={activeSubmenuIndex === index}
+                onOpenChange={(open) => {
+                  setActiveSubmenuIndex((currentIndex) => {
+                    if (open) return index;
+                    return currentIndex === index ? null : currentIndex;
+                  });
+                }}
+                onItemClick={onItemClick}
+              />
+            );
+          }
 
+          const isDisabled = Boolean(item.disabledReason);
           const menuButton = (
             <button
-              className={cn(
-                "w-full text-left px-4 py-2 text-sm transition-colors flex items-center justify-between group",
-                item.danger ? "text-red-400 hover:bg-red-900/20" : "text-zinc-200",
-                activeSubmenuIndex === index && "bg-zinc-700",
-                !isDisabled && "hover:bg-zinc-700",
-                isDisabled && "opacity-60 cursor-not-allowed"
-              )}
+              className={getActionButtonClassName(item, false, isDisabled)}
               onClick={() => {
                 if (isDisabled) return;
-                if (!item.submenu) {
-                  onItemClick(item);
-                }
+                onItemClick(item);
               }}
-              onMouseEnter={(e) => onItemMouseEnter(index, e)}
+              onMouseEnter={() => setActiveSubmenuIndex(null)}
               disabled={isDisabled}
             >
-              <span className="flex-1 mr-2">{item.label}</span>
-
-              {item.shortcut && (
-                <span className="mr-2 text-[10px] font-medium font-mono text-zinc-500 bg-zinc-950/40 px-1.5 py-0.5 rounded shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)] border-b border-white/5 mx-2 min-w-[20px] text-center">
-                  {item.shortcut}
-                </span>
-              )}
-
-              {item.checked && (
-                <span className="mr-2 text-indigo-400">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </span>
-              )}
-
-              {item.submenu && (
-                <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-zinc-300" />
-              )}
+              <ContextMenuActionContents item={item} />
             </button>
           );
 
@@ -176,9 +288,6 @@ export const ContextMenuView: React.FC<ContextMenuViewProps> = ({
               ) : (
                 menuButton
               )}
-
-              {showSubmenu &&
-                renderSubmenu(item.submenu!, submenuReference as HTMLElement)}
             </React.Fragment>
           );
         })}

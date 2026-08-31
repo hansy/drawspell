@@ -15,6 +15,7 @@ export type MovePayload = {
   actorId?: string;
   gainsControlBy?: string;
   placement?: "top" | "bottom";
+  libraryPositionFromTop?: number;
   cardName?: string;
   fromZoneType?: ZoneType;
   toZoneType?: ZoneType;
@@ -93,8 +94,28 @@ const formatMove: LogEventDefinition<MovePayload>["format"] = (payload, ctx) => 
 
   const fromLabel = getLogZoneLabel(ctx, payload.fromZoneId, payload.fromZoneType);
   const toLabel = getLogZoneLabel(ctx, payload.toZoneId, payload.toZoneType);
+  const ordinal = (value: number) => {
+    const remainder100 = value % 100;
+    const suffix =
+      remainder100 >= 11 && remainder100 <= 13
+        ? "th"
+        : value % 10 === 1
+          ? "st"
+          : value % 10 === 2
+            ? "nd"
+            : value % 10 === 3
+              ? "rd"
+              : "th";
+    return `${value}${suffix}`;
+  };
   const placementLabel =
-    payload.placement === "top" || payload.placement === "bottom" ? payload.placement : null;
+    typeof payload.libraryPositionFromTop === "number" &&
+    Number.isFinite(payload.libraryPositionFromTop) &&
+    payload.libraryPositionFromTop >= 1
+      ? `${ordinal(Math.floor(payload.libraryPositionFromTop))} position from the top`
+      : payload.placement === "top" || payload.placement === "bottom"
+        ? payload.placement
+        : null;
 
   if (payload.gainsControlBy && toZone?.type === "battlefield") {
     const controller = buildPlayerPart(ctx, payload.gainsControlBy);

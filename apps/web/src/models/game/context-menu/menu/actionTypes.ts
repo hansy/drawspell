@@ -8,6 +8,7 @@ export type ContextMenuMoveCardFn = (
   isRemote?: boolean,
   opts?: {
     suppressLog?: boolean;
+    libraryPositionFromTop?: number;
     faceDown?: boolean;
     faceDownMode?: FaceDownMode;
     skipCollision?: boolean;

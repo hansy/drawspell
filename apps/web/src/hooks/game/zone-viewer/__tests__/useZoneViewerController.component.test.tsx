@@ -13,6 +13,7 @@ import { act, render, waitFor } from "@testing-library/react";
 import type { Card, Zone } from "@/types";
 import { ZONE } from "@/constants/zones";
 import { useGameStore } from "@/store/gameStore";
+import { useSelectionStore } from "@/store/selectionStore";
 import { ensureLocalStorage } from '@test/utils/storage';
 import type { ContextMenuAction } from "@/models/game/context-menu/menu/types";
 
@@ -86,6 +87,7 @@ describe("useZoneViewerController", () => {
       myPlayerId: "me",
       viewerRole: "player",
     });
+    useSelectionStore.setState({ selectedCardIds: [], selectionZoneId: null });
   });
 
   afterEach(() => {
@@ -158,9 +160,13 @@ describe("useZoneViewerController", () => {
     expect(menu.y).toBe(240);
     const moveMenu = menu.items.find(
       (item): item is ContextMenuAction =>
-        item.type === "action" && item.label === "Move to Library ..."
+        item.type === "action" && item.label === "Move to..."
     );
-    const moveItem = moveMenu?.submenu?.find(
+    const libraryMenu = moveMenu?.submenu?.find(
+      (item): item is ContextMenuAction =>
+        item.type === "action" && item.label === "Library ..."
+    );
+    const moveItem = libraryMenu?.submenu?.find(
       (item): item is ContextMenuAction =>
         item.type === "action" && item.label === "Bottom"
     );
@@ -171,6 +177,100 @@ describe("useZoneViewerController", () => {
     });
 
     await waitFor(() => expect(listEl.scrollLeft).toBe(0));
+  });
+
+  it("applies a zone context-menu move to the current card selection", async () => {
+    const graveyard = buildZone({
+      id: "graveyard-me",
+      type: ZONE.GRAVEYARD,
+      ownerId: "me",
+      cardIds: ["c1", "c2"],
+    });
+    const hand = buildZone({
+      id: "hand-me",
+      type: ZONE.HAND,
+      ownerId: "me",
+      cardIds: [],
+    });
+    const library = buildZone({
+      id: "library-me",
+      type: ZONE.LIBRARY,
+      ownerId: "me",
+      cardIds: [],
+    });
+    const moveCards = vi.fn();
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: {
+        [graveyard.id]: graveyard,
+        [hand.id]: hand,
+        [library.id]: library,
+      },
+      cards: {
+        c1: buildCard("c1", "Card1", graveyard.id),
+        c2: buildCard("c2", "Card2", graveyard.id),
+      },
+      players: {
+        me: {
+          id: "me",
+          name: "Me",
+          life: 40,
+          counters: [],
+          commanderDamage: {},
+          commanderTax: 0,
+          deckLoaded: true,
+        },
+      },
+      moveCards: moveCards as typeof state.moveCards,
+    }));
+    useSelectionStore.getState().setSelection(["c1", "c2"], graveyard.id);
+
+    render(<Harness zoneId={graveyard.id} />);
+    await waitFor(() => expect(latestController).not.toBeNull());
+
+    act(() => {
+      latestController!.handleContextMenu(
+        {
+          preventDefault: () => {},
+          clientX: 100,
+          clientY: 100,
+        } as React.MouseEvent,
+        useGameStore.getState().cards.c1
+      );
+    });
+
+    await waitFor(() => expect(latestController?.contextMenu).not.toBeNull());
+    expect(latestController?.contextMenu?.title).toBe("2 cards selected");
+    const moveMenu = latestController!.contextMenu!.items.find(
+      (item): item is ContextMenuAction =>
+        item.type === "action" && item.label === "Move to..."
+    );
+    const moveToHand = moveMenu?.submenu?.find(
+      (item): item is ContextMenuAction =>
+        item.type === "action" && item.label === "Hand"
+    );
+    expect(moveToHand).toBeTruthy();
+    const libraryMenu = moveMenu?.submenu?.find(
+      (item): item is ContextMenuAction =>
+        item.type === "action" && item.label === "Library..."
+    );
+    expect(
+      libraryMenu?.submenu?.map((item) =>
+        item.type === "action" ? item.label : ""
+      )
+    ).toEqual(["Bottom in random order"]);
+
+    act(() => moveToHand?.onSelect());
+
+    expect(moveCards).toHaveBeenCalledTimes(1);
+    expect(moveCards).toHaveBeenCalledWith(
+      [
+        { cardId: "c1", toZoneId: hand.id },
+        { cardId: "c2", toZoneId: hand.id },
+      ],
+      "me",
+    );
   });
 
   it("submits top-X library reorders as visible-only", async () => {
@@ -269,9 +369,13 @@ describe("useZoneViewerController", () => {
     const menu = latestController!.contextMenu!;
     const moveMenu = menu.items.find(
       (item): item is ContextMenuAction =>
-        item.type === "action" && item.label === "Move to Library ..."
+        item.type === "action" && item.label === "Move to..."
     );
-    const moveItem = moveMenu?.submenu?.find(
+    const libraryMenu = moveMenu?.submenu?.find(
+      (item): item is ContextMenuAction =>
+        item.type === "action" && item.label === "Library ..."
+    );
+    const moveItem = libraryMenu?.submenu?.find(
       (item): item is ContextMenuAction =>
         item.type === "action" && item.label === "Bottom"
     );
@@ -347,9 +451,13 @@ describe("useZoneViewerController", () => {
     const menu = latestController!.contextMenu!;
     const moveMenu = menu.items.find(
       (item): item is ContextMenuAction =>
-        item.type === "action" && item.label === "Move to Library ..."
+        item.type === "action" && item.label === "Move to..."
     );
-    const moveItem = moveMenu?.submenu?.find(
+    const libraryMenu = moveMenu?.submenu?.find(
+      (item): item is ContextMenuAction =>
+        item.type === "action" && item.label === "Library ..."
+    );
+    const moveItem = libraryMenu?.submenu?.find(
       (item): item is ContextMenuAction =>
         item.type === "action" && item.label === "Bottom"
     );
@@ -425,9 +533,13 @@ describe("useZoneViewerController", () => {
     const menu = latestController!.contextMenu!;
     const moveMenu = menu.items.find(
       (item): item is ContextMenuAction =>
-        item.type === "action" && item.label === "Move to Library ..."
+        item.type === "action" && item.label === "Move to..."
     );
-    const moveItem = moveMenu?.submenu?.find(
+    const libraryMenu = moveMenu?.submenu?.find(
+      (item): item is ContextMenuAction =>
+        item.type === "action" && item.label === "Library ..."
+    );
+    const moveItem = libraryMenu?.submenu?.find(
       (item): item is ContextMenuAction =>
         item.type === "action" && item.label === "Bottom"
     );

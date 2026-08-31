@@ -24,7 +24,11 @@ import type { ContextMenuItem } from "@/models/game/context-menu/menu/types";
 import { requestCardPreviewLock } from "@/lib/cardPreviewLock";
 
 import { fetchBattlefieldRelatedParts } from "./relatedParts";
-import { createCardActionAdapters, createZoneActionAdapters } from "./actionAdapters";
+import {
+    createCardActionAdapters,
+    createGroupActionAdapters,
+    createZoneActionAdapters,
+} from "./actionAdapters";
 import { createRelatedCardHandler } from "./createRelatedCard";
 import { useContextMenuState } from "./useContextMenuState";
 
@@ -128,6 +132,7 @@ export const useGameContextMenu = (
                 globalCounters: store.globalCounters,
                 relatedParts,
                 openRandomDiscardPrompt,
+                openCountPrompt,
                 previewAnchorEl,
                 lockPreview: (targetCard, anchorEl) =>
                     requestCardPreviewLock({ cardId: targetCard.id, anchorEl }),
@@ -150,6 +155,7 @@ export const useGameContextMenu = (
         myPlayerId,
         openTextPrompt,
         openRandomDiscardPrompt,
+        openCountPrompt,
         updateContextMenu,
         viewerRole,
     ]);
@@ -162,10 +168,50 @@ export const useGameContextMenu = (
         if (!seatHasDeckLoaded(zone?.ownerId ?? card.ownerId)) return;
 
         const selectionEnabled =
-            zone?.type === ZONE.BATTLEFIELD && zone.ownerId === myPlayerId;
+            zone?.ownerId === myPlayerId &&
+            (zone.type === ZONE.BATTLEFIELD || zone.type === ZONE.HAND);
         const selectionState = useSelectionStore.getState();
         if (selectionEnabled && !selectionState.selectedCardIds.includes(card.id)) {
             useSelectionStore.getState().selectOnly(card.id, card.zoneId);
+        }
+
+        const selectedIds =
+            zone &&
+            selectionState.selectionZoneId === card.zoneId &&
+            selectionState.selectedCardIds.includes(card.id)
+                ? selectionState.selectedCardIds.filter(
+                    (id) => store.cards[id]?.zoneId === card.zoneId,
+                )
+                : [];
+        if (selectedIds.length > 1 && zone) {
+            const selectedCards = selectedIds
+                .map((id) => store.cards[id])
+                .filter((selectedCard): selectedCard is Card => Boolean(selectedCard));
+            if (selectedCards.length === selectedIds.length) {
+                const adapters = createGroupActionAdapters({
+                    store,
+                    myPlayerId,
+                    targetIds: [...selectedIds],
+                });
+                const groupActions = actionRegistry.buildGroupActions({
+                    cards: selectedCards,
+                    currentZone: zone,
+                    zones: store.zones,
+                    players: store.players,
+                    myPlayerId,
+                    viewerRole,
+                    ...adapters,
+                });
+                if (groupActions.length > 0) {
+                    openContextMenu(
+                        e,
+                        groupActions,
+                        `${selectedCards.length} cards selected`,
+                    );
+                    contextMenuRequestRef.current += 1;
+                    return;
+                }
+            }
         }
 
         const previewAnchorEl = e.currentTarget as HTMLElement;

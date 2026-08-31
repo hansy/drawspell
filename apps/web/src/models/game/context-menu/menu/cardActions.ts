@@ -21,7 +21,7 @@ import {
 } from "@/lib/cardDisplay";
 
 import type { ContextMenuMoveCardFn } from "./actionTypes";
-import type { ContextMenuItem } from "./types";
+import type { ContextMenuItem, OpenCountPrompt } from "./types";
 import { buildRevealMenu } from "./reveal";
 import { buildCounterMenuItems } from "./cardActions/counterMenu";
 import { buildHandZoneMenuItems } from "./cardActions/handZoneMenu";
@@ -56,6 +56,7 @@ interface CardActionBuilderParams {
     onSubmit: (value: string) => void;
   }) => void;
   openRandomDiscardPrompt?: (handCount: number) => void;
+  openCountPrompt?: OpenCountPrompt;
   setCardReveal?: (
     cardId: CardId,
     reveal: CardReveal
@@ -86,6 +87,7 @@ export const buildCardActions = ({
   updateCard,
   openTextPrompt,
   openRandomDiscardPrompt,
+  openCountPrompt,
   setCardReveal,
   lockPreview,
   previewAnchorEl,
@@ -138,6 +140,8 @@ export const buildCardActions = ({
         viewerRole,
         moveCard,
         moveCardToBottom,
+        libraryCardCount: players?.[card.ownerId]?.libraryCount,
+        openCountPrompt,
       });
       if (moveToMenu) {
         items.push(moveToMenu);
@@ -288,7 +292,6 @@ export const buildCardActions = ({
       zones,
       myPlayerId,
       viewerRole,
-      moveCard,
       openRandomDiscardPrompt,
     })
   );
@@ -301,6 +304,8 @@ export const buildCardActions = ({
     viewerRole,
     moveCard,
     moveCardToBottom,
+    libraryCardCount: players?.[card.ownerId]?.libraryCount,
+    openCountPrompt,
   });
   if (moveToMenu) {
     items.push(moveToMenu);

@@ -508,7 +508,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   );
 
   const scale = 1;
-  useSelectionSync(myPlayerId);
+  useSelectionSync();
 
   const groupDragCardIds = React.useMemo(() => {
     if (!isGroupDragging || !activeCardId) return [];
@@ -573,6 +573,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     handleOpenDiceRoller,
     closeContextMenu,
     countPrompt,
+    openCountPrompt,
     closeCountPrompt,
     textPrompt,
     closeTextPrompt,

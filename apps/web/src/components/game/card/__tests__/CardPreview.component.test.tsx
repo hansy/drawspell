@@ -7,6 +7,7 @@ import { useGameStore } from "@/store/gameStore";
 import { useDragStore } from "@/store/dragStore";
 import { useSelectionStore } from "@/store/selectionStore";
 import { ZONE } from "@/constants/zones";
+import { BATTLEFIELD_HOVER_PREVIEW_DELAY_MS } from "@/models/game/card/cardModel";
 import {
   getPreviewDimensions,
   getPreviewMinWidthPx,
@@ -117,6 +118,125 @@ describe("CardPreview", () => {
     fireEvent.mouseEnter(cardElement);
 
     expect(preloadCardPreviewImage).toHaveBeenCalledWith(card, "high");
+  });
+
+  it("toggles own-hand card selection on successive single activations", () => {
+    vi.useFakeTimers();
+    const zoneId = "me-hand";
+    const cardId = "select-card";
+    const zone = buildZone(zoneId, "HAND", "me", [cardId]);
+    const card = buildCard(cardId, "Select Card", zoneId);
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me") },
+      myPlayerId: "me",
+      viewerRole: "player",
+    }));
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Card card={card} />
+        </CardPreviewProvider>
+      </DndContext>,
+    );
+    const cardElement = container.querySelector(`[data-card-id="${cardId}"]`);
+    if (!cardElement) throw new Error("Expected hand card to be present.");
+
+    const pressCard = () => {
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+        }),
+      );
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+        }),
+      );
+    };
+
+    act(pressCard);
+    expect(useSelectionStore.getState()).toMatchObject({
+      selectedCardIds: [cardId],
+      selectionZoneId: zoneId,
+    });
+
+    act(() => vi.runAllTimers());
+    act(pressCard);
+    expect(useSelectionStore.getState()).toMatchObject({
+      selectedCardIds: [],
+      selectionZoneId: null,
+    });
+  });
+
+  it("rolls back eager hand selection when a second activation opens preview", () => {
+    vi.useFakeTimers();
+    const zoneId = "me-hand";
+    const cardId = "preview-card";
+    const zone = buildZone(zoneId, "HAND", "me", [cardId]);
+    const card = buildCard(cardId, "Preview Card", zoneId);
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me") },
+      myPlayerId: "me",
+      viewerRole: "player",
+    }));
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Card card={card} />
+        </CardPreviewProvider>
+      </DndContext>,
+    );
+    const cardElement = container.querySelector(`[data-card-id="${cardId}"]`);
+    if (!cardElement) throw new Error("Expected hand card to be present.");
+
+    const pressCard = () => {
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+        }),
+      );
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+        }),
+      );
+    };
+
+    act(pressCard);
+    expect(useSelectionStore.getState().selectedCardIds).toEqual([cardId]);
+
+    act(pressCard);
+    expect(useSelectionStore.getState()).toMatchObject({
+      selectedCardIds: [],
+      selectionZoneId: null,
+    });
+    expect(document.querySelector("[data-card-preview]")).not.toBeNull();
   });
 
   it("does not preload artwork when the viewer cannot see the card identity", () => {
@@ -636,7 +756,7 @@ describe("CardPreview", () => {
     anchorEl.remove();
   });
 
-  it("locks preview after a desktop click", () => {
+  it("locks preview after a desktop double click", () => {
     const zoneId = "me-battlefield";
     const cardId = "c1";
     const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
@@ -663,6 +783,36 @@ describe("CardPreview", () => {
       throw new Error("Expected card element to be present.");
     }
 
+    act(() => fireEvent.doubleClick(cardElement));
+    expect(document.querySelector("[data-card-preview]")).not.toBeNull();
+  });
+
+  it("uses a single click to tap a battlefield card without a preview", () => {
+    vi.useFakeTimers();
+    const zoneId = "me-battlefield";
+    const cardId = "c1";
+    const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
+    const card = buildCard(cardId, "Test Card", zoneId);
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me") },
+      myPlayerId: "me",
+      viewerRole: "player",
+    }));
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Card card={card} />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+    const cardElement = container.querySelector(`[data-card-id="${cardId}"]`);
+    if (!cardElement) throw new Error("Expected card element to be present.");
+
     act(() => {
       fireEvent(
         cardElement,
@@ -682,11 +832,14 @@ describe("CardPreview", () => {
           clientY: 10,
         })
       );
+      vi.runAllTimers();
     });
-    expect(document.querySelector("[data-card-preview]")).not.toBeNull();
+
+    expect(useGameStore.getState().cards[cardId]?.tapped).toBe(true);
   });
 
-  it("dismisses a locked preview after tapping or untapping a battlefield card", () => {
+  it("does not tap a card when clicking closes its locked preview", () => {
+    vi.useFakeTimers();
     const zoneId = "me-battlefield";
     const cardId = "c1";
     const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
@@ -715,6 +868,9 @@ describe("CardPreview", () => {
     const cardElement = container.querySelector(`[data-card-id="${cardId}"]`);
     if (!cardElement) throw new Error("Expected card element to be present.");
 
+    act(() => fireEvent.doubleClick(cardElement));
+    expect(document.querySelector("[data-card-preview]")).not.toBeNull();
+
     act(() => {
       fireEvent(
         cardElement,
@@ -734,18 +890,132 @@ describe("CardPreview", () => {
           clientY: 10,
         })
       );
+      vi.runAllTimers();
+    });
+
+    expect(useGameStore.getState().cards[cardId]?.tapped).toBe(false);
+    expect(document.querySelector("[data-card-preview]")).toBeNull();
+  });
+
+  it("does not tap another card when that click dismisses a locked preview", () => {
+    vi.useFakeTimers();
+    const zoneId = "me-battlefield";
+    const firstCard = buildCard("c1", "First Card", zoneId);
+    const secondCard = buildCard("c2", "Second Card", zoneId);
+    const zone = buildZone(zoneId, "BATTLEFIELD", "me", [firstCard.id, secondCard.id]);
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [firstCard.id]: firstCard, [secondCard.id]: secondCard },
+      players: { me: buildPlayer("me", "Me") },
+      myPlayerId: "me",
+      viewerRole: "player",
+    }));
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Card card={firstCard} />
+          <Card card={secondCard} />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+    const firstElement = container.querySelector(`[data-card-id="${firstCard.id}"]`);
+    const secondElement = container.querySelector(`[data-card-id="${secondCard.id}"]`);
+    if (!firstElement || !secondElement) {
+      throw new Error("Expected battlefield cards to be present.");
+    }
+
+    act(() => fireEvent.doubleClick(firstElement));
+    expect(document.querySelector("[data-card-preview]")).not.toBeNull();
+
+    act(() => {
+      fireEvent(
+        secondElement,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          clientX: 20,
+          clientY: 20,
+        })
+      );
+      fireEvent(
+        secondElement,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          clientX: 20,
+          clientY: 20,
+        })
+      );
+      vi.runAllTimers();
+    });
+
+    expect(useGameStore.getState().cards[secondCard.id]?.tapped).toBe(false);
+    expect(document.querySelector("[data-card-preview]")).toBeNull();
+  });
+
+  it("still taps a hovered card when only its hover preview is open", () => {
+    vi.useFakeTimers();
+    const zoneId = "me-battlefield";
+    const cardId = "c1";
+    const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
+    const card = buildCard(cardId, "Test Card", zoneId);
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me") },
+      myPlayerId: "me",
+      viewerRole: "player",
+    }));
+
+    const { container } = render(
+      <DndContext>
+        <CardPreviewProvider>
+          <Card card={card} />
+        </CardPreviewProvider>
+      </DndContext>
+    );
+    const cardElement = container.querySelector(`[data-card-id="${cardId}"]`);
+    if (!cardElement) throw new Error("Expected card element to be present.");
+
+    act(() => {
+      fireEvent.mouseEnter(cardElement);
+      vi.advanceTimersByTime(BATTLEFIELD_HOVER_PREVIEW_DELAY_MS);
     });
     expect(document.querySelector("[data-card-preview]")).not.toBeNull();
 
     act(() => {
-      fireEvent.doubleClick(cardElement);
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+        })
+      );
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          clientX: 10,
+          clientY: 10,
+        })
+      );
+      vi.runAllTimers();
     });
 
     expect(useGameStore.getState().cards[cardId]?.tapped).toBe(true);
     expect(document.querySelector("[data-card-preview]")).toBeNull();
   });
 
-  it("does not lock preview when a desktop click turns into a drag", () => {
+  it("does not tap or preview when a desktop click turns into a drag", () => {
+    vi.useFakeTimers();
     const zoneId = "me-battlefield";
     const cardId = "c1";
     const zone = buildZone(zoneId, "BATTLEFIELD", "me", [cardId]);
@@ -800,9 +1070,11 @@ describe("CardPreview", () => {
           clientY: 10,
         })
       );
+      vi.runAllTimers();
     });
 
     expect(document.querySelector("[data-card-preview]")).toBeNull();
+    expect(useGameStore.getState().cards[cardId]?.tapped).toBe(false);
   });
 
   it("closes locked preview when clicking outside", () => {
@@ -832,26 +1104,7 @@ describe("CardPreview", () => {
       throw new Error("Expected card element to be present.");
     }
 
-    act(() => {
-      fireEvent(
-        cardElement,
-        createPointerEvent("pointerdown", {
-          bubbles: true,
-          button: 0,
-          clientX: 10,
-          clientY: 10,
-        })
-      );
-      fireEvent(
-        cardElement,
-        createPointerEvent("pointerup", {
-          bubbles: true,
-          button: 0,
-          clientX: 10,
-          clientY: 10,
-        })
-      );
-    });
+    act(() => fireEvent.doubleClick(cardElement));
     expect(document.querySelector("[data-card-preview]")).not.toBeNull();
 
     act(() => {
@@ -1230,7 +1483,7 @@ describe("CardPreview", () => {
     anchorEl.remove();
   });
 
-  it("shows a preview on touch tap", () => {
+  it("shows a preview on touch double tap", () => {
     vi.useFakeTimers();
 
     const zoneId = "me-battlefield";
@@ -1260,6 +1513,28 @@ describe("CardPreview", () => {
     }
 
     act(() => {
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 30,
+          clientY: 40,
+        })
+      );
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 30,
+          clientY: 40,
+        })
+      );
       fireEvent(
         cardElement,
         createPointerEvent("pointerdown", {
@@ -1351,6 +1626,7 @@ describe("CardPreview", () => {
           clientY: 40,
         })
       );
+      vi.runAllTimers();
     });
 
     expect(document.querySelector("[data-card-preview]")).toBeNull();
@@ -1384,6 +1660,28 @@ describe("CardPreview", () => {
     }
 
     act(() => {
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 30,
+          clientY: 40,
+        })
+      );
+      fireEvent(
+        cardElement,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId: 1,
+          clientX: 30,
+          clientY: 40,
+        })
+      );
       fireEvent(
         cardElement,
         createPointerEvent("pointerdown", {
@@ -1554,6 +1852,7 @@ describe("CardPreview", () => {
     });
 
     expect(tapCard).not.toHaveBeenCalled();
+    expect(document.querySelector("[data-card-preview]")).not.toBeNull();
     act(() => {
       useGameStore.setState({ tapCard: originalTapCard } as any);
     });

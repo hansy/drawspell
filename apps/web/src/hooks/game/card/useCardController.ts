@@ -13,7 +13,6 @@ import {
 import { getFlipRotation } from "@/lib/cardDisplay";
 import { preloadCardPreviewImage } from "@/lib/cardImagePreload";
 import {
-  selectIsCardSelected,
   useSelectionStore,
 } from "@/store/selectionStore";
 import { useDragStore } from "@/store/dragStore";
@@ -38,6 +37,11 @@ import {
   TOUCH_CONTEXT_MENU_LONG_PRESS_MS,
   TOUCH_MOVE_TOLERANCE_PX,
 } from "@/lib/touchGestures";
+import {
+  EXCLUSIVE_ACTIVATION_DELAY_MS,
+  useExclusiveActivation,
+} from "@/hooks/shared/useExclusiveActivation";
+import { isLockedPreviewDismissal } from "@/lib/cardPreviewLock";
 
 const DESKTOP_PREVIEW_LOCK_MOVE_TOLERANCE_PX = 8;
 const TOUCH_PREVIEW_TAP_TOLERANCE_PX = 6;
@@ -52,6 +56,16 @@ type TouchPointState = {
   target: HTMLDivElement;
   moved: boolean;
   consumed: boolean;
+  suppressPrimary: boolean;
+};
+
+type CardActivation = {
+  cardId: string;
+  target: HTMLDivElement;
+  clientX: number;
+  clientY: number;
+  pointerType?: string;
+  suppressPrimary: boolean;
 };
 
 const pointerSummary = (
@@ -126,7 +140,13 @@ export const useCardController = (props: CardProps): CardController => {
     isSelected: propIsSelected,
   } = props;
 
-  const { showPreview, hidePreview, toggleLock, lockPreview, unlockPreview } =
+  const {
+    showPreview,
+    hidePreview,
+    toggleLock,
+    unlockPreview,
+    isLocked,
+  } =
     useCardPreview();
   const {
     attributes,
@@ -159,14 +179,7 @@ export const useCardController = (props: CardProps): CardController => {
   const viewerRole = useGameStore((state) => state.viewerRole);
   const tapCard = useGameStore((state) => state.tapCard);
   const useArtCrop = preferArtCrop ?? false;
-  const isSelected = useSelectionStore(
-    (state) =>
-      propIsSelected ??
-      (zoneType === ZONE.BATTLEFIELD &&
-        selectIsCardSelected(state, card.id, card.zoneId))
-  );
   const toggleCardSelection = useSelectionStore((state) => state.toggleCard);
-  const selectOnly = useSelectionStore((state) => state.selectOnly);
 
   const isZoneTopCard =
     zoneCardIds.length > 0 && zoneCardIds[zoneCardIds.length - 1] === card.id;
@@ -214,6 +227,7 @@ export const useCardController = (props: CardProps): CardController => {
     x: number;
     y: number;
     target: HTMLDivElement;
+    suppressPrimary: boolean;
   } | null>(null);
   const touchPointsRef = React.useRef<Map<number, TouchPointState>>(new Map());
   const touchHadMultiTouchRef = React.useRef(false);
@@ -222,6 +236,11 @@ export const useCardController = (props: CardProps): CardController => {
   > | null>(null);
   const contextMenuHoldPointerIdRef = React.useRef<number | null>(null);
   const suppressMouseHoverPreviewUntilRef = React.useRef(0);
+  const handSelectionBeforeActivationRef = React.useRef<{
+    selectedCardIds: string[];
+    selectionZoneId: string | null;
+    at: number;
+  } | null>(null);
 
   const clearDesktopPreviewPress = React.useCallback(() => {
     desktopPreviewPressRef.current = null;
@@ -324,6 +343,7 @@ export const useCardController = (props: CardProps): CardController => {
         return;
       }
       if (
+        zoneType !== ZONE.BATTLEFIELD &&
         !canToggleCardPreviewLock({
           zoneType,
           canPeek,
@@ -338,12 +358,14 @@ export const useCardController = (props: CardProps): CardController => {
         x: e.clientX,
         y: e.clientY,
         target: e.currentTarget,
+        suppressPrimary:
+          isLocked || isLockedPreviewDismissal(e.nativeEvent),
       };
     },
-    [zoneType, interactionsDisabled, faceDown, canPeek]
+    [zoneType, interactionsDisabled, faceDown, canPeek, isLocked]
   );
 
-  const handleDoubleClick = React.useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+  const handleBattlefieldTap = React.useCallback((event: CardActivation) => {
     if (viewerRole === "spectator") return;
     if (interactionsDisabled) return;
     if (zoneType !== ZONE.BATTLEFIELD) return;
@@ -466,6 +488,57 @@ export const useCardController = (props: CardProps): CardController => {
     viewerRole,
   ]);
 
+  const canRunPrimaryActivation =
+    viewerRole !== "spectator" &&
+    ((zoneType === ZONE.BATTLEFIELD && card.controllerId === myPlayerId) ||
+      (zoneType === ZONE.HAND && zoneOwnerId === myPlayerId));
+  const canRunPreviewActivation = canToggleCardPreviewLock({
+    zoneType,
+    canPeek,
+    faceDown,
+    isDragging: interactionsDisabled,
+  });
+
+  const { activate, activateDouble, cancelPending } =
+    useExclusiveActivation<CardActivation>({
+      getKey: (activation) => activation.cardId,
+      triggerSingleImmediately: zoneType === ZONE.HAND,
+      onSingle: (activation) => {
+        if (!canRunPrimaryActivation || activation.suppressPrimary) return;
+        if (zoneType === ZONE.BATTLEFIELD) {
+          handleBattlefieldTap(activation);
+          return;
+        }
+        if (zoneType === ZONE.HAND) {
+          const selection = useSelectionStore.getState();
+          handSelectionBeforeActivationRef.current = {
+            selectedCardIds: [...selection.selectedCardIds],
+            selectionZoneId: selection.selectionZoneId,
+            at: Date.now(),
+          };
+          toggleCardSelection(card.id, card.zoneId);
+        }
+      },
+      onDouble: (activation) => {
+        const previousSelection = handSelectionBeforeActivationRef.current;
+        if (
+          zoneType === ZONE.HAND &&
+          previousSelection &&
+          Date.now() - previousSelection.at < EXCLUSIVE_ACTIVATION_DELAY_MS
+        ) {
+          useSelectionStore
+            .getState()
+            .setSelection(
+              previousSelection.selectedCardIds,
+              previousSelection.selectionZoneId,
+            );
+        }
+        handSelectionBeforeActivationRef.current = null;
+        if (!canRunPreviewActivation) return;
+        toggleLock(card, activation.target);
+      },
+    });
+
   const openTouchContextMenu = React.useCallback(
     (point: TouchPointState) => {
       if (!onContextMenu) return;
@@ -532,6 +605,8 @@ export const useCardController = (props: CardProps): CardController => {
         target: event.currentTarget,
         moved: false,
         consumed: false,
+        suppressPrimary:
+          isLocked || isLockedPreviewDismissal(event.nativeEvent),
       });
 
       const pointCount = touchPointsRef.current.size;
@@ -548,6 +623,7 @@ export const useCardController = (props: CardProps): CardController => {
       cancelContextMenuHold,
       card,
       interactionsDisabled,
+      isLocked,
       resolvePreviewPolicy,
     ]
   );
@@ -592,15 +668,21 @@ export const useCardController = (props: CardProps): CardController => {
         cancelContextMenuHold();
       }
       const movement = Math.hypot(point.x - point.startX, point.y - point.startY);
-      const previewPolicy = resolvePreviewPolicy();
-      const shouldOpenPreview =
+      const shouldActivate =
         !touchHadMultiTouchRef.current &&
         !point.consumed &&
         movement <= TOUCH_PREVIEW_TAP_TOLERANCE_PX &&
-        previewPolicy.kind !== "none" &&
+        (canRunPrimaryActivation || canRunPreviewActivation) &&
         useDragStore.getState().activeCardId !== card.id;
-      if (shouldOpenPreview) {
-        lockPreview(card, point.target);
+      if (shouldActivate) {
+        activate({
+          cardId: card.id,
+          target: point.target,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          pointerType: event.pointerType,
+          suppressPrimary: point.suppressPrimary,
+        });
       }
       if (touchPointsRef.current.size === 0) {
         touchHadMultiTouchRef.current = false;
@@ -608,9 +690,10 @@ export const useCardController = (props: CardProps): CardController => {
     },
     [
       cancelContextMenuHold,
-      card,
-      lockPreview,
-      resolvePreviewPolicy,
+      activate,
+      canRunPreviewActivation,
+      canRunPrimaryActivation,
+      card.id,
     ]
   );
 
@@ -647,9 +730,32 @@ export const useCardController = (props: CardProps): CardController => {
         return;
       }
       if (useDragStore.getState().activeCardId === card.id) return;
-      toggleLock(card, press.target);
+      activate({
+        cardId: card.id,
+        target: press.target,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        pointerType: e.pointerType,
+        suppressPrimary: press.suppressPrimary,
+      });
     },
-    [card, clearDesktopPreviewPress, toggleLock]
+    [activate, card.id, clearDesktopPreviewPress]
+  );
+
+  const handleDoubleClick = React.useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (interactionsDisabled) return;
+      if (useDragStore.getState().activeCardId === card.id) return;
+      activateDouble({
+        cardId: card.id,
+        target: event.currentTarget,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        pointerType: "mouse",
+        suppressPrimary: true,
+      });
+    },
+    [activateDouble, card.id, interactionsDisabled]
   );
 
   const handlePointerDown = React.useCallback(
@@ -683,19 +789,12 @@ export const useCardController = (props: CardProps): CardController => {
 
       if (e.shiftKey) {
         toggleCardSelection(card.id, card.zoneId);
-        return;
-      }
-
-      if (!isSelected) {
-        selectOnly(card.id, card.zoneId);
       }
     },
     [
       card.id,
       card.zoneId,
-      isSelected,
       myPlayerId,
-      selectOnly,
       toggleCardSelection,
       zoneOwnerId,
       zoneType,
@@ -708,11 +807,13 @@ export const useCardController = (props: CardProps): CardController => {
     return () => {
       clearHoverTimeout();
       clearDesktopPreviewPress();
+      cancelPending();
       resetTouchGesture();
       hidePreview(card.id);
     };
   }, [
     card.id,
+    cancelPending,
     clearDesktopPreviewPress,
     clearHoverTimeout,
     hidePreview,

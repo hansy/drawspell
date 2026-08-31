@@ -1,7 +1,5 @@
 import type { Card, CardId, CardReveal, GameState, PlayerId, ZoneId } from "@/types";
 import type { ScryfallRelatedCard } from "@/types/scryfall";
-import { useSelectionStore } from "@/store/selectionStore";
-import { resolveSelectedCardIds } from "@/models/game/selection/selectionModel";
 import type { ContextMenuMoveCardFn } from "@/models/game/context-menu/menu/actionTypes";
 
 type OpenTextPromptFn = (opts: {
@@ -29,6 +27,7 @@ type StoreForContextMenu = Pick<
   | "shuffleLibrary"
   | "discardFromLibrary"
   | "exileFromLibrary"
+  | "moveBottomLibraryCardToHand"
   | "discardRandomFromHand"
   | "resetDeck"
   | "mulligan"
@@ -43,14 +42,7 @@ export const createCardActionAdapters = (params: {
 }) => {
   const resolveTargetIds = (seedId?: CardId): CardId[] => {
     if (!seedId) return [];
-    const selection = useSelectionStore.getState();
-    return resolveSelectedCardIds({
-      seedCardId: seedId,
-      cardsById: params.store.cards,
-      selection,
-      minCount: 1,
-      fallbackToSeed: true,
-    });
+    return params.store.cards[seedId] ? [seedId] : [];
   };
 
   const applyToTargetIds = (
@@ -172,6 +164,32 @@ export const createCardActionAdapters = (params: {
   };
 };
 
+export const createGroupActionAdapters = (params: {
+  store: Pick<GameState, "moveCards" | "setCardsReveal">;
+  myPlayerId: PlayerId;
+  targetIds: CardId[];
+}) => {
+  const targetIds = Array.from(new Set(params.targetIds));
+  const targetIdSet = new Set(targetIds);
+  return {
+    moveCards: (
+      moves: Parameters<GameState["moveCards"]>[0],
+    ) => {
+      const frozenMoves = moves.filter((move) => targetIdSet.has(move.cardId));
+      const movedIds = new Set(frozenMoves.map((move) => move.cardId));
+      if (
+        frozenMoves.length !== targetIds.length ||
+        movedIds.size !== targetIds.length
+      ) {
+        return;
+      }
+      params.store.moveCards(frozenMoves, params.myPlayerId);
+    },
+    setCardsReveal: (reveal: CardReveal) =>
+      params.store.setCardsReveal(targetIds, reveal, params.myPlayerId),
+  };
+};
+
 export const createZoneActionAdapters = (params: {
   store: StoreForContextMenu;
   myPlayerId: PlayerId;
@@ -183,6 +201,8 @@ export const createZoneActionAdapters = (params: {
       params.store.discardFromLibrary(playerId, count, params.myPlayerId),
     exileFromLibrary: (playerId: PlayerId, count?: number) =>
       params.store.exileFromLibrary(playerId, count, params.myPlayerId),
+    moveBottomLibraryCardToHand: (playerId: PlayerId) =>
+      params.store.moveBottomLibraryCardToHand(playerId, params.myPlayerId),
     discardRandomFromHand: (playerId: PlayerId, count?: number) =>
       params.store.discardRandomFromHand(playerId, count, params.myPlayerId),
     shuffleLibrary: (playerId: PlayerId) =>

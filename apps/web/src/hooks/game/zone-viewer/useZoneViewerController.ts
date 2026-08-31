@@ -8,6 +8,7 @@ import { canViewZone } from "@/rules/permissions";
 import { actionRegistry } from "@/models/game/context-menu/actionsRegistry";
 import { getDisplayName } from "@/lib/cardDisplay";
 import type { ContextMenuItem } from "@/models/game/context-menu/menu";
+import type { OpenCountPrompt } from "@/models/game/context-menu/menu/types";
 import {
   computeZoneViewerCards,
   getZoneViewerMode,
@@ -16,12 +17,15 @@ import {
   buildLibraryManaSections,
 } from "@/models/game/zone-viewer/zoneViewerModel";
 import { mergeZoneCardOrder, reorderZoneViewerList } from "@/models/game/zone-viewer/zoneViewerReorder";
+import { useSelectionStore } from "@/store/selectionStore";
+import { createGroupActionAdapters } from "@/hooks/game/context-menu/actionAdapters";
 
 export type ZoneViewerControllerInput = {
   isOpen: boolean;
   onClose: () => void;
   zoneId: string | null;
   count?: number;
+  openCountPrompt?: OpenCountPrompt;
 };
 
 type ZoneViewerContextMenuState = {
@@ -37,6 +41,7 @@ export const useZoneViewerController = ({
   onClose,
   zoneId,
   count,
+  openCountPrompt,
 }: ZoneViewerControllerInput) => {
   const [filterText, setFilterText] = React.useState("");
   const zones = useGameStore((state) => state.zones);
@@ -48,6 +53,7 @@ export const useZoneViewerController = ({
   const setCardReveal = useGameStore((state) => state.setCardReveal);
   const myPlayerId = useGameStore((state) => state.myPlayerId);
   const viewerRole = useGameStore((state) => state.viewerRole);
+  const clearSelection = useSelectionStore((state) => state.clearSelection);
 
   const [contextMenu, setContextMenu] = React.useState<ZoneViewerContextMenuState>(null);
 
@@ -67,8 +73,20 @@ export const useZoneViewerController = ({
   React.useEffect(() => {
     if (!isOpen) {
       setFilterText("");
+      if (useSelectionStore.getState().selectionZoneId === zoneId) {
+        clearSelection();
+      }
     }
-  }, [isOpen]);
+  }, [clearSelection, isOpen, zoneId]);
+
+  React.useEffect(
+    () => () => {
+      if (useSelectionStore.getState().selectionZoneId === zoneId) {
+        useSelectionStore.getState().clearSelection();
+      }
+    },
+    [zoneId]
+  );
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -248,35 +266,85 @@ export const useZoneViewerController = ({
       e.preventDefault();
       if (!zone) return;
 
-      const items: ContextMenuItem[] = zone
-        ? actionRegistry.buildZoneMoveActions(
-            card,
-            zone,
-            zones,
-            myPlayerId,
-            (cardId, toZoneId, opts) =>
-              moveCard(cardId, toZoneId, undefined, myPlayerId, undefined, opts),
-            handleMoveCardToBottom,
-            players,
-            (cardId, reveal) => setCardReveal(cardId, reveal, myPlayerId),
-            viewerRole
-          )
-        : [];
+      const selection = useSelectionStore.getState();
+      const selectionMatchesCard =
+        selection.selectionZoneId === card.zoneId &&
+        selection.selectedCardIds.includes(card.id);
+      if (!selectionMatchesCard) {
+        selection.selectOnly(card.id, card.zoneId);
+      }
+
+      const selectedIds = selectionMatchesCard
+        ? zone.cardIds.filter((id) => selection.selectedCardIds.includes(id))
+        : [card.id];
+      const selectedIdSet = new Set(selectedIds);
+      const selectedCards = selectedIds
+        .map((id) => cards[id])
+        .filter((selectedCard): selectedCard is Card => Boolean(selectedCard));
+      let items: ContextMenuItem[];
+      if (selectedCards.length > 1 && selectedCards.length === selectedIds.length) {
+        const adapters = createGroupActionAdapters({
+          store: useGameStore.getState(),
+          myPlayerId,
+          targetIds: [...selectedIds],
+        });
+        items = actionRegistry.buildGroupActions({
+          cards: selectedCards,
+          currentZone: zone,
+          zones,
+          players,
+          myPlayerId,
+          viewerRole,
+          ...adapters,
+        });
+      } else {
+        const moveSingleCard: typeof moveCard = (
+          cardId,
+          toZoneId,
+          position,
+          _actorId,
+          isRemote,
+          opts
+        ) => moveCard(cardId, toZoneId, position, myPlayerId, isRemote, opts);
+        const moveSingleCardToBottom = (cardId: string, toZoneId: string) =>
+          handleMoveCardToBottom(cardId, toZoneId);
+        const setSingleCardReveal = (
+          cardId: string,
+          reveal: Parameters<typeof setCardReveal>[1]
+        ) => setCardReveal(cardId, reveal, myPlayerId);
+        items = actionRegistry.buildZoneMoveActions(
+          card,
+          zone,
+          zones,
+          myPlayerId,
+          moveSingleCard,
+          moveSingleCardToBottom,
+          players,
+          setSingleCardReveal,
+          viewerRole,
+          openCountPrompt,
+        );
+      }
 
       if (items.length > 0 && containerRef.current) {
         setContextMenu({
           x: e.clientX,
           y: e.clientY,
           items,
-          title: getDisplayName(card),
+          title:
+            selectedIdSet.size > 1
+              ? `${selectedIdSet.size} cards selected`
+              : getDisplayName(card),
           cardId: card.id,
         });
       }
     },
     [
+      cards,
       moveCard,
       moveCardToBottom,
       myPlayerId,
+      openCountPrompt,
       players,
       setCardReveal,
       viewerRole,

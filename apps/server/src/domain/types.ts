@@ -142,6 +142,7 @@ export type InnerApplyResult = { ok: true } | { ok: false; error: string };
 
 export type MoveOpts = {
   suppressLog?: boolean;
+  libraryPositionFromTop?: number;
   random?: boolean;
   faceDown?: boolean;
   faceDownMode?: FaceDownMode;

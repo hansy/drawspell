@@ -6,6 +6,7 @@ import { DEFAULT_AGGREGATE_WINDOW_MS } from "./constants";
 export type DrawPayload = { playerId: string; actorId?: string; count?: number };
 export type DiscardPayload = { playerId: string; actorId?: string; count?: number };
 export type ShufflePayload = { playerId: string; actorId?: string };
+export type LibraryBottomToHandPayload = { playerId: string; actorId?: string };
 export type LibraryViewPayload = { playerId: string; actorId?: string; count?: number };
 export type LibraryTopRevealPayload = {
   playerId: string;
@@ -42,6 +43,17 @@ const formatShuffle: LogEventDefinition<ShufflePayload>["format"] = (payload, ct
   return [player, { kind: "text", text: " shuffled Library" }];
 };
 
+const formatLibraryBottomToHand: LogEventDefinition<LibraryBottomToHandPayload>["format"] = (
+  payload,
+  ctx,
+) => {
+  const player = buildPlayerPart(ctx, payload.playerId);
+  return [
+    player,
+    { kind: "text", text: " put the bottom card of Library into Hand" },
+  ];
+};
+
 const formatLibraryView: LogEventDefinition<LibraryViewPayload>["format"] = (payload, ctx) => {
   const player = buildPlayerPart(ctx, payload.playerId);
   const count = typeof payload.count === "number" ? payload.count : 0;
@@ -71,6 +83,9 @@ const formatLibraryTopReveal: LogEventDefinition<LibraryTopRevealPayload>["forma
 };
 
 export const libraryEvents = {
+  "library.bottomToHand": {
+    format: formatLibraryBottomToHand,
+  },
   "library.shuffle": {
     format: formatShuffle,
   },

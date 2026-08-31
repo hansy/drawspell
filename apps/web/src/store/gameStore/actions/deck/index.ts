@@ -6,6 +6,7 @@ import { createDiscardFromLibrary } from "./discardFromLibrary";
 import { createExileFromLibrary } from "./exileFromLibrary";
 import { createDiscardRandomFromHand } from "./discardRandomFromHand";
 import { createMulligan } from "./mulligan";
+import { createMoveBottomLibraryCardToHand } from "./moveBottomLibraryCardToHand";
 import { createMoveTopLibraryCard } from "./moveTopLibraryCard";
 import { createResetDeck } from "./resetDeck";
 import { createShuffleLibrary } from "./shuffleLibrary";
@@ -20,6 +21,7 @@ export const createDeckActions = (
   | "drawCard"
   | "discardFromLibrary"
   | "exileFromLibrary"
+  | "moveBottomLibraryCardToHand"
   | "moveTopLibraryCard"
   | "discardRandomFromHand"
   | "shuffleLibrary"
@@ -30,6 +32,7 @@ export const createDeckActions = (
   drawCard: createDrawCard(set, get, deps),
   discardFromLibrary: createDiscardFromLibrary(set, get, deps),
   exileFromLibrary: createExileFromLibrary(set, get, deps),
+  moveBottomLibraryCardToHand: createMoveBottomLibraryCardToHand(set, get, deps),
   moveTopLibraryCard: createMoveTopLibraryCard(set, get, deps),
   discardRandomFromHand: createDiscardRandomFromHand(set, get, deps),
   shuffleLibrary: createShuffleLibrary(set, get, deps),

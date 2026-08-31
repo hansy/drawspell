@@ -264,6 +264,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   handleOpenDiceRoller,
   closeContextMenu,
   countPrompt,
+  openCountPrompt,
   closeCountPrompt,
   textPrompt,
   closeTextPrompt,
@@ -991,6 +992,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
               }
               zoneId={zoneViewerState.zoneId}
               count={zoneViewerState.count}
+              openCountPrompt={openCountPrompt}
             />
           )}
           {revealedLibraryZoneId && (

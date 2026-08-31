@@ -67,6 +67,8 @@ export interface GameState {
     isRemote?: boolean,
     opts?: {
       suppressLog?: boolean;
+      libraryPositionFromTop?: number;
+      random?: boolean;
       faceDown?: boolean;
       faceDownMode?: FaceDownMode;
       skipCollision?: boolean;
@@ -78,6 +80,23 @@ export interface GameState {
         >;
       };
     }
+  ) => void;
+  moveCards: (
+    moves: Array<{
+      cardId: CardId;
+      toZoneId: ZoneId;
+      placement?: "top" | "bottom";
+      position?: { x: number; y: number };
+      opts?: {
+        suppressLog?: boolean;
+        random?: boolean;
+        faceDown?: boolean;
+        faceDownMode?: FaceDownMode;
+        skipCollision?: boolean;
+      };
+    }>,
+    actorId?: PlayerId,
+    isRemote?: boolean
   ) => void;
   moveCardToBottom: (
     cardId: CardId,
@@ -121,6 +140,11 @@ export interface GameState {
     actorId?: PlayerId,
     isRemote?: boolean
   ) => void;
+  moveBottomLibraryCardToHand: (
+    playerId: PlayerId,
+    actorId?: PlayerId,
+    isRemote?: boolean
+  ) => void;
   moveTopLibraryCard: (
     playerId: PlayerId,
     toZoneId: ZoneId,
@@ -147,6 +171,12 @@ export interface GameState {
   ) => void;
   setCardReveal: (
     cardId: CardId,
+    reveal: CardReveal,
+    actorId?: PlayerId,
+    isRemote?: boolean
+  ) => void;
+  setCardsReveal: (
+    cardIds: CardId[],
     reveal: CardReveal,
     actorId?: PlayerId,
     isRemote?: boolean

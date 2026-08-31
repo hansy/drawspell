@@ -7,6 +7,7 @@ import type { Card } from "@/types";
 import { ZoneViewerGroupedView } from "../ZoneViewerGroupedView";
 import { ZoneViewerLinearView } from "../ZoneViewerLinearView";
 import { buildLibraryManaSections } from "@/models/game/zone-viewer/zoneViewerModel";
+import { useSelectionStore } from "@/store/selectionStore";
 
 const createPointerEvent = (
   type: string,
@@ -100,6 +101,7 @@ const LinearHarness: React.FC<{
 describe("ZoneViewer touch gestures", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    useSelectionStore.setState({ selectedCardIds: [], selectionZoneId: null });
   });
 
   afterEach(() => {
@@ -140,6 +142,103 @@ describe("ZoneViewer touch gestures", () => {
 
     expect(onCardContextMenu).toHaveBeenCalledTimes(1);
     expect(commitReorder).not.toHaveBeenCalled();
+  });
+
+  it("selects linear zone cards with single taps", () => {
+    const cards = [
+      buildCard("c1", "Card 1", "zone-1"),
+      buildCard("c2", "Card 2", "zone-1"),
+    ];
+    const { container } = render(
+      <LinearHarness
+        cards={cards}
+        canReorder={false}
+        onCardContextMenu={vi.fn()}
+        commitReorder={vi.fn()}
+      />
+    );
+
+    const tapCard = (cardId: string, pointerId: number) => {
+      const cardNode = container.querySelector(
+        `[data-zone-viewer-card-id="${cardId}"]`
+      );
+      if (!cardNode) throw new Error(`Expected ${cardId} node`);
+      fireEvent(
+        cardNode,
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId,
+          clientX: 20,
+          clientY: 20,
+        })
+      );
+      fireEvent(
+        cardNode,
+        createPointerEvent("pointerup", {
+          bubbles: true,
+          button: 0,
+          pointerType: "touch",
+          pointerId,
+          clientX: 20,
+          clientY: 20,
+        })
+      );
+      vi.runAllTimers();
+    };
+
+    act(() => tapCard("c1", 1));
+    act(() => tapCard("c2", 2));
+
+    expect(useSelectionStore.getState()).toMatchObject({
+      selectedCardIds: ["c1", "c2"],
+      selectionZoneId: "zone-1",
+    });
+  });
+
+  it("does not select a linear zone card when a double tap requests preview", () => {
+    const cards = [buildCard("c1", "Card 1", "zone-1")];
+    const { container } = render(
+      <LinearHarness
+        cards={cards}
+        canReorder={false}
+        onCardContextMenu={vi.fn()}
+        commitReorder={vi.fn()}
+      />
+    );
+    const cardNode = container.querySelector('[data-zone-viewer-card-id="c1"]');
+    if (!cardNode) throw new Error("Expected card node");
+
+    act(() => {
+      for (let index = 0; index < 2; index += 1) {
+        fireEvent(
+          cardNode,
+          createPointerEvent("pointerdown", {
+            bubbles: true,
+            button: 0,
+            pointerType: "touch",
+            pointerId: 1,
+            clientX: 20,
+            clientY: 20,
+          })
+        );
+        fireEvent(
+          cardNode,
+          createPointerEvent("pointerup", {
+            bubbles: true,
+            button: 0,
+            pointerType: "touch",
+            pointerId: 1,
+            clientX: 20,
+            clientY: 20,
+          })
+        );
+      }
+      vi.runAllTimers();
+    });
+
+    expect(useSelectionStore.getState().selectedCardIds).toEqual([]);
   });
 
   it("opens grouped card context menu on single touch hold", () => {
@@ -246,6 +345,7 @@ describe("ZoneViewer touch gestures", () => {
       expect(onCardContextMenu).not.toHaveBeenCalled();
       expect(commitReorder).toHaveBeenCalledTimes(1);
       expect(commitReorder).toHaveBeenCalledWith(["c3", "c1", "c2"]);
+      expect(useSelectionStore.getState().selectedCardIds).toEqual([]);
     } finally {
       if (originalDescriptor) {
         Object.defineProperty(document, "elementFromPoint", originalDescriptor);

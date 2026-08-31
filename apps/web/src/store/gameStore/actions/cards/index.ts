@@ -7,6 +7,7 @@ import { createAddCards } from "./addCards";
 import { createDuplicateCard } from "./duplicateCard";
 import { createRemoveCard } from "./removeCard";
 import { createSetCardReveal } from "./setCardReveal";
+import { createSetCardsReveal } from "./setCardsReveal";
 import { createTapCard } from "./tapCard";
 import { createTransformCard } from "./transformCard";
 import { createUntapAll } from "./untapAll";
@@ -27,6 +28,7 @@ export const createCardActions = (
   | "tapCard"
   | "untapAll"
   | "setCardReveal"
+  | "setCardsReveal"
 > => ({
   addCard: createAddCard(set, get, deps),
   addCards: createAddCards(set, get, deps),
@@ -37,4 +39,5 @@ export const createCardActions = (
   tapCard: createTapCard(set, get, deps),
   untapAll: createUntapAll(set, get, deps),
   setCardReveal: createSetCardReveal(set, get, deps),
+  setCardsReveal: createSetCardsReveal(set, get, deps),
 });

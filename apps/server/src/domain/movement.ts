@@ -21,7 +21,7 @@ import {
 } from "@mtg/shared/movement";
 import { getCanonicalBattlefieldPlacementGridSteps } from "@mtg/shared/positions";
 import { readCard, readLiveZoneCardIds, readZone, writeCard, writeZone } from "./yjsStore";
-import { placeCardId, removeFromArray } from "./lists";
+import { placeCardId, placeCardIdFromTop, removeFromArray } from "./lists";
 import { syncLibraryRevealsToAllForPlayer, updatePlayerCounts } from "./hiddenState";
 
 const updateCountsForZoneMove = (maps: Maps, hidden: HiddenState, fromOwnerId: string, toOwnerId: string) => {
@@ -105,6 +105,9 @@ const pushMovementLogFacts = (
     fromZoneId,
     toZoneId,
     placement: logFacts.placement,
+    ...(typeof logFacts.libraryPositionFromTop === "number"
+      ? { libraryPositionFromTop: logFacts.libraryPositionFromTop }
+      : null),
     random: logFacts.random,
     cardName: logFacts.cardName,
     fromZoneType: logFacts.fromZoneType,
@@ -307,11 +310,11 @@ export const applyCardMove = (
       writeZone(maps, { ...toZone, cardIds: nextOrder });
     }
     if (toZone.type === ZONE.LIBRARY) {
-      hidden.libraryOrder[toZone.ownerId] = placeCardId(
-        hidden.libraryOrder[toZone.ownerId] ?? [],
-        cardId,
-        placement
-      );
+      const libraryOrder = hidden.libraryOrder[toZone.ownerId] ?? [];
+      hidden.libraryOrder[toZone.ownerId] =
+        typeof opts?.libraryPositionFromTop === "number"
+          ? placeCardIdFromTop(libraryOrder, cardId, opts.libraryPositionFromTop)
+          : placeCardId(libraryOrder, cardId, placement);
     }
     if (toZone.type === ZONE.SIDEBOARD) {
       hidden.sideboardOrder[toZone.ownerId] = placeCardId(
@@ -414,11 +417,11 @@ export const applyCardMove = (
         maps.handRevealsToAll.delete(cardId);
       }
     } else if (toZone.type === ZONE.LIBRARY) {
-      hidden.libraryOrder[toZone.ownerId] = placeCardId(
-        hidden.libraryOrder[toZone.ownerId] ?? [],
-        cardId,
-        placement
-      );
+      const libraryOrder = hidden.libraryOrder[toZone.ownerId] ?? [];
+      hidden.libraryOrder[toZone.ownerId] =
+        typeof opts?.libraryPositionFromTop === "number"
+          ? placeCardIdFromTop(libraryOrder, cardId, opts.libraryPositionFromTop)
+          : placeCardId(libraryOrder, cardId, placement);
       Reflect.deleteProperty(hidden.libraryReveals, cardId);
       maps.libraryRevealsToAll.delete(cardId);
       nextCard.knownToAll = false;

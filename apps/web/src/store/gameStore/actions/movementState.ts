@@ -14,12 +14,31 @@ export const placeCardId = (
   return placement === "bottom" ? [cardId, ...without] : [...without, cardId];
 };
 
+export const placeCardIdFromTop = (
+  ids: string[],
+  cardId: string,
+  requestedPosition: number
+): string[] => {
+  const without = removeCardId(ids, cardId);
+  const positionFromTop = Math.max(
+    1,
+    Math.min(without.length + 1, Math.floor(requestedPosition))
+  );
+  const insertionIndex = without.length - positionFromTop + 1;
+  return [
+    ...without.slice(0, insertionIndex),
+    cardId,
+    ...without.slice(insertionIndex),
+  ];
+};
+
 export const moveCardIdBetweenZones = (params: {
   zones: Record<ZoneId, Zone>;
   cardId: string;
   fromZoneId: ZoneId;
   toZoneId: ZoneId;
   placement: CardPlacement;
+  positionFromTop?: number;
 }): Record<ZoneId, Zone> => {
   const from = params.zones[params.fromZoneId];
   const to = params.zones[params.toZoneId];
@@ -30,7 +49,10 @@ export const moveCardIdBetweenZones = (params: {
       ...params.zones,
       [params.fromZoneId]: {
         ...from,
-        cardIds: placeCardId(from.cardIds, params.cardId, params.placement),
+        cardIds:
+          typeof params.positionFromTop === "number"
+            ? placeCardIdFromTop(from.cardIds, params.cardId, params.positionFromTop)
+            : placeCardId(from.cardIds, params.cardId, params.placement),
       },
     };
   }
@@ -43,7 +65,10 @@ export const moveCardIdBetweenZones = (params: {
     },
     [params.toZoneId]: {
       ...to,
-      cardIds: placeCardId(to.cardIds, params.cardId, params.placement),
+      cardIds:
+        typeof params.positionFromTop === "number"
+          ? placeCardIdFromTop(to.cardIds, params.cardId, params.positionFromTop)
+          : placeCardId(to.cardIds, params.cardId, params.placement),
     },
   };
 };

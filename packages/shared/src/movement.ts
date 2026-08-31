@@ -24,6 +24,7 @@ export type CardMovementOptions = {
   faceDownMode?: FaceDownMode;
   random?: boolean;
   suppressLog?: boolean;
+  libraryPositionFromTop?: number;
   skipCollision?: boolean;
   groupCollision?: {
     movingCardIds: string[];
@@ -76,6 +77,7 @@ export type CardMovementLogFacts =
       fromZoneType: Zone["type"];
       toZoneType: Zone["type"];
       placement: CardMovementPlacement;
+      libraryPositionFromTop?: number;
       random: boolean;
       faceDown: boolean;
       forceHidden: boolean;
@@ -430,6 +432,9 @@ const resolveMoveLogFacts = (params: {
     fromZoneType: params.fromZone.type,
     toZoneType: params.toZone.type,
     placement: params.placement,
+    ...(typeof params.opts?.libraryPositionFromTop === "number"
+      ? { libraryPositionFromTop: params.opts.libraryPositionFromTop }
+      : null),
     random: params.opts?.random === true,
     faceDown: params.faceDown.effectiveFaceDown,
     forceHidden: shouldHideMoveName,

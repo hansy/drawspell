@@ -4,7 +4,6 @@ import { getPlayerZones } from "@/lib/gameSelectors";
 import { ZONE } from "@/constants/zones";
 import { canMoveCard } from "@/rules/permissions";
 
-import type { ContextMenuMoveCardFn } from "../actionTypes";
 import type { ContextMenuItem } from "../types";
 
 type BuildHandZoneMenuItemsParams = {
@@ -13,7 +12,6 @@ type BuildHandZoneMenuItemsParams = {
   zones: Record<ZoneId, Zone>;
   myPlayerId: PlayerId;
   viewerRole?: ViewerRole;
-  moveCard: ContextMenuMoveCardFn;
   openRandomDiscardPrompt?: (handCount: number) => void;
 };
 
@@ -23,55 +21,12 @@ export const buildHandZoneMenuItems = ({
   zones,
   myPlayerId,
   viewerRole,
-  moveCard,
   openRandomDiscardPrompt,
 }: BuildHandZoneMenuItemsParams): ContextMenuItem[] => {
   if (currentZone?.type !== ZONE.HAND) return [];
 
   const items: ContextMenuItem[] = [];
   const playerZones = getPlayerZones(zones, myPlayerId);
-
-  if (playerZones.battlefield) {
-    const permission = canMoveCard({
-      actorId: myPlayerId,
-      role: viewerRole,
-      card,
-      fromZone: currentZone,
-      toZone: playerZones.battlefield,
-    });
-    if (permission.allowed) {
-      items.push({
-        type: "action",
-        label: "Play",
-        onSelect: () => moveCard(card.id, playerZones.battlefield!.id),
-      });
-      items.push({
-        type: "action",
-        label: "Play facedown ...",
-        onSelect: () => {},
-        submenu: [
-          {
-            type: "action",
-            label: "with morph (2/2)",
-            onSelect: () =>
-              moveCard(card.id, playerZones.battlefield!.id, undefined, undefined, undefined, {
-                faceDown: true,
-                faceDownMode: "morph",
-              }),
-          },
-          {
-            type: "action",
-            label: "without morph",
-            onSelect: () =>
-              moveCard(card.id, playerZones.battlefield!.id, undefined, undefined, undefined, {
-                faceDown: true,
-                faceDownMode: undefined,
-              }),
-          },
-        ],
-      });
-    }
-  }
 
   if (playerZones.graveyard) {
     const permission = canMoveCard({
@@ -81,21 +36,17 @@ export const buildHandZoneMenuItems = ({
       fromZone: currentZone,
       toZone: playerZones.graveyard,
     });
-    if (permission.allowed) {
+    if (
+      permission.allowed &&
+      openRandomDiscardPrompt &&
+      currentZone.cardIds.length > 0
+    ) {
       items.push({
         type: "action",
-        label: "Discard",
-        onSelect: () => moveCard(card.id, playerZones.graveyard!.id),
+        label: "Discard random card",
+        onSelect: () => openRandomDiscardPrompt(currentZone.cardIds.length),
         danger: true,
       });
-      if (openRandomDiscardPrompt && currentZone.cardIds.length > 0) {
-        items.push({
-          type: "action",
-          label: "Discard random card",
-          onSelect: () => openRandomDiscardPrompt(currentZone.cardIds.length),
-          danger: true,
-        });
-      }
     }
   }
 
