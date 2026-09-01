@@ -545,7 +545,9 @@ export const SeatView: React.FC<SeatViewProps> = ({
               >
                 CMDR
               </button>
-              <div className="h-full min-w-0">{portraitSeatSwitcher}</div>
+              <div className="flex h-full min-w-0 items-center justify-center">
+                {portraitSeatSwitcher}
+              </div>
               <div
                 data-mobile-mana-bar
                 className="flex h-full min-w-0 items-center justify-end"

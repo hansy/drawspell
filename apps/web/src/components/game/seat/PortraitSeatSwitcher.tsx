@@ -11,7 +11,7 @@ import {
   useInteractions,
   useRole,
 } from "@floating-ui/react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -74,22 +74,29 @@ export const PortraitSeatSwitcher: React.FC<PortraitSeatSwitcherProps> = ({
         data-testid="portrait-seat-switcher-trigger"
         data-no-seat-swipe="true"
         className={cn(
-          "flex h-full min-w-0 items-center justify-center gap-2 rounded-md px-2",
-          "text-sm font-semibold text-zinc-100 transition-colors duration-150",
-          "hover:bg-zinc-800/80 active:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/80",
-          open && "bg-zinc-800/80",
+          "flex h-8 w-11 self-center items-center justify-center gap-1.5 rounded-md border border-zinc-700/80 bg-zinc-900/65 px-1.5",
+          "text-zinc-400 shadow-sm transition-all duration-150",
+          "hover:border-zinc-600 hover:bg-zinc-800/80 hover:text-zinc-200 active:scale-[0.97]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/80",
+          open && "border-zinc-600 bg-zinc-800/90 text-zinc-100",
         )}
         {...getReferenceProps()}
       >
         <span
           aria-hidden="true"
           className={cn(
-            "h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white/35",
+            "h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-white/45 shadow-[0_0_8px_rgba(255,255,255,0.12)]",
             seatColorClass(activeSeat.color),
           )}
         />
-        <span className="min-w-0 truncate">{activeSeat.label}</span>
-        <ChevronsUpDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+        <ChevronDown
+          aria-hidden="true"
+          data-seat-switcher-indicator
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 transition-transform duration-150",
+            open && "rotate-180",
+          )}
+        />
       </button>
 
       <FloatingPortal>
