@@ -7,6 +7,7 @@ import {
   offset,
   safePolygon,
   shift,
+  useClick,
   useFloating,
   useFloatingNodeId,
   useHover,
@@ -114,7 +115,14 @@ const ContextMenuSubmenuItem: React.FC<ContextMenuSubmenuItemProps> = ({
     delay: { close: SUBMENU_CLOSE_DELAY_MS },
     handleClose: safePolygon({ blockPointerEvents: true }),
   });
-  const { getReferenceProps, getFloatingProps } = useInteractions([hover]);
+  const click = useClick(context, {
+    enabled: !item.disabledReason,
+    toggle: false,
+  });
+  const { getReferenceProps, getFloatingProps } = useInteractions([
+    hover,
+    click,
+  ]);
   const isDisabled = Boolean(item.disabledReason);
 
   const menuButton = (

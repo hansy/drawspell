@@ -158,6 +158,39 @@ describe("ContextMenu", () => {
     expect(document.body.style.pointerEvents).toBe("");
   });
 
+  it("opens a submenu and selects its action when tapped", () => {
+    const onClose = vi.fn();
+    const onSelect = vi.fn();
+    render(
+      <ContextMenu
+        x={10}
+        y={10}
+        items={[
+          {
+            type: "action",
+            label: "Move to...",
+            onSelect: vi.fn(),
+            submenu: [{ type: "action", label: "Hand", onSelect }],
+          },
+        ]}
+        onClose={onClose}
+      />
+    );
+
+    const trigger = screen.getByRole("button", { name: "Move to..." });
+    fireEvent.pointerDown(trigger, { pointerType: "touch" });
+    fireEvent.pointerUp(trigger, { pointerType: "touch" });
+    fireEvent.click(trigger);
+
+    const action = screen.getByRole("button", { name: "Hand" });
+    fireEvent.pointerDown(action, { pointerType: "touch" });
+    fireEvent.pointerUp(action, { pointerType: "touch" });
+    fireEvent.click(action);
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("supports selecting actions through multiple submenu levels", () => {
     const onClose = vi.fn();
     const onSelect = vi.fn();
