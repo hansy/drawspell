@@ -97,7 +97,7 @@ const buildSlots = (players: PlayerSlot[]) =>
     position: player.position,
   }));
 
-const renderBoard = (
+const buildBoardProps = (
   players: PlayerSlot[],
   options?: { livePlayerCount?: number },
 ) => {
@@ -107,9 +107,7 @@ const renderBoard = (
   );
   const livePlayerCount = options?.livePlayerCount ?? players.length;
 
-  return render(
-    <MultiplayerBoardView
-      {...({
+  return {
         zones: {},
         cards: {},
         players: playersById,
@@ -186,10 +184,13 @@ const renderBoard = (
         shareDialogError: "",
         canShareRoom: false,
         joinBlockedReason: null,
-      } as any)}
-    />,
-  );
+  } as any;
 };
+
+const renderBoard = (
+  players: PlayerSlot[],
+  options?: { livePlayerCount?: number },
+) => render(<MultiplayerBoardView {...buildBoardProps(players, options)} />);
 
 describe("MultiplayerBoardView portrait seat switcher", () => {
   beforeEach(() => {
@@ -234,14 +235,39 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
     expect(screen.getByTestId("portrait-seat-switcher-trigger")).toBeTruthy();
   });
 
-  it("shows the current player name and both seats in a two-player game", () => {
+  it("focuses the joining player's seat when it appears after the inviter", () => {
+    const inviter = {
+      id: "p2",
+      name: "Inviter",
+      color: "violet",
+      position: "top-left",
+    } as const;
+    const me = {
+      id: "p1",
+      name: "Joining Player",
+      color: "sky",
+      position: "bottom-left",
+    } as const;
+    const { rerender } = renderBoard([inviter]);
+
+    rerender(<MultiplayerBoardView {...buildBoardProps([inviter, me])} />);
+
+    expect(
+      screen
+        .getByTestId("portrait-seat-switcher-trigger")
+        .getAttribute("aria-label"),
+    ).toBe("Viewing You. Change seat");
+  });
+
+  it("identifies the current player accessibly and shows both names in the menu", () => {
     renderBoard([
       { id: "p2", name: "Player Two", color: "violet", position: "top-left" },
       { id: "p1", name: "Player One", color: "sky", position: "bottom-left" },
     ]);
 
     const trigger = screen.getByTestId("portrait-seat-switcher-trigger");
-    expect(trigger.textContent).toContain("You");
+    expect(trigger.textContent).toBe("");
+    expect(trigger.getAttribute("aria-label")).toBe("Viewing You. Change seat");
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
 
     fireEvent.click(trigger);
@@ -250,6 +276,42 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
     expect(screen.getAllByRole("menuitemradio")).toHaveLength(2);
     expect(screen.getByLabelText("Switch to Player Two")).toBeTruthy();
     expect(screen.getByLabelText("Currently viewing You")).toBeTruthy();
+  });
+
+  it("preserves an explicitly selected opponent when seats update", () => {
+    const playerTwo = {
+      id: "p2",
+      name: "Player Two",
+      color: "violet",
+      position: "top-left",
+    } as const;
+    const me = {
+      id: "p1",
+      name: "Player One",
+      color: "sky",
+      position: "bottom-left",
+    } as const;
+    const playerThree = {
+      id: "p3",
+      name: "Player Three",
+      color: "amber",
+      position: "top-right",
+    } as const;
+    const { rerender } = renderBoard([playerTwo, me]);
+
+    fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
+    fireEvent.click(screen.getByLabelText("Switch to Player Two"));
+    rerender(
+      <MultiplayerBoardView
+        {...buildBoardProps([playerTwo, playerThree, me])}
+      />,
+    );
+
+    expect(
+      screen
+        .getByTestId("portrait-seat-switcher-trigger")
+        .getAttribute("aria-label"),
+    ).toBe("Viewing Player Two. Change seat");
   });
 
   it("hides the portrait seat indicator when only one player is connected", () => {

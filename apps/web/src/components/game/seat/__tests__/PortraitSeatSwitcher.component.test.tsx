@@ -24,7 +24,8 @@ describe("PortraitSeatSwitcher", () => {
       name: "Viewing You. Change seat",
     });
     expect(trigger.textContent).toBe("");
-    expect(trigger.className).toContain("w-11");
+    expect(trigger.className).toContain("w-12");
+    expect(trigger.className).toContain("pl-2");
     expect(trigger.querySelector(".bg-rose-400")).not.toBeNull();
     expect(
       container.querySelector("[data-seat-switcher-indicator]"),

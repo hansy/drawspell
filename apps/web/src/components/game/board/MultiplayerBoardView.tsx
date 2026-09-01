@@ -470,6 +470,8 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   const [activeSeatPlayerId, setActiveSeatPlayerId] = React.useState<string | null>(
     defaultSeat?.player.id ?? null,
   );
+  const hasExplicitSeatSelectionRef = React.useRef(false);
+  const previousMyPlayerIdRef = React.useRef(myPlayerId);
   const [isPortraitSeatPickerExpanded, setIsPortraitSeatPickerExpanded] =
     React.useState(false);
   const [isPortraitSidenavMenuOpen, setIsPortraitSidenavMenuOpen] =
@@ -505,19 +507,37 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   }, [clearSeatSwitchBannerTimer]);
 
   React.useEffect(() => {
+    if (previousMyPlayerIdRef.current !== myPlayerId) {
+      previousMyPlayerIdRef.current = myPlayerId;
+      hasExplicitSeatSelectionRef.current = false;
+    }
     if (!defaultSeat) {
       if (activeSeatPlayerId !== null) setActiveSeatPlayerId(null);
+      hasExplicitSeatSelectionRef.current = false;
       return;
     }
     if (!activeSeatPlayerId) {
       setActiveSeatPlayerId(defaultSeat.player.id);
+      hasExplicitSeatSelectionRef.current = false;
       return;
     }
     const exists = occupiedSlots.some((slot) => slot.player.id === activeSeatPlayerId);
     if (!exists) {
       setActiveSeatPlayerId(defaultSeat.player.id);
+      hasExplicitSeatSelectionRef.current = false;
+      return;
     }
-  }, [activeSeatPlayerId, defaultSeat, occupiedSlots]);
+    const mySeatExists = occupiedSlots.some(
+      (slot) => slot.player.id === myPlayerId,
+    );
+    if (
+      !hasExplicitSeatSelectionRef.current &&
+      mySeatExists &&
+      activeSeatPlayerId !== myPlayerId
+    ) {
+      setActiveSeatPlayerId(myPlayerId);
+    }
+  }, [activeSeatPlayerId, defaultSeat, myPlayerId, occupiedSlots]);
 
   const activeSeat = React.useMemo(
     () =>
@@ -529,6 +549,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   const activateSeat = React.useCallback(
     (playerId: string, announce = false) => {
       if (playerId === activeSeatPlayerId) return;
+      hasExplicitSeatSelectionRef.current = true;
       if (announce) {
         const nextSeat = occupiedSlots.find((slot) => slot.player.id === playerId);
         if (nextSeat) {

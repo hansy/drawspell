@@ -74,7 +74,7 @@ export const PortraitSeatSwitcher: React.FC<PortraitSeatSwitcherProps> = ({
         data-testid="portrait-seat-switcher-trigger"
         data-no-seat-swipe="true"
         className={cn(
-          "flex h-8 w-11 self-center items-center justify-center gap-1.5 rounded-md border border-zinc-700/80 bg-zinc-900/65 px-1.5",
+          "flex h-8 w-12 self-center items-center justify-center gap-1 rounded-md border border-zinc-700/80 bg-zinc-900/65 pl-2 pr-1.5",
           "text-zinc-400 shadow-sm transition-all duration-150",
           "hover:border-zinc-600 hover:bg-zinc-800/80 hover:text-zinc-200 active:scale-[0.97]",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/80",
