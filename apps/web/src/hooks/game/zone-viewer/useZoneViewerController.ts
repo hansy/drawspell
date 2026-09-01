@@ -51,6 +51,9 @@ export const useZoneViewerController = ({
   const moveCardToBottom = useGameStore((state) => state.moveCardToBottom);
   const reorderZoneCards = useGameStore((state) => state.reorderZoneCards);
   const setCardReveal = useGameStore((state) => state.setCardReveal);
+  const turnExiledCardFaceUp = useGameStore(
+    (state) => state.turnExiledCardFaceUp,
+  );
   const myPlayerId = useGameStore((state) => state.myPlayerId);
   const viewerRole = useGameStore((state) => state.viewerRole);
   const clearSelection = useSelectionStore((state) => state.clearSelection);
@@ -323,6 +326,7 @@ export const useZoneViewerController = ({
           setSingleCardReveal,
           viewerRole,
           openCountPrompt,
+          (cardId) => turnExiledCardFaceUp(cardId, myPlayerId),
         );
       }
 
@@ -347,6 +351,7 @@ export const useZoneViewerController = ({
       openCountPrompt,
       players,
       setCardReveal,
+      turnExiledCardFaceUp,
       viewerRole,
       zone,
       zones,
@@ -391,6 +396,8 @@ export const useZoneViewerController = ({
     closeContextMenu,
     interactionsDisabled,
     pinnedCardId,
+    viewerPlayerId: myPlayerId,
+    viewerRole,
   };
 };
 

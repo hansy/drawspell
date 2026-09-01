@@ -1,4 +1,11 @@
-import type { Card, LibraryTopRevealMode, PlayerId, ViewerRole, ZoneType } from "@/types";
+import type {
+  Card,
+  LibraryTopRevealMode,
+  PlayerId,
+  ViewerRole,
+  Zone,
+  ZoneType,
+} from "@/types";
 import { ZONE } from "@/constants/zones";
 import { isHiddenZoneType } from "@mtg/shared/constants/zones";
 import {
@@ -10,9 +17,9 @@ export const canViewerSeeLibraryCardByReveal = (
   viewerId: PlayerId,
   viewerRole?: ViewerRole
 ) => {
+  if (viewerRole === "spectator") return true;
   if (card.knownToAll) return true;
   if (card.revealedToAll) return true;
-  if (viewerRole === "spectator") return Boolean(card.revealedTo && card.revealedTo.length > 0);
   return Boolean(card.revealedTo?.includes(viewerId));
 };
 
@@ -45,17 +52,11 @@ export const canViewerSeeCardIdentity = (
   viewerId: PlayerId,
   viewerRole?: ViewerRole
 ) => {
-  if (viewerRole === "spectator") {
-    if (zoneType === ZONE.HAND) return true;
-    if (zoneType === ZONE.LIBRARY || zoneType === ZONE.SIDEBOARD) {
-      return Boolean(
-        card.knownToAll ||
-          card.revealedToAll ||
-          (card.revealedTo && card.revealedTo.length > 0)
-      );
-    }
-    if (zoneType === ZONE.BATTLEFIELD && card.faceDown) return true;
-    return true;
+  if (viewerRole === "spectator") return true;
+
+  if (zoneType === ZONE.EXILE && card.faceDown) {
+    if (card.knownToAll || card.revealedToAll) return true;
+    return Boolean(card.revealedTo?.includes(viewerId));
   }
 
   if (card.ownerId === viewerId) return true;
@@ -76,6 +77,39 @@ export const canViewerSeeCardIdentity = (
   return true;
 };
 
+export const canManageFaceDownExileReveal = (params: {
+  card: Pick<
+    Card,
+    | "ownerId"
+    | "controllerId"
+    | "faceDown"
+    | "knownToAll"
+    | "revealedToAll"
+    | "revealedTo"
+  >;
+  zone: Pick<Zone, "type" | "ownerId">;
+  viewerId: PlayerId;
+  viewerRole?: ViewerRole;
+}) => {
+  if (
+    params.viewerRole === "spectator" ||
+    params.zone.type !== ZONE.EXILE ||
+    !params.card.faceDown
+  ) {
+    return false;
+  }
+
+  return (
+    params.zone.ownerId === params.viewerId ||
+    canViewerSeeCardIdentity(
+      params.card,
+      params.zone.type,
+      params.viewerId,
+      params.viewerRole,
+    )
+  );
+};
+
 export const shouldRenderFaceDown = (
   card: Pick<Card, "faceDown" | "ownerId" | "controllerId" | "knownToAll" | "revealedToAll" | "revealedTo">,
   zoneType: ZoneType | undefined,
@@ -83,6 +117,9 @@ export const shouldRenderFaceDown = (
   viewerRole?: ViewerRole
 ) => {
   if (zoneType === ZONE.BATTLEFIELD && card.faceDown) return true;
+  if (zoneType === ZONE.EXILE && card.faceDown) {
+    return !canViewerSeeCardIdentity(card, zoneType, viewerId, viewerRole);
+  }
   if (isHiddenZoneType(zoneType)) {
     return !canViewerSeeCardIdentity(card, zoneType, viewerId, viewerRole);
   }

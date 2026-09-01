@@ -106,19 +106,35 @@ export const createCardFaceModel = (params: {
       counter.color || resolveCounterColor(counter.type, params.globalCounters),
   }));
 
+  const hasExplicitReveal = Boolean(
+    params.card.revealedToAll || params.card.revealedTo?.length,
+  );
+  const isVisibleFaceDownExile =
+    params.zoneType === ZONE.EXILE &&
+    params.card.faceDown &&
+    !params.faceDown;
   const shouldShowReveal =
     !(params.hideRevealIcon ?? false) &&
-    params.card.ownerId === params.myPlayerId &&
-    (params.card.revealedToAll ||
-      (params.card.revealedTo && params.card.revealedTo.length > 0));
+    ((params.card.ownerId === params.myPlayerId && hasExplicitReveal) ||
+      isVisibleFaceDownExile);
+
+  const revealToAll = Boolean(
+    params.card.revealedToAll ||
+      (isVisibleFaceDownExile && params.card.knownToAll),
+  );
+  const revealPlayerNames = revealToAll
+    ? []
+    : params.revealToNames.length > 0
+      ? params.revealToNames
+      : ["Spectators"];
 
   const reveal: CardFaceRevealModel | null = shouldShowReveal
     ? {
-        toAll: Boolean(params.card.revealedToAll),
-        title: params.card.revealedToAll
+        toAll: revealToAll,
+        title: revealToAll
           ? "Revealed to everyone"
-          : `Revealed to: ${(params.card.revealedTo || []).length} player(s)`,
-        playerNames: params.card.revealedToAll ? [] : params.revealToNames,
+          : `Revealed to: ${revealPlayerNames.length} player(s)`,
+        playerNames: revealPlayerNames,
       }
     : null;
 

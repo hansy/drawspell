@@ -1,9 +1,10 @@
 import React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import { ZONE } from "@/constants/zones";
-import type { Card, Zone } from "@/types";
+import type { Card, Player, Zone } from "@/types";
+import { useGameStore } from "@/store/gameStore";
 
 import { ZoneViewerModalView } from "../ZoneViewerModalView";
 import { buildLibraryManaSections } from "@/models/game/zone-viewer/zoneViewerModel";
@@ -30,7 +31,26 @@ const buildCard = (id: string, name: string, zoneId: string): Card =>
     counters: [],
   }) as any;
 
+const buildPlayer = (id: string, name: string): Player => ({
+  id,
+  name,
+  life: 40,
+  counters: [],
+  commanderDamage: {},
+  commanderTax: 0,
+});
+
 describe("ZoneViewerModalView", () => {
+  beforeEach(() => {
+    useGameStore.setState({
+      zones: {},
+      cards: {},
+      players: {},
+      myPlayerId: "me",
+      globalCounters: {},
+    });
+  });
+
   it("does not auto-focus the search input when opened", () => {
     const zone = buildZone({ type: ZONE.GRAVEYARD, id: "gy-me" });
     const cards = [buildCard("c1", "Card1", zone.id)];
@@ -66,6 +86,8 @@ describe("ZoneViewerModalView", () => {
         closeContextMenu={vi.fn()}
         interactionsDisabled={false}
         pinnedCardId={undefined}
+        viewerPlayerId="me"
+        viewerRole="player"
       />
     );
 
@@ -111,6 +133,8 @@ describe("ZoneViewerModalView", () => {
         closeContextMenu={vi.fn()}
         interactionsDisabled={false}
         pinnedCardId={undefined}
+        viewerPlayerId="me"
+        viewerRole="player"
       />
     );
 
@@ -124,6 +148,122 @@ describe("ZoneViewerModalView", () => {
     const slotWidth = Number.parseFloat(cardSlot?.style.width ?? "0");
     const sidePadding = Number.parseFloat(list?.style.paddingLeft ?? "0");
     expect(sidePadding).toBeGreaterThan((cardWidth - slotWidth) / 2);
+  });
+
+  it("renders an unknown face-down exile card as an unlabelled card back", () => {
+    const zone = buildZone({ type: ZONE.EXILE, id: "exile-me", ownerId: "me" });
+    const card = {
+      ...buildCard("c1", "Card", zone.id),
+      faceDown: true,
+      knownToAll: false,
+      revealedToAll: false,
+      revealedTo: [],
+    };
+
+    render(
+      <ZoneViewerModalView
+        isOpen
+        onClose={vi.fn()}
+        zone={zone}
+        count={undefined}
+        isLoading={false}
+        expectedViewCount={null}
+        filterText=""
+        setFilterText={vi.fn()}
+        containerRef={React.createRef<HTMLDivElement>()}
+        listRef={React.createRef<HTMLDivElement>()}
+        displayCards={[card]}
+        viewMode="linear"
+        groupedCards={{}}
+        sortedKeys={[]}
+        librarySections={[]}
+        uniqueCardCount={0}
+        canReorder={false}
+        orderedCards={[card]}
+        orderedCardIds={[card.id]}
+        setOrderedCardIds={vi.fn() as any}
+        draggingId={null}
+        setDraggingId={vi.fn() as any}
+        reorderList={(ids) => ids}
+        commitReorder={vi.fn()}
+        handleContextMenu={vi.fn()}
+        contextMenu={null}
+        closeContextMenu={vi.fn()}
+        interactionsDisabled={false}
+        pinnedCardId={undefined}
+        viewerPlayerId="me"
+        viewerRole="player"
+      />
+    );
+
+    expect(screen.queryByText("Face down")).toBeNull();
+    expect(screen.queryByText("Top card")).toBeNull();
+    expect(document.querySelector('[data-card-face-artwork="back"]')).not.toBeNull();
+  });
+
+  it("renders a revealed face-down exile card with its face and visibility badge", () => {
+    const zone = buildZone({ type: ZONE.EXILE, id: "exile-owner", ownerId: "owner" });
+    const card: Card = {
+      ...buildCard("c1", "Visible Card", zone.id),
+      ownerId: "owner",
+      controllerId: "owner",
+      faceDown: true,
+      knownToAll: false,
+      revealedToAll: false,
+      revealedTo: ["me"],
+    };
+
+    useGameStore.setState({
+      zones: { [zone.id]: zone },
+      cards: { [card.id]: card },
+      players: {
+        me: buildPlayer("me", "Me"),
+        owner: buildPlayer("owner", "Owner"),
+      },
+      myPlayerId: "me",
+      globalCounters: {},
+    });
+
+    render(
+      <ZoneViewerModalView
+        isOpen
+        onClose={vi.fn()}
+        zone={zone}
+        count={undefined}
+        isLoading={false}
+        expectedViewCount={null}
+        filterText=""
+        setFilterText={vi.fn()}
+        containerRef={React.createRef<HTMLDivElement>()}
+        listRef={React.createRef<HTMLDivElement>()}
+        displayCards={[card]}
+        viewMode="linear"
+        groupedCards={{}}
+        sortedKeys={[]}
+        librarySections={[]}
+        uniqueCardCount={0}
+        canReorder={false}
+        orderedCards={[card]}
+        orderedCardIds={[card.id]}
+        setOrderedCardIds={vi.fn()}
+        draggingId={null}
+        setDraggingId={vi.fn()}
+        reorderList={(ids) => ids}
+        commitReorder={vi.fn()}
+        handleContextMenu={vi.fn()}
+        contextMenu={null}
+        closeContextMenu={vi.fn()}
+        interactionsDisabled={false}
+        pinnedCardId={undefined}
+        viewerPlayerId="me"
+        viewerRole="player"
+      />
+    );
+
+    expect(document.querySelector('[data-card-face-artwork="back"]')).toBeNull();
+    expect(screen.getByTitle("Revealed to: 1 player(s)")).toBeTruthy();
+    expect(screen.queryByText("Face down")).toBeNull();
+    expect(screen.queryByText("Top card")).toBeNull();
   });
 
   it("renders grouped columns for the library", () => {
@@ -164,6 +304,8 @@ describe("ZoneViewerModalView", () => {
         closeContextMenu={vi.fn()}
         interactionsDisabled={false}
         pinnedCardId={undefined}
+        viewerPlayerId="me"
+        viewerRole="player"
       />
     );
 
@@ -222,6 +364,8 @@ describe("ZoneViewerModalView", () => {
         closeContextMenu={vi.fn()}
         interactionsDisabled={false}
         pinnedCardId={undefined}
+        viewerPlayerId="me"
+        viewerRole="player"
       />
     );
 

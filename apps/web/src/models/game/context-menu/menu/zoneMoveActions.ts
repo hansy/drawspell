@@ -10,6 +10,7 @@ import type {
 } from "@/types";
 
 import { ZONE } from "@/constants/zones";
+import { canManageFaceDownExileReveal } from "@/lib/reveal";
 
 import type { ContextMenuMoveCardFn } from "./actionTypes";
 import type { ContextMenuItem, OpenCountPrompt } from "./types";
@@ -30,6 +31,7 @@ export const buildZoneMoveActions = (
   ) => void,
   viewerRole?: ViewerRole,
   openCountPrompt?: OpenCountPrompt,
+  turnExiledCardFaceUp?: (cardId: CardId) => void,
 ): ContextMenuItem[] => {
   const items: ContextMenuItem[] = [];
 
@@ -38,6 +40,39 @@ export const buildZoneMoveActions = (
       items.push(buildRevealMenu({ card, players, actorId, setCardReveal }));
     }
 
+  }
+
+  if (
+    currentZone.type === ZONE.EXILE &&
+    card.faceDown &&
+    viewerRole !== "spectator"
+  ) {
+    if (
+      setCardReveal &&
+      canManageFaceDownExileReveal({
+        card,
+        zone: currentZone,
+        viewerId: actorId,
+        viewerRole,
+      })
+    ) {
+      items.push(
+        buildRevealMenu({
+          card,
+          players,
+          actorId,
+          setCardReveal,
+          audienceMode: "allPlayers",
+        }),
+      );
+    }
+    if (currentZone.ownerId === actorId && turnExiledCardFaceUp) {
+      items.push({
+        type: "action",
+        label: "Turn face up",
+        onSelect: () => turnExiledCardFaceUp(card.id),
+      });
+    }
   }
 
   const moveToMenu = buildMoveToMenuItem({

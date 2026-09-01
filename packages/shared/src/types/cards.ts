@@ -40,10 +40,12 @@ export interface Card extends CardIdentity {
    * Reveal/visibility metadata (best-effort UX only; not cryptographically private).
    *
    * - `knownToAll`: sticky "public knowledge" once the card is face-up in a public zone.
-   * - `revealedToAll` / `revealedTo`: explicit reveal from hidden zones (hand/library).
+   * - `revealedToAll` / `revealedTo`: explicit identity access for hidden zones and
+   *   face-down cards in public zones.
    *
    * Library entry and shuffles clear these fields.
-   * Battlefield face-down hides identity from everyone except controller peek.
+   * Battlefield face-down hides identity from everyone except controller peek;
+   * face-down exile has no implicit viewer.
    */
   knownToAll?: boolean;
   revealedToAll?: boolean;

@@ -12,7 +12,7 @@ export const createExileFromLibrary = (
   get: GetState,
   { dispatchIntent }: Deps,
 ): GameState["exileFromLibrary"] =>
-  (playerId, count = 1, actorId, _isRemote) => {
+  (playerId, count = 1, actorId, _isRemote, options) => {
     const actor = actorId ?? playerId;
     const normalizedCount = Math.max(1, Math.floor(count));
     const state = get();
@@ -42,7 +42,12 @@ export const createExileFromLibrary = (
 
     dispatchIntent({
       type: "library.exile",
-      payload: { playerId, count: normalizedCount, actorId: actor },
+      payload: {
+        playerId,
+        count: normalizedCount,
+        actorId: actor,
+        ...(options?.faceDown ? { faceDown: true } : null),
+      },
       isRemote: _isRemote,
     });
 

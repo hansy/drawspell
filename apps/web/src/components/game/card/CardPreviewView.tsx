@@ -12,6 +12,7 @@ import { CardPowerToughnessControls } from "./CardPowerToughnessControls";
 interface CardPreviewViewProps {
   currentCard: CardType;
   previewCard: CardType;
+  faceDown: boolean;
   locked?: boolean;
   onClose?: () => void;
   style?: React.CSSProperties;
@@ -38,6 +39,7 @@ export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewP
     {
       currentCard,
       previewCard,
+      faceDown,
       locked,
       onClose,
       style,
@@ -146,6 +148,7 @@ export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewP
 
       <CardFace
         card={previewCard}
+        faceDown={faceDown}
         countersClassName={showAncillary ? "top-4 -right-2" : "hidden"}
         imageClassName="object-cover"
         imageTransform={flipRotation ? `rotate(${flipRotation}deg)` : undefined}

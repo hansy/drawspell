@@ -4,8 +4,8 @@ import type {
   Card,
   CardIdentity,
   CardLite,
-  FaceDownMode,
 } from "@mtg/shared/types/cards";
+import type { CardMovementOptions } from "@mtg/shared/movement";
 import type { Player } from "@mtg/shared/types/players";
 import type { Zone, ZoneType } from "@mtg/shared/types/zones";
 
@@ -140,18 +140,7 @@ export type ApplyResult =
 
 export type InnerApplyResult = { ok: true } | { ok: false; error: string };
 
-export type MoveOpts = {
-  suppressLog?: boolean;
-  libraryPositionFromTop?: number;
-  random?: boolean;
-  faceDown?: boolean;
-  faceDownMode?: FaceDownMode;
-  skipCollision?: boolean;
-  groupCollision?: {
-    movingCardIds: string[];
-    targetPositions: Record<string, { x: number; y: number } | undefined>;
-  };
-};
+export type MoveOpts = CardMovementOptions;
 
 export type {
   FaceDownMoveResolution,

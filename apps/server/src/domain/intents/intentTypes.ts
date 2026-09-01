@@ -3,6 +3,7 @@ export const INTENT_TYPES = [
   "card.add.batch",
   "card.counter.adjust",
   "card.duplicate",
+  "card.faceUp",
   "card.move",
   "card.move.batch",
   "card.remove",

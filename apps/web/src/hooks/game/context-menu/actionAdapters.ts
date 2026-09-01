@@ -17,6 +17,7 @@ type StoreForContextMenu = Pick<
   | "transformCard"
   | "duplicateCard"
   | "updateCard"
+  | "turnExiledCardFaceUp"
   | "setCardReveal"
   | "addCounterToCard"
   | "removeCounterFromCard"
@@ -131,6 +132,8 @@ export const createCardActionAdapters = (params: {
       applyToTargetCards(cardId, (card) =>
         params.store.updateCard(card.id, updates, params.myPlayerId)
       ),
+    turnExiledCardFaceUp: (cardId: CardId) =>
+      params.store.turnExiledCardFaceUp(cardId, params.myPlayerId),
     setCardReveal: (
       cardId: CardId,
       reveal: CardReveal
@@ -199,8 +202,17 @@ export const createZoneActionAdapters = (params: {
       params.store.drawCard(playerId, params.myPlayerId),
     discardFromLibrary: (playerId: PlayerId, count?: number) =>
       params.store.discardFromLibrary(playerId, count, params.myPlayerId),
-    exileFromLibrary: (playerId: PlayerId, count?: number) =>
-      params.store.exileFromLibrary(playerId, count, params.myPlayerId),
+    exileFromLibrary: (
+      playerId: PlayerId,
+      count?: number,
+      options?: { faceDown?: boolean },
+    ) => params.store.exileFromLibrary(
+      playerId,
+      count,
+      params.myPlayerId,
+      undefined,
+      options,
+    ),
     moveBottomLibraryCardToHand: (playerId: PlayerId) =>
       params.store.moveBottomLibraryCardToHand(playerId, params.myPlayerId),
     discardRandomFromHand: (playerId: PlayerId, count?: number) =>

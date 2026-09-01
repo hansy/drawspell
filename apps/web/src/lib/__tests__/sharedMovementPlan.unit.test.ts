@@ -186,6 +186,32 @@ describe("planCardMovement", () => {
     });
   });
 
+  it("plans face-down exile as concealed public-zone movement", () => {
+    const hand = makeZone("hand", ZONE.HAND, "p1", ["c1"]);
+    const exile = makeZone("exile", ZONE.EXILE, "p1");
+    const plan = planCardMovement({
+      card: makeCard("c1", "p1", hand.id),
+      fromZone: hand,
+      toZone: exile,
+      placement: "top",
+      opts: { faceDown: true },
+    });
+
+    expect(plan.cardPatch).toMatchObject({
+      faceDown: true,
+      knownToAll: false,
+      revealedToAll: false,
+      revealedTo: [],
+    });
+    expect(plan.cardPatch.faceDownMode).toBeUndefined();
+    expect(plan.logFacts).toMatchObject({
+      event: "move",
+      faceDown: true,
+      forceHidden: true,
+      cardName: "a card",
+    });
+  });
+
   it("plans commander marking and control changes", () => {
     const battlefield = makeZone("p2-bf", ZONE.BATTLEFIELD, "p2");
     const commander = makeZone("cmd", ZONE.COMMANDER, "p1");

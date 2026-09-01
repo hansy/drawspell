@@ -23,6 +23,7 @@ describe("gameContextMenu actionAdapters", () => {
       transformCard: vi.fn(),
       duplicateCard: vi.fn(),
       updateCard: vi.fn(),
+      turnExiledCardFaceUp: vi.fn(),
       setCardReveal: vi.fn(),
       addCounterToCard: vi.fn(),
       removeCounterFromCard: vi.fn(),
@@ -70,6 +71,9 @@ describe("gameContextMenu actionAdapters", () => {
 
     adapters.updateCard("c1", { name: "Updated" });
     expect(store.updateCard).toHaveBeenCalledWith("c1", { name: "Updated" }, "me");
+
+    adapters.turnExiledCardFaceUp("c1");
+    expect(store.turnExiledCardFaceUp).toHaveBeenCalledWith("c1", "me");
 
     adapters.setCardReveal("c1", { toAll: true });
     expect(store.setCardReveal).toHaveBeenCalledWith("c1", { toAll: true }, "me");
@@ -165,6 +169,7 @@ describe("gameContextMenu actionAdapters", () => {
       setActiveModal: vi.fn(),
       removeCard: vi.fn(),
       drawCard: vi.fn(),
+      exileFromLibrary: vi.fn(),
       moveBottomLibraryCardToHand: vi.fn(),
       shuffleLibrary: vi.fn(),
       resetDeck: vi.fn(),
@@ -176,6 +181,15 @@ describe("gameContextMenu actionAdapters", () => {
 
     adapters.drawCard("me");
     expect(store.drawCard).toHaveBeenCalledWith("me", "me");
+
+    adapters.exileFromLibrary("me", 3, { faceDown: true });
+    expect(store.exileFromLibrary).toHaveBeenCalledWith(
+      "me",
+      3,
+      "me",
+      undefined,
+      { faceDown: true },
+    );
 
     adapters.moveBottomLibraryCardToHand("me");
     expect(store.moveBottomLibraryCardToHand).toHaveBeenCalledWith("me", "me");

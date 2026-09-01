@@ -51,6 +51,7 @@ const buildBaseState = (): GameState =>
     addCards: (() => {}) as any,
     updateCard: (() => {}) as any,
     transformCard: (() => {}) as any,
+    turnExiledCardFaceUp: (() => {}) as any,
     moveCard: (() => {}) as any,
     moveCards: (() => {}) as any,
     moveCardToBottom: (() => {}) as any,

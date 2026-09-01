@@ -19,9 +19,7 @@ export { normalizeMovePosition } from "./positions";
 
 export type CardMovementPlacement = "top" | "bottom";
 
-export type CardMovementOptions = {
-  faceDown?: boolean;
-  faceDownMode?: FaceDownMode;
+type CardMovementBaseOptions = {
   random?: boolean;
   suppressLog?: boolean;
   libraryPositionFromTop?: number;
@@ -31,6 +29,22 @@ export type CardMovementOptions = {
     targetPositions: Record<string, Position | undefined>;
   };
 };
+
+type FaceUpMovementOptions = {
+  faceDown?: false;
+  faceDownMode?: never;
+  faceDownExileKnowledge?: never;
+};
+
+type FaceDownMovementOptions = {
+  faceDown: true;
+  faceDownMode?: FaceDownMode;
+  /** Who retains private knowledge when the destination is exile. */
+  faceDownExileKnowledge?: "actor" | "none";
+};
+
+export type CardMovementOptions = CardMovementBaseOptions &
+  (FaceUpMovementOptions | FaceDownMovementOptions);
 
 export type FaceDownMoveResolution = {
   effectiveFaceDown: boolean;
@@ -317,14 +331,15 @@ export const computeRevealPatchAfterMove = ({
   const toHidden = isHiddenZoneType(toZoneType);
   const enteringLibrary =
     toZoneType === ZONE.LIBRARY && fromZoneType !== ZONE.LIBRARY;
-  const faceDownBattlefield =
-    toZoneType === ZONE.BATTLEFIELD && effectiveFaceDown === true;
+  const faceDownPublicZone =
+    (toZoneType === ZONE.BATTLEFIELD || toZoneType === ZONE.EXILE) &&
+    effectiveFaceDown === true;
 
-  if (enteringLibrary || faceDownBattlefield) {
+  if (enteringLibrary || faceDownPublicZone) {
     return { knownToAll: false, revealedToAll: false, revealedTo: [] };
   }
 
-  if (!toHidden && !faceDownBattlefield) {
+  if (!toHidden && !faceDownPublicZone) {
     return { knownToAll: true, revealedToAll: false, revealedTo: [] };
   }
 
@@ -419,9 +434,12 @@ const resolveMoveLogFacts = (params: {
   const enteringFaceDownBattlefield =
     params.toZone.type === ZONE.BATTLEFIELD &&
     params.faceDown.effectiveFaceDown;
+  const enteringFaceDownExile =
+    params.toZone.type === ZONE.EXILE && params.faceDown.effectiveFaceDown;
   const shouldHideMoveName =
     !isPublicZoneType(params.toZone.type) ||
     enteringFaceDownBattlefield ||
+    enteringFaceDownExile ||
     (leavingFaceDownBattlefield && !isPublicZoneType(params.toZone.type));
   const cardName = shouldHideMoveName
     ? "a card"
@@ -503,7 +521,10 @@ export const planCardMovement = ({
     position: facts.position,
     tapped: nextTapped,
     counters: enforceZoneCounterRulesForMove(card.counters, toZone),
-    faceDown: toZone.type === ZONE.BATTLEFIELD ? facts.faceDown.effectiveFaceDown : false,
+    faceDown:
+      toZone.type === ZONE.BATTLEFIELD || toZone.type === ZONE.EXILE
+        ? facts.faceDown.effectiveFaceDown
+        : false,
     faceDownMode:
       toZone.type === ZONE.BATTLEFIELD ? facts.faceDown.effectiveFaceDownMode : undefined,
     controllerId: facts.controlWillChange ? facts.nextControllerId : card.controllerId,

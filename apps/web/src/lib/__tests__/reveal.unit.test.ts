@@ -99,7 +99,7 @@ describe("reveal", () => {
     expect(canViewerSeeCardIdentity(card, ZONE.BATTLEFIELD, "p3")).toBe(false);
   });
 
-  it("lets spectators see all hands and revealed library cards", () => {
+  it("lets spectators see every card identity", () => {
     const baseCard = {
       ownerId: "p1",
       controllerId: "p1",
@@ -114,7 +114,7 @@ describe("reveal", () => {
     ).toBe(true);
     expect(
       canViewerSeeCardIdentity(baseCard, ZONE.LIBRARY, "spec", "spectator")
-    ).toBe(false);
+    ).toBe(true);
     expect(
       canViewerSeeCardIdentity(
         { ...baseCard, revealedTo: ["p2"] },
@@ -123,6 +123,29 @@ describe("reveal", () => {
         "spectator"
       )
     ).toBe(true);
+  });
+
+  it("separates face-down exile from permission to inspect it", () => {
+    const unknownCard = {
+      ownerId: "p1",
+      controllerId: "p1",
+      faceDown: true,
+      knownToAll: false,
+      revealedToAll: false,
+      revealedTo: [] as string[],
+    };
+    const knownCard = { ...unknownCard, revealedTo: ["p1"] };
+
+    expect(canViewerSeeCardIdentity(unknownCard, ZONE.EXILE, "p1")).toBe(false);
+    expect(shouldRenderFaceDown(unknownCard, ZONE.EXILE, "p1")).toBe(true);
+    expect(canViewerSeeCardIdentity(knownCard, ZONE.EXILE, "p1")).toBe(true);
+    expect(shouldRenderFaceDown(knownCard, ZONE.EXILE, "p1")).toBe(false);
+    expect(
+      canViewerSeeCardIdentity(unknownCard, ZONE.EXILE, "spec", "spectator"),
+    ).toBe(true);
+    expect(
+      shouldRenderFaceDown(unknownCard, ZONE.EXILE, "spec", "spectator"),
+    ).toBe(false);
   });
 
   it("supports revealing the top library card to specific players only", () => {

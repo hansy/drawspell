@@ -1,7 +1,8 @@
 import React from "react";
 
-import type { Card } from "@/types";
+import type { Card, ViewerRole, ZoneType } from "@/types";
 
+import { ZONE } from "@/constants/zones";
 import { cn } from "@/lib/utils";
 import { CardView } from "../card/Card";
 import { useTwoFingerScroll } from "@/hooks/shared/useTwoFingerScroll";
@@ -10,6 +11,7 @@ import { useOptionalCardPreview } from "../card/CardPreviewProvider";
 import { getSelectedCardIdSet, useSelectionStore } from "@/store/selectionStore";
 import { preloadCardPreviewImage } from "@/lib/cardImagePreload";
 import { getCoverFlowVisuals, useHorizontalCoverFlow } from "./coverFlow";
+import { shouldRenderFaceDown } from "@/lib/reveal";
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
@@ -54,6 +56,9 @@ export interface ZoneViewerLinearViewProps {
   cardHeightPx: number;
   mobileCoverFlow?: boolean;
   centerCards?: boolean;
+  zoneType?: ZoneType;
+  viewerPlayerId?: string;
+  viewerRole?: ViewerRole;
 }
 
 export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
@@ -74,6 +79,9 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
   cardHeightPx,
   mobileCoverFlow = false,
   centerCards = false,
+  zoneType,
+  viewerPlayerId = "",
+  viewerRole,
 }) => {
   const preview = useOptionalCardPreview();
   const selectedCardIds = useSelectionStore((state) => state.selectedCardIds);
@@ -467,6 +475,15 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
       }}
     >
       {renderCards.map((card, index) => {
+        const renderFaceDown = shouldRenderFaceDown(
+          card,
+          zoneType,
+          viewerPlayerId,
+          viewerRole,
+        );
+        const showTopCardLabel =
+          index === 0 &&
+          (zoneType === ZONE.LIBRARY || zoneType === ZONE.GRAVEYARD);
         const isPinned = pinnedCardId === card.id;
         const isDragging = draggingId === card.id;
         const isHovered = activeCardId === card.id;
@@ -581,7 +598,7 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
             >
               <CardView
                 card={card}
-                faceDown={false}
+                faceDown={renderFaceDown}
                 style={{ width: effectiveCardWidthPx, height: effectiveCardHeightPx }}
                 className="w-full h-full shadow-lg"
                 imageClassName="object-top"
@@ -592,7 +609,7 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
                   selectionZoneId === card.zoneId && selectedCardIdSet.has(card.id)
                 }
               />
-              {index === 0 && (
+              {showTopCardLabel && (
                 <div className="pointer-events-none absolute left-1/2 top-1.5 z-[101] -translate-x-1/2 rounded-full border border-indigo-300/60 bg-indigo-500/95 px-2 py-0.5 text-[10px] font-bold text-white shadow-md">
                   Top card
                 </div>

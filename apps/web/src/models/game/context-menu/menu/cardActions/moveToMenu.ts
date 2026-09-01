@@ -110,9 +110,33 @@ export const buildMoveToMenuItem = ({
   addIfAllowed(playerZones.graveyard, ZONE_LABEL.graveyard, () =>
     moveCard(card.id, playerZones.graveyard!.id)
   );
-  addIfAllowed(playerZones.exile, ZONE_LABEL.exile, () =>
-    moveCard(card.id, playerZones.exile!.id)
-  );
+  if (canMoveTo(playerZones.exile)) {
+    submenu.push({
+      type: "action",
+      label: `${ZONE_LABEL.exile} ...`,
+      onSelect: () => {},
+      submenu: [
+        {
+          type: "action",
+          label: "Face up",
+          onSelect: () => moveCard(card.id, playerZones.exile!.id),
+        },
+        {
+          type: "action",
+          label: "Face down",
+          onSelect: () =>
+            moveCard(
+              card.id,
+              playerZones.exile!.id,
+              undefined,
+              undefined,
+              undefined,
+              { faceDown: true },
+            ),
+        },
+      ],
+    });
+  }
 
   if (canMoveTo(playerZones.library)) {
     const currentLibraryCount =

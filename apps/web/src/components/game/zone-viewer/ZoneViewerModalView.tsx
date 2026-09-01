@@ -40,6 +40,8 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
   closeContextMenu,
   interactionsDisabled,
   pinnedCardId,
+  viewerPlayerId,
+  viewerRole,
 }) => {
   const baseCardWidthPx = useGameStore((state) =>
     zone ? state.battlefieldGridSizing[zone.ownerId]?.baseCardWidthPx : undefined
@@ -153,6 +155,9 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
                 cardHeightPx={previewHeightPx}
                 mobileCoverFlow={enableLinearCoverFlow}
                 centerCards={zone.type === "library" && Boolean(count && count > 0)}
+                zoneType={zone.type}
+                viewerPlayerId={viewerPlayerId}
+                viewerRole={viewerRole}
               />
             )}
           </div>

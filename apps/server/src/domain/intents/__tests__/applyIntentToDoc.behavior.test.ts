@@ -679,6 +679,39 @@ describe("applyIntentToDoc", () => {
     expect(readPlayer(maps, "p1")?.handCount).toBe(1);
   });
 
+  it("conceals a card added directly to exile face down from everyone except the actor", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    writeZone(maps, makeZone("exile-p1", ZONE.EXILE, "p1"));
+
+    const result = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-add-face-down-exile",
+        type: "card.add",
+        payload: {
+          actorId: "p1",
+          card: makeCard("c1", "p1", "exile-p1", {
+            name: "Secret Card",
+            faceDown: true,
+          }),
+        },
+      },
+      hidden,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(maps.cards.get("c1")).toMatchObject({
+      name: "Card",
+      faceDown: true,
+      zoneId: "exile-p1",
+    });
+    expect(hidden.faceDownBattlefield.c1?.name).toBe("Secret Card");
+    expect(hidden.faceDownReveals.c1).toEqual({ toPlayers: ["p1"] });
+  });
+
   it("should reject card adds into hidden zones owned by other players", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
@@ -906,6 +939,208 @@ describe("applyIntentToDoc", () => {
     expect(hidden.libraryOrder.p1).toEqual(["bottom", "middle", "moving", "top"]);
   });
 
+  it("lets the actor retain private knowledge when moving a visible card to exile face down", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    const hand = makeZone("hand-p1", ZONE.HAND, "p1", ["c1"]);
+    const exile = makeZone("exile-p1", ZONE.EXILE, "p1");
+    writeZone(maps, hand);
+    writeZone(maps, exile);
+    hidden.handOrder.p1 = ["c1"];
+    hidden.cards.c1 = makeCard("c1", "p1", hand.id, { name: "Private Card" });
+
+    const result = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-face-down-exile-known",
+        type: "card.move",
+        payload: {
+          actorId: "p1",
+          cardId: "c1",
+          toZoneId: exile.id,
+          opts: { faceDown: true },
+        },
+      },
+      hidden,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(maps.cards.get("c1")).toMatchObject({
+      name: "Card",
+      zoneId: exile.id,
+      faceDown: true,
+    });
+    expect(hidden.faceDownBattlefield.c1?.name).toBe("Private Card");
+    expect(hidden.faceDownReveals.c1).toEqual({ toPlayers: ["p1"] });
+  });
+
+  it("lets authorized viewers manage face-down exile visibility without logging identity", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    writePlayer(maps, makePlayer("p2"));
+    writePlayer(maps, makePlayer("p3"));
+    const exile = makeZone("exile-p1", ZONE.EXILE, "p1", ["c1"]);
+    writeZone(maps, exile);
+    writeCard(
+      maps,
+      makeCard("c1", "p1", exile.id, { name: "Card", faceDown: true }),
+    );
+    hidden.faceDownBattlefield.c1 = { name: "Private Card" };
+    hidden.faceDownReveals.c1 = { toPlayers: ["p1"] };
+
+    const allowed = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-face-down-exile-reveal",
+        type: "card.reveal.set",
+        payload: {
+          actorId: "p1",
+          cardId: "c1",
+          reveal: { to: ["p1", "p2", "not-a-player"] },
+        },
+      },
+      hidden,
+    );
+
+    expect(allowed.ok).toBe(true);
+    expect(hidden.faceDownReveals.c1).toEqual({ toPlayers: ["p1", "p2"] });
+    if (allowed.ok) {
+      expect(allowed.logEvents).toEqual([
+        {
+          eventId: "card.exileReveal",
+          payload: {
+            actorId: "p1",
+            audience: "players",
+            playerIds: ["p1", "p2"],
+          },
+        },
+      ]);
+      expect(allowed.logEvents[0]?.payload).not.toHaveProperty("cardName");
+    }
+
+    const newlyAuthorized = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-face-down-exile-hide",
+        type: "card.reveal.set",
+        payload: { actorId: "p2", cardId: "c1", reveal: null },
+      },
+      hidden,
+    );
+    expect(newlyAuthorized.ok).toBe(true);
+    expect(hidden.faceDownReveals.c1).toBeUndefined();
+
+    hidden.faceDownReveals.c1 = { toPlayers: ["p1"] };
+    const denied = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-face-down-exile-denied",
+        type: "card.reveal.set",
+        payload: { actorId: "p3", cardId: "c1", reveal: { toAll: true } },
+      },
+      hidden,
+    );
+    expect(denied).toMatchObject({
+      ok: false,
+      error: "Only the exile owner or an authorized viewer may reveal this card",
+    });
+  });
+
+  it("lets the exile owner reveal a blind face-down card without learning it", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    writePlayer(maps, makePlayer("p2"));
+    const exile = makeZone("exile-p1", ZONE.EXILE, "p1", ["c1"]);
+    writeZone(maps, exile);
+    writeCard(
+      maps,
+      makeCard("c1", "p1", exile.id, { name: "Card", faceDown: true }),
+    );
+    hidden.faceDownBattlefield.c1 = { name: "Private Card" };
+    hidden.faceDownReveals.c1 = {};
+
+    const result = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-blind-face-down-exile-reveal",
+        type: "card.reveal.set",
+        payload: {
+          actorId: "p1",
+          cardId: "c1",
+          reveal: { to: ["p2"] },
+        },
+      },
+      hidden,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(hidden.faceDownReveals.c1).toEqual({ toPlayers: ["p2"] });
+    expect(maps.cards.get("c1")).toMatchObject({
+      name: "Card",
+      faceDown: true,
+    });
+    if (result.ok) {
+      expect(result.logEvents).toEqual([
+        {
+          eventId: "card.exileReveal",
+          payload: {
+            actorId: "p1",
+            audience: "players",
+            playerIds: ["p2"],
+          },
+        },
+      ]);
+      expect(result.logEvents[0]?.payload).not.toHaveProperty("cardName");
+    }
+  });
+
+  it("carries the actor's knowledge from a face-down battlefield card into exile", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    const battlefield = makeZone("bf-p1", ZONE.BATTLEFIELD, "p1", ["c1"]);
+    const exile = makeZone("exile-p1", ZONE.EXILE, "p1");
+    writeZone(maps, battlefield);
+    writeZone(maps, exile);
+    writeCard(
+      maps,
+      makeCard("c1", "p1", battlefield.id, { name: "Card", faceDown: true }),
+    );
+    hidden.faceDownBattlefield.c1 = { name: "Private Card" };
+    hidden.faceDownReveals.c1 = {};
+
+    const result = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-face-down-battlefield-to-exile",
+        type: "card.move",
+        payload: {
+          actorId: "p1",
+          cardId: "c1",
+          toZoneId: exile.id,
+          opts: { faceDown: true },
+        },
+      },
+      hidden,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(maps.cards.get("c1")).toMatchObject({
+      name: "Card",
+      zoneId: exile.id,
+      faceDown: true,
+    });
+    expect(hidden.faceDownBattlefield.c1?.name).toBe("Private Card");
+    expect(hidden.faceDownReveals.c1).toEqual({ toPlayers: ["p1"] });
+  });
+
   it("should log face-up reveals when turning a facedown battlefield card face up", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
@@ -941,6 +1176,88 @@ describe("applyIntentToDoc", () => {
             cardId: "c1",
             zoneId: battlefield.id,
             zoneType: ZONE.BATTLEFIELD,
+            cardName: "Mystery Card",
+          },
+        },
+      ]);
+    }
+  });
+
+  it("turns an exiled card face up without leaking its identity beforehand", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    const exile = makeZone("exile-p1", ZONE.EXILE, "p1", ["c1"]);
+    writeZone(maps, exile);
+    writeCard(
+      maps,
+      makeCard("c1", "p1", exile.id, {
+        name: "Card",
+        faceDown: true,
+        knownToAll: false,
+      }),
+    );
+    hidden.faceDownBattlefield.c1 = { name: "Mystery Card" };
+    hidden.faceDownReveals.c1 = {};
+
+    const rejectedGenericUpdate = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-exile-faceup-generic-update",
+        type: "card.update",
+        payload: {
+          actorId: "p1",
+          cardId: "c1",
+          updates: { faceDown: false },
+        },
+      },
+      hidden,
+    );
+    expect(rejectedGenericUpdate).toEqual({
+      ok: false,
+      error: "use dedicated exile face-up action",
+    });
+
+    const rejected = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-exile-faceup-rejected",
+        type: "card.faceUp",
+        payload: { actorId: "p2", cardId: "c1" },
+      },
+      hidden,
+    );
+    expect(rejected.ok).toBe(false);
+    expect(maps.cards.get("c1")).toMatchObject({ name: "Card", faceDown: true });
+
+    const result = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-exile-faceup",
+        type: "card.faceUp",
+        payload: { actorId: "p1", cardId: "c1" },
+      },
+      hidden,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(maps.cards.get("c1")).toMatchObject({
+      name: "Mystery Card",
+      faceDown: false,
+      knownToAll: true,
+    });
+    expect(hidden.faceDownBattlefield.c1).toBeUndefined();
+    expect(hidden.faceDownReveals.c1).toBeUndefined();
+    if (result.ok) {
+      expect(result.logEvents).toEqual([
+        {
+          eventId: "card.faceUp",
+          payload: {
+            actorId: "p1",
+            cardId: "c1",
+            zoneId: exile.id,
+            zoneType: ZONE.EXILE,
             cardName: "Mystery Card",
           },
         },
@@ -1390,6 +1707,52 @@ describe("applyIntentToDoc", () => {
         "Card c3",
         "Card c2",
       ]);
+    }
+  });
+
+  it("exiles library cards face down without revealing their identities", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    const library = makeZone("lib-p1", ZONE.LIBRARY, "p1");
+    const exile = makeZone("exile-p1", ZONE.EXILE, "p1");
+    writeZone(maps, library);
+    writeZone(maps, exile);
+    hidden.libraryOrder.p1 = ["c1"];
+    hidden.cards.c1 = makeCard("c1", "p1", library.id);
+
+    const result = applyIntentToDoc(
+      doc,
+      {
+        id: "intent-exile-top-face-down",
+        type: "library.exile",
+        payload: {
+          actorId: "p1",
+          playerId: "p1",
+          count: 1,
+          faceDown: true,
+        },
+      },
+      hidden,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(maps.cards.get("c1")).toMatchObject({
+      name: "Card",
+      zoneId: exile.id,
+      faceDown: true,
+      knownToAll: false,
+    });
+    expect(hidden.faceDownBattlefield.c1?.name).toBe("Card c1");
+    expect(hidden.faceDownReveals.c1).toEqual({});
+    if (result.ok) {
+      expect(result.logEvents).toHaveLength(1);
+      expect(result.logEvents[0]?.payload).toMatchObject({
+        cardName: "a card",
+        faceDown: true,
+        forceHidden: true,
+      });
     }
   });
 

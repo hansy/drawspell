@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Profiler } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -191,5 +191,42 @@ describe("CardFace", () => {
     });
 
     expect(commits).toBe(initialCommits);
+  });
+
+  it("uses You for the current viewer in the revealed-to tooltip", () => {
+    const zone = buildZone("exile-owner", "EXILE", "owner");
+    const card: Card = {
+      id: "face-down-exile",
+      name: "Visible Card",
+      ownerId: "owner",
+      controllerId: "owner",
+      zoneId: zone.id,
+      tapped: false,
+      faceDown: true,
+      position: { x: 0.5, y: 0.5 },
+      rotation: 0,
+      counters: [],
+      revealedTo: ["me", "opponent"],
+    };
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { ...state.zones, [zone.id]: zone },
+      cards: { ...state.cards, [card.id]: card },
+      players: {
+        me: buildPlayer("me", "Raw Current User Name"),
+        owner: buildPlayer("owner", "Owner"),
+        opponent: buildPlayer("opponent", "Opponent"),
+      },
+      myPlayerId: "me",
+    }));
+
+    render(<CardFace card={card} faceDown={false} />);
+
+    fireEvent.focus(screen.getByTitle("Revealed to: 2 player(s)"));
+
+    expect(screen.getByText("You")).toBeTruthy();
+    expect(screen.getByText("Opponent")).toBeTruthy();
+    expect(screen.queryByText("Raw Current User Name")).toBeNull();
   });
 });

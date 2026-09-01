@@ -6,6 +6,7 @@ import {
 } from "../helpers";
 import type { LogEventDefinition, PartialLogEventRegistry } from "@/logging/types";
 import type { ZoneType } from "@/types";
+import { ZONE } from "@/constants/zones";
 import { DEFAULT_AGGREGATE_WINDOW_MS } from "./constants";
 
 export type MovePayload = {
@@ -82,6 +83,12 @@ export type FaceUpPayload = {
   zoneType?: ZoneType;
   actorId?: string;
   cardName?: string;
+};
+
+export type ExileRevealPayload = {
+  actorId?: string;
+  audience: "everyone" | "players" | "nobody";
+  playerIds?: string[];
 };
 
 const formatMove: LogEventDefinition<MovePayload>["format"] = (payload, ctx) => {
@@ -247,11 +254,51 @@ const formatFaceUp: LogEventDefinition<FaceUpPayload>["format"] = (payload, ctx)
   const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = getLogZone(ctx, payload.zoneId, payload.zoneType);
   const cardPart = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
+  if (payload.zoneType === ZONE.EXILE || zone?.type === ZONE.EXILE) {
+    return [
+      actor,
+      { kind: "text", text: " turned " },
+      cardPart,
+      { kind: "text", text: " face up in Exile" },
+    ];
+  }
   return [
     actor,
     { kind: "text", text: " revealed " },
     cardPart,
     { kind: "text", text: " from facedown" },
+  ];
+};
+
+const formatExileReveal: LogEventDefinition<ExileRevealPayload>["format"] = (
+  payload,
+  ctx,
+) => {
+  const actor = buildPlayerPart(ctx, payload.actorId);
+  if (payload.audience === "nobody") {
+    return [
+      actor,
+      { kind: "text", text: " hid the identity of a face-down exiled card from everyone" },
+    ];
+  }
+  if (payload.audience === "everyone") {
+    return [
+      actor,
+      { kind: "text", text: " revealed the identity of a face-down exiled card to everyone" },
+    ];
+  }
+
+  const playerIds = payload.playerIds ?? [];
+  const audienceParts = playerIds.flatMap((playerId, index) => [
+    ...(index > 0
+      ? [{ kind: "text" as const, text: index === playerIds.length - 1 ? " and " : ", " }]
+      : []),
+    buildPlayerPart(ctx, playerId),
+  ]);
+  return [
+    actor,
+    { kind: "text", text: " revealed the identity of a face-down exiled card to " },
+    ...audienceParts,
   ];
 };
 
@@ -267,6 +314,9 @@ export const cardEvents = {
   },
   "card.faceUp": {
     format: formatFaceUp,
+  },
+  "card.exileReveal": {
+    format: formatExileReveal,
   },
   "card.transform": {
     format: formatTransform,

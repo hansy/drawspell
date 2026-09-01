@@ -167,11 +167,9 @@ export function canViewZone(
   const ctx = normalizeActor(actor);
   const isOwner = ctx.actorId === zone.ownerId;
 
+  if (isSpectator(ctx)) return allowFaces();
+
   if (isHiddenZoneType(zone.type)) {
-    if (isSpectator(ctx)) {
-      if (zone.type === ZONE.HAND) return allowFaces();
-      return denyHiddenZone();
-    }
     if (!isOwner) return denyHiddenZone();
     // Library "view all" is implicitly owner-only; already satisfied by isOwner.
     return allowFaces();

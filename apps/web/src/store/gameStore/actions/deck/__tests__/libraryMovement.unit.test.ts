@@ -59,6 +59,30 @@ describe("library movement actions", () => {
     expect(dispatchIntent.mock.calls[0]?.[0]?.payload).not.toHaveProperty("cardId");
   });
 
+  it("requests face-down library exile without exposing card ids", () => {
+    const dispatchIntent = vi.fn();
+    const state = buildState();
+    const action = createExileFromLibrary(
+      vi.fn() as any,
+      (() => state) as any,
+      { dispatchIntent } as any,
+    );
+
+    action("p1", 2, "p1", undefined, { faceDown: true });
+
+    expect(dispatchIntent).toHaveBeenCalledWith({
+      type: "library.exile",
+      payload: {
+        playerId: "p1",
+        count: 2,
+        actorId: "p1",
+        faceDown: true,
+      },
+      isRemote: undefined,
+    });
+    expect(dispatchIntent.mock.calls[0]?.[0]?.payload).not.toHaveProperty("cardId");
+  });
+
   it("dispatches a top-card drop by player and destination only", () => {
     const dispatchIntent = vi.fn();
     const state = buildState();

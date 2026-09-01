@@ -79,7 +79,7 @@ describe("buildZoneMoveActions", () => {
     const labels =
       moveMenu?.submenu?.map((a) => (a.type === "action" ? a.label : "")) ?? [];
     expect(labels).toContain(ZONE_LABEL.graveyard);
-    expect(labels).toContain(ZONE_LABEL.exile);
+    expect(labels).toContain(`${ZONE_LABEL.exile} ...`);
     expect(labels).toContain(ZONE_LABEL.hand);
     expect(labels).not.toContain(ZONE_LABEL.commander);
     expect(labels).not.toContain(ZONE_LABEL.sideboard);
@@ -101,6 +101,14 @@ describe("buildZoneMoveActions", () => {
       faceDownMenu?.submenu?.map((a) => (a.type === "action" ? a.label : "")) ?? [];
     expect(faceDownLabels).toContain("with morph (2/2)");
     expect(faceDownLabels).toContain("without morph");
+
+    const exileMenu = moveMenu?.submenu?.find(
+      (a): a is Extract<typeof a, { type: "action" }> =>
+        a.type === "action" && a.label === `${ZONE_LABEL.exile} ...`,
+    );
+    expect(
+      exileMenu?.submenu?.map((a) => (a.type === "action" ? a.label : "")),
+    ).toEqual(["Face up", "Face down"]);
 
     const libraryMenu = moveMenu?.submenu?.find(
       (a): a is Extract<typeof a, { type: "action" }> =>
@@ -282,6 +290,80 @@ describe("buildZoneMoveActions", () => {
     expect(setCardReveal).toHaveBeenCalledWith("c1", null);
   });
 
+  it("lets an authorized player manage every face-down exile viewer", () => {
+    const exile = makeZone("exile", ZONE.EXILE, "p1");
+    const players = {
+      p1: makePlayer("p1", "Owner"),
+      p2: makePlayer("p2", "Alice"),
+      p3: makePlayer("p3", "Bob"),
+    };
+    const setCardReveal = vi.fn();
+    const actions = buildZoneMoveActions(
+      {
+        ...baseCard,
+        zoneId: exile.id,
+        faceDown: true,
+        revealedToAll: false,
+        revealedTo: ["p1", "p2"],
+      },
+      exile,
+      { [exile.id]: exile },
+      "p1",
+      vi.fn(),
+      undefined,
+      players,
+      setCardReveal,
+      "player",
+    );
+
+    const reveal = actions.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "Reveal to ...",
+    );
+    expect(
+      reveal?.submenu?.filter((item) => item.type === "action").map((item) => ({
+        label: item.label,
+        checked: item.checked,
+      })),
+    ).toEqual([
+      { label: "Everyone", checked: false },
+      { label: "Me", checked: true },
+      { label: "Alice", checked: true },
+      { label: "Bob", checked: false },
+      { label: "Hide from everyone", checked: undefined },
+    ]);
+
+    const bob = reveal?.submenu?.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "Bob",
+    );
+    bob?.onSelect();
+    expect(setCardReveal).toHaveBeenCalledWith("c1", {
+      to: ["p1", "p2", "p3"],
+    });
+  });
+
+  it("lets the exile owner manage reveal controls for an unknown face-down card", () => {
+    const exile = makeZone("exile", ZONE.EXILE, "p1");
+    const actions = buildZoneMoveActions(
+      { ...baseCard, zoneId: exile.id, faceDown: true, revealedTo: [] },
+      exile,
+      { [exile.id]: exile },
+      "p1",
+      vi.fn(),
+      undefined,
+      { p1: makePlayer("p1", "Owner") },
+      vi.fn(),
+      "player",
+    );
+
+    expect(
+      actions.some(
+        (item) => item.type === "action" && item.label === "Reveal to ...",
+      ),
+    ).toBe(true);
+  });
+
   it("includes reveal submenu for controller on face-down battlefield cards", () => {
     const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1");
     const zones = { bf: battlefield };
@@ -361,17 +443,31 @@ describe("buildZoneViewActions", () => {
       (item): item is Extract<typeof item, { type: "action" }> =>
         item.type === "action" && item.label === "Exile ...",
     );
-    const exileOne = exileMenu?.submenu?.find(
+    const faceUpMenu = exileMenu?.submenu?.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "Face up ...",
+    );
+    const faceDownMenu = exileMenu?.submenu?.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "Face down ...",
+    );
+    const exileOne = faceUpMenu?.submenu?.find(
       (item): item is Extract<typeof item, { type: "action" }> =>
         item.type === "action" && item.label === "Exile 1",
     );
-    const exileTopX = exileMenu?.submenu?.find(
+    const exileTopX = faceUpMenu?.submenu?.find(
       (item): item is Extract<typeof item, { type: "action" }> =>
         item.type === "action" && item.label === "Exile Top X...",
     );
+    const exileOneFaceDown = faceDownMenu?.submenu?.find(
+      (item): item is Extract<typeof item, { type: "action" }> =>
+        item.type === "action" && item.label === "Exile 1",
+    );
 
     exileOne?.onSelect();
-    expect(exileFromLibrary).toHaveBeenCalledWith("owner", 1);
+    expect(exileFromLibrary).toHaveBeenCalledWith("owner", 1, {
+      faceDown: false,
+    });
 
     exileTopX?.onSelect();
     expect(openCountPrompt).toHaveBeenCalledWith(
@@ -385,7 +481,14 @@ describe("buildZoneViewActions", () => {
     );
     const prompt = openCountPrompt.mock.calls[0]?.[0];
     prompt?.onSubmit(4);
-    expect(exileFromLibrary).toHaveBeenCalledWith("owner", 4);
+    expect(exileFromLibrary).toHaveBeenCalledWith("owner", 4, {
+      faceDown: false,
+    });
+
+    exileOneFaceDown?.onSelect();
+    expect(exileFromLibrary).toHaveBeenCalledWith("owner", 1, {
+      faceDown: true,
+    });
 
     const bottomToHand = items.find(
       (item): item is Extract<typeof item, { type: "action" }> =>
@@ -589,7 +692,7 @@ describe("buildGroupActions", () => {
     expect(moveLabels).toEqual([
       "Battlefield...",
       "Graveyard",
-      "Exile",
+      "Exile...",
       "Library...",
     ]);
     expect(moveLabels).not.toContain("Commander");
@@ -664,7 +767,7 @@ describe("buildGroupActions", () => {
       moveMenu.submenu
         ?.filter((item) => item.type === "action")
         .map((item) => item.label),
-    ).toEqual(["Battlefield...", "Hand", "Exile", "Library..."]);
+    ).toEqual(["Battlefield...", "Hand", "Exile...", "Library..."]);
     const libraryMenu = moveMenu.submenu?.find(
       (item) => item.type === "action" && item.label === "Library...",
     );
@@ -705,6 +808,40 @@ describe("buildGroupActions", () => {
 });
 
 describe("buildCardActions", () => {
+  it("lets an exile-zone owner turn one face-down card face up", () => {
+    const exile = makeZone("exile", ZONE.EXILE, "p1");
+    const turnExiledCardFaceUp = vi.fn();
+    const actions = buildCardActions({
+      card: {
+        ...baseCard,
+        zoneId: exile.id,
+        faceDown: true,
+        name: "Card",
+      },
+      zones: { [exile.id]: exile },
+      myPlayerId: "p1",
+      viewerRole: "player",
+      moveCard: vi.fn(),
+      tapCard: vi.fn(),
+      transformCard: vi.fn(),
+      duplicateCard: vi.fn(),
+      createRelatedCard: vi.fn(),
+      addCounter: vi.fn(),
+      removeCounter: vi.fn(),
+      openAddCounterModal: vi.fn(),
+      globalCounters: {},
+      turnExiledCardFaceUp,
+    });
+
+    const turnFaceUp = actions.find(
+      (action) => action.type === "action" && action.label === "Turn face up",
+    );
+    expect(turnFaceUp?.type).toBe("action");
+    if (!turnFaceUp || turnFaceUp.type !== "action") return;
+    turnFaceUp.onSelect();
+    expect(turnExiledCardFaceUp).toHaveBeenCalledWith("c1");
+  });
+
   it("limits battlefield actions to Inspect only for non-controllers", () => {
     const otherBattlefield = makeZone("bf-other", ZONE.BATTLEFIELD, "p2");
     const zones = { [otherBattlefield.id]: otherBattlefield };

@@ -8,6 +8,7 @@ import type {
   Zone,
   ZoneId,
 } from "@/types";
+import type { CardMovementOptions } from "@mtg/shared/movement";
 
 import { ZONE, ZONE_LABEL } from "@/constants/zones";
 import { getPlayerZones } from "@/lib/gameSelectors";
@@ -19,11 +20,7 @@ type GroupMove = {
   cardId: CardId;
   toZoneId: ZoneId;
   placement?: "top" | "bottom";
-  opts?: {
-    random?: boolean;
-    faceDown?: boolean;
-    faceDownMode?: "morph";
-  };
+  opts?: CardMovementOptions;
 };
 
 type GroupActionBuilderParams = {
@@ -174,7 +171,28 @@ const buildGroupMoveMenu = (
   };
   addDestination(playerZones.hand, ZONE_LABEL.hand);
   addDestination(playerZones.graveyard, ZONE_LABEL.graveyard);
-  addDestination(playerZones.exile, ZONE_LABEL.exile);
+  if (playerZones.exile && canMoveAllTo(playerZones.exile)) {
+    submenu.push({
+      type: "action",
+      label: `${ZONE_LABEL.exile}...`,
+      onSelect: () => {},
+      submenu: [
+        {
+          type: "action",
+          label: "Face up",
+          onSelect: () => moveCards(movesTo(playerZones.exile!)),
+        },
+        {
+          type: "action",
+          label: "Face down",
+          onSelect: () =>
+            moveCards(
+              movesTo(playerZones.exile!, { opts: { faceDown: true } }),
+            ),
+        },
+      ],
+    });
+  }
 
   if (playerZones.library && canMoveAllTo(playerZones.library)) {
     submenu.push({

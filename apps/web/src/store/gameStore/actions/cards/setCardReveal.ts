@@ -18,15 +18,26 @@ export const createSetCardReveal =
     if (!card) return;
     const zoneType = snapshot.zones[card.zoneId]?.type;
     const isBattlefieldFaceDown = zoneType === ZONE.BATTLEFIELD && card.faceDown;
+    const isExileFaceDown = zoneType === ZONE.EXILE && card.faceDown;
     const canRevealHidden = actor === card.ownerId;
     const canRevealFaceDown = isBattlefieldFaceDown && actor === card.controllerId;
-    if (!canRevealHidden && !canRevealFaceDown) return;
+    const canRevealExile =
+      isExileFaceDown &&
+      (card.revealedToAll === true || card.revealedTo?.includes(actor));
+    if (!canRevealHidden && !canRevealFaceDown && !canRevealExile) return;
 
-    if (!isBattlefieldFaceDown && zoneType !== ZONE.HAND && zoneType !== ZONE.LIBRARY) {
+    if (
+      !isBattlefieldFaceDown &&
+      !isExileFaceDown &&
+      zoneType !== ZONE.HAND &&
+      zoneType !== ZONE.LIBRARY
+    ) {
       return;
     }
 
-    const updates = buildRevealPatch(card, reveal, { excludeId: actor });
+    const updates = buildRevealPatch(card, reveal, {
+      excludeId: isExileFaceDown ? null : actor,
+    });
 
     dispatchIntent({
       type: "card.reveal.set",

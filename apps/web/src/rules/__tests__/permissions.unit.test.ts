@@ -37,10 +37,10 @@ describe('canViewZone', () => {
     expect(canViewZone({ actorId: 'opponent' }, graveyard).allowed).toBe(true);
   });
 
-  it('blocks spectators from viewing libraries but allows public zones', () => {
+  it('allows spectators to view every zone', () => {
     const library = makeZone('lib-owner', ZONE.LIBRARY, 'owner');
     const graveyard = makeZone('gy-owner', ZONE.GRAVEYARD, 'owner');
-    expect(canViewZone({ actorId: 'spec', role: 'spectator' }, library).allowed).toBe(false);
+    expect(canViewZone({ actorId: 'spec', role: 'spectator' }, library).allowed).toBe(true);
     expect(canViewZone({ actorId: 'spec', role: 'spectator' }, graveyard).allowed).toBe(true);
   });
 });

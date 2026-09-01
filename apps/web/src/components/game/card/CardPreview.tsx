@@ -32,6 +32,7 @@ import {
 } from "@/lib/cardDisplay";
 import { canViewerSeeCardIdentity } from "@/lib/reveal";
 import { markLockedPreviewDismissal } from "@/lib/cardPreviewLock";
+import { getPlayerLabel } from "@/lib/playerLabel";
 import { CardPreviewView } from "./CardPreviewView";
 
 interface CardPreviewProps {
@@ -81,15 +82,13 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   const zoneType = useGameStore(
     (state) => state.zones[currentCard.zoneId]?.type,
   );
-  const faceDownOnBattlefield =
-    zoneType === ZONE.BATTLEFIELD && currentCard.faceDown;
   const canPeek = canViewerSeeCardIdentity(
     currentCard,
     zoneType,
     myPlayerId,
     viewerRole,
   );
-  const maskFaceDown = faceDownOnBattlefield && !canPeek;
+  const maskFaceDown = currentCard.faceDown && !canPeek;
   const morphFaceDown = isMorphFaceDown(currentCard, maskFaceDown);
   const showPT = shouldShowZonePowerToughness(currentCard, zoneType, {
     faceDown: maskFaceDown,
@@ -304,7 +303,14 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
   const controllerRevealNames = showControllerRevealIcon
     ? currentCard.revealedToAll
       ? []
-      : (currentCard.revealedTo || []).map((id) => players[id]?.name || id)
+      : (currentCard.revealedTo || []).map((id) =>
+          getPlayerLabel({
+            playerId: id,
+            viewerId: myPlayerId,
+            playerName: players[id]?.name,
+            perspective: "visibilitySubject",
+          }),
+        )
     : [];
 
   const customTextNode =
@@ -329,6 +335,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     <CardPreviewView
       currentCard={currentCard}
       previewCard={previewCard}
+      faceDown={maskFaceDown}
       locked={locked}
       onClose={onClose}
       style={previewStyle}

@@ -129,8 +129,10 @@ const applyPreparedCardAdd = (
     markHiddenChanged({ ownerId: zone.ownerId, zoneId: zone.id });
     return { ok: true };
   }
-  const enteringFaceDownBattlefield = zone?.type === ZONE.BATTLEFIELD && nextCard.faceDown;
-  const publicCard = enteringFaceDownBattlefield
+  const enteringFaceDownIdentityZone =
+    (zone?.type === ZONE.BATTLEFIELD || zone?.type === ZONE.EXILE) &&
+    nextCard.faceDown;
+  const publicCard = enteringFaceDownIdentityZone
     ? stripCardIdentity({
         ...nextCard,
         knownToAll: false,
@@ -146,11 +148,16 @@ const applyPreparedCardAdd = (
     const nextIds = placeCardId(zoneCardIds, nextCard.id, "top");
     writeZone(maps, { ...zone, cardIds: nextIds });
   }
-  if (enteringFaceDownBattlefield) {
+  if (enteringFaceDownIdentityZone) {
     hidden.faceDownBattlefield[nextCard.id] = buildCardIdentity(nextCard);
-    hidden.faceDownReveals[nextCard.id] = {};
+    hidden.faceDownReveals[nextCard.id] =
+      zone?.type === ZONE.EXILE ? { toPlayers: [actorId] } : {};
     maps.faceDownRevealsToAll.delete(nextCard.id);
-    markHiddenChanged({ ownerId: nextCard.controllerId, zoneId: zone?.id });
+    markHiddenChanged({
+      ownerId: zone?.ownerId ?? nextCard.controllerId,
+      zoneId: zone?.id,
+      reveal: hidden.faceDownReveals[nextCard.id],
+    });
   }
   if (nextCard.isToken) {
     pushLogEvent("card.tokenCreate", {
@@ -229,6 +236,60 @@ const handleCardCounterAdjust: IntentHandler = ({ actorId, maps, payload, pushLo
     });
   }
   writeCard(maps, { ...card, counters: nextCounters });
+  return { ok: true };
+};
+
+const handleCardFaceUp: IntentHandler = ({
+  actorId,
+  maps,
+  hidden,
+  payload,
+  pushLogEvent,
+  markHiddenChanged,
+}) => {
+  const cardIdResult = requireNonEmptyStringProp(payload, "cardId", "invalid card");
+  if (!cardIdResult.ok) return cardIdResult;
+  const cardId = cardIdResult.value;
+  const card = readCard(maps, cardId);
+  if (!card) return { ok: false, error: "card not found" };
+  const zone = readZone(maps, card.zoneId);
+  if (!zone) return { ok: false, error: "zone not found" };
+  if (zone.type !== ZONE.EXILE || !card.faceDown) {
+    return { ok: false, error: "card is not face down in exile" };
+  }
+  if (zone.ownerId !== actorId) {
+    return { ok: false, error: "Only exile zone owner may turn this card face up" };
+  }
+
+  const identity = hidden.faceDownBattlefield[cardId];
+  if (!identity) return { ok: false, error: "card identity not found" };
+  const previousReveal = hidden.faceDownReveals[cardId];
+  const nextCard = mergeCardIdentity(
+    {
+      ...card,
+      faceDown: false,
+      faceDownMode: undefined,
+      knownToAll: true,
+      revealedToAll: false,
+      revealedTo: [],
+    },
+    identity,
+  );
+
+  writeCard(maps, nextCard);
+  clearFaceDownStateForCard(maps, hidden, cardId);
+  markHiddenChanged({
+    ownerId: zone.ownerId,
+    zoneId: zone.id,
+    ...(previousReveal ? { prevReveal: previousReveal } : null),
+  });
+  pushLogEvent("card.faceUp", {
+    actorId,
+    cardId,
+    zoneId: zone.id,
+    zoneType: zone.type,
+    cardName: identity.name,
+  });
   return { ok: true };
 };
 
@@ -437,6 +498,14 @@ const handleCardUpdate: IntentHandler = ({ actorId, maps, hidden, payload, pushL
     }
   }
 
+  if (
+    zone.type === ZONE.EXILE &&
+    (Object.prototype.hasOwnProperty.call(updates, "faceDown") ||
+      Object.prototype.hasOwnProperty.call(updates, "faceDownMode"))
+  ) {
+    return { ok: false, error: "use dedicated exile face-up action" };
+  }
+
   const controlledFields = [
     "power",
     "toughness",
@@ -573,7 +642,14 @@ const handleCardTransform: IntentHandler = ({ actorId, maps, hidden, payload, pu
   return { ok: true };
 };
 
-const handleCardRevealSet: IntentHandler = ({ actorId, maps, hidden, payload, markHiddenChanged }) => {
+const handleCardRevealSet: IntentHandler = ({
+  actorId,
+  maps,
+  hidden,
+  payload,
+  pushLogEvent,
+  markHiddenChanged,
+}) => {
   const cardIdResult = requireNonEmptyStringProp(payload, "cardId", "invalid card");
   if (!cardIdResult.ok) return cardIdResult;
   const cardId = cardIdResult.value;
@@ -587,14 +663,37 @@ const handleCardRevealSet: IntentHandler = ({ actorId, maps, hidden, payload, ma
     if (!publicCard) return { ok: false, error: "card not found" };
     const zone = readZone(maps, publicCard.zoneId);
     if (!zone) return { ok: false, error: "zone not found" };
-    if (zone.type !== ZONE.BATTLEFIELD || !publicCard.faceDown) {
+    const isFaceDownBattlefield =
+      zone.type === ZONE.BATTLEFIELD && publicCard.faceDown;
+    const isFaceDownExile = zone.type === ZONE.EXILE && publicCard.faceDown;
+    if (!isFaceDownBattlefield && !isFaceDownExile) {
       return { ok: true };
     }
-    if (publicCard.controllerId !== actorId) {
+    const prevReveal = hidden.faceDownReveals[cardId];
+    const canManageExileReveal =
+      isFaceDownExile &&
+      (zone.ownerId === actorId ||
+        prevReveal?.toAll === true ||
+        prevReveal?.toPlayers?.includes(actorId));
+    if (isFaceDownBattlefield && publicCard.controllerId !== actorId) {
       return { ok: false, error: "Only controller may reveal this card" };
     }
-    const prevReveal = hidden.faceDownReveals[cardId];
-    const patch = buildRevealPatch(publicCard, reveal, { excludeId: actorId });
+    if (isFaceDownExile && !canManageExileReveal) {
+      return {
+        ok: false,
+        error: "Only the exile owner or an authorized viewer may reveal this card",
+      };
+    }
+    const normalizedReveal =
+      isFaceDownExile && reveal && Array.isArray(reveal.to)
+        ? {
+            ...reveal,
+            to: reveal.to.filter((playerId) => maps.players.has(playerId)),
+          }
+        : reveal;
+    const patch = buildRevealPatch(publicCard, normalizedReveal, {
+      excludeId: isFaceDownExile ? null : actorId,
+    });
     if (!reveal) {
       Reflect.deleteProperty(hidden.faceDownReveals, cardId);
       maps.faceDownRevealsToAll.delete(cardId);
@@ -603,6 +702,12 @@ const handleCardRevealSet: IntentHandler = ({ actorId, maps, hidden, payload, ma
         zoneId: publicCard.zoneId,
         ...(prevReveal ? { prevReveal } : null),
       });
+      if (isFaceDownExile) {
+        pushLogEvent("card.exileReveal", {
+          actorId,
+          audience: "nobody",
+        });
+      }
       return { ok: true };
     }
     const toPlayers = patch.revealedTo ?? [];
@@ -627,6 +732,17 @@ const handleCardRevealSet: IntentHandler = ({ actorId, maps, hidden, payload, ma
       reveal: revealState,
       ...(prevReveal ? { prevReveal } : null),
     });
+    if (isFaceDownExile) {
+      pushLogEvent("card.exileReveal", {
+        actorId,
+        audience: patch.revealedToAll
+          ? "everyone"
+          : toPlayers.length
+            ? "players"
+            : "nobody",
+        ...(toPlayers.length ? { playerIds: toPlayers } : null),
+      });
+    }
     return { ok: true };
   }
   if (hiddenCard.ownerId !== actorId) {
@@ -945,6 +1061,7 @@ const handleCardMoveBatch: IntentHandler = (context) => {
 };
 
 export const cardIntentHandlers: Record<string, IntentHandler> = {
+  "card.faceUp": handleCardFaceUp,
   "card.counter.adjust": handleCardCounterAdjust,
   "card.tap": handleCardTap,
   "card.untapAll": handleCardUntapAll,

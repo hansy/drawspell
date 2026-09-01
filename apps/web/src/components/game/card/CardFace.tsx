@@ -8,6 +8,7 @@ import {
 } from "@/services/scryfall/scryfallCache";
 
 import { getNextCardStatUpdate } from "@/lib/cardPT";
+import { getPlayerLabel } from "@/lib/playerLabel";
 import {
   getCurrentFaceIndex,
   isTransformableCard,
@@ -71,7 +72,14 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
     useShallow((state) => {
       const ids = card.revealedTo;
       if (!ids?.length) return EMPTY_REVEAL_TO_NAMES;
-      return ids.map((id) => state.players[id]?.name || id);
+      return ids.map((id) =>
+        getPlayerLabel({
+          playerId: id,
+          viewerId: state.myPlayerId,
+          playerName: state.players[id]?.name,
+          perspective: "visibilitySubject",
+        }),
+      );
     })
   );
   const [scryfallCacheTick, setScryfallCacheTick] = React.useState(0);

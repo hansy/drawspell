@@ -81,7 +81,7 @@ export const buildUpdateCardPatch = (cardBefore: Card, updates: Partial<Card>): 
 export const buildRevealPatch = (
   card: Card,
   reveal: CardReveal,
-  opts?: { excludeId?: string }
+  opts?: { excludeId?: string | null }
 ): Pick<CardPatch, "revealedToAll" | "revealedTo"> => {
   if (!reveal) {
     return { revealedToAll: false, revealedTo: [] };
@@ -91,9 +91,11 @@ export const buildRevealPatch = (
     return { revealedToAll: true, revealedTo: [] };
   }
 
-  const excludeId = opts?.excludeId ?? card.ownerId;
+  const excludeId = opts?.excludeId === null ? null : opts?.excludeId ?? card.ownerId;
   const to = Array.isArray(reveal.to)
-    ? reveal.to.filter((id) => typeof id === "string" && id !== excludeId)
+    ? reveal.to.filter(
+        (id) => typeof id === "string" && (excludeId === null || id !== excludeId),
+      )
     : [];
   const unique = Array.from(new Set(to));
 

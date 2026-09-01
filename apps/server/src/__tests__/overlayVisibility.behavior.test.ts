@@ -222,6 +222,55 @@ describe("server migration behavior", () => {
     expect(spectatorOverlay.cards.map((card) => card.id)).toEqual(["fd1"]);
   });
 
+  it("shows face-down exile identities only to permitted players and spectators", () => {
+    const doc = createDoc();
+    seedPlayers(doc, [createPlayer("p1"), createPlayer("p2")]);
+    const exile = createZone("exile-p1", "exile", "p1", ["known", "unknown"]);
+    seedZones(doc, [exile]);
+    seedCards(doc, [
+      createCard("known", "p1", exile.id, { name: "Card", faceDown: true }),
+      createCard("unknown", "p1", exile.id, { name: "Card", faceDown: true }),
+    ]);
+
+    const hidden = createEmptyHiddenState();
+    hidden.faceDownBattlefield = {
+      known: { name: "Known Secret" },
+      unknown: { name: "Unknown Secret" },
+    };
+    hidden.faceDownReveals = {
+      known: { toPlayers: ["p1"] },
+      unknown: {},
+    };
+
+    const maps = getMaps(doc);
+    const ownerOverlay = buildOverlayForViewer({
+      maps,
+      hidden,
+      viewerId: "p1",
+      viewerRole: "player",
+    });
+    expect(ownerOverlay.cards.map((card) => card.id)).toEqual(["known"]);
+    expect(ownerOverlay.cards[0]?.name).toBe("Known Secret");
+
+    const opponentOverlay = buildOverlayForViewer({
+      maps,
+      hidden,
+      viewerId: "p2",
+      viewerRole: "player",
+    });
+    expect(opponentOverlay.cards).toHaveLength(0);
+
+    const spectatorOverlay = buildOverlayForViewer({
+      maps,
+      hidden,
+      viewerRole: "spectator",
+    });
+    expect(spectatorOverlay.cards.map((card) => card.id)).toEqual([
+      "known",
+      "unknown",
+    ]);
+  });
+
   it("should reveal the top library card to all when a player enables top reveal", () => {
     const doc = createDoc();
     seedPlayers(doc, [
@@ -352,7 +401,7 @@ describe("server migration behavior", () => {
     expect(overlay.zoneCardOrders?.[library.id]).toEqual(["c4", "c5"]);
   });
 
-  it("does not expose library view overlay to spectators", () => {
+  it("gives spectators full library visibility", () => {
     const doc = createDoc();
     seedPlayers(doc, [createPlayer("p1")]);
     const library = createZone("library-p1", "library", "p1");
@@ -372,8 +421,8 @@ describe("server migration behavior", () => {
       libraryView: { playerId: "p1", count: 2 },
     });
 
-    expect(overlay.cards).toHaveLength(0);
-    expect(overlay.zoneCardOrders).toBeUndefined();
+    expect(overlay.cards.map((card) => card.id)).toEqual(["c1", "c2"]);
+    expect(overlay.zoneCardOrders?.[library.id]).toEqual(["c1", "c2"]);
   });
 
   it("respects library top reveal modes", () => {
@@ -407,7 +456,14 @@ describe("server migration behavior", () => {
       hidden,
       viewerRole: "spectator",
     });
-    expect(spectatorOverlayAllPlayers.cards).toHaveLength(0);
+    expect(spectatorOverlayAllPlayers.cards.map((card) => card.id)).toEqual([
+      "c1",
+      "c2",
+    ]);
+    expect(spectatorOverlayAllPlayers.zoneCardOrders?.[library.id]).toEqual([
+      "c1",
+      "c2",
+    ]);
 
     const playersMap = doc.getMap("players");
     playersMap.set("p1", { ...p1, libraryTopReveal: { to: ["p1"] } });

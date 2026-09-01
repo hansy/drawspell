@@ -7,6 +7,7 @@ import { ZONE, ZONE_LABEL } from "@/constants/zones";
 import {
   canViewerSeeLibraryCardByReveal,
   canViewerSeeLibraryTopCard,
+  shouldRenderFaceDown,
 } from "@/lib/reveal";
 import { requestCardPreviewLock } from "@/lib/cardPreviewLock";
 import { cn } from "@/lib/utils";
@@ -263,6 +264,14 @@ export const SeatView: React.FC<SeatViewProps> = ({
   const libraryFaceDown = libraryTopCard ? !canSeeLibraryTop : true;
   const graveyardTopCard = graveyardCards[graveyardCards.length - 1];
   const exileTopCard = exileCards[exileCards.length - 1];
+  const exileFaceDown = exileTopCard
+    ? shouldRenderFaceDown(
+        exileTopCard,
+        ZONE.EXILE,
+        viewerPlayerId,
+        viewerRole,
+      )
+    : false;
   const libraryPreviewCard =
     libraryTopCard && !libraryFaceDown && !libraryTopIsPlaceholder
       ? libraryTopCard
@@ -271,8 +280,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
     graveyardTopCard && !graveyardTopCard.faceDown
       ? graveyardTopCard
       : undefined;
-  const exilePreviewCard =
-    exileTopCard && !exileTopCard.faceDown ? exileTopCard : undefined;
+  const exilePreviewCard = exileTopCard && !exileFaceDown ? exileTopCard : undefined;
   const sideZonePreviewCardIdsRef = React.useRef<{
     library?: string;
     graveyard?: string;
@@ -422,7 +430,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                   : undefined
               }
               cardClassName="opacity-60 grayscale"
-              faceDown={exileCards[exileCards.length - 1]?.faceDown}
+              faceDown={exileFaceDown}
               showContextMenuCursor={showPublicZoneContextMenuCursor}
               {...getSideZonePreviewProps(exilePreviewCard)}
             />
@@ -934,7 +942,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                         : undefined
                     }
                     cardClassName="opacity-60 grayscale"
-                    faceDown={exileTopCard?.faceDown}
+                    faceDown={exileFaceDown}
                     showContextMenuCursor={showPublicZoneContextMenuCursor}
                     {...getSideZonePreviewProps(exilePreviewCard)}
                   />

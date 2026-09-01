@@ -1,4 +1,5 @@
-import type { Card, FaceDownMode } from "./cards";
+import type { Card } from "./cards";
+import type { CardMovementOptions } from "@mtg/shared/movement";
 import type { Counter } from "./counters";
 import type { ManaType, Player } from "./players";
 import type { CardId, PlayerId, ViewerRole, ZoneId } from "./ids";
@@ -77,21 +78,7 @@ export interface GameState {
     position?: { x: number; y: number },
     actorId?: PlayerId,
     isRemote?: boolean,
-    opts?: {
-      suppressLog?: boolean;
-      libraryPositionFromTop?: number;
-      random?: boolean;
-      faceDown?: boolean;
-      faceDownMode?: FaceDownMode;
-      skipCollision?: boolean;
-      groupCollision?: {
-        movingCardIds: CardId[];
-        targetPositions: Record<
-          CardId,
-          { x: number; y: number } | undefined
-        >;
-      };
-    }
+    opts?: CardMovementOptions
   ) => void;
   moveCards: (
     moves: Array<{
@@ -99,13 +86,7 @@ export interface GameState {
       toZoneId: ZoneId;
       placement?: "top" | "bottom";
       position?: { x: number; y: number };
-      opts?: {
-        suppressLog?: boolean;
-        random?: boolean;
-        faceDown?: boolean;
-        faceDownMode?: FaceDownMode;
-        skipCollision?: boolean;
-      };
+      opts?: CardMovementOptions;
     }>,
     actorId?: PlayerId,
     isRemote?: boolean
@@ -150,7 +131,13 @@ export interface GameState {
     playerId: PlayerId,
     count?: number,
     actorId?: PlayerId,
-    isRemote?: boolean
+    isRemote?: boolean,
+    options?: { faceDown?: boolean },
+  ) => void;
+  turnExiledCardFaceUp: (
+    cardId: CardId,
+    actorId?: PlayerId,
+    isRemote?: boolean,
   ) => void;
   moveBottomLibraryCardToHand: (
     playerId: PlayerId,

@@ -12,7 +12,10 @@ import type {
 
 import { ZONE } from "@/constants/zones";
 import { canModifyCardState, canTapCard } from "@/rules/permissions";
-import { canViewerSeeCardIdentity } from "@/lib/reveal";
+import {
+  canManageFaceDownExileReveal,
+  canViewerSeeCardIdentity,
+} from "@/lib/reveal";
 import { canToggleCardPreviewLock } from "@/models/game/card/cardModel";
 import {
   getNextTransformFace,
@@ -49,6 +52,7 @@ interface CardActionBuilderParams {
   openAddCounterModal: (cardIds: CardId[]) => void;
   globalCounters: Record<string, string>;
   updateCard?: (cardId: CardId, updates: Partial<Card>) => void;
+  turnExiledCardFaceUp?: (cardId: CardId) => void;
   openTextPrompt?: (opts: {
     title: string;
     message?: string;
@@ -85,6 +89,7 @@ export const buildCardActions = ({
   openAddCounterModal,
   globalCounters,
   updateCard,
+  turnExiledCardFaceUp,
   openTextPrompt,
   openRandomDiscardPrompt,
   openCountPrompt,
@@ -160,14 +165,26 @@ export const buildCardActions = ({
     currentZone &&
     (currentZone.type === ZONE.HAND || currentZone.type === ZONE.LIBRARY) &&
     myPlayerId === card.ownerId;
+  const canRevealFaceDownExile =
+    Boolean(setCardReveal) &&
+    Boolean(
+      currentZone &&
+        canManageFaceDownExileReveal({
+          card,
+          zone: currentZone,
+          viewerId: myPlayerId,
+          viewerRole,
+        }),
+    );
 
-  if ((canRevealHiddenZone || canRevealFaceDown) && setCardReveal) {
+  if ((canRevealHiddenZone || canRevealFaceDown || canRevealFaceDownExile) && setCardReveal) {
     items.push(
       buildRevealMenu({
         card,
         players,
         actorId: myPlayerId,
         setCardReveal,
+        ...(canRevealFaceDownExile ? { audienceMode: "allPlayers" as const } : null),
       })
     );
   }
@@ -296,6 +313,19 @@ export const buildCardActions = ({
     })
   );
 
+  if (
+    currentZone?.type === ZONE.EXILE &&
+    card.faceDown &&
+    currentZone.ownerId === myPlayerId &&
+    turnExiledCardFaceUp
+  ) {
+    items.push({
+      type: "action",
+      label: "Turn face up",
+      onSelect: () => turnExiledCardFaceUp(card.id),
+    });
+  }
+
   const moveToMenu = buildMoveToMenuItem({
     card,
     currentZone,
@@ -314,7 +344,7 @@ export const buildCardActions = ({
   if (currentZone?.type === ZONE.BATTLEFIELD && card.faceDown) {
     items.push({
       type: "action",
-      label: "Flip Face Up",
+      label: "Turn face up",
       onSelect: () => {
         if (updateCard) {
           updateCard(card.id, { faceDown: false, faceDownMode: undefined });

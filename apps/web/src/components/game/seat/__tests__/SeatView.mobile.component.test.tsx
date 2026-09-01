@@ -133,6 +133,43 @@ describe("SeatView mobile toolbar", () => {
     expect(onViewZone).toHaveBeenNthCalledWith(2, exileZone.id);
   });
 
+  it("does not label a face-down card on the compact exile pile", () => {
+    const faceDownExileCard = {
+      ...exileCard,
+      faceDown: true,
+      knownToAll: false,
+      revealedToAll: false,
+      revealedTo: [],
+    };
+    const model = {
+      ...baseModel,
+      cards: {
+        ...baseModel.cards,
+        exile: [faceDownExileCard],
+      },
+    };
+
+    const { container } = render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer()}
+            color="sky"
+            isMe
+            viewerPlayerId="p1"
+            viewerRole="player"
+            opponentColors={{ p1: "sky" }}
+            model={model as any}
+            layoutVariant="portrait-viewport"
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    expect(container.textContent).not.toContain("Face down");
+    expect(container.querySelector('[data-card-face-artwork="back"]')).not.toBeNull();
+  });
+
   it("shows the wide load-library CTA instead of zone strip for unloaded self seat", () => {
     const onLoadDeck = vi.fn();
     render(

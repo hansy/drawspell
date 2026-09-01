@@ -9,6 +9,7 @@ import { readLiveZoneCardIds, readPlayer, readZone, writePlayer } from "../../yj
 import { applyCardMove } from "../../movement";
 import { ensurePermission, readNumber, requireNonEmptyStringProp } from "../validation";
 import type { IntentHandler, IntentHandlerContext } from "./types";
+import type { MoveOpts } from "../../types";
 
 const normalizeNonNegativeCount = (count: number) =>
   Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
@@ -118,6 +119,7 @@ const moveCurrentTopLibraryCard = (
   libraryZone: NonNullable<ReturnType<typeof findZoneByTypeInMaps>>,
   toZoneId: string,
   position?: unknown,
+  opts?: MoveOpts,
 ) => {
   const order = context.hidden.libraryOrder[playerId] ?? [];
   const cardId = getTopLibraryCardId(order);
@@ -155,6 +157,7 @@ const moveCurrentTopLibraryCard = (
       toZoneId,
       actorId: context.actorId,
       ...(position !== undefined ? { position } : null),
+      ...(opts ? { opts } : null),
     },
     "top",
     context.pushLogEvent,
@@ -178,12 +181,17 @@ const handleLibraryExile: IntentHandler = ({
   if (!exileZone) return { ok: false, error: "zone not found" };
 
   const count = normalizeNonNegativeCount(readNumber(payload.count) ?? 1);
+  const faceDown = payload.faceDown === true;
   for (let i = 0; i < count; i += 1) {
     const result = moveCurrentTopLibraryCard(
       { actorId, maps, hidden, pushLogEvent, markHiddenChanged },
       playerId,
       libraryZone,
       exileZone.id,
+      undefined,
+      faceDown
+        ? { faceDown: true, faceDownExileKnowledge: "none" }
+        : undefined,
     );
     if (!result.ok) return result;
     if ((hidden.libraryOrder[playerId] ?? []).length === 0) break;

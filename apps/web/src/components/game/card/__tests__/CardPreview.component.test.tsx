@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { DndContext } from "@dnd-kit/core";
 
 import type { Card as CardType, Player, Zone } from "@/types";
@@ -756,6 +756,39 @@ describe("CardPreview", () => {
     anchorEl.remove();
   });
 
+  it("shows a card back when an opponent previews a face-down exiled card", async () => {
+    const zoneId = "opp-exile";
+    const cardId = "c1";
+    const zone = buildZone(zoneId, "EXILE", "opp", [cardId]);
+    const card: CardType = {
+      ...buildCard(cardId, "Card", zoneId),
+      ownerId: "opp",
+      controllerId: "opp",
+      faceDown: true,
+      knownToAll: false,
+      revealedToAll: false,
+      revealedTo: [],
+    };
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: { me: buildPlayer("me", "Me"), opp: buildPlayer("opp", "Opp") },
+      myPlayerId: "me",
+      viewerRole: "player",
+    }));
+
+    const anchorEl = document.createElement("div");
+    document.body.appendChild(anchorEl);
+    render(<CardPreview card={card} anchorEl={anchorEl} locked={false} />);
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-card-face-artwork="back"]')).not.toBeNull();
+    });
+    anchorEl.remove();
+  });
+
   it("locks preview after a desktop double click", () => {
     const zoneId = "me-battlefield";
     const cardId = "c1";
@@ -1235,6 +1268,51 @@ describe("CardPreview", () => {
         value: originalInnerHeight,
       });
     }
+  });
+
+  it("uses You for the current viewer in the locked preview reveal tooltip", async () => {
+    const zoneId = "me-exile";
+    const cardId = "face-down-exile";
+    const zone = buildZone(zoneId, "EXILE", "me", [cardId]);
+    const card = {
+      ...buildCard(cardId, "Visible Card", zoneId),
+      faceDown: true,
+      revealedTo: ["me", "opp"],
+    };
+
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: zone },
+      cards: { [cardId]: card },
+      players: {
+        me: buildPlayer("me", "Raw Current User Name"),
+        opp: buildPlayer("opp", "Opponent"),
+      },
+      myPlayerId: "me",
+    }));
+
+    const anchorEl = document.createElement("div");
+    document.body.appendChild(anchorEl);
+    render(
+      <CardPreview
+        card={card}
+        anchorEl={anchorEl}
+        locked
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("Visible Card")).toBeTruthy();
+    const revealControl = document.querySelector(
+      "[data-card-preview-controls] .lucide-eye",
+    )?.parentElement;
+    expect(revealControl).not.toBeNull();
+    fireEvent.focus(revealControl as Element);
+
+    expect(screen.getByText("You")).toBeTruthy();
+    expect(screen.getByText("Opponent")).toBeTruthy();
+    expect(screen.queryByText("Raw Current User Name")).toBeNull();
+    anchorEl.remove();
   });
 
   it("renders one reusable preview P/T control with responsive scaling", async () => {

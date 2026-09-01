@@ -24,7 +24,11 @@ interface ZoneActionBuilderParams {
   onViewZone?: (zoneId: ZoneId, count?: number) => void;
   drawCard: (playerId: PlayerId) => void;
   discardFromLibrary: (playerId: PlayerId, count?: number) => void;
-  exileFromLibrary: (playerId: PlayerId, count?: number) => void;
+  exileFromLibrary: (
+    playerId: PlayerId,
+    count?: number,
+    options?: { faceDown?: boolean },
+  ) => void;
   moveBottomLibraryCardToHand: (playerId: PlayerId) => void;
   shuffleLibrary: (playerId: PlayerId) => void;
   resetDeck: (playerId: PlayerId) => void;
@@ -155,18 +159,19 @@ const buildLibraryExileMenu = ({
   openCountPrompt,
 }: {
   myPlayerId: PlayerId;
-  exileFromLibrary: (playerId: PlayerId, count?: number) => void;
+  exileFromLibrary: (
+    playerId: PlayerId,
+    count?: number,
+    options?: { faceDown?: boolean },
+  ) => void;
   libraryCount?: number;
   openCountPrompt?: ZoneActionBuilderParams["openCountPrompt"];
-}): ContextMenuItem => ({
-  type: "action",
-  label: "Exile ...",
-  onSelect: () => {},
-  submenu: [
+}): ContextMenuItem => {
+  const buildQuantityMenu = (faceDown: boolean): ContextMenuItem[] => [
     {
       type: "action",
       label: "Exile 1",
-      onSelect: () => exileFromLibrary(myPlayerId, 1),
+      onSelect: () => exileFromLibrary(myPlayerId, 1, { faceDown }),
     },
     buildCountPromptAction({
       label: "Exile Top X...",
@@ -174,7 +179,7 @@ const buildLibraryExileMenu = ({
       buildPromptOptions: () => ({
         title: "Exile Top Cards",
         message: "How many cards from the top of your library?",
-        onSubmit: (count) => exileFromLibrary(myPlayerId, count),
+        onSubmit: (count) => exileFromLibrary(myPlayerId, count, { faceDown }),
         minValue: 1,
         ...(typeof libraryCount === "number" && libraryCount > 0
           ? { maxValue: libraryCount, showMaxButton: true }
@@ -182,8 +187,28 @@ const buildLibraryExileMenu = ({
         confirmLabel: "Exile",
       }),
     }),
-  ],
-});
+  ];
+
+  return {
+    type: "action",
+    label: "Exile ...",
+    onSelect: () => {},
+    submenu: [
+      {
+        type: "action",
+        label: "Face up ...",
+        onSelect: () => {},
+        submenu: buildQuantityMenu(false),
+      },
+      {
+        type: "action",
+        label: "Face down ...",
+        onSelect: () => {},
+        submenu: buildQuantityMenu(true),
+      },
+    ],
+  };
+};
 
 const buildLibraryViewMenu = ({
   zoneId,

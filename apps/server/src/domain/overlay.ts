@@ -68,9 +68,25 @@ export const buildOverlayForViewer = (params: OverlayParams): OverlaySnapshotDat
     });
   });
 
-  if (params.libraryView) {
+  if (viewerRole === "spectator") {
+    Object.entries(params.hidden.libraryOrder).forEach(([ownerId, order]) => {
+      const libraryZoneId = libraryZoneIds[ownerId];
+      if (libraryZoneId) {
+        zoneCardOrders[libraryZoneId] = order.slice();
+      }
+      order.forEach((cardId) => {
+        const card = params.hidden.cards[cardId];
+        if (!card) return;
+        const reveal = params.hidden.libraryReveals[cardId];
+        addOverlayCard({
+          ...applyRevealToCard(card, reveal),
+          zoneId: libraryZoneId ?? card.zoneId,
+        });
+      });
+    });
+  } else if (params.libraryView) {
     const { playerId, count } = params.libraryView;
-    if (viewerRole !== "spectator" && (!viewerId || viewerId === playerId)) {
+    if (!viewerId || viewerId === playerId) {
       const libraryZoneId = libraryZoneIds[playerId];
       const order = params.hidden.libraryOrder[playerId] ?? [];
       const selected =
@@ -153,10 +169,11 @@ export const buildOverlayForViewer = (params: OverlayParams): OverlaySnapshotDat
 
   Object.values(snapshot.cards).forEach((card) => {
     if (!card.faceDown || card.zoneId === undefined) return;
+    const zone = snapshot.zones[card.zoneId];
     const reveal = params.hidden.faceDownReveals[card.id];
     const canSee =
       viewerRole === "spectator" ||
-      (viewerId && card.controllerId === viewerId) ||
+      (zone?.type === ZONE.BATTLEFIELD && viewerId && card.controllerId === viewerId) ||
       reveal?.toAll === true ||
       (viewerId && Array.isArray(reveal?.toPlayers) && reveal?.toPlayers.includes(viewerId));
     if (!canSee) return;

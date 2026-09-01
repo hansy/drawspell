@@ -31,6 +31,24 @@ const updateCountsForZoneMove = (maps: Maps, hidden: HiddenState, fromOwnerId: s
   }
 };
 
+const isFaceDownIdentityZone = (zoneType: Zone["type"]) =>
+  zoneType === ZONE.BATTLEFIELD || zoneType === ZONE.EXILE;
+
+const buildFaceDownRevealForMove = (
+  zoneType: Zone["type"],
+  actorId: string | undefined,
+  opts: MoveOpts | undefined,
+): HiddenReveal => {
+  if (
+    zoneType === ZONE.EXILE &&
+    actorId &&
+    opts?.faceDownExileKnowledge !== "none"
+  ) {
+    return { toPlayers: [actorId] };
+  }
+  return {};
+};
+
 const readMovePosition = (
   value: unknown,
   fallback: Card["position"]
@@ -157,7 +175,7 @@ export const applyCardMove = (
       ? hidden.handReveals[cardId]
       : fromZone.type === ZONE.LIBRARY
         ? hidden.libraryReveals[cardId]
-        : fromZone.type === ZONE.BATTLEFIELD && card.faceDown
+        : isFaceDownIdentityZone(fromZone.type) && card.faceDown
           ? hidden.faceDownReveals[cardId]
           : undefined;
 
@@ -167,7 +185,7 @@ export const applyCardMove = (
   const actorId = typeof payload.actorId === "string" ? payload.actorId : undefined;
 
   const faceDownIdentityForLog =
-    card.faceDown && fromZone.type === ZONE.BATTLEFIELD
+    card.faceDown && isFaceDownIdentityZone(fromZone.type)
       ? hidden.faceDownBattlefield[cardId]
       : undefined;
   const plan = planCardMovement({
@@ -208,8 +226,8 @@ export const applyCardMove = (
       return { ok: true };
     }
 
-    const wasFaceDownBattlefield = fromZone.type === ZONE.BATTLEFIELD && card.faceDown;
-    const faceDownIdentity = wasFaceDownBattlefield
+    const wasFaceDownIdentityCard = isFaceDownIdentityZone(fromZone.type) && card.faceDown;
+    const faceDownIdentity = wasFaceDownIdentityCard
       ? hidden.faceDownBattlefield[cardId]
       : undefined;
     const cardWithIdentity = mergeCardIdentity(card, faceDownIdentity);
@@ -236,9 +254,9 @@ export const applyCardMove = (
     });
     const nextCard = buildMovedCard(cardWithIdentity, branchPlan);
 
-    const willBeFaceDownBattlefield =
-      toZone.type === ZONE.BATTLEFIELD && nextCard.faceDown;
-    const publicCard = willBeFaceDownBattlefield ? stripCardIdentity(nextCard) : nextCard;
+    const willBeFaceDownIdentityCard =
+      isFaceDownIdentityZone(toZone.type) && nextCard.faceDown;
+    const publicCard = willBeFaceDownIdentityCard ? stripCardIdentity(nextCard) : nextCard;
 
     if (fromZone.id === toZone.id) {
       const nextIds = placeCardId(fromZoneCardIds, cardId, placement);
@@ -252,19 +270,26 @@ export const applyCardMove = (
       writeCard(maps, publicCard);
     }
 
-    if (willBeFaceDownBattlefield && (!wasFaceDownBattlefield || !faceDownIdentity)) {
+    const faceDownIdentityContextChanged =
+      willBeFaceDownIdentityCard &&
+      (!wasFaceDownIdentityCard ||
+        !faceDownIdentity ||
+        fromZone.type !== toZone.type);
+    if (faceDownIdentityContextChanged) {
       hidden.faceDownBattlefield[cardId] = buildCardIdentity(nextCard);
-      if (!hidden.faceDownReveals[cardId]) {
-        hidden.faceDownReveals[cardId] = {};
-      }
+      hidden.faceDownReveals[cardId] = buildFaceDownRevealForMove(
+        toZone.type,
+        actorId,
+        opts,
+      );
       maps.faceDownRevealsToAll.delete(cardId);
       markHiddenChanged({
-        ownerId: nextCard.controllerId,
+        ownerId: toZone.ownerId,
         zoneId: toZone.id,
         reveal: hidden.faceDownReveals[cardId],
       });
     }
-    if (wasFaceDownBattlefield && !willBeFaceDownBattlefield) {
+    if (wasFaceDownIdentityCard && !willBeFaceDownIdentityCard) {
       Reflect.deleteProperty(hidden.faceDownBattlefield, cardId);
       Reflect.deleteProperty(hidden.faceDownReveals, cardId);
       maps.faceDownRevealsToAll.delete(cardId);
@@ -387,8 +412,8 @@ export const applyCardMove = (
       return { ok: true };
     }
 
-    const wasFaceDownBattlefield = fromZone.type === ZONE.BATTLEFIELD && card.faceDown;
-    const faceDownIdentity = wasFaceDownBattlefield
+    const wasFaceDownIdentityCard = isFaceDownIdentityZone(fromZone.type) && card.faceDown;
+    const faceDownIdentity = wasFaceDownIdentityCard
       ? hidden.faceDownBattlefield[cardId]
       : undefined;
     const cardWithIdentity = mergeCardIdentity(card, faceDownIdentity);
@@ -398,7 +423,7 @@ export const applyCardMove = (
     writeZone(maps, { ...fromZone, cardIds: nextFromIds });
     maps.cards.delete(cardId);
 
-    if (wasFaceDownBattlefield) {
+    if (wasFaceDownIdentityCard) {
       Reflect.deleteProperty(hidden.faceDownBattlefield, cardId);
       Reflect.deleteProperty(hidden.faceDownReveals, cardId);
       maps.faceDownRevealsToAll.delete(cardId);
@@ -498,15 +523,19 @@ export const applyCardMove = (
 
     const nextToIds = placeCardId(toZoneCardIds, cardId, placement);
     writeZone(maps, { ...toZone, cardIds: nextToIds });
-    const willBeFaceDownBattlefield =
-      toZone.type === ZONE.BATTLEFIELD && nextCard.faceDown;
-    const publicCard = willBeFaceDownBattlefield ? stripCardIdentity(nextCard) : nextCard;
+    const willBeFaceDownIdentityCard =
+      isFaceDownIdentityZone(toZone.type) && nextCard.faceDown;
+    const publicCard = willBeFaceDownIdentityCard ? stripCardIdentity(nextCard) : nextCard;
     writeCard(maps, publicCard);
     Reflect.deleteProperty(hidden.cards, cardId);
 
-    if (willBeFaceDownBattlefield) {
+    if (willBeFaceDownIdentityCard) {
       hidden.faceDownBattlefield[cardId] = buildCardIdentity(nextCard);
-      hidden.faceDownReveals[cardId] = {};
+      hidden.faceDownReveals[cardId] = buildFaceDownRevealForMove(
+        toZone.type,
+        actorId,
+        opts,
+      );
       maps.faceDownRevealsToAll.delete(cardId);
     }
 

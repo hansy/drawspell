@@ -25,6 +25,7 @@ const EVENT_IDS = [
   "card.tap",
   "card.untapAll",
   "card.faceUp",
+  "card.exileReveal",
   "card.transform",
   "card.duplicate",
   "card.remove",
@@ -464,6 +465,52 @@ describe("logEventRegistry", () => {
     expect(parts.map((p) => p.text).join("")).toBe(
       "Alice revealed Mystic Snake from facedown"
     );
+  });
+
+  it("formats face-up exile events", () => {
+    const exile = makeZone("exile", "exile", "p1", ["c1"]);
+    const ctx: LogContext = {
+      players: { p1: makePlayer("p1", "Alice") },
+      cards: { c1: makeCard("c1", "Mystic Snake", "exile", "p1") },
+      zones: { exile },
+    };
+
+    const parts = logEventRegistry["card.faceUp"].format(
+      {
+        actorId: "p1",
+        cardId: "c1",
+        zoneId: "exile",
+        zoneType: "exile",
+        cardName: "Mystic Snake",
+      },
+      ctx,
+    );
+
+    expect(parts.map((part) => part.text).join("")).toBe(
+      "Alice turned Mystic Snake face up in Exile",
+    );
+  });
+
+  it("formats face-down exile reveal audiences without naming the card", () => {
+    const ctx: LogContext = {
+      players: {
+        p1: makePlayer("p1", "Alice"),
+        p2: makePlayer("p2", "Bob"),
+        p3: makePlayer("p3", "Carol"),
+      },
+      cards: { c1: makeCard("c1", "Secret Card", "exile", "p1") },
+      zones: { exile: makeZone("exile", "exile", "p1", ["c1"]) },
+    };
+
+    const parts = logEventRegistry["card.exileReveal"].format(
+      { actorId: "p1", audience: "players", playerIds: ["p2", "p3"] },
+      ctx,
+    );
+
+    expect(parts.map((part) => part.text).join("")).toBe(
+      "Alice revealed the identity of a face-down exiled card to Bob and Carol",
+    );
+    expect(parts.map((part) => part.text).join("")).not.toContain("Secret Card");
   });
 
   it("formats replayed non-move public card events from event-time zone facts", () => {

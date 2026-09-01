@@ -1,4 +1,5 @@
 import type { Card, CardId, CardReveal, Player, PlayerId } from "@/types";
+import { getPlayerLabel } from "@/lib/playerLabel";
 
 import type { ContextMenuItem } from "./types";
 
@@ -12,32 +13,42 @@ export const buildRevealMenu = (opts: {
   players?: Record<PlayerId, Player>;
   actorId: PlayerId;
   setCardReveal: SetCardReveal;
+  audienceMode?: "otherPlayers" | "allPlayers";
 }): ContextMenuItem => {
-  const { card, players, actorId, setCardReveal } = opts;
-  const others = players
-    ? Object.values(players).filter((p) => p.id !== actorId)
+  const { card, players, actorId, setCardReveal, audienceMode = "otherPlayers" } = opts;
+  const audiencePlayers = players
+    ? Object.values(players).filter(
+        (player) => audienceMode === "allPlayers" || player.id !== actorId,
+      )
     : [];
 
   const revealItems: ContextMenuItem[] = [];
 
   revealItems.push({
     type: "action",
-    label: "Reveal to all",
+    label: audienceMode === "allPlayers" ? "Everyone" : "Reveal to all",
     checked: card.revealedToAll,
     onSelect: () => setCardReveal(card.id, { toAll: true }),
   });
 
   revealItems.push({ type: "separator" });
 
-  others.forEach((p) => {
+  audiencePlayers.forEach((p) => {
     const isRevealed = card.revealedToAll || card.revealedTo?.includes(p.id);
     revealItems.push({
       type: "action",
-      label: p.name || p.id,
+      label: getPlayerLabel({
+        playerId: p.id,
+        viewerId: actorId,
+        playerName: p.name,
+        perspective: "actionRecipient",
+      }),
       checked: isRevealed,
       onSelect: () => {
         if (card.revealedToAll) {
-          const newTo = others.filter((o) => o.id !== p.id).map((o) => o.id);
+          const newTo = audiencePlayers
+            .filter((otherPlayer) => otherPlayer.id !== p.id)
+            .map((otherPlayer) => otherPlayer.id);
           setCardReveal(card.id, { to: newTo });
         } else {
           const current = card.revealedTo ?? [];
@@ -57,7 +68,7 @@ export const buildRevealMenu = (opts: {
 
   revealItems.push({
     type: "action",
-    label: "Hide for all",
+    label: audienceMode === "allPlayers" ? "Hide from everyone" : "Hide for all",
     onSelect: () => setCardReveal(card.id, null),
   });
 

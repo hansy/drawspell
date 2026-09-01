@@ -1,4 +1,5 @@
-import type { CardId, FaceDownMode, PlayerId, ZoneId } from "@/types";
+import type { CardId, PlayerId, ZoneId } from "@/types";
+import type { CardMovementOptions } from "@mtg/shared/movement";
 
 export type ContextMenuMoveCardFn = (
   cardId: CardId,
@@ -6,11 +7,5 @@ export type ContextMenuMoveCardFn = (
   position?: { x: number; y: number },
   actorId?: PlayerId,
   isRemote?: boolean,
-  opts?: {
-    suppressLog?: boolean;
-    libraryPositionFromTop?: number;
-    faceDown?: boolean;
-    faceDownMode?: FaceDownMode;
-    skipCollision?: boolean;
-  }
+  opts?: CardMovementOptions
 ) => void;
