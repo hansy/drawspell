@@ -21,6 +21,25 @@ describe("sanitizeSharedSnapshot", () => {
     expect(safe.players.p1.name.length).toBeLessThanOrEqual(MAX_NAME_LENGTH);
   });
 
+  it("preserves and bounds public floating mana", () => {
+    const safe = sanitizeSharedSnapshot({
+      players: {
+        p1: {
+          id: "p1",
+          name: "P1",
+          life: 40,
+          manaPool: { W: 2.8, U: -4, R: 140, generic: 8 },
+        },
+      },
+      zones: {},
+      cards: {},
+      globalCounters: {},
+      playerOrder: [],
+    });
+
+    expect(safe.players.p1.manaPool).toEqual({ W: 2, R: 99 });
+  });
+
   it("filters invalid zones and maps legacy command -> commander", () => {
     const safe = sanitizeSharedSnapshot({
       players: { p1: { id: "p1", name: "P1", life: 40 } },

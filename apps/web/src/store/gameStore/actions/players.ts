@@ -1,4 +1,8 @@
-import type { GameState } from "@/types";
+import {
+  MAX_FLOATING_MANA_PER_TYPE,
+  normalizeManaPool,
+  type GameState,
+} from "@/types";
 import type { DispatchIntent } from "@/store/gameStore/dispatchIntent";
 import type { GetState, SetState } from "./types";
 import { MAX_PLAYER_LIFE, MIN_PLAYER_LIFE } from "@/lib/limits";
@@ -19,11 +23,16 @@ export const createPlayerActions = (
   { dispatchIntent }: Deps
 ): Pick<
   GameState,
-  "addPlayer" | "updatePlayer" | "setDeckLoaded"
+  "addPlayer" | "updatePlayer" | "adjustMana" | "clearMana" | "setDeckLoaded"
 > => ({
   addPlayer: (player, _isRemote) => {
     if (get().viewerRole === "spectator") return;
-    const normalized = { ...player, deckLoaded: false, commanderTax: 0 };
+    const normalized = {
+      ...player,
+      deckLoaded: false,
+      commanderTax: 0,
+      manaPool: normalizeManaPool(player.manaPool),
+    };
     dispatchIntent({
       type: "player.join",
       payload: { player: normalized },
@@ -44,6 +53,7 @@ export const createPlayerActions = (
     if (!player) return;
 
     const normalizedUpdates = { ...updates };
+    delete normalizedUpdates.manaPool;
     if ("life" in normalizedUpdates) {
       const nextLife = normalizedUpdates.life;
       if (typeof nextLife !== "number" || !Number.isFinite(nextLife)) {
@@ -52,6 +62,7 @@ export const createPlayerActions = (
         normalizedUpdates.life = clampLife(nextLife);
       }
     }
+    if (Object.keys(normalizedUpdates).length === 0) return;
 
     const permission = canUpdatePlayer(
       { actorId: actor, role },
@@ -84,6 +95,58 @@ export const createPlayerActions = (
           [id]: { ...state.players[id], ...normalizedUpdates },
         },
       }),
+      isRemote: _isRemote,
+    });
+  },
+
+  adjustMana: (playerId, manaType, delta, actorId, _isRemote) => {
+    const actor = actorId ?? get().myPlayerId;
+    if (get().viewerRole === "spectator" || actor !== playerId) return;
+    if (!get().players[playerId]) return;
+
+    dispatchIntent({
+      type: "player.mana.adjust",
+      payload: { playerId, manaType, delta, actorId: actor },
+      applyLocal: (state) => {
+        const player = state.players[playerId];
+        if (!player) return state;
+        const manaPool = normalizeManaPool(player.manaPool);
+        const nextAmount = Math.min(
+          MAX_FLOATING_MANA_PER_TYPE,
+          Math.max(0, (manaPool[manaType] ?? 0) + delta),
+        );
+        const nextManaPool = { ...manaPool };
+        if (nextAmount > 0) nextManaPool[manaType] = nextAmount;
+        else delete nextManaPool[manaType];
+        return {
+          players: {
+            ...state.players,
+            [playerId]: { ...player, manaPool: nextManaPool },
+          },
+        };
+      },
+      isRemote: _isRemote,
+    });
+  },
+
+  clearMana: (playerId, actorId, _isRemote) => {
+    const actor = actorId ?? get().myPlayerId;
+    if (get().viewerRole === "spectator" || actor !== playerId) return;
+    if (!get().players[playerId]) return;
+
+    dispatchIntent({
+      type: "player.mana.clear",
+      payload: { playerId, actorId: actor },
+      applyLocal: (state) => {
+        const player = state.players[playerId];
+        if (!player) return state;
+        return {
+          players: {
+            ...state.players,
+            [playerId]: { ...player, manaPool: {} },
+          },
+        };
+      },
       isRemote: _isRemote,
     });
   },

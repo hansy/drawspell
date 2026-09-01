@@ -9,6 +9,8 @@ const EVENT_IDS = [
   "player.life",
   "player.commanderTax",
   "player.endTurn",
+  "player.mana",
+  "player.mana.clear",
   "coin.flip",
   "dice.roll",
   "card.draw",
@@ -128,6 +130,51 @@ describe("logEventRegistry", () => {
     );
 
     expect(parts.map((p) => p.text).join("")).toBe("Alice life -2 (20 -> 18)");
+  });
+
+  it("formats and aggregates floating mana changes", () => {
+    const ctx: LogContext = {
+      players: { p1: makePlayer("p1", "Alice") },
+      cards: {},
+      zones: {},
+    };
+    const definition = logEventRegistry["player.mana"];
+    const first = {
+      playerId: "p1",
+      actorId: "p1",
+      manaType: "U" as const,
+      from: 0,
+      to: 1,
+      delta: 1,
+    };
+    const second = { ...first, from: 1, to: 2 };
+
+    expect(definition.format(first, ctx).map((part) => part.text).join(""))
+      .toBe("Alice added 1 blue mana (1 floating)");
+    expect(definition.aggregate?.mergePayload(first, second)).toMatchObject({
+      from: 0,
+      to: 2,
+      delta: 2,
+    });
+  });
+
+  it("formats clearing a floating mana pool", () => {
+    const ctx: LogContext = {
+      players: { p1: makePlayer("p1", "Alice") },
+      cards: {},
+      zones: {},
+    };
+    const parts = logEventRegistry["player.mana.clear"].format(
+      {
+        playerId: "p1",
+        actorId: "p1",
+        total: 3,
+        previousPool: { W: 1, G: 2 },
+      },
+      ctx,
+    );
+    expect(parts.map((part) => part.text).join(""))
+      .toBe("Alice cleared 3 floating mana");
   });
 
   it("formats commander tax changes as added/removed", () => {

@@ -1,6 +1,34 @@
 import type { PlayerId } from "./ids";
 import type { Counter } from "./counters";
 
+export const MANA_TYPES = ["W", "U", "B", "R", "G", "C"] as const;
+export const MAX_FLOATING_MANA_PER_TYPE = 99;
+
+export type ManaType = (typeof MANA_TYPES)[number];
+export type ManaPool = Partial<Record<ManaType, number>>;
+
+export const isManaType = (value: unknown): value is ManaType =>
+  typeof value === "string" && MANA_TYPES.includes(value as ManaType);
+
+export const normalizeManaAmount = (value: unknown): number => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.min(
+    MAX_FLOATING_MANA_PER_TYPE,
+    Math.max(0, Math.trunc(value)),
+  );
+};
+
+export const normalizeManaPool = (value: unknown): ManaPool => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const record = value as Record<string, unknown>;
+  const pool: ManaPool = {};
+  MANA_TYPES.forEach((manaType) => {
+    const amount = normalizeManaAmount(record[manaType]);
+    if (amount > 0) pool[manaType] = amount;
+  });
+  return pool;
+};
+
 type LegacyLibraryTopRevealMode = "self" | "others" | "all";
 
 export type LibraryTopReveal = {
@@ -152,4 +180,5 @@ export interface Player {
   libraryCount?: number;
   sideboardCount?: number;
   libraryTopReveal?: LibraryTopRevealMode | null;
+  manaPool?: ManaPool;
 }

@@ -1,6 +1,6 @@
 import type { Card, FaceDownMode } from "./cards";
 import type { Counter } from "./counters";
-import type { Player } from "./players";
+import type { ManaType, Player } from "./players";
 import type { CardId, PlayerId, ViewerRole, ZoneId } from "./ids";
 import type { Zone } from "./zones";
 import type {
@@ -46,6 +46,18 @@ export interface GameState {
   updatePlayer: (
     id: PlayerId,
     updates: Partial<Player>,
+    actorId?: PlayerId,
+    isRemote?: boolean
+  ) => void;
+  adjustMana: (
+    playerId: PlayerId,
+    manaType: ManaType,
+    delta: -1 | 1,
+    actorId?: PlayerId,
+    isRemote?: boolean
+  ) => void;
+  clearMana: (
+    playerId: PlayerId,
     actorId?: PlayerId,
     isRemote?: boolean
   ) => void;

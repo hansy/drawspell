@@ -1,6 +1,6 @@
 import { buildCardPart, buildPlayerPart, getLogZone } from "../helpers";
 import type { LogEventDefinition, PartialLogEventRegistry } from "@/logging/types";
-import type { ZoneType } from "@/types";
+import type { ManaPool, ManaType, ZoneType } from "@/types";
 
 import { DEFAULT_AGGREGATE_WINDOW_MS } from "./constants";
 
@@ -26,6 +26,31 @@ export type CommanderTaxPayload = {
 
 export type EndTurnPayload = {
   actorId?: string;
+};
+
+export type ManaPayload = {
+  playerId: string;
+  actorId?: string;
+  manaType: ManaType;
+  from: number;
+  to: number;
+  delta?: number;
+};
+
+export type ManaClearPayload = {
+  playerId: string;
+  actorId?: string;
+  total: number;
+  previousPool: ManaPool;
+};
+
+const MANA_NAMES: Record<ManaType, string> = {
+  W: "white",
+  U: "blue",
+  B: "black",
+  R: "red",
+  G: "green",
+  C: "colorless",
 };
 
 const resolveDelta = (payload: { from: number; to: number; delta?: number }) =>
@@ -67,6 +92,34 @@ const formatEndTurn: LogEventDefinition<EndTurnPayload>["format"] = (payload, ct
   return [player, { kind: "text", text: " ended their turn" }];
 };
 
+const formatMana: LogEventDefinition<ManaPayload>["format"] = (payload, ctx) => {
+  const player = buildPlayerPart(ctx, payload.playerId);
+  const delta = resolveDelta(payload);
+  const amount = Math.abs(delta);
+  const verb = delta > 0 ? "added" : "removed";
+  return [
+    player,
+    {
+      kind: "text",
+      text: ` ${verb} ${amount} ${MANA_NAMES[payload.manaType]} mana (${payload.to} floating)`,
+    },
+  ];
+};
+
+const formatManaClear: LogEventDefinition<ManaClearPayload>["format"] = (
+  payload,
+  ctx,
+) => {
+  const player = buildPlayerPart(ctx, payload.playerId);
+  return [
+    player,
+    {
+      kind: "text",
+      text: ` cleared ${payload.total} floating mana`,
+    },
+  ];
+};
+
 export const playerEvents = {
   "player.life": {
     format: formatLife,
@@ -91,5 +144,21 @@ export const playerEvents = {
   },
   "player.endTurn": {
     format: formatEndTurn,
+  },
+  "player.mana": {
+    format: formatMana,
+    aggregate: {
+      key: (payload: ManaPayload) =>
+        `mana:${payload.playerId}:${payload.manaType}:${Math.sign(resolveDelta(payload))}`,
+      mergePayload: (existing: ManaPayload, incoming: ManaPayload) => ({
+        ...incoming,
+        from: existing.from,
+        delta: incoming.to - existing.from,
+      }),
+      windowMs: DEFAULT_AGGREGATE_WINDOW_MS,
+    },
+  },
+  "player.mana.clear": {
+    format: formatManaClear,
   },
 } satisfies PartialLogEventRegistry;

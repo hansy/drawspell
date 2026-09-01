@@ -306,14 +306,14 @@ export const SidenavView: React.FC<SidenavController> = ({
                     className="hidden lg:flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
                   >
                     <Keyboard size={16} />
-                    Keyboard Shortcuts
+                    Controls
                   </button>
                   <button
                     onClick={handleOpenShortcuts}
                     className="flex lg:hidden items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
                   >
                     <Smartphone size={16} />
-                    Touch Controls
+                    Controls
                   </button>
                 </>
               )}

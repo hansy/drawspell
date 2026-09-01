@@ -181,6 +181,48 @@ describe("SeatView desktop side-zone previews", () => {
     }
   });
 
+  it("shows an opponent's mana pool as read-only controls", () => {
+    const model = {
+      isTop: true,
+      isRight: false,
+      mirrorBattlefieldY: false,
+      inverseScalePercent: 100,
+      zones: {},
+      cards: {
+        library: [],
+        graveyard: [],
+        exile: [],
+        battlefield: [],
+        commander: [],
+        hand: [],
+      },
+      opponentLibraryRevealCount: 0,
+    } as const;
+
+    render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer({ manaPool: { U: 2 } })}
+            color="sky"
+            isMe={false}
+            viewerPlayerId="me"
+            opponentColors={{ me: "rose", p1: "sky" }}
+            model={model as any}
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    const manaOrbs = screen.getAllByRole("button", { name: /mana: \d/ });
+    expect(manaOrbs).toHaveLength(6);
+    expect(manaOrbs.every((orb) => (orb as HTMLButtonElement).disabled)).toBe(
+      true,
+    );
+    expect(screen.getByRole("button", { name: "Blue mana: 2" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: /Clear all/ })).toBeNull();
+  });
+
   it("closes the active side-zone preview after the hovered top card changes", () => {
     const graveyardZone = makeZone("graveyard-p1", "graveyard", ["c-graveyard-1"]);
     const firstCard = makeCard("c-graveyard-1", graveyardZone.id, "First Card");
@@ -443,12 +485,25 @@ describe("SeatView desktop side-zone previews", () => {
     ).toBe(true);
     expect(
       zoneCluster?.classList.contains(
-        "gap-[var(--desktop-bottom-zone-gap)]",
+        "gap-x-[var(--desktop-bottom-zone-gap)]",
       ),
     ).toBe(true);
     expect(zoneCluster?.style.gridTemplateColumns).toMatch(
       /^repeat\(3, [\d.]+px\)$/,
     );
+    expect(zoneCluster?.style.gridTemplateRows).toBe(
+      "36px minmax(0, 1fr)",
+    );
+    expect(
+      container
+        .querySelector("[data-desktop-mana-row]")
+        ?.classList.contains("justify-center"),
+    ).toBe(true);
+    expect(
+      container
+        .querySelector("[data-desktop-mana-row]")
+        ?.classList.contains("items-start"),
+    ).toBe(true);
     expect(
       (
         container.querySelector(

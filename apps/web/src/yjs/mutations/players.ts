@@ -1,5 +1,8 @@
 import type { Player } from '@/types';
-import { normalizeLibraryTopRevealMode } from '@mtg/shared/types/players';
+import {
+  normalizeLibraryTopRevealMode,
+  normalizeManaPool,
+} from '@mtg/shared/types/players';
 
 import { MAX_PLAYER_COLOR_LENGTH, MAX_PLAYER_NAME_LENGTH } from '../sanitizeLimits';
 
@@ -55,6 +58,7 @@ const writePlayer = (maps: SharedMaps, player: Player) => {
   target.set('cursor', player.cursor);
   target.set('commanderTax', player.commanderTax);
   target.set('deckLoaded', player.deckLoaded);
+  target.set('manaPool', normalizeManaPool(player.manaPool));
   writeOptionalNonNegativeCount(target, "handCount", player.handCount);
   writeOptionalNonNegativeCount(target, "libraryCount", player.libraryCount);
   writeOptionalNonNegativeCount(target, "sideboardCount", player.sideboardCount);
@@ -98,6 +102,7 @@ export const readPlayer = (maps: SharedMaps, playerId: string): Player | null =>
     libraryCount: getVal("libraryCount"),
     sideboardCount: getVal("sideboardCount"),
     libraryTopReveal,
+    manaPool: normalizeManaPool(getVal('manaPool')),
   } as Player;
 };
 

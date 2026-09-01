@@ -217,6 +217,77 @@ describe("SeatView mobile toolbar", () => {
     expect(onViewZone).toHaveBeenCalledWith(libraryZone.id);
   });
 
+  it("shows an opponent's empty mana pool as read-only controls", () => {
+    const { container } = render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer({ id: "p1", manaPool: {} })}
+            color="sky"
+            isMe={false}
+            viewerPlayerId="me"
+            opponentColors={{ me: "rose", p1: "sky" }}
+            model={baseModel as any}
+            layoutVariant="portrait-viewport"
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    expect(container.querySelector("[data-mobile-mana-bar]")).not.toBeNull();
+    expect(
+      container
+        .querySelector("[data-mobile-hand-header]")
+        ?.contains(container.querySelector("[data-mobile-mana-bar]")),
+    ).toBe(true);
+    const manaOrbs = screen.getAllByRole("button", { name: /mana: 0/ });
+    expect(manaOrbs).toHaveLength(6);
+    expect(manaOrbs.every((orb) => (orb as HTMLButtonElement).disabled)).toBe(
+      true,
+    );
+    expect(screen.queryByRole("button", { name: /Clear all/ })).toBeNull();
+    const handPill = container.querySelector("[data-mobile-hand-count-pill]");
+    expect(handPill?.textContent).toBe("Hand - 0");
+    expect(
+      container
+        .querySelector("[data-mobile-hand-area]")
+        ?.contains(handPill),
+    ).toBe(true);
+  });
+
+  it("renders the mobile commander control as a visible pill with a stronger open state", () => {
+    const commanderZone = makeZone("commander-p1", "commander");
+    render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer()}
+            color="sky"
+            isMe
+            viewerPlayerId="p1"
+            opponentColors={{ p1: "sky" }}
+            model={{
+              ...baseModel,
+              zones: { ...baseModel.zones, commander: commanderZone },
+            } as any}
+            layoutVariant="portrait-viewport"
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    const commanderButton = screen.getByRole("button", {
+      name: "Toggle commander drawer",
+    });
+    expect(commanderButton.className).toContain("border-indigo-400/35");
+    expect(commanderButton.className).toContain("bg-indigo-500/10");
+    expect(commanderButton.getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(commanderButton);
+    expect(commanderButton.className).toContain("bg-indigo-500/30");
+    expect(commanderButton.getAttribute("aria-expanded")).toBe("true");
+  });
+
   it("prioritizes opponent reveal modal over zone viewer when reveal cards exist", () => {
     const onViewZone = vi.fn();
     const onOpponentLibraryReveals = vi.fn();

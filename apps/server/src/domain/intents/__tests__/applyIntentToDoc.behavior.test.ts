@@ -501,7 +501,7 @@ describe("applyIntentToDoc", () => {
     const maps = getMaps(doc);
     const hidden = createEmptyHiddenState();
 
-    writePlayer(maps, makePlayer("p1"));
+    writePlayer(maps, makePlayer("p1", { manaPool: { U: 2 } }));
 
     const result = applyIntentToDoc(doc, {
       id: "intent-end-turn",
@@ -520,7 +520,135 @@ describe("applyIntentToDoc", () => {
       expect(result.impact).toBeDefined();
       expect(result.impact?.changedPublicDoc).toBe(false);
     }
-    expect(readPlayer(maps, "p1")).toEqual(makePlayer("p1"));
+    expect(readPlayer(maps, "p1")).toEqual(
+      makePlayer("p1", { manaPool: { U: 2 } }),
+    );
+  });
+
+  it("adjusts and clears only the acting player's floating mana", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    writePlayer(maps, makePlayer("p2"));
+
+    const add = applyIntentToDoc(doc, {
+      id: "intent-mana-add",
+      type: "player.mana.adjust",
+      payload: {
+        actorId: "p1",
+        playerId: "p1",
+        manaType: "U",
+        delta: 1,
+      },
+    }, hidden);
+
+    expect(add.ok).toBe(true);
+    expect(readPlayer(maps, "p1")?.manaPool).toEqual({ U: 1 });
+    if (add.ok) {
+      expect(add.logEvents).toEqual([
+        {
+          eventId: "player.mana",
+          payload: {
+            actorId: "p1",
+            playerId: "p1",
+            manaType: "U",
+            from: 0,
+            to: 1,
+            delta: 1,
+          },
+        },
+      ]);
+    }
+
+    const rejected = applyIntentToDoc(doc, {
+      id: "intent-mana-other-player",
+      type: "player.mana.adjust",
+      payload: {
+        actorId: "p1",
+        playerId: "p2",
+        manaType: "R",
+        delta: 1,
+      },
+    }, hidden);
+    expect(rejected).toEqual({ ok: false, error: "actor mismatch" });
+    expect(readPlayer(maps, "p2")?.manaPool).toBeUndefined();
+
+    const clear = applyIntentToDoc(doc, {
+      id: "intent-mana-clear",
+      type: "player.mana.clear",
+      payload: { actorId: "p1", playerId: "p1" },
+    }, hidden);
+    expect(clear.ok).toBe(true);
+    expect(readPlayer(maps, "p1")?.manaPool).toEqual({});
+    if (clear.ok) {
+      expect(clear.logEvents).toEqual([
+        {
+          eventId: "player.mana.clear",
+          payload: {
+            actorId: "p1",
+            playerId: "p1",
+            total: 1,
+            previousPool: { U: 1 },
+          },
+        },
+      ]);
+    }
+  });
+
+  it("rejects malformed mana adjustments and does not log no-op decrements", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+
+    const invalid = applyIntentToDoc(doc, {
+      id: "intent-mana-invalid",
+      type: "player.mana.adjust",
+      payload: {
+        actorId: "p1",
+        playerId: "p1",
+        manaType: "generic",
+        delta: 4,
+      },
+    }, hidden);
+    expect(invalid).toEqual({ ok: false, error: "invalid mana adjustment" });
+
+    const noOp = applyIntentToDoc(doc, {
+      id: "intent-mana-no-op",
+      type: "player.mana.adjust",
+      payload: {
+        actorId: "p1",
+        playerId: "p1",
+        manaType: "G",
+        delta: -1,
+      },
+    }, hidden);
+    expect(noOp.ok).toBe(true);
+    if (noOp.ok) expect(noOp.logEvents).toEqual([]);
+  });
+
+  it("rejects floating mana changes through the generic player update", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-mana-generic-update",
+      type: "player.update",
+      payload: {
+        actorId: "p1",
+        playerId: "p1",
+        updates: { manaPool: { U: 20 } },
+      },
+    }, hidden);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "use dedicated mana action",
+    });
+    expect(readPlayer(maps, "p1")?.manaPool).toBeUndefined();
   });
 
   it("should add cards to a hidden zone for the owning player", () => {

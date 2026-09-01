@@ -604,6 +604,7 @@ describe('players', () => {
       commanderTax: 0,
       deckLoaded: true,
       color: 'rose',
+      manaPool: { U: 2 },
     });
 
     patchPlayer(maps, 'p1', {
@@ -616,6 +617,7 @@ describe('players', () => {
     expect(snapshot.players.p1?.name.length).toBe(120);
     expect(snapshot.players.p1?.color?.length).toBe(16);
     expect(snapshot.players.p1?.commanderDamage).toEqual({ p2: 10 });
+    expect(snapshot.players.p1?.manaPool).toEqual({ U: 2 });
   });
 
   it('setBattlefieldViewScale clamps to [0.5, 1]', () => {

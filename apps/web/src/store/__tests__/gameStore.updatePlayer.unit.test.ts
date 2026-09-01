@@ -15,6 +15,7 @@ describe('gameStore updatePlayer permissions', () => {
       zones: {},
       players: {},
       myPlayerId: 'me',
+      viewerRole: 'player',
     });
   });
 
@@ -77,5 +78,68 @@ describe('gameStore updatePlayer permissions', () => {
     useGameStore.getState().updatePlayer('opponent', { name: 'Hacked' }, 'me');
 
     expect(useGameStore.getState().players.opponent.name).toBe('Opponent');
+  });
+
+  it('adjusts and clears the local player floating mana', () => {
+    useGameStore.setState((state) => ({
+      ...state,
+      players: {
+        me: {
+          id: 'me',
+          name: 'Me',
+          life: 40,
+          counters: [],
+          commanderDamage: {},
+          commanderTax: 0,
+          manaPool: {},
+        },
+      },
+    }));
+
+    useGameStore.getState().adjustMana('me', 'G', 1);
+    expect(useGameStore.getState().players.me.manaPool).toEqual({ G: 1 });
+
+    useGameStore.getState().clearMana('me');
+    expect(useGameStore.getState().players.me.manaPool).toEqual({});
+  });
+
+  it('blocks floating mana changes for another player', () => {
+    useGameStore.setState((state) => ({
+      ...state,
+      players: {
+        opponent: {
+          id: 'opponent',
+          name: 'Opponent',
+          life: 40,
+          counters: [],
+          commanderDamage: {},
+          commanderTax: 0,
+          manaPool: {},
+        },
+      },
+    }));
+
+    useGameStore.getState().adjustMana('opponent', 'R', 1);
+    expect(useGameStore.getState().players.opponent.manaPool).toEqual({});
+  });
+
+  it('does not allow generic player updates to bypass mana logging', () => {
+    useGameStore.setState((state) => ({
+      ...state,
+      players: {
+        me: {
+          id: 'me',
+          name: 'Me',
+          life: 40,
+          counters: [],
+          commanderDamage: {},
+          commanderTax: 0,
+          manaPool: {},
+        },
+      },
+    }));
+
+    useGameStore.getState().updatePlayer('me', { manaPool: { U: 9 } });
+    expect(useGameStore.getState().players.me.manaPool).toEqual({});
   });
 });

@@ -44,6 +44,8 @@ const buildBaseState = (): GameState =>
     activeModal: null,
     addPlayer: (() => {}) as any,
     updatePlayer: (() => {}) as any,
+    adjustMana: (() => {}) as any,
+    clearMana: (() => {}) as any,
     addZone: (() => {}) as any,
     addCard: (() => {}) as any,
     addCards: (() => {}) as any,

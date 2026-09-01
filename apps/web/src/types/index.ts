@@ -10,7 +10,19 @@ export type {
   FaceDownRevealsToAll,
 } from "./reveals";
 export type { ZoneType, Zone } from "./zones";
-export type { Player, LibraryTopRevealMode } from "./players";
+export {
+  isManaType,
+  MAX_FLOATING_MANA_PER_TYPE,
+  MANA_TYPES,
+  normalizeManaAmount,
+  normalizeManaPool,
+} from "./players";
+export type {
+  Player,
+  LibraryTopRevealMode,
+  ManaPool,
+  ManaType,
+} from "./players";
 export type { BattlefieldGridSizing, GameState } from "./gameState";
 
 export type {

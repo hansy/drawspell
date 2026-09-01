@@ -2,8 +2,11 @@ import type { Card } from "@mtg/shared/types/cards";
 import type { Player } from "@mtg/shared/types/players";
 import {
   buildLibraryTopRevealFromSelectedIds,
+  isManaType,
   libraryTopRevealIsAllPlayers,
+  MAX_FLOATING_MANA_PER_TYPE,
   normalizeLibraryTopRevealMode,
+  normalizeManaPool,
   libraryTopRevealSelectedIds,
 } from "@mtg/shared/types/players";
 import type { Zone } from "@mtg/shared/types/zones";
@@ -62,6 +65,7 @@ const handlePlayerJoin: IntentHandler = ({ actorId, maps, hidden, payload, markH
   );
   const nextPlayer = {
     ...player,
+    manaPool: normalizeManaPool(player.manaPool),
     libraryTopReveal: normalizePersistedLibraryTopReveal(
       player.libraryTopReveal,
       player.id,
@@ -101,6 +105,86 @@ const handlePlayerJoin: IntentHandler = ({ actorId, maps, hidden, payload, markH
   return { ok: true };
 };
 
+const handlePlayerManaAdjust: IntentHandler = ({
+  actorId,
+  maps,
+  payload,
+  pushLogEvent,
+}) => {
+  const playerIdResult = requireNonEmptyStringProp(
+    payload,
+    "playerId",
+    "invalid mana adjustment",
+  );
+  if (!playerIdResult.ok) return playerIdResult;
+  const playerId = playerIdResult.value;
+  if (actorId !== playerId) return { ok: false, error: "actor mismatch" };
+
+  const manaType = payload.manaType;
+  const delta = payload.delta;
+  if (!isManaType(manaType) || (delta !== -1 && delta !== 1)) {
+    return { ok: false, error: "invalid mana adjustment" };
+  }
+
+  const current = readPlayer(maps, playerId);
+  if (!current) return { ok: false, error: "player not found" };
+  const manaPool = normalizeManaPool(current.manaPool);
+  const from = manaPool[manaType] ?? 0;
+  const to = Math.min(
+    MAX_FLOATING_MANA_PER_TYPE,
+    Math.max(0, from + delta),
+  );
+  if (from === to) return { ok: true };
+
+  const nextManaPool = { ...manaPool };
+  if (to > 0) nextManaPool[manaType] = to;
+  else delete nextManaPool[manaType];
+  writePlayer(maps, { ...current, manaPool: nextManaPool });
+  pushLogEvent("player.mana", {
+    actorId,
+    playerId,
+    manaType,
+    from,
+    to,
+    delta: to - from,
+  });
+  return { ok: true };
+};
+
+const handlePlayerManaClear: IntentHandler = ({
+  actorId,
+  maps,
+  payload,
+  pushLogEvent,
+}) => {
+  const playerIdResult = requireNonEmptyStringProp(
+    payload,
+    "playerId",
+    "invalid mana clear",
+  );
+  if (!playerIdResult.ok) return playerIdResult;
+  const playerId = playerIdResult.value;
+  if (actorId !== playerId) return { ok: false, error: "actor mismatch" };
+
+  const current = readPlayer(maps, playerId);
+  if (!current) return { ok: false, error: "player not found" };
+  const previousPool = normalizeManaPool(current.manaPool);
+  const total = Object.values(previousPool).reduce(
+    (sum, amount) => sum + amount,
+    0,
+  );
+  if (total === 0) return { ok: true };
+
+  writePlayer(maps, { ...current, manaPool: {} });
+  pushLogEvent("player.mana.clear", {
+    actorId,
+    playerId,
+    total,
+    previousPool,
+  });
+  return { ok: true };
+};
+
 const handlePlayerUpdate: IntentHandler = ({ actorId, maps, hidden, payload, pushLogEvent, markHiddenChanged }) => {
   const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid player update");
   if (!playerIdResult.ok) return playerIdResult;
@@ -108,6 +192,9 @@ const handlePlayerUpdate: IntentHandler = ({ actorId, maps, hidden, payload, pus
   if (!updatesResult.ok) return updatesResult;
   const playerId = playerIdResult.value;
   const updates = updatesResult.value;
+  if (Object.prototype.hasOwnProperty.call(updates, "manaPool")) {
+    return { ok: false, error: "use dedicated mana action" };
+  }
   const current = readPlayer(maps, playerId);
   if (!current) return { ok: false, error: "player not found" };
   const permission = canUpdatePlayer(actorId, current, updates);
@@ -258,5 +345,7 @@ export const playerIntentHandlers: Record<string, IntentHandler> = {
   "player.join": handlePlayerJoin,
   "player.update": handlePlayerUpdate,
   "player.leave": handlePlayerLeave,
+  "player.mana.adjust": handlePlayerManaAdjust,
+  "player.mana.clear": handlePlayerManaClear,
   "player.endTurn": handlePlayerEndTurn,
 };

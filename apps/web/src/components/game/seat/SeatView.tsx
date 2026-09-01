@@ -36,10 +36,14 @@ import {
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from "@/lib/constants";
 import { useSeatSizing } from "@/hooks/game/seat/useSeatSizing";
 import { ZONE_DRAG_OVERLAY_SCALE } from "@/lib/dndDragCue";
+import { FloatingManaBar } from "@/components/game/mana/FloatingManaBar";
+import { normalizeManaPool } from "@/types";
+import { useGameStore } from "@/store/gameStore";
 
 const MOBILE_HAND_CARD_BASE_HEIGHT_PX = 120;
 const MOBILE_HAND_VERTICAL_PADDING_PX = 18;
 const MOBILE_HAND_CARD_HEIGHT_RATIO = 0.94;
+const DESKTOP_MANA_ROW_HEIGHT_PX = 36;
 
 interface SeatViewProps {
   player: Player;
@@ -93,6 +97,8 @@ export const SeatView: React.FC<SeatViewProps> = ({
   portraitSeatSwitcher,
 }) => {
   const { showPreview, hidePreview } = useCardPreview();
+  const adjustMana = useGameStore((state) => state.adjustMana);
+  const clearMana = useGameStore((state) => state.clearMana);
   const [handHeight, setHandHeight] = React.useState(HAND_DEFAULT_HEIGHT);
   const [hasHandOverride, setHasHandOverride] = React.useState(false);
   const {
@@ -148,6 +154,21 @@ export const SeatView: React.FC<SeatViewProps> = ({
   );
   const showLibraryContextMenuCursor = Boolean(
     showPublicZoneContextMenuCursor && isMe,
+  );
+  const manaPool = React.useMemo(
+    () => normalizeManaPool(player.manaPool),
+    [player.manaPool],
+  );
+  const canEditMana = isMe && viewerRole !== "spectator";
+  const manaBar = (
+    <FloatingManaBar
+      manaPool={manaPool}
+      editable={canEditMana}
+      onAdjust={(manaType, delta) =>
+        adjustMana(player.id, manaType, delta)
+      }
+      onClear={() => clearMana(player.id)}
+    />
   );
   const { hand, library, graveyard, exile, battlefield, commander } =
     model.zones;
@@ -495,14 +516,23 @@ export const SeatView: React.FC<SeatViewProps> = ({
             showLoadLibraryAction={showLoadDeckAction}
           />
           <div className="relative min-h-0 flex-1 flex flex-col bg-zinc-900/55 backdrop-blur-sm border-t border-white/10 overflow-hidden">
-            <div className="grid h-11 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-zinc-800/70 bg-zinc-900/70 px-2">
+            <div
+              data-mobile-hand-header
+              className="grid h-11 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-zinc-800/70 bg-zinc-900/70 px-2"
+            >
               <button
                 ref={commanderButtonDrop.setNodeRef}
                 type="button"
                 className={cn(
-                  "h-full rounded-md px-2 text-[10px] font-semibold uppercase tracking-widest text-zinc-300 hover:bg-zinc-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
-                  isCommanderDrawerOpen && "border-indigo-400/70 bg-indigo-500/15 text-indigo-100",
-                  commanderButtonDrop.isOver && "ring-2 ring-indigo-400/80 bg-indigo-500/20",
+                  "mx-0.5 h-8 self-center rounded-md border border-indigo-400/35 bg-indigo-500/10 px-2.5",
+                  "text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-200",
+                  "shadow-[0_0_12px_rgba(99,102,241,0.12)] transition-all",
+                  "hover:border-indigo-300/60 hover:bg-indigo-500/20 hover:text-white active:scale-[0.97]",
+                  "disabled:cursor-not-allowed disabled:border-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-600 disabled:shadow-none",
+                  isCommanderDrawerOpen &&
+                    "border-indigo-300/85 bg-indigo-500/30 text-white shadow-[0_0_16px_rgba(99,102,241,0.3)]",
+                  commanderButtonDrop.isOver &&
+                    "ring-2 ring-indigo-300/90 bg-indigo-500/35 text-white",
                 )}
                 onClick={() => {
                   if (!commander) return;
@@ -511,18 +541,29 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 disabled={!commander}
                 data-no-seat-swipe="true"
                 aria-label="Toggle commander drawer"
+                aria-expanded={isCommanderDrawerOpen}
               >
                 CMDR
               </button>
               <div className="h-full min-w-0">{portraitSeatSwitcher}</div>
-              <span
-                className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500 select-none"
-                style={{ textShadow: "0 1px 0 rgba(0,0,0,0.55)" }}
+              <div
+                data-mobile-mana-bar
+                className="flex h-full min-w-0 items-center justify-end"
               >
-                HAND · {handCards.length}
-              </span>
+                {manaBar}
+              </div>
             </div>
-            <div ref={portraitHandRef} className="min-h-0 flex-1 flex">
+            <div
+              ref={portraitHandRef}
+              data-mobile-hand-area
+              className="relative min-h-0 flex-1 flex"
+            >
+              <div
+                data-mobile-hand-count-pill
+                className="pointer-events-none absolute right-2 top-2 z-40 select-none whitespace-nowrap rounded-full border border-zinc-700/80 bg-zinc-950/85 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-300 shadow-[0_2px_10px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+              >
+                Hand - {handCards.length}
+              </div>
               {hand && (
                 <Hand
                   zone={hand}
@@ -760,120 +801,142 @@ export const SeatView: React.FC<SeatViewProps> = ({
 
             <div
               data-desktop-bottom-zone-cluster
-              className="ml-auto grid h-full shrink-0 grid-cols-3 gap-[var(--desktop-bottom-zone-gap)] pr-[var(--seat-rail-edge-inset)]"
+              className="ml-auto grid h-full shrink-0 grid-cols-3 gap-x-[var(--desktop-bottom-zone-gap)] pr-[var(--seat-rail-edge-inset)]"
               style={{
                 gridTemplateColumns: `repeat(3, ${desktopBottomZoneWidth}px)`,
+                gridTemplateRows: `${DESKTOP_MANA_ROW_HEIGHT_PX}px minmax(0, 1fr)`,
               }}
             >
+              <div
+                data-desktop-mana-row
+                className="ds-seat-upright col-span-3 flex min-w-0 items-start justify-center"
+              >
+                {manaBar}
+              </div>
               {library && (
-                <SideZone
-                  variant="edge"
-                  flipCard={isTop}
-                  cardHeight={desktopHandHeights?.cardHeight}
-                  visibleHeight={effectiveHandHeight}
-                  zone={library}
-                  card={libraryTopCard}
-                  label={ZONE_LABEL.library}
-                  count={libraryCount}
-                  onContextMenu={onZoneContextMenu}
-                  faceDown={libraryFaceDown}
-                  disableCardDrag={!isMe}
-                  showContextMenuCursor={showLibraryContextMenuCursor}
-                  onClick={
-                    !isMe &&
-                    opponentLibraryRevealCount > 0 &&
-                    onOpponentLibraryReveals
-                      ? (e) => {
-                          e.preventDefault();
-                          onOpponentLibraryReveals(library.id);
-                        }
-                      : undefined
-                  }
-                  rightIndicator={
-                    !isMe && opponentLibraryRevealCount > 0 ? (
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/95 shadow-lg">
-                        <Eye size={18} className="text-white" />
-                      </div>
-                    ) : undefined
-                  }
-                  {...getSideZonePreviewProps(libraryPreviewCard)}
-                  onDoubleClick={
-                    isMe && onDrawCard
-                      ? (e) => {
-                          e.preventDefault();
-                          onDrawCard(player.id);
-                        }
-                      : undefined
-                  }
-                  emptyContent={
-                    showLoadDeckAction ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={onLoadDeck}
-                        className="relative h-full w-full border border-indigo-500/30 bg-indigo-600/20 text-zinc-300 hover:bg-indigo-600/40 hover:text-white"
-                      >
-                        <span
-                          data-load-deck-label
-                          className={cn(
-                            "absolute left-1/2 top-1/4 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1",
-                            "ds-seat-upright",
-                          )}
+                <div className="min-h-0">
+                  <SideZone
+                    variant="edge"
+                    flipCard={isTop}
+                    cardHeight={desktopHandHeights?.cardHeight}
+                    visibleHeight={Math.max(
+                      0,
+                      effectiveHandHeight - DESKTOP_MANA_ROW_HEIGHT_PX,
+                    )}
+                    zone={library}
+                    card={libraryTopCard}
+                    label={ZONE_LABEL.library}
+                    count={libraryCount}
+                    onContextMenu={onZoneContextMenu}
+                    faceDown={libraryFaceDown}
+                    disableCardDrag={!isMe}
+                    showContextMenuCursor={showLibraryContextMenuCursor}
+                    onClick={
+                      !isMe &&
+                      opponentLibraryRevealCount > 0 &&
+                      onOpponentLibraryReveals
+                        ? (e) => {
+                            e.preventDefault();
+                            onOpponentLibraryReveals(library.id);
+                          }
+                        : undefined
+                    }
+                    rightIndicator={
+                      !isMe && opponentLibraryRevealCount > 0 ? (
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/95 shadow-lg">
+                          <Eye size={18} className="text-white" />
+                        </div>
+                      ) : undefined
+                    }
+                    {...getSideZonePreviewProps(libraryPreviewCard)}
+                    onDoubleClick={
+                      isMe && onDrawCard
+                        ? (e) => {
+                            e.preventDefault();
+                            onDrawCard(player.id);
+                          }
+                        : undefined
+                    }
+                    emptyContent={
+                      showLoadDeckAction ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={onLoadDeck}
+                          className="relative h-full w-full border border-indigo-500/30 bg-indigo-600/20 text-zinc-300 hover:bg-indigo-600/40 hover:text-white"
                         >
-                          <Plus size={18} />
-                          <span className="whitespace-nowrap text-[10px] font-medium">
-                            Load Deck
+                          <span
+                            data-load-deck-label
+                            className={cn(
+                              "absolute left-1/2 top-1/4 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1",
+                              "ds-seat-upright",
+                            )}
+                          >
+                            <Plus size={18} />
+                            <span className="whitespace-nowrap text-[10px] font-medium">
+                              Load Deck
+                            </span>
                           </span>
-                        </span>
-                      </Button>
-                    ) : undefined
-                  }
-                />
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                </div>
               )}
 
               {graveyard && (
-                <SideZone
-                  variant="edge"
-                  flipCard={isTop}
-                  cardHeight={desktopHandHeights?.cardHeight}
-                  visibleHeight={effectiveHandHeight}
-                  zone={graveyard}
-                  card={graveyardTopCard}
-                  label={ZONE_LABEL.graveyard}
-                  count={graveyard.cardIds.length}
-                  onContextMenu={onZoneContextMenu}
-                  onClick={
-                    onViewZone && graveyard.type === ZONE.GRAVEYARD
-                      ? (_e) => onViewZone(graveyard.id)
-                      : undefined
-                  }
-                  faceDown={graveyardTopCard?.faceDown}
-                  showContextMenuCursor={showPublicZoneContextMenuCursor}
-                  {...getSideZonePreviewProps(graveyardPreviewCard)}
-                />
+                <div className="min-h-0">
+                  <SideZone
+                    variant="edge"
+                    flipCard={isTop}
+                    cardHeight={desktopHandHeights?.cardHeight}
+                    visibleHeight={Math.max(
+                      0,
+                      effectiveHandHeight - DESKTOP_MANA_ROW_HEIGHT_PX,
+                    )}
+                    zone={graveyard}
+                    card={graveyardTopCard}
+                    label={ZONE_LABEL.graveyard}
+                    count={graveyard.cardIds.length}
+                    onContextMenu={onZoneContextMenu}
+                    onClick={
+                      onViewZone && graveyard.type === ZONE.GRAVEYARD
+                        ? (_e) => onViewZone(graveyard.id)
+                        : undefined
+                    }
+                    faceDown={graveyardTopCard?.faceDown}
+                    showContextMenuCursor={showPublicZoneContextMenuCursor}
+                    {...getSideZonePreviewProps(graveyardPreviewCard)}
+                  />
+                </div>
               )}
 
               {exile && (
-                <SideZone
-                  variant="edge"
-                  flipCard={isTop}
-                  cardHeight={desktopHandHeights?.cardHeight}
-                  visibleHeight={effectiveHandHeight}
-                  zone={exile}
-                  card={exileTopCard}
-                  label={ZONE_LABEL.exile}
-                  count={exile.cardIds.length}
-                  onContextMenu={onZoneContextMenu}
-                  onClick={
-                    onViewZone && exile.type === ZONE.EXILE
-                      ? (_e) => onViewZone(exile.id)
-                      : undefined
-                  }
-                  cardClassName="opacity-60 grayscale"
-                  faceDown={exileTopCard?.faceDown}
-                  showContextMenuCursor={showPublicZoneContextMenuCursor}
-                  {...getSideZonePreviewProps(exilePreviewCard)}
-                />
+                <div className="min-h-0">
+                  <SideZone
+                    variant="edge"
+                    flipCard={isTop}
+                    cardHeight={desktopHandHeights?.cardHeight}
+                    visibleHeight={Math.max(
+                      0,
+                      effectiveHandHeight - DESKTOP_MANA_ROW_HEIGHT_PX,
+                    )}
+                    zone={exile}
+                    card={exileTopCard}
+                    label={ZONE_LABEL.exile}
+                    count={exile.cardIds.length}
+                    onContextMenu={onZoneContextMenu}
+                    onClick={
+                      onViewZone && exile.type === ZONE.EXILE
+                        ? (_e) => onViewZone(exile.id)
+                        : undefined
+                    }
+                    cardClassName="opacity-60 grayscale"
+                    faceDown={exileTopCard?.faceDown}
+                    showContextMenuCursor={showPublicZoneContextMenuCursor}
+                    {...getSideZonePreviewProps(exilePreviewCard)}
+                  />
+                </div>
               )}
             </div>
           </div>

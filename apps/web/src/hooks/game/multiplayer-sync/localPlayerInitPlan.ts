@@ -95,6 +95,7 @@ export const computeLocalPlayerInitPlan = ({
         counters: [],
         commanderDamage: {},
         commanderTax: 0,
+        manaPool: {},
         deckLoaded: false,
         color: desiredColors[playerId],
       };

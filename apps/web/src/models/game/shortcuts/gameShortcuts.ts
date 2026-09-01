@@ -51,8 +51,8 @@ export const GAME_SHORTCUTS: GameShortcutDefinition[] = [
   {
     id: "ui.toggleShortcuts",
     binding: { key: "/" },
-    title: "Show Shortcuts",
-    description: "Toggles the keyboard shortcuts drawer.",
+    title: "Show Controls",
+    description: "Toggles the controls drawer.",
     requiresDeckLoaded: false,
   },
   {

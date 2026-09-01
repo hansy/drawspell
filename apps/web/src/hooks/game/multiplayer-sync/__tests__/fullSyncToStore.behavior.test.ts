@@ -41,6 +41,7 @@ describe("createFullSyncToStore", () => {
       commanderDamage: {},
       commanderTax: 0,
       deckLoaded: false,
+      manaPool: { U: 2 },
     };
 
     upsertPlayer(maps, player);
@@ -63,6 +64,7 @@ describe("createFullSyncToStore", () => {
     } as any;
     const next = typeof updater === "function" ? updater(baseState) : updater;
     expect(next.players.p1?.name).toBe("P1");
+    expect(next.players.p1?.manaPool).toEqual({ U: 2 });
     expect(next.playerOrder).toEqual(["p1"]);
   });
 
