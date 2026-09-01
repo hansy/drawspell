@@ -21,15 +21,15 @@ export const createExileFromLibrary = (
     const exileZone = getZoneByType(state.zones, playerId, ZONE.EXILE);
     if (!libraryZone || !exileZone) return;
 
-    const permission = canViewZone({ actorId: actor, role }, libraryZone, {
+    const viewPermission = canViewZone({ actorId: actor, role }, libraryZone, {
       viewAll: true,
     });
-    if (!permission.allowed) {
+    if (!viewPermission.allowed) {
       logPermission({
         action: "exileFromLibrary",
         actorId: actor,
         allowed: false,
-        reason: permission.reason,
+        reason: viewPermission.reason,
         details: { playerId, count: normalizedCount },
       });
       return;

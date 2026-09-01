@@ -20,15 +20,15 @@ export const createMoveTopLibraryCard = (
     const toZone = state.zones[toZoneId];
     if (!libraryZone || !toZone) return;
 
-    const permission = canViewZone({ actorId: actor, role }, libraryZone, {
+    const viewPermission = canViewZone({ actorId: actor, role }, libraryZone, {
       viewAll: true,
     });
-    if (!permission.allowed) {
+    if (!viewPermission.allowed) {
       logPermission({
         action: "moveTopLibraryCard",
         actorId: actor,
         allowed: false,
-        reason: permission.reason,
+        reason: viewPermission.reason,
         details: { playerId, toZoneId },
       });
       return;

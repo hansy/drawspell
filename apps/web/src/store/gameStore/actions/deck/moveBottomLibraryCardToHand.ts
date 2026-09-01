@@ -20,15 +20,15 @@ export const createMoveBottomLibraryCardToHand = (
     const handZone = getZoneByType(state.zones, playerId, ZONE.HAND);
     if (!libraryZone || !handZone) return;
 
-    const permission = canViewZone({ actorId: actor, role }, libraryZone, {
+    const viewPermission = canViewZone({ actorId: actor, role }, libraryZone, {
       viewAll: true,
     });
-    if (!permission.allowed) {
+    if (!viewPermission.allowed) {
       logPermission({
         action: "moveBottomLibraryCardToHand",
         actorId: actor,
         allowed: false,
-        reason: permission.reason,
+        reason: viewPermission.reason,
         details: { playerId },
       });
       return;
