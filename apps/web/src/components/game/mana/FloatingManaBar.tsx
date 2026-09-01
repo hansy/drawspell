@@ -250,17 +250,22 @@ export const FloatingManaBar: React.FC<FloatingManaBarProps> = ({
           onAdjust={onAdjust}
         />
       ))}
-      {editable && (
-        <button
-          type="button"
-          className="ml-0.5 rounded px-1 py-1 text-[10px] font-semibold tracking-wide text-zinc-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/80 disabled:cursor-default disabled:text-zinc-500"
-          onClick={onClear}
-          disabled={total === 0}
-          aria-label="Clear all floating mana"
-        >
-          Clear
-        </button>
-      )}
+      <div
+        data-floating-mana-clear-slot
+        className="ml-0.5 flex w-9 shrink-0 items-center justify-center"
+      >
+        {editable && (
+          <button
+            type="button"
+            className="w-full rounded px-1 py-1 text-[10px] font-semibold tracking-wide text-zinc-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/80 disabled:cursor-default disabled:text-zinc-500"
+            onClick={onClear}
+            disabled={total === 0}
+            aria-label="Clear all floating mana"
+          >
+            Clear
+          </button>
+        )}
+      </div>
     </div>
   );
 };

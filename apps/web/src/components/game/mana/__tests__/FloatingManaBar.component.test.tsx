@@ -77,4 +77,25 @@ describe("FloatingManaBar", () => {
     );
     expect(screen.queryByRole("group")).toBeNull();
   });
+
+  it("reserves the clear-button width when switching to a read-only player", () => {
+    const { container, rerender } = render(
+      <FloatingManaBar manaPool={{ U: 1 }} editable onClear={vi.fn()} />,
+    );
+
+    const ownerSlot = container.querySelector(
+      "[data-floating-mana-clear-slot]",
+    );
+    expect(ownerSlot).not.toBeNull();
+    const ownerSlotClassName = ownerSlot?.className;
+
+    rerender(<FloatingManaBar manaPool={{ U: 1 }} editable={false} />);
+
+    const opponentSlot = container.querySelector(
+      "[data-floating-mana-clear-slot]",
+    );
+    expect(opponentSlot).not.toBeNull();
+    expect(opponentSlot?.className).toBe(ownerSlotClassName);
+    expect(screen.queryByRole("button", { name: /Clear all/ })).toBeNull();
+  });
 });
