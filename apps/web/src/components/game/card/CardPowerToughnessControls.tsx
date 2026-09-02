@@ -2,6 +2,7 @@ import React from "react";
 
 import type { CardStatKey } from "@/lib/cardPT";
 import { cn } from "@/lib/utils";
+import { useDesktopValueAdjustment } from "@/hooks/shared/useDesktopValueAdjustment";
 
 interface CardPowerToughnessControlsProps {
   displayPower?: string;
@@ -32,6 +33,35 @@ const statButtonClassName =
 
 const statGridClassName =
   "grid grid-cols-[var(--pt-col-w)_auto_var(--pt-col-w)] items-center gap-1";
+
+const DesktopAdjustableStatValue: React.FC<{
+  type: CardStatKey;
+  displayValue?: string;
+  comparisonValue?: string;
+  canEdit: boolean;
+  onDelta: (type: CardStatKey, delta: number) => void;
+}> = ({ type, displayValue, comparisonValue, canEdit, onDelta }) => {
+  const adjustment = useDesktopValueAdjustment({
+    enabled: canEdit,
+    onIncrement: () => onDelta(type, 1),
+    onDecrement: () => onDelta(type, -1),
+  });
+
+  return (
+    <span
+      data-card-preview-stat-value
+      data-testid={`card-preview-stat-${type}`}
+      className={cn(
+        getStatClassName(displayValue, comparisonValue),
+        canEdit && "cursor-pointer",
+      )}
+      title={canEdit ? "Left-click to add; right-click to subtract" : undefined}
+      {...adjustment}
+    >
+      {displayValue}
+    </span>
+  );
+};
 
 export const CardPowerToughnessControls: React.FC<
   CardPowerToughnessControlsProps
@@ -88,21 +118,23 @@ export const CardPowerToughnessControls: React.FC<
       )}
       data-card-preview-pt-values
     >
-      <span
-        data-card-preview-stat-value
-        className={getStatClassName(displayPower, comparisonPower)}
-      >
-        {displayPower}
-      </span>
+      <DesktopAdjustableStatValue
+        type="power"
+        displayValue={displayPower}
+        comparisonValue={comparisonPower}
+        canEdit={canEdit}
+        onDelta={onDelta}
+      />
 
       <span className="text-zinc-600 font-bold text-lg">/</span>
 
-      <span
-        data-card-preview-stat-value
-        className={getStatClassName(displayToughness, comparisonToughness)}
-      >
-        {displayToughness}
-      </span>
+      <DesktopAdjustableStatValue
+        type="toughness"
+        displayValue={displayToughness}
+        comparisonValue={comparisonToughness}
+        canEdit={canEdit}
+        onDelta={onDelta}
+      />
     </div>
 
     {canEdit && (

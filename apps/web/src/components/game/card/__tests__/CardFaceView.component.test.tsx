@@ -169,6 +169,53 @@ describe("CardFaceView", () => {
     expect(label.parentElement?.className.includes("left-full")).toBe(true);
   });
 
+  it("adjusts a counter value with left and right mouse clicks", () => {
+    const onIncrementCounter = vi.fn();
+    const onDecrementCounter = vi.fn();
+    render(
+      <CardFaceView
+        model={buildModel({
+          counters: [
+            { type: "charge", count: 2, renderColor: "rgb(0, 0, 0)" },
+          ],
+        })}
+        desktopAdjustableCounters
+        onIncrementCounter={onIncrementCounter}
+        onDecrementCounter={onDecrementCounter}
+      />,
+    );
+    const value = screen.getByTestId("card-counter-value-charge");
+
+    fireEvent.pointerDown(value, {
+      pointerType: "mouse",
+      pointerId: 1,
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.pointerUp(value, {
+      pointerType: "mouse",
+      pointerId: 1,
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.click(value, { detail: 1 });
+    fireEvent.pointerDown(value, {
+      pointerType: "mouse",
+      pointerId: 2,
+      button: 2,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.contextMenu(value, { button: 2 });
+
+    expect(onIncrementCounter).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "charge" }),
+    );
+    expect(onDecrementCounter).toHaveBeenCalledWith("charge");
+  });
+
   it("renders the reveal badge when provided", () => {
     render(
       <CardFaceView

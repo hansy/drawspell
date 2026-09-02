@@ -18,11 +18,45 @@ import { Tooltip } from "@/components/ui/tooltip";
 import type { TouchContextMenuPressState } from "../touchContextMenu";
 import { MAX_PLAYER_LIFE, MIN_PLAYER_LIFE } from "@/lib/limits";
 import { cn } from "@/lib/utils";
+import { useDesktopValueAdjustment } from "@/hooks/shared/useDesktopValueAdjustment";
 
 import type { LifeBoxController } from "@/hooks/game/player/useLifeBoxController";
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
+
+const DesktopCommanderDamageValue: React.FC<{
+  opponentId: string;
+  damage: number;
+  enabled: boolean;
+  color?: string;
+  onChange: (opponentId: string, delta: number) => void;
+}> = ({ opponentId, damage, enabled, color, onChange }) => {
+  const adjustment = useDesktopValueAdjustment({
+    enabled,
+    canDecrement: damage > 0,
+    onIncrement: () => onChange(opponentId, 1),
+    onDecrement: () => onChange(opponentId, -1),
+  });
+
+  return (
+    <span
+      data-testid={`commander-damage-value-${opponentId}`}
+      className={cn(
+        "w-8 text-center font-mono text-base",
+        enabled && "cursor-pointer",
+        color === "rose" && "text-rose-400",
+        color === "violet" && "text-violet-400",
+        color === "sky" && "text-sky-400",
+        color === "amber" && "text-amber-400",
+      )}
+      title={enabled ? "Left-click to add; right-click to subtract" : undefined}
+      {...adjustment}
+    >
+      {damage}
+    </span>
+  );
+};
 
 export const LifeBoxView: React.FC<LifeBoxController> = ({
   player,
@@ -318,17 +352,13 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
                         <Minus size={13} />
                       </button>
                     )}
-                    <span
-                      className={cn(
-                        "w-8 text-center font-mono text-base",
-                        color === "rose" && "text-rose-400",
-                        color === "violet" && "text-violet-400",
-                        color === "sky" && "text-sky-400",
-                        color === "amber" && "text-amber-400",
-                      )}
-                    >
-                      {damage}
-                    </span>
+                    <DesktopCommanderDamageValue
+                      opponentId={opponentId}
+                      damage={damage}
+                      enabled={canEditCommanderDamage}
+                      color={color}
+                      onChange={handleCommanderDamageChange}
+                    />
                     {canEditCommanderDamage && (
                       <button
                         type="button"

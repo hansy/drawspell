@@ -206,4 +206,61 @@ describe("LifeBox", () => {
       }),
     ).toBeTruthy();
   });
+
+  it("adjusts desktop commander damage without changing the life-total gesture", () => {
+    const updatePlayer = vi.fn();
+    act(() => {
+      useGameStore.setState({ updatePlayer } as any);
+    });
+    render(
+      <LifeBox
+        player={{
+          id: "me",
+          name: "Jace",
+          life: 38,
+          counters: [],
+          commanderDamage: { opponent: 3 },
+          commanderTax: 0,
+        } as any}
+        isMe
+        variant="sidebar"
+        opponentColors={{ me: "sky", opponent: "rose" }}
+        onContextMenu={vi.fn()}
+      />,
+    );
+    const value = screen.getByTestId("commander-damage-value-opponent");
+
+    fireEvent.pointerDown(value, {
+      pointerType: "mouse",
+      pointerId: 1,
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.pointerUp(value, {
+      pointerType: "mouse",
+      pointerId: 1,
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.click(value, { detail: 1 });
+    fireEvent.pointerDown(value, {
+      pointerType: "mouse",
+      pointerId: 2,
+      button: 2,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.contextMenu(value, { button: 2 });
+
+    expect(updatePlayer).toHaveBeenNthCalledWith(1, "me", {
+      life: 37,
+      commanderDamage: { opponent: 4 },
+    });
+    expect(updatePlayer).toHaveBeenNthCalledWith(2, "me", {
+      life: 39,
+      commanderDamage: { opponent: 2 },
+    });
+  });
 });

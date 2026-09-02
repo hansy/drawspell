@@ -42,6 +42,10 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
   pinnedCardId,
   viewerPlayerId,
   viewerRole,
+  showSelectAll,
+  selectAllDisabled,
+  allDisplayedCardsSelected,
+  handleSelectAll,
 }) => {
   const baseCardWidthPx = useGameStore((state) =>
     zone ? state.battlefieldGridSizing[zone.ownerId]?.baseCardWidthPx : undefined
@@ -97,6 +101,10 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
               uniqueCards={viewMode === "grouped" ? uniqueCardCount : undefined}
               filterText={filterText}
               onFilterTextChange={setFilterText}
+              showSelectAll={showSelectAll}
+              selectAllDisabled={selectAllDisabled}
+              allDisplayedCardsSelected={allDisplayedCardsSelected}
+              onSelectAll={handleSelectAll}
             />
           </div>
 

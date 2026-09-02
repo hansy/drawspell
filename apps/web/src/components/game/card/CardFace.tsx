@@ -15,6 +15,7 @@ import {
   syncCardStatsToFace,
 } from "@/lib/cardDisplay";
 import { cn } from "@/lib/utils";
+import { ZONE } from "@/constants/zones";
 
 import { CardFaceView } from "./CardFaceView";
 import { createCardFaceModel } from "@/models/game/card/cardFaceModel";
@@ -67,7 +68,12 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
   const updateCard = useGameStore((state) => state.updateCard);
   const globalCounters = useGameStore((state) => state.globalCounters);
   const myPlayerId = useGameStore((state) => state.myPlayerId);
+  const viewerRole = useGameStore((state) => state.viewerRole);
   const zoneType = useGameStore((state) => state.zones[card.zoneId]?.type);
+  const desktopAdjustableCounters =
+    card.controllerId === myPlayerId &&
+    viewerRole !== "spectator" &&
+    (zoneType === ZONE.BATTLEFIELD || Boolean(interactive));
   const revealToNames = useGameStore(
     useShallow((state) => {
       const ids = card.revealedTo;
@@ -226,6 +232,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
         interactive={interactive}
         showCounterLabels={showCounterLabels}
         revealInteractiveCounterControls={revealInteractiveCounterControls}
+        desktopAdjustableCounters={desktopAdjustableCounters}
         rotateLabel={rotateLabel}
         customTextNode={customTextNode}
         customTextPosition={customTextPosition}
@@ -261,6 +268,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
             interactive={interactive}
             showCounterLabels={showCounterLabels}
             revealInteractiveCounterControls={revealInteractiveCounterControls}
+            desktopAdjustableCounters={desktopAdjustableCounters}
             rotateLabel={rotateLabel}
             customTextNode={customTextNode}
             customTextPosition={customTextPosition}
@@ -286,6 +294,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
             interactive={interactive}
             showCounterLabels={showCounterLabels}
             revealInteractiveCounterControls={revealInteractiveCounterControls}
+            desktopAdjustableCounters={desktopAdjustableCounters}
             rotateLabel={rotateLabel}
             customTextNode={customTextNode}
             customTextPosition={customTextPosition}

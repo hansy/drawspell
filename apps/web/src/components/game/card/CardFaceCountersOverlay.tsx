@@ -2,8 +2,51 @@ import React from "react";
 
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useDesktopValueAdjustment } from "@/hooks/shared/useDesktopValueAdjustment";
 
 import type { CardFaceCounterModel } from "@/models/game/card/cardFaceModel";
+
+const DesktopAdjustableCounterValue: React.FC<{
+  counter: CardFaceCounterModel;
+  enabled: boolean;
+  className: string;
+  style?: React.CSSProperties;
+  tooltipContent?: React.ReactNode;
+  onIncrement?: (counter: Pick<CardFaceCounterModel, "type" | "color">) => void;
+  onDecrement?: (counterType: string) => void;
+}> = ({
+  counter,
+  enabled,
+  className,
+  style,
+  tooltipContent,
+  onIncrement,
+  onDecrement,
+}) => {
+  const adjustment = useDesktopValueAdjustment({
+    enabled,
+    onIncrement: () => onIncrement?.(counter),
+    onDecrement: () => onDecrement?.(counter.type),
+  });
+
+  const value = (
+    <span
+      data-testid={`card-counter-value-${counter.type}`}
+      className={cn(className, enabled && "cursor-pointer")}
+      style={style}
+      title={enabled ? "Left-click to add; right-click to remove" : undefined}
+      {...adjustment}
+    >
+      {counter.count}
+    </span>
+  );
+
+  return tooltipContent ? (
+    <Tooltip content={tooltipContent} placement="left">
+      {value}
+    </Tooltip>
+  ) : value;
+};
 
 export const CardFaceCountersOverlay: React.FC<{
   counters: CardFaceCounterModel[];
@@ -11,6 +54,7 @@ export const CardFaceCountersOverlay: React.FC<{
   interactive?: boolean;
   showCounterLabels?: boolean;
   revealInteractiveCounterControls?: boolean;
+  desktopAdjustableCounters?: boolean;
   onIncrementCounter?: (counter: Pick<CardFaceCounterModel, "type" | "color">) => void;
   onDecrementCounter?: (counterType: string) => void;
   customTextNode?: React.ReactNode;
@@ -21,6 +65,7 @@ export const CardFaceCountersOverlay: React.FC<{
   interactive,
   showCounterLabels,
   revealInteractiveCounterControls,
+  desktopAdjustableCounters = false,
   onIncrementCounter,
   onDecrementCounter,
   customTextNode,
@@ -72,7 +117,13 @@ export const CardFaceCountersOverlay: React.FC<{
                   -
                 </button>
               )}
-              {counter.count}
+              <DesktopAdjustableCounterValue
+                counter={counter}
+                enabled={desktopAdjustableCounters}
+                className="flex h-full w-full items-center justify-center rounded-full"
+                onIncrement={onIncrementCounter}
+                onDecrement={onDecrementCounter}
+              />
               <div className="absolute left-full top-1/2 z-50 flex h-6 -translate-y-1/2 items-center gap-1 pl-1">
                 {interactive && (
                   <button
@@ -104,19 +155,17 @@ export const CardFaceCountersOverlay: React.FC<{
           );
         }
 
-        const counterBadge = (
-          <div
+        return (
+          <DesktopAdjustableCounterValue
+            key={counter.type}
+            counter={counter}
+            enabled={desktopAdjustableCounters}
             className="group relative flex items-center justify-center w-6 h-6 rounded-full shadow-md border border-white/20 text-white text-[10px] font-bold cursor-help transition-all hover:z-50"
             style={{ backgroundColor: counter.renderColor }}
-          >
-            {counter.count}
-          </div>
-        );
-
-        return (
-          <Tooltip key={counter.type} content={counter.type} placement="left">
-            {counterBadge}
-          </Tooltip>
+            tooltipContent={counter.type}
+            onIncrement={onIncrementCounter}
+            onDecrement={onDecrementCounter}
+          />
         );
       })}
 

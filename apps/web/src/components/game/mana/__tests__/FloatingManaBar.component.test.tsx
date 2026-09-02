@@ -62,6 +62,44 @@ describe("FloatingManaBar", () => {
     expect(screen.queryByRole("group", { name: "Red mana controls" })).toBeNull();
   });
 
+  it("adjusts an orb with left and right mouse clicks", () => {
+    const onAdjust = vi.fn();
+    render(
+      <FloatingManaBar manaPool={{ G: 2 }} editable onAdjust={onAdjust} />,
+    );
+    const green = screen.getByRole("button", {
+      name: "Green mana: 2. Open controls",
+    });
+
+    fireEvent.pointerDown(green, {
+      pointerType: "mouse",
+      pointerId: 1,
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.pointerUp(green, {
+      pointerType: "mouse",
+      pointerId: 1,
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.click(green, { detail: 1 });
+
+    fireEvent.pointerDown(green, {
+      pointerType: "mouse",
+      pointerId: 2,
+      button: 2,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.contextMenu(green, { button: 2 });
+
+    expect(onAdjust).toHaveBeenNthCalledWith(1, "G", 1);
+    expect(onAdjust).toHaveBeenNthCalledWith(2, "G", -1);
+  });
+
   it("shows every opponent mana color read-only without controls", () => {
     render(<FloatingManaBar manaPool={{ W: 1, C: 3 }} editable={false} />);
 

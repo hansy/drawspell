@@ -659,4 +659,68 @@ describe("useZoneViewerController", () => {
       ])
     );
   });
+
+  it("selects every currently filtered card in an eligible zone", async () => {
+    const graveyard = buildZone({
+      id: "graveyard-me",
+      type: ZONE.GRAVEYARD,
+      ownerId: "me",
+      cardIds: ["c1", "c2", "c3"],
+    });
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [graveyard.id]: graveyard },
+      cards: {
+        c1: buildCard("c1", "Lightning Bolt", graveyard.id),
+        c2: buildCard("c2", "Lightning Strike", graveyard.id),
+        c3: buildCard("c3", "Counterspell", graveyard.id),
+      },
+    }));
+
+    render(<Harness zoneId={graveyard.id} />);
+    await waitFor(() => expect(latestController?.displayCards).toHaveLength(3));
+
+    act(() => latestController!.setFilterText("lightning"));
+    await waitFor(() => expect(latestController?.displayCards).toHaveLength(2));
+    expect(latestController?.showSelectAll).toBe(true);
+
+    act(() => latestController!.handleSelectAll());
+    expect(useSelectionStore.getState()).toMatchObject({
+      selectedCardIds: ["c1", "c2"],
+      selectionZoneId: graveyard.id,
+    });
+    await waitFor(() => expect(latestController?.allDisplayedCardsSelected).toBe(true));
+
+    act(() => latestController!.handleSelectAll());
+    expect(useSelectionStore.getState()).toMatchObject({
+      selectedCardIds: [],
+      selectionZoneId: null,
+    });
+  });
+
+  it("offers select-all for top-X library views but not View All", async () => {
+    const library = buildZone({
+      id: "library-me",
+      type: ZONE.LIBRARY,
+      ownerId: "me",
+      cardIds: ["c1", "c2"],
+    });
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [library.id]: library },
+      players: { me: { id: "me", name: "Me", libraryCount: 2 } as any },
+      cards: {
+        c1: buildCard("c1", "Card1", library.id),
+        c2: buildCard("c2", "Card2", library.id),
+      },
+    }));
+
+    const { rerender } = render(<Harness zoneId={library.id} count={2} />);
+    await waitFor(() => expect(latestController?.displayCards).toHaveLength(2));
+    expect(latestController?.showSelectAll).toBe(true);
+
+    rerender(<Harness zoneId={library.id} />);
+    await waitFor(() => expect(latestController?.viewMode).toBe("grouped"));
+    expect(latestController?.showSelectAll).toBe(false);
+  });
 });

@@ -17,7 +17,10 @@ import {
   buildLibraryManaSections,
 } from "@/models/game/zone-viewer/zoneViewerModel";
 import { mergeZoneCardOrder, reorderZoneViewerList } from "@/models/game/zone-viewer/zoneViewerReorder";
-import { useSelectionStore } from "@/store/selectionStore";
+import {
+  getSelectedCardIdSet,
+  useSelectionStore,
+} from "@/store/selectionStore";
 import { createGroupActionAdapters } from "@/hooks/game/context-menu/actionAdapters";
 
 export type ZoneViewerControllerInput = {
@@ -57,6 +60,9 @@ export const useZoneViewerController = ({
   const myPlayerId = useGameStore((state) => state.myPlayerId);
   const viewerRole = useGameStore((state) => state.viewerRole);
   const clearSelection = useSelectionStore((state) => state.clearSelection);
+  const setSelection = useSelectionStore((state) => state.setSelection);
+  const selectedCardIds = useSelectionStore((state) => state.selectedCardIds);
+  const selectionZoneId = useSelectionStore((state) => state.selectionZoneId);
 
   const [contextMenu, setContextMenu] = React.useState<ZoneViewerContextMenuState>(null);
 
@@ -166,6 +172,43 @@ export const useZoneViewerController = ({
       filterText,
     });
   }, [zone, cards, count, filterText, frozenCardIds, shouldDelayTopView]);
+
+  const showSelectAll = Boolean(
+    zone &&
+      zone.ownerId === myPlayerId &&
+      viewerRole !== "spectator" &&
+      viewMode === "linear" &&
+      (zone.type === ZONE.GRAVEYARD ||
+        zone.type === ZONE.EXILE ||
+        (zone.type === ZONE.LIBRARY && Boolean(count && count > 0))),
+  );
+  const selectAllDisabled = displayCards.length === 0 || shouldDelayTopView;
+  const allDisplayedCardsSelected = React.useMemo(() => {
+    if (!zone || selectionZoneId !== zone.id || displayCards.length === 0) {
+      return false;
+    }
+    const selectedCardIdSet = getSelectedCardIdSet(selectedCardIds);
+    return displayCards.every((card) => selectedCardIdSet.has(card.id));
+  }, [displayCards, selectedCardIds, selectionZoneId, zone]);
+  const handleSelectAll = React.useCallback(() => {
+    if (!zone || !showSelectAll || selectAllDisabled) return;
+    if (allDisplayedCardsSelected) {
+      clearSelection();
+      return;
+    }
+    setSelection(
+      displayCards.map((card) => card.id),
+      zone.id,
+    );
+  }, [
+    allDisplayedCardsSelected,
+    clearSelection,
+    displayCards,
+    selectAllDisabled,
+    setSelection,
+    showSelectAll,
+    zone,
+  ]);
 
   React.useEffect(() => {
     setOrderedCardIds(displayCards.map((card) => card.id));
@@ -398,6 +441,10 @@ export const useZoneViewerController = ({
     pinnedCardId,
     viewerPlayerId: myPlayerId,
     viewerRole,
+    showSelectAll,
+    selectAllDisabled,
+    allDisplayedCardsSelected,
+    handleSelectAll,
   };
 };
 

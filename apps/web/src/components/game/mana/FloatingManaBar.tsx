@@ -14,6 +14,7 @@ import {
 import { Minus, Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useDesktopValueAdjustment } from "@/hooks/shared/useDesktopValueAdjustment";
 import {
   MAX_FLOATING_MANA_PER_TYPE,
   MANA_TYPES,
@@ -71,6 +72,13 @@ const ManaOrb: React.FC<ManaOrbProps> = ({
   onAdjust,
 }) => {
   const lastPointerTypeRef = React.useRef<string | null>(null);
+  const desktopAdjustment = useDesktopValueAdjustment({
+    enabled: editable,
+    canIncrement: amount < MAX_FLOATING_MANA_PER_TYPE,
+    canDecrement: amount > 0,
+    onIncrement: () => onAdjust?.(manaType, 1),
+    onDecrement: () => onAdjust?.(manaType, -1),
+  });
   const { refs, floatingStyles, context } = useFloating({
     open,
     onOpenChange: (nextOpen) => {
@@ -107,8 +115,16 @@ const ManaOrb: React.FC<ManaOrbProps> = ({
           ),
           onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
             lastPointerTypeRef.current = event.pointerType;
+            desktopAdjustment.onPointerDown(event);
           },
+          onPointerMove: desktopAdjustment.onPointerMove,
+          onPointerUp: desktopAdjustment.onPointerUp,
+          onPointerCancel: desktopAdjustment.onPointerCancel,
+          onPointerLeave: desktopAdjustment.onPointerLeave,
+          onContextMenu: desktopAdjustment.onContextMenu,
           onClick: (event: React.MouseEvent<HTMLButtonElement>) => {
+            desktopAdjustment.onClick(event);
+            if (event.defaultPrevented) return;
             if (!editable) return;
             const pointerType = lastPointerTypeRef.current;
             lastPointerTypeRef.current = null;
@@ -121,6 +137,9 @@ const ManaOrb: React.FC<ManaOrbProps> = ({
             }
           },
           disabled: !editable,
+          title: editable
+            ? "Left-click to add mana; right-click to remove mana"
+            : undefined,
           "aria-label": `${MANA_NAMES[manaType]} mana: ${amount}${editable ? ". Open controls" : ""}`,
           "aria-expanded": editable ? open : undefined,
         })}

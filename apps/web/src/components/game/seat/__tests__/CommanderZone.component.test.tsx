@@ -197,4 +197,88 @@ describe("CommanderZone", () => {
     );
     fireEvent.keyDown(commanderCard, { key: "Escape", code: "Escape" });
   });
+
+  it("adjusts commander tax by two with left and right mouse clicks", () => {
+    const updateCard = vi.fn();
+    const card: Card = {
+      id: "c1",
+      name: "Test Commander",
+      ownerId: "me",
+      controllerId: "me",
+      zoneId: "cmd-me",
+      tapped: false,
+      faceDown: false,
+      position: { x: 0.5, y: 0.5 },
+      rotation: 0,
+      counters: [],
+      commanderTax: 2,
+      isCommander: true,
+    };
+    const zone = {
+      id: "cmd-me",
+      type: ZONE.COMMANDER,
+      ownerId: "me",
+      cardIds: [card.id],
+    } as any;
+    act(() => {
+      useGameStore.setState({
+        myPlayerId: "me",
+        viewerRole: "player",
+        zones: { [zone.id]: zone },
+        cards: { [card.id]: card },
+        updateCard: updateCard as any,
+      } as any);
+    });
+
+    render(
+      <DndContext>
+        <CardPreviewProvider>
+          <CommanderZone
+            zone={zone}
+            cards={[card]}
+            isTop={false}
+            isRight={false}
+          />
+        </CardPreviewProvider>
+      </DndContext>,
+    );
+    const value = screen.getByTestId("commander-tax-value-c1");
+
+    fireEvent.pointerDown(value, {
+      pointerType: "mouse",
+      pointerId: 1,
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.pointerUp(value, {
+      pointerType: "mouse",
+      pointerId: 1,
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.click(value, { detail: 1 });
+    fireEvent.pointerDown(value, {
+      pointerType: "mouse",
+      pointerId: 2,
+      button: 2,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.contextMenu(value, { button: 2 });
+
+    expect(updateCard).toHaveBeenNthCalledWith(
+      1,
+      card.id,
+      { commanderTax: 4 },
+      "me",
+    );
+    expect(updateCard).toHaveBeenNthCalledWith(
+      2,
+      card.id,
+      { commanderTax: 0 },
+      "me",
+    );
+  });
 });

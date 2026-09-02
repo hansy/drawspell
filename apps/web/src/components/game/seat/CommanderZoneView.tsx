@@ -3,6 +3,7 @@ import { useDndContext, useDroppable } from "@dnd-kit/core";
 import { MAX_COMMANDER_ZONE_CARDS } from "@mtg/shared/constants/limits";
 
 import { cn } from "@/lib/utils";
+import { useDesktopValueAdjustment } from "@/hooks/shared/useDesktopValueAdjustment";
 import type { Zone as ZoneType, Card as CardType, ZoneId } from "@/types";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ZONE_DRAG_OVERLAY_SCALE } from "@/lib/dndDragCue";
@@ -16,6 +17,50 @@ import type { CommanderZoneController } from "@/hooks/game/seat/useCommanderZone
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
+
+const CommanderTaxValue: React.FC<{
+  card: CardType;
+  taxValue: number;
+  isOwner: boolean;
+  active: boolean;
+  onAdjust: (card: CardType, delta: number) => void;
+  onTouchActivate: () => void;
+}> = ({ card, taxValue, isOwner, active, onAdjust, onTouchActivate }) => {
+  const adjustment = useDesktopValueAdjustment({
+    enabled: isOwner,
+    canDecrement: taxValue > 0,
+    onIncrement: () => onAdjust(card, 2),
+    onDecrement: () => onAdjust(card, -2),
+  });
+
+  return (
+    <Tooltip content="Commander tax" placement="top">
+      <div
+        data-testid={`commander-tax-value-${card.id}`}
+        className={cn(
+          "pointer-events-auto flex h-5 min-w-5 items-center justify-center rounded-full border border-zinc-500 bg-zinc-900 px-1 text-[11px] font-bold text-white transition-colors",
+          isOwner && "cursor-pointer",
+          active && "border-indigo-300 ring-indigo-300/70",
+        )}
+        title={isOwner ? "Left-click to add tax; right-click to subtract" : undefined}
+        onPointerDown={(event) => {
+          adjustment.onPointerDown(event);
+          if (event.pointerType !== "touch") return;
+          event.stopPropagation();
+          onTouchActivate();
+        }}
+        onPointerMove={adjustment.onPointerMove}
+        onPointerUp={adjustment.onPointerUp}
+        onPointerCancel={adjustment.onPointerCancel}
+        onPointerLeave={adjustment.onPointerLeave}
+        onClick={adjustment.onClick}
+        onContextMenu={adjustment.onContextMenu}
+      >
+        {taxValue}
+      </div>
+    </Tooltip>
+  );
+};
 
 export interface CommanderZoneViewProps extends CommanderZoneController {
   zone: ZoneType;
@@ -318,21 +363,14 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
                           </Tooltip>
                         )}
                       </div>
-                      <Tooltip content="Commander tax" placement="top">
-                        <div
-                          className={cn(
-                            "pointer-events-auto flex h-5 min-w-5 items-center justify-center rounded-full border border-zinc-500 bg-zinc-900 px-1 text-[11px] font-bold text-white transition-colors",
-                            taxControlsVisible && "border-indigo-300 ring-indigo-300/70",
-                          )}
-                          onPointerDown={(event) => {
-                            if (event.pointerType !== "touch") return;
-                            event.stopPropagation();
-                            setActiveTaxCardId(card.id);
-                          }}
-                        >
-                          {taxValue}
-                        </div>
-                      </Tooltip>
+                      <CommanderTaxValue
+                        card={card}
+                        taxValue={taxValue}
+                        isOwner={isOwner}
+                        active={taxControlsVisible}
+                        onAdjust={handleTaxDelta}
+                        onTouchActivate={() => setActiveTaxCardId(card.id)}
+                      />
                       <div className="min-w-0 overflow-hidden">
                         {isOwner && (
                           <Tooltip content="Add commander tax" placement="top">

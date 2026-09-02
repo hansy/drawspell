@@ -40,6 +40,13 @@ const buildPlayer = (id: string, name: string): Player => ({
   commanderTax: 0,
 });
 
+const hiddenSelectionControls = {
+  showSelectAll: false,
+  selectAllDisabled: false,
+  allDisplayedCardsSelected: false,
+  handleSelectAll: vi.fn(),
+};
+
 describe("ZoneViewerModalView", () => {
   beforeEach(() => {
     useGameStore.setState({
@@ -88,11 +95,62 @@ describe("ZoneViewerModalView", () => {
         pinnedCardId={undefined}
         viewerPlayerId="me"
         viewerRole="player"
+        {...hiddenSelectionControls}
       />
     );
 
     const searchInput = screen.getByPlaceholderText("Search by name, type, or text...");
     expect(searchInput).not.toBe(document.activeElement);
+  });
+
+  it("shows a select-all action for an eligible linear zone", () => {
+    const zone = buildZone({ type: ZONE.GRAVEYARD, id: "gy-me" });
+    const card = buildCard("c1", "Card1", zone.id);
+    const handleSelectAll = vi.fn();
+
+    render(
+      <ZoneViewerModalView
+        isOpen
+        onClose={vi.fn()}
+        zone={zone}
+        count={undefined}
+        isLoading={false}
+        expectedViewCount={null}
+        filterText=""
+        setFilterText={vi.fn()}
+        containerRef={React.createRef<HTMLDivElement>()}
+        listRef={React.createRef<HTMLDivElement>()}
+        displayCards={[card]}
+        viewMode="linear"
+        groupedCards={{}}
+        sortedKeys={[]}
+        librarySections={[]}
+        uniqueCardCount={0}
+        canReorder={false}
+        orderedCards={[card]}
+        orderedCardIds={[card.id]}
+        setOrderedCardIds={vi.fn()}
+        draggingId={null}
+        setDraggingId={vi.fn()}
+        reorderList={(ids) => ids}
+        commitReorder={vi.fn()}
+        handleContextMenu={vi.fn()}
+        contextMenu={null}
+        closeContextMenu={vi.fn()}
+        interactionsDisabled={false}
+        pinnedCardId={undefined}
+        viewerPlayerId="me"
+        viewerRole="player"
+        {...hiddenSelectionControls}
+        showSelectAll
+        selectAllDisabled={false}
+        allDisplayedCardsSelected={false}
+        handleSelectAll={handleSelectAll}
+      />
+    );
+
+    screen.getByRole("button", { name: "Select all cards" }).click();
+    expect(handleSelectAll).toHaveBeenCalledOnce();
   });
 
   it("renders a linear view with a top-card label", () => {
@@ -135,6 +193,7 @@ describe("ZoneViewerModalView", () => {
         pinnedCardId={undefined}
         viewerPlayerId="me"
         viewerRole="player"
+        {...hiddenSelectionControls}
       />
     );
 
@@ -193,6 +252,7 @@ describe("ZoneViewerModalView", () => {
         pinnedCardId={undefined}
         viewerPlayerId="me"
         viewerRole="player"
+        {...hiddenSelectionControls}
       />
     );
 
@@ -257,6 +317,7 @@ describe("ZoneViewerModalView", () => {
         pinnedCardId={undefined}
         viewerPlayerId="me"
         viewerRole="player"
+        {...hiddenSelectionControls}
       />
     );
 
@@ -306,6 +367,7 @@ describe("ZoneViewerModalView", () => {
         pinnedCardId={undefined}
         viewerPlayerId="me"
         viewerRole="player"
+        {...hiddenSelectionControls}
       />
     );
 
@@ -366,6 +428,7 @@ describe("ZoneViewerModalView", () => {
         pinnedCardId={undefined}
         viewerPlayerId="me"
         viewerRole="player"
+        {...hiddenSelectionControls}
       />
     );
 
