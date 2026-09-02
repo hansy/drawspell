@@ -39,7 +39,7 @@ const readEntity = <T extends { id: string }>(value: unknown, id: string): T | n
   return { ...(raw as T), id };
 };
 
-export const uniqueStrings = (values: unknown[]): string[] =>
+export const uniqueStrings = (values: readonly unknown[]): string[] =>
   Array.from(new Set(values.filter((value): value is string => typeof value === "string")));
 
 export const readZoneCardIds = (maps: Maps, zoneId: string, zone?: Zone): string[] => {
@@ -50,9 +50,9 @@ export const readZoneCardIds = (maps: Maps, zoneId: string, zone?: Zone): string
   return uniqueStrings(zone?.cardIds ?? []);
 };
 
-const resetYArrayValues = <T>(array: Y.Array<T>, values: T[]) => {
+const resetYArrayValues = <T>(array: Y.Array<T>, values: readonly T[]) => {
   array.delete(0, array.length);
-  if (values.length) array.insert(0, values);
+  if (values.length) array.insert(0, [...values]);
 };
 
 export const syncZoneOrder = (maps: Maps, zoneId: string, ids: string[]) => {
