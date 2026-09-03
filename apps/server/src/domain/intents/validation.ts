@@ -9,7 +9,7 @@ const innerOk = (): InnerApplyResult => ({ ok: true });
 const innerError = (error: string): InnerApplyResult => ({ ok: false, error });
 
 export const readPayload = (payload: unknown): Record<string, unknown> =>
-  isRecord(payload) ? (payload as Record<string, unknown>) : {};
+  isRecord(payload) ? payload : {};
 
 export const isString = (value: unknown): value is string => typeof value === "string";
 export const isNonEmptyString = (value: unknown): value is string =>
@@ -24,7 +24,7 @@ export const readNumber = (value: unknown): number | undefined =>
 export const readBoolean = (value: unknown): boolean | undefined =>
   typeof value === "boolean" ? value : undefined;
 export const readRecordValue = (value: unknown): Record<string, unknown> | undefined =>
-  isRecord(value) ? (value as Record<string, unknown>) : undefined;
+  isRecord(value) ? value : undefined;
 
 export const readActorId = (payload: Record<string, unknown>): string | undefined =>
   readNonEmptyString(payload.actorId);
@@ -47,7 +47,7 @@ export const requireRecord = (
   error: string
 ): ValidationResult<Record<string, unknown>> => {
   if (!isRecord(value)) return invalid(error);
-  return valid(value as Record<string, unknown>);
+  return valid(value);
 };
 
 export const requireArray = <T = unknown>(
