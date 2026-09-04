@@ -5,6 +5,7 @@ import { getZoneByType } from "@/lib/gameSelectors";
 import { canViewZone } from "@/rules/permissions";
 import { logPermission } from "@/rules/logger";
 
+import { isLibraryKnownEmpty } from "./libraryState";
 import type { Deps, GetState, SetState } from "./types";
 
 export const createExileFromLibrary = (
@@ -35,8 +36,7 @@ export const createExileFromLibrary = (
       return;
     }
 
-    const player = state.players[playerId];
-    if (player && typeof player.libraryCount === "number" && player.libraryCount <= 0) {
+    if (isLibraryKnownEmpty(state.players[playerId]?.libraryCount)) {
       return;
     }
 
