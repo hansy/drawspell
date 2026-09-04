@@ -22,8 +22,14 @@ describe("ShortcutsDrawer", () => {
       .closest<HTMLElement>(".group");
     expect(exileOneRow).not.toBeNull();
     if (!exileOneRow) return;
-    expect(within(exileOneRow).getByText("Shift")).not.toBeNull();
-    expect(within(exileOneRow).getByText("E")).not.toBeNull();
+    expect(within(exileOneRow).getByText("X")).not.toBeNull();
+    const exileXRow = within(keyboardShortcuts)
+      .getByText("Exile Top X")
+      .closest<HTMLElement>(".group");
+    expect(exileXRow).not.toBeNull();
+    if (!exileXRow) return;
+    expect(within(exileXRow).getByText("Shift")).not.toBeNull();
+    expect(within(exileXRow).getByText("X")).not.toBeNull();
   });
 
   it("documents current touch activation, selection, preview, and mana gestures", () => {

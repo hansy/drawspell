@@ -130,7 +130,7 @@ export const areShortcutsBlockedByUi = (args: {
 export type GameShortcutActions = {
   drawOne: () => void;
   discard: (count?: number) => void;
-  exileOne: () => void;
+  exile: (count?: number) => void;
   shuffle: () => void;
   resetDeck: () => void;
   mulligan: (count: number) => void;
@@ -207,7 +207,17 @@ export const runGameShortcut = (params: {
       });
       return true;
     case "game.exileOne":
-      params.actions.exileOne();
+      params.actions.exile(1);
+      return true;
+    case "game.exileX":
+      params.openCountPrompt({
+        title: "Exile Top X",
+        message: "How many cards to exile from the top of your library?",
+        initialValue: 1,
+        minValue: 1,
+        confirmLabel: "Exile",
+        onSubmit: (count) => params.actions.exile(count),
+      });
       return true;
     case "game.shuffleLibrary":
       params.actions.shuffle();

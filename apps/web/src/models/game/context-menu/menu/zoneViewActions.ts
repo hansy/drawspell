@@ -176,6 +176,7 @@ const buildLibraryExileMenu = ({
     },
     buildCountPromptAction({
       label: "Exile Top X...",
+      shortcut: faceDown ? undefined : getShortcutLabel("game.exileX"),
       openCountPrompt,
       buildPromptOptions: () => ({
         title: "Exile Top Cards",

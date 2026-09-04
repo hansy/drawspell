@@ -194,7 +194,7 @@ describe("gameShortcuts/model", () => {
     const actions = {
       drawOne: vi.fn(),
       discard: vi.fn(),
-      exileOne: vi.fn(),
+      exile: vi.fn(),
       shuffle: vi.fn(),
       resetDeck: vi.fn(),
       mulligan: vi.fn(),
@@ -252,7 +252,7 @@ describe("gameShortcuts/model", () => {
       actions: {
         drawOne: vi.fn(),
         discard: vi.fn(),
-        exileOne: vi.fn(),
+        exile: vi.fn(),
         shuffle: vi.fn(),
         resetDeck: vi.fn(),
         mulligan: vi.fn(),
@@ -267,7 +267,7 @@ describe("gameShortcuts/model", () => {
   });
 
   it("exiles the top library card face up", () => {
-    const exileOne = vi.fn();
+    const exile = vi.fn();
     const handled = runGameShortcut({
       id: "game.exileOne",
       myPlayerId: "me",
@@ -287,7 +287,7 @@ describe("gameShortcuts/model", () => {
       actions: {
         drawOne: vi.fn(),
         discard: vi.fn(),
-        exileOne,
+        exile,
         shuffle: vi.fn(),
         resetDeck: vi.fn(),
         mulligan: vi.fn(),
@@ -299,7 +299,53 @@ describe("gameShortcuts/model", () => {
     });
 
     expect(handled).toBe(true);
-    expect(exileOne).toHaveBeenCalledTimes(1);
+    expect(exile).toHaveBeenCalledWith(1);
+  });
+
+  it("prompts for a count before exiling the top X cards face up", () => {
+    const exile = vi.fn();
+    const openCountPrompt = vi.fn();
+    const handled = runGameShortcut({
+      id: "game.exileX",
+      myPlayerId: "me",
+      zones: {},
+      shortcutsOpen: false,
+      setShortcutsOpen: vi.fn(),
+      logOpen: false,
+      setLogOpen: vi.fn(),
+      setTokenModalOpen: vi.fn(),
+      coinFlipperOpen: false,
+      setCoinFlipperOpen: vi.fn(),
+      diceRollerOpen: false,
+      setDiceRollerOpen: vi.fn(),
+      openCountPrompt,
+      handleViewZone: vi.fn(),
+      handleLeave: vi.fn(),
+      actions: {
+        drawOne: vi.fn(),
+        discard: vi.fn(),
+        exile,
+        shuffle: vi.fn(),
+        resetDeck: vi.fn(),
+        mulligan: vi.fn(),
+        unloadDeck: vi.fn(),
+        untapAll: vi.fn(),
+        zoomIn: vi.fn(),
+        zoomOut: vi.fn(),
+      },
+    });
+
+    expect(handled).toBe(true);
+    expect(openCountPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Exile Top X",
+        initialValue: 1,
+        minValue: 1,
+        confirmLabel: "Exile",
+      }),
+    );
+    openCountPrompt.mock.calls[0]?.[0]?.onSubmit(4);
+    expect(exile).toHaveBeenCalledWith(4);
   });
 
   it("checks deck-loaded requirements", () => {

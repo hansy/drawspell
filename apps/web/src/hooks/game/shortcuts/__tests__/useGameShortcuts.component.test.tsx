@@ -240,8 +240,9 @@ describe("useGameShortcuts", () => {
     expect(openCountPrompt.mock.calls[0][0].initialValue).toBe(1);
   });
 
-  it("exiles the top library card face up on Shift+E", () => {
+  it("exiles face-up library cards on X and Shift+X", () => {
     const exileFromLibrary = vi.fn();
+    const openCountPrompt = vi.fn();
     resetStore({ exileFromLibrary } as any);
     const args: UseGameShortcutsArgs = {
       myPlayerId: "me" as any,
@@ -276,23 +277,41 @@ describe("useGameShortcuts", () => {
       setLogOpen: vi.fn(),
       shortcutsOpen: false,
       setShortcutsOpen: vi.fn(),
-      openCountPrompt: vi.fn(),
+      openCountPrompt,
       handleViewZone: vi.fn(),
       handleLeave: vi.fn(),
     };
 
     render(<Probe args={args} />);
 
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "x", bubbles: true }));
+    expect(exileFromLibrary).toHaveBeenCalledWith(
+      "me",
+      1,
+      "me",
+      undefined,
+      { faceDown: false },
+    );
+
     window.dispatchEvent(
       new KeyboardEvent("keydown", {
-        key: "e",
+        key: "x",
         shiftKey: true,
         bubbles: true,
       }),
     );
-    expect(exileFromLibrary).toHaveBeenCalledWith(
+    expect(openCountPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Exile Top X",
+        initialValue: 1,
+        minValue: 1,
+        confirmLabel: "Exile",
+      }),
+    );
+    openCountPrompt.mock.calls[0]?.[0]?.onSubmit(3);
+    expect(exileFromLibrary).toHaveBeenLastCalledWith(
       "me",
-      1,
+      3,
       "me",
       undefined,
       { faceDown: false },
