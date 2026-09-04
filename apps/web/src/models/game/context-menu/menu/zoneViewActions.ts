@@ -172,6 +172,7 @@ const buildLibraryExileMenu = ({
       type: "action",
       label: "Exile 1",
       onSelect: () => exileFromLibrary(myPlayerId, 1, { faceDown }),
+      shortcut: faceDown ? undefined : getShortcutLabel("game.exileOne"),
     },
     buildCountPromptAction({
       label: "Exile Top X...",

@@ -465,6 +465,8 @@ describe("buildZoneViewActions", () => {
     );
 
     exileOne?.onSelect();
+    expect(exileOne?.shortcut).toBe("Shift + E");
+    expect(exileOneFaceDown?.shortcut).toBeUndefined();
     expect(exileFromLibrary).toHaveBeenCalledWith("owner", 1, {
       faceDown: false,
     });

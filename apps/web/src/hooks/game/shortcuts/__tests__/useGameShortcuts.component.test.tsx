@@ -240,6 +240,65 @@ describe("useGameShortcuts", () => {
     expect(openCountPrompt.mock.calls[0][0].initialValue).toBe(1);
   });
 
+  it("exiles the top library card face up on Shift+E", () => {
+    const exileFromLibrary = vi.fn();
+    resetStore({ exileFromLibrary } as any);
+    const args: UseGameShortcutsArgs = {
+      myPlayerId: "me" as any,
+      zones: {
+        "lib-me": createZone("lib-me", "me", ZONE.LIBRARY),
+        "exile-me": createZone("exile-me", "me", ZONE.EXILE),
+      } as any,
+      players: { me: createPlayer("me", true) } as any,
+      contextMenuOpen: false,
+      closeContextMenu: vi.fn(),
+      countPromptOpen: false,
+      closeCountPrompt: vi.fn(),
+      textPromptOpen: false,
+      closeTextPrompt: vi.fn(),
+      activeModalOpen: false,
+      closeActiveModal: vi.fn(),
+      tokenModalOpen: false,
+      setTokenModalOpen: vi.fn(),
+      coinFlipperOpen: false,
+      setCoinFlipperOpen: vi.fn(),
+      diceRollerOpen: false,
+      setDiceRollerOpen: vi.fn(),
+      loadDeckModalOpen: false,
+      setLoadDeckModalOpen: vi.fn(),
+      shareDialogOpen: false,
+      setShareDialogOpen: vi.fn(),
+      zoneViewerOpen: false,
+      closeZoneViewer: vi.fn(),
+      opponentRevealsOpen: false,
+      closeOpponentReveals: vi.fn(),
+      logOpen: false,
+      setLogOpen: vi.fn(),
+      shortcutsOpen: false,
+      setShortcutsOpen: vi.fn(),
+      openCountPrompt: vi.fn(),
+      handleViewZone: vi.fn(),
+      handleLeave: vi.fn(),
+    };
+
+    render(<Probe args={args} />);
+
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "e",
+        shiftKey: true,
+        bubbles: true,
+      }),
+    );
+    expect(exileFromLibrary).toHaveBeenCalledWith(
+      "me",
+      1,
+      "me",
+      undefined,
+      { faceDown: false },
+    );
+  });
+
   it("does not prevent default for a matched shortcut that becomes a no-op", () => {
     const openCountPrompt = vi.fn();
     const args: UseGameShortcutsArgs = {

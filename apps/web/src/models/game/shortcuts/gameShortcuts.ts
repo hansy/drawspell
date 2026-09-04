@@ -10,6 +10,7 @@ export type GameShortcutId =
   | "game.drawX"
   | "game.discardOne"
   | "game.discardX"
+  | "game.exileOne"
   | "game.shuffleLibrary"
   | "game.zoomIn"
   | "game.zoomOut"
@@ -116,6 +117,13 @@ export const GAME_SHORTCUTS: GameShortcutDefinition[] = [
     binding: { key: "i", shift: true },
     title: "Discard X",
     description: "Prompts for a number (default 1) and discards that many cards from your library.",
+    requiresDeckLoaded: true,
+  },
+  {
+    id: "game.exileOne",
+    binding: { key: "e", shift: true },
+    title: "Exile 1",
+    description: "Exiles the top card of your library face up.",
     requiresDeckLoaded: true,
   },
   {

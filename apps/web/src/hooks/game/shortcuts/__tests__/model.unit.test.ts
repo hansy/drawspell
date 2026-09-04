@@ -194,6 +194,7 @@ describe("gameShortcuts/model", () => {
     const actions = {
       drawOne: vi.fn(),
       discard: vi.fn(),
+      exileOne: vi.fn(),
       shuffle: vi.fn(),
       resetDeck: vi.fn(),
       mulligan: vi.fn(),
@@ -251,6 +252,7 @@ describe("gameShortcuts/model", () => {
       actions: {
         drawOne: vi.fn(),
         discard: vi.fn(),
+        exileOne: vi.fn(),
         shuffle: vi.fn(),
         resetDeck: vi.fn(),
         mulligan: vi.fn(),
@@ -262,6 +264,42 @@ describe("gameShortcuts/model", () => {
     });
 
     expect(handled).toBe(false);
+  });
+
+  it("exiles the top library card face up", () => {
+    const exileOne = vi.fn();
+    const handled = runGameShortcut({
+      id: "game.exileOne",
+      myPlayerId: "me",
+      zones: {},
+      shortcutsOpen: false,
+      setShortcutsOpen: vi.fn(),
+      logOpen: false,
+      setLogOpen: vi.fn(),
+      setTokenModalOpen: vi.fn(),
+      coinFlipperOpen: false,
+      setCoinFlipperOpen: vi.fn(),
+      diceRollerOpen: false,
+      setDiceRollerOpen: vi.fn(),
+      openCountPrompt: vi.fn(),
+      handleViewZone: vi.fn(),
+      handleLeave: vi.fn(),
+      actions: {
+        drawOne: vi.fn(),
+        discard: vi.fn(),
+        exileOne,
+        shuffle: vi.fn(),
+        resetDeck: vi.fn(),
+        mulligan: vi.fn(),
+        unloadDeck: vi.fn(),
+        untapAll: vi.fn(),
+        zoomIn: vi.fn(),
+        zoomOut: vi.fn(),
+      },
+    });
+
+    expect(handled).toBe(true);
+    expect(exileOne).toHaveBeenCalledTimes(1);
   });
 
   it("checks deck-loaded requirements", () => {

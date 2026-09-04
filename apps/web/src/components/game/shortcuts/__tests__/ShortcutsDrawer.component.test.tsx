@@ -17,6 +17,13 @@ describe("ShortcutsDrawer", () => {
     expect(within(mouseControls).getByText("Double click")).not.toBeNull();
     expect(within(mouseControls).getByText("Adjust Floating Mana")).not.toBeNull();
     expect(within(keyboardShortcuts).getByText("Draw 1")).not.toBeNull();
+    const exileOneRow = within(keyboardShortcuts)
+      .getByText("Exile 1")
+      .closest<HTMLElement>(".group");
+    expect(exileOneRow).not.toBeNull();
+    if (!exileOneRow) return;
+    expect(within(exileOneRow).getByText("Shift")).not.toBeNull();
+    expect(within(exileOneRow).getByText("E")).not.toBeNull();
   });
 
   it("documents current touch activation, selection, preview, and mana gestures", () => {

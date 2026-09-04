@@ -130,6 +130,7 @@ export const areShortcutsBlockedByUi = (args: {
 export type GameShortcutActions = {
   drawOne: () => void;
   discard: (count?: number) => void;
+  exileOne: () => void;
   shuffle: () => void;
   resetDeck: () => void;
   mulligan: (count: number) => void;
@@ -204,6 +205,9 @@ export const runGameShortcut = (params: {
         minValue: 1,
         onSubmit: (count) => params.actions.discard(count),
       });
+      return true;
+    case "game.exileOne":
+      params.actions.exileOne();
       return true;
     case "game.shuffleLibrary":
       params.actions.shuffle();

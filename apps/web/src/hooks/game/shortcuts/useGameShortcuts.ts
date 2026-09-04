@@ -168,6 +168,12 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
       const drawOne = () => useGameStore.getState().drawCard(myPlayerId, myPlayerId);
       const discard = (count = 1) =>
         useGameStore.getState().discardFromLibrary(myPlayerId, count, myPlayerId);
+      const exileOne = () =>
+        useGameStore
+          .getState()
+          .exileFromLibrary(myPlayerId, 1, myPlayerId, undefined, {
+            faceDown: false,
+          });
       const shuffle = () => useGameStore.getState().shuffleLibrary(myPlayerId, myPlayerId);
       const resetDeck = () => useGameStore.getState().resetDeck(myPlayerId, myPlayerId);
       const mulligan = (count: number) =>
@@ -206,6 +212,7 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
         actions: {
           drawOne,
           discard,
+          exileOne,
           shuffle,
           resetDeck,
           mulligan,
