@@ -1,5 +1,10 @@
 import { normalizeCounterType } from "@mtg/shared/counters";
-import { getCardFaces, getCurrentFaceIndex } from "@mtg/shared/cards";
+import {
+  getCardFaces,
+  getCurrentFaceIndex,
+  resetCardToFrontFace,
+  syncCardStatsToFace,
+} from "@mtg/shared/cards";
 import type { Card, CardIdentity, CardLite } from "@mtg/shared/types/cards";
 import type { Counter } from "@mtg/shared/types/counters";
 import type { Zone } from "@mtg/shared/types/zones";
@@ -12,52 +17,16 @@ import {
   offsetNormalizedByGrid,
 } from "./positions";
 
-export { buildDuplicateTokenCard, getCardFaces, getCurrentFaceIndex } from "@mtg/shared/cards";
+export {
+  buildDuplicateTokenCard,
+  getCardFaces,
+  getCurrentFaceIndex,
+} from "@mtg/shared/cards";
+export { resetCardToFrontFace, syncCardStatsToFace };
 export { resolveControllerAfterMove } from "@mtg/shared/movement";
 
 const clampFaceIndex = (index: number, faceCount: number): number =>
   Math.min(Math.max(index, 0), faceCount - 1);
-
-export const syncCardStatsToFace = (
-  card: Card,
-  faceIndex?: number,
-  options?: { preserveExisting?: boolean }
-): Card => {
-  const faces = getCardFaces(card);
-  const targetIndex = faceIndex ?? getCurrentFaceIndex(card);
-  const targetFace = faces[targetIndex];
-  if (!targetFace) return { ...card, currentFaceIndex: targetIndex };
-
-  const hasPower = targetFace.power !== undefined;
-  const hasToughness = targetFace.toughness !== undefined;
-  const preserve = options?.preserveExisting;
-
-  return {
-    ...card,
-    currentFaceIndex: targetIndex,
-    power: preserve && card.power !== undefined ? card.power : hasPower ? targetFace.power : undefined,
-    toughness:
-      preserve && card.toughness !== undefined
-        ? card.toughness
-        : hasToughness
-          ? targetFace.toughness
-          : undefined,
-    basePower: hasPower ? targetFace.power : undefined,
-    baseToughness: hasToughness ? targetFace.toughness : undefined,
-  };
-};
-
-export const resetCardToFrontFace = (card: Card): Card => {
-  const reset = syncCardStatsToFace({ ...card, currentFaceIndex: 0 }, 0);
-  if (!getCardFaces(card).length) {
-    return {
-      ...reset,
-      power: reset.basePower ?? reset.power,
-      toughness: reset.baseToughness ?? reset.toughness,
-    };
-  }
-  return reset;
-};
 
 const TRANSFORM_LAYOUTS = new Set([
   "transform",
