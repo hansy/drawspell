@@ -40,15 +40,17 @@ const getFirstSearchParam = (
 };
 
 const resolveViewerRoleFromParams = (
-  viewerRoleParam: string | undefined,
-  spectatorToken: string | undefined,
-  playerToken: string | undefined
+  params: {
+    viewerRoleParam: string | undefined;
+    spectatorToken: string | undefined;
+    playerToken: string | undefined;
+  }
 ): IntentConnectionState["viewerRole"] => {
-  const viewerRole = parseViewerRole(viewerRoleParam);
-  if (spectatorToken) {
+  const viewerRole = parseViewerRole(params.viewerRoleParam);
+  if (params.spectatorToken) {
     return "spectator";
   }
-  if (playerToken && viewerRole !== "spectator") {
+  if (params.playerToken && viewerRole !== "spectator") {
     return "player";
   }
   return viewerRole;
@@ -67,11 +69,11 @@ export const parseConnectionParams = (url: URL): IntentConnectionState => {
   const playerToken = getFirstSearchParam(searchParams, ["gt"]);
   const token = spectatorToken ?? playerToken ?? undefined;
   const viewerRoleParam = getFirstSearchParam(searchParams, ["viewerRole"]);
-  const viewerRole = resolveViewerRoleFromParams(
+  const viewerRole = resolveViewerRoleFromParams({
     viewerRoleParam,
     spectatorToken,
-    playerToken
-  );
+    playerToken,
+  });
   return {
     playerId,
     viewerRole,
