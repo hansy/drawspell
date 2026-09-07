@@ -28,7 +28,7 @@ export const enforceZoneCounterRules = (counters: Counter[], zone?: Zone): Count
   return isBattlefieldZone(zone) ? counters : [];
 };
 
-const getLookupCounterType = (type: string): string | null => {
+const normalizeNonEmptyCounterType = (type: string): string | null => {
   const normalizedType = normalizeCounterType(type);
   return normalizedType || null;
 };
@@ -37,7 +37,7 @@ const matchesCounterType = (type: string, lookupType: string): boolean =>
   normalizeCounterType(type) === lookupType;
 
 const findCounterIndex = (existing: Counter[], type: string) => {
-  const lookupType = getLookupCounterType(type);
+  const lookupType = normalizeNonEmptyCounterType(type);
   if (!lookupType) return -1;
   return existing.findIndex((counter) => matchesCounterType(counter.type, lookupType));
 };
@@ -46,7 +46,7 @@ export const findGlobalCounterKey = (
   globalCounters: Record<string, string>,
   type: string
 ): string | undefined => {
-  const lookupType = getLookupCounterType(type);
+  const lookupType = normalizeNonEmptyCounterType(type);
   if (!lookupType) return undefined;
 
   return Object.keys(globalCounters).find(
@@ -103,7 +103,7 @@ const deriveColorFromString = (value: string): string => {
 };
 
 export const resolveCounterColor = (type: string, globalCounters: Record<string, string>): string => {
-  const lookupType = getLookupCounterType(type);
+  const lookupType = normalizeNonEmptyCounterType(type);
   if (!lookupType) return DEFAULT_COUNTER_COLOR;
 
   const preset = PRESET_COUNTERS.find(
