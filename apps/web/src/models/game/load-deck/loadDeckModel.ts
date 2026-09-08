@@ -40,7 +40,7 @@ export const resolveDeckZoneIds = (params: {
   };
 };
 
-export const chunkArray = <T,>(items: T[], chunkSize: number): T[][] => {
+const chunkArray = <T,>(items: T[], chunkSize: number): T[][] => {
   if (chunkSize <= 0) return [items];
   if (items.length === 0) return [];
   const chunks: T[][] = [];
