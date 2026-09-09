@@ -1,11 +1,11 @@
 import type { Zone, ZoneId } from "@/types";
 
-export type CardPlacement = "top" | "bottom";
+type CardPlacement = "top" | "bottom";
 
-export const removeCardId = (ids: string[], cardId: string): string[] =>
+const removeCardId = (ids: string[], cardId: string): string[] =>
   ids.filter((id) => id !== cardId);
 
-export const placeCardId = (
+const placeCardId = (
   ids: string[],
   cardId: string,
   placement: CardPlacement
@@ -14,7 +14,7 @@ export const placeCardId = (
   return placement === "bottom" ? [cardId, ...without] : [...without, cardId];
 };
 
-export const placeCardIdFromTop = (
+const placeCardIdFromTop = (
   ids: string[],
   cardId: string,
   requestedPosition: number
