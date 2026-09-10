@@ -23,7 +23,7 @@ export const getMaps = (doc: Y.Doc): Maps => ({
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
-export const toPlain = (value: unknown): unknown => {
+const toPlain = (value: unknown): unknown => {
   if (value instanceof Y.Map || value instanceof Y.Array) return value.toJSON();
   return value;
 };
@@ -42,7 +42,7 @@ const readEntity = <T extends { id: string }>(value: unknown, id: string): T | n
 export const uniqueStrings = (values: readonly unknown[]): string[] =>
   Array.from(new Set(values.filter((value): value is string => typeof value === "string")));
 
-export const readZoneCardIds = (maps: Maps, zoneId: string, zone?: Zone): string[] => {
+const readZoneCardIds = (maps: Maps, zoneId: string, zone?: Zone): string[] => {
   const order = maps.zoneCardOrders.get(zoneId);
   if (order instanceof Y.Array) {
     return uniqueStrings(order.toArray());
