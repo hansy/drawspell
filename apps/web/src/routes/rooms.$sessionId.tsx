@@ -24,7 +24,7 @@ export const Route = createFileRoute("/rooms/$sessionId")({
       { name: "description", content: "Game in session" },
       {
         name: "og:image",
-        content: `${origins.web}/og-image.png`,
+        content: `${origins.web}/og_image.png`,
       },
     ],
   }),

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "generate:og-image": "bun scripts/generate-og-image.ts",
     "dev": "portless ds bun run dev:app",
     "dev:app": "sh -c 'vite dev --mode localhost --host \"$HOST\" --port \"$PORT\"'",
     "deploy": "bun run build:production && wrangler deploy --config dist/server/wrangler.json",

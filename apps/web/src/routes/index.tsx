@@ -219,7 +219,7 @@ export const Route = createFileRoute("/")({
       },
       {
         name: "og:image",
-        content: `${origins.web}/og-image.png`,
+        content: `${origins.web}/og_image.png`,
       },
       {
         name: "og:url",
