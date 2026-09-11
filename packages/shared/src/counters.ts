@@ -40,7 +40,7 @@ const parsePTCounterMatch = (match: RegExpMatchArray): ParsedPTCounterType => {
   };
 };
 
-export const parseCounterType = (
+const parseCounterType = (
   raw: string,
   maxLen = 64
 ): ParsedCounterType => {
