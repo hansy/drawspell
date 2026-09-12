@@ -1,4 +1,4 @@
-export type ParsedCounterType =
+type ParsedCounterType =
   | {
       kind: "pt";
       canonicalType: string;
