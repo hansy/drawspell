@@ -19,15 +19,17 @@ export { normalizeMovePosition } from "./positions";
 
 export type CardMovementPlacement = "top" | "bottom";
 
+type GroupCollisionOptions = {
+  movingCardIds: string[];
+  targetPositions: Record<string, Position | undefined>;
+};
+
 type CardMovementBaseOptions = {
   random?: boolean;
   suppressLog?: boolean;
   libraryPositionFromTop?: number;
   skipCollision?: boolean;
-  groupCollision?: {
-    movingCardIds: string[];
-    targetPositions: Record<string, Position | undefined>;
-  };
+  groupCollision?: GroupCollisionOptions;
 };
 
 type FaceUpMovementOptions = {
@@ -150,7 +152,7 @@ const resolveBattlefieldPlacementStepY = (
   getCanonicalBattlefieldPlacementGridSteps().stepY;
 
 const resolveGroupCollisionOptions = (
-  groupCollision: NonNullable<CardMovementOptions["groupCollision"]>
+  groupCollision: GroupCollisionOptions
 ) => {
   const targetPositions = groupCollision.targetPositions;
 
