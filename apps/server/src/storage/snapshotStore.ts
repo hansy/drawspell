@@ -18,13 +18,18 @@ type SnapshotStoreOptions = {
   snapshotPendingMetaKey?: string;
 };
 
+type SnapshotLogContext = {
+  room: string;
+  connId?: string | null;
+};
+
 type SnapshotWriteParams = {
   doc: Y.Doc;
   hiddenState: HiddenState;
   lastIntentIndex: number;
   createdAt?: number;
   shouldAbort?: () => boolean;
-  logContext?: { room: string; connId?: string | null };
+  logContext?: SnapshotLogContext;
 };
 
 const defaultPendingKey = "snapshot:meta:pending";
@@ -32,7 +37,7 @@ const defaultPendingKey = "snapshot:meta:pending";
 const logError = (
   message: string,
   error: unknown,
-  context?: { room: string; connId?: string | null }
+  context?: SnapshotLogContext
 ) => {
   console.error(message, {
     room: context?.room,
@@ -59,7 +64,7 @@ export class SnapshotStore {
     this.snapshotPendingMetaKey = options.snapshotPendingMetaKey ?? defaultPendingKey;
   }
 
-  async loadCommittedMeta(logContext?: { room: string; connId?: string | null }) {
+  async loadCommittedMeta(logContext?: SnapshotLogContext) {
     const pending = await this.storage.get<SnapshotMeta>(this.snapshotPendingMetaKey);
     const committed = (await this.storage.get<SnapshotMeta>(this.snapshotMetaKey)) ?? null;
     if (pending) {
@@ -159,14 +164,14 @@ export class SnapshotStore {
 
   private async cleanupPendingSnapshot(
     meta: SnapshotMeta,
-    logContext?: { room: string; connId?: string | null }
+    logContext?: SnapshotLogContext
   ) {
     await this.cleanupPendingMetaKey(logContext);
     await this.cleanupHiddenChunks(meta, logContext);
   }
 
   private async cleanupPendingMetaKey(
-    logContext?: { room: string; connId?: string | null }
+    logContext?: SnapshotLogContext
   ) {
     try {
       await this.storage.delete(this.snapshotPendingMetaKey);
@@ -183,7 +188,7 @@ export class SnapshotStore {
 
   private async cleanupHiddenChunks(
     meta: SnapshotMeta,
-    logContext?: { room: string; connId?: string | null }
+    logContext?: SnapshotLogContext
   ) {
     const chunkKeys = meta?.hiddenStateMeta?.cardChunkKeys ?? [];
     for (const key of chunkKeys) {
