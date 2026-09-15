@@ -28,6 +28,7 @@ export interface GameState {
   battlefieldViewScale: Record<PlayerId, number>;
   battlefieldGridSizing: Record<PlayerId, BattlefieldGridSizing>;
   roomHostId: PlayerId | null;
+  activePlayerId: PlayerId | null;
   roomOverCapacity: boolean;
   privateOverlay: PrivateOverlayPayload | null;
   overlayCapabilities: string[];

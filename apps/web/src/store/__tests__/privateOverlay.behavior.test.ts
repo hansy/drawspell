@@ -32,6 +32,7 @@ const buildBaseState = (): GameState =>
     battlefieldViewScale: {},
     battlefieldGridSizing: {},
     roomHostId: null,
+    activePlayerId: "p1",
     roomOverCapacity: false,
     privateOverlay: null,
     overlayCapabilities: [],

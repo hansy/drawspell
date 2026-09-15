@@ -23,6 +23,8 @@ export interface SeatProps {
   cards: Record<string, CardType>;
   libraryRevealsToAll?: LibraryRevealsToAll;
   isMe: boolean;
+  isActiveTurn?: boolean;
+  onActiveTurnClick?: () => void;
   viewerPlayerId: string;
   viewerRole?: ViewerRole;
   scale?: number;
@@ -52,6 +54,8 @@ const SeatInner: React.FC<SeatProps> = ({
   cards,
   libraryRevealsToAll,
   isMe,
+  isActiveTurn = false,
+  onActiveTurnClick,
   viewerPlayerId,
   viewerRole,
   scale = 1,
@@ -105,6 +109,8 @@ const SeatInner: React.FC<SeatProps> = ({
       player={player}
       color={color}
       isMe={isMe}
+      isActiveTurn={isActiveTurn}
+      onActiveTurnClick={onActiveTurnClick}
       viewerPlayerId={viewerPlayerId}
       viewerRole={viewerRole}
       scale={scale}

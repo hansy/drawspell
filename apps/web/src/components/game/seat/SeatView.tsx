@@ -44,12 +44,14 @@ import { useGameStore } from "@/store/gameStore";
 const MOBILE_HAND_CARD_BASE_HEIGHT_PX = 120;
 const MOBILE_HAND_VERTICAL_PADDING_PX = 18;
 const MOBILE_HAND_CARD_HEIGHT_RATIO = 0.94;
-const DESKTOP_MANA_ROW_HEIGHT_PX = 36;
+const DESKTOP_MANA_ROW_HEIGHT_PX = 40;
 
 interface SeatViewProps {
   player: Player;
   color: string;
   isMe: boolean;
+  isActiveTurn?: boolean;
+  onActiveTurnClick?: () => void;
   viewerPlayerId: string;
   viewerRole?: ViewerRole;
   scale?: number;
@@ -76,6 +78,8 @@ export const SeatView: React.FC<SeatViewProps> = ({
   player,
   color,
   isMe,
+  isActiveTurn = false,
+  onActiveTurnClick,
   viewerPlayerId,
   viewerRole,
   scale = 1,
@@ -219,6 +223,46 @@ export const SeatView: React.FC<SeatViewProps> = ({
     handHeight: effectiveHandHeight,
   });
   const commanderZoneLabelSizing = getCommanderZoneLabelSizing(scale);
+  const activeTurnLabel = isMe
+    ? "Your turn"
+    : `${player.name || "Player"}'s turn`;
+  const activeTurnBadgeClassName =
+    "absolute left-1/2 z-30 -translate-x-1/2 rounded-full border border-amber-200/70 bg-zinc-950/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.35)] backdrop-blur-md motion-safe:animate-pulse";
+  const renderActiveTurnBadge = (positionClassName: string) => {
+    if (!isActiveTurn) return null;
+    const className = cn(
+      activeTurnBadgeClassName,
+      positionClassName,
+      onActiveTurnClick
+        ? "cursor-pointer transition-colors hover:border-amber-100 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+        : "pointer-events-none",
+    );
+
+    if (onActiveTurnClick) {
+      return (
+        <button
+          type="button"
+          aria-label={`${activeTurnLabel}. Choose next player`}
+          data-testid="active-turn-badge"
+          data-no-seat-swipe="true"
+          className={className}
+          onClick={onActiveTurnClick}
+        >
+          {activeTurnLabel}
+        </button>
+      );
+    }
+
+    return (
+      <div
+        aria-label={activeTurnLabel}
+        data-testid="active-turn-badge"
+        className={className}
+      >
+        {activeTurnLabel}
+      </div>
+    );
+  };
   const libraryCount = player.libraryCount ?? library?.cardIds.length ?? 0;
   const libraryPlaceholder = React.useMemo(
     () =>
@@ -493,6 +537,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
       >
         <div className="flex h-full w-full flex-col">
           <div className="relative h-1/2 min-h-0 shrink-0 border-b border-white/5 flex">
+            {renderActiveTurnBadge("top-2")}
             {battlefield && (
               <Battlefield
                 zone={battlefield}
@@ -655,6 +700,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
             bottom: isTop ? 0 : effectiveHandHeight,
           }}
         >
+          {renderActiveTurnBadge(isTop ? "bottom-2" : "top-2")}
           {battlefield && (
             <Battlefield
               zone={battlefield}
@@ -819,7 +865,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
             >
               <div
                 data-desktop-mana-row
-                className="ds-seat-upright col-span-3 flex min-w-0 items-start justify-center"
+                className="ds-seat-upright col-span-3 flex min-w-0 items-center justify-center"
               >
                 {manaBar}
               </div>

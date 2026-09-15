@@ -64,6 +64,7 @@ describe("getCommanderDrawerHeight", () => {
 
 describe("getCommanderZoneLabelSizing", () => {
   it("preserves the visual label padding after seat scaling", () => {
+    expect(COMMANDER_ZONE_LABEL_PADDING_PX).toBe(20);
     expect(getCommanderZoneLabelSizing(1)).toEqual({
       height: COMMANDER_ZONE_LABEL_HEIGHT_PX,
       padding: COMMANDER_ZONE_LABEL_PADDING_PX,

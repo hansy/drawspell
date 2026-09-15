@@ -301,11 +301,28 @@ describe("sanitizeSharedSnapshot", () => {
       cards: {},
       globalCounters: {},
       playerOrder: [],
-      meta: { hostId: "p1", locked: true },
+      meta: { hostId: "p1", activePlayerId: "p1", locked: true },
     });
 
     expect(safe.roomHostId).toBe("p1");
+    expect(safe.activePlayerId).toBe("p1");
     expect("roomLockedByHost" in safe).toBe(false);
+  });
+
+  it("falls back to the first seated player when active turn metadata is stale", () => {
+    const safe = sanitizeSharedSnapshot({
+      players: {
+        p1: { id: "p1", name: "P1", life: 40 },
+        p2: { id: "p2", name: "P2", life: 40 },
+      },
+      zones: {},
+      cards: {},
+      globalCounters: {},
+      playerOrder: ["p2", "p1"],
+      meta: { activePlayerId: "departed-player" },
+    });
+
+    expect(safe.activePlayerId).toBe("p2");
   });
 
   it("flags rooms that exceed the player cap", () => {

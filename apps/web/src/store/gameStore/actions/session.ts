@@ -88,6 +88,7 @@ export const createSessionActions = (
       battlefieldViewScale: {},
       battlefieldGridSizing: {},
       roomHostId: null,
+      activePlayerId: null,
       roomOverCapacity: false,
       privateOverlay: null,
       overlayCapabilities: [],

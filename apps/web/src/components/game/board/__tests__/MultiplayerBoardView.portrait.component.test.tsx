@@ -111,6 +111,8 @@ const buildBoardProps = (
         zones: {},
         cards: {},
         players: playersById,
+        playerOrder: players.map((player) => player.id),
+        activePlayerId: players[0]?.id ?? null,
         libraryRevealsToAll: {},
         battlefieldViewScale: {},
         battlefieldGridSizing: {},
@@ -178,6 +180,7 @@ const buildBoardProps = (
         handleDrawCard: vi.fn(),
         handleFlipCoin: vi.fn(),
         handleRollDice: vi.fn(),
+        handleSetTurn: vi.fn(),
         handleLeave: vi.fn(),
         shareLinks: { players: "", spectators: "", resume: "" },
         shareLinksReady: false,
@@ -209,6 +212,50 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
         dispatchEvent: vi.fn(),
       })),
     });
+  });
+
+  it("opens the turn picker from the active player's pill", async () => {
+    const props = buildBoardProps([
+      {
+        id: "p1",
+        name: "Alice",
+        color: "sky",
+        position: "bottom-left",
+      },
+      {
+        id: "p2",
+        name: "Bob",
+        color: "rose",
+        position: "top-left",
+      },
+    ]);
+
+    render(<MultiplayerBoardView {...props} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Your turn. Choose next player" }),
+    );
+
+    expect(await screen.findByRole("heading", { name: "Set turn" })).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Bob" }));
+    expect(props.handleSetTurn).toHaveBeenCalledWith("p2");
+  });
+
+  it("hides turn UI in a one-player room", () => {
+    renderBoard([
+      {
+        id: "p1",
+        name: "Alice",
+        color: "sky",
+        position: "bottom-left",
+      },
+    ]);
+
+    expect(
+      screen.queryByRole("button", {
+        name: "Your turn. Choose next player",
+      }),
+    ).toBeNull();
+    expect(screen.queryByText("Your turn")).toBeNull();
   });
 
   it("uses portrait layout for narrow desktop browser viewports", () => {

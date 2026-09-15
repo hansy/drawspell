@@ -308,6 +308,49 @@ describe("useMultiplayerBoardController", () => {
     window.history.replaceState({}, "", "/rooms/room-1");
   });
 
+  it("lets the active player choose who takes the next turn", () => {
+    Object.assign(mockGameState, {
+      activePlayerId: "player-1",
+      players: {
+        "player-1": { id: "player-1" },
+        "player-2": { id: "player-2" },
+      },
+      playerOrder: ["player-1", "player-2"],
+    });
+    const { result } = renderHook(() =>
+      useMultiplayerBoardController("room-1"),
+    );
+
+    act(() => result.current.handleSetTurn("player-2"));
+
+    expect(mockSendIntent).toHaveBeenCalledWith({
+      id: "uuid-1",
+      type: "player.endTurn",
+      payload: {
+        actorId: "player-1",
+        nextPlayerId: "player-2",
+      },
+    });
+  });
+
+  it("does not let an inactive player set the turn", () => {
+    Object.assign(mockGameState, {
+      activePlayerId: "player-2",
+      players: {
+        "player-1": { id: "player-1" },
+        "player-2": { id: "player-2" },
+      },
+      playerOrder: ["player-1", "player-2"],
+    });
+    const { result } = renderHook(() =>
+      useMultiplayerBoardController("room-1"),
+    );
+
+    act(() => result.current.handleSetTurn("player-2"));
+
+    expect(mockSendIntent).not.toHaveBeenCalled();
+  });
+
   it("requests share links from the server when the dialog opens", async () => {
     mockRequestShareLinks.mockResolvedValue({
       playerInviteUrl: "https://example.com/rooms/room-1?gt=token-123",

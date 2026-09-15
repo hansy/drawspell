@@ -210,6 +210,10 @@ export function sanitizeSharedSnapshot(snapshot: SharedSnapshotLike) {
     typeof rawMeta.hostId === "string" && rawMeta.hostId.length > 0
       ? rawMeta.hostId
       : null;
+  const activePlayerId =
+    typeof rawMeta.activePlayerId === "string" && safePlayers[rawMeta.activePlayerId]
+      ? rawMeta.activePlayerId
+      : (safePlayerOrder[0] ?? null);
 
   return {
     players: safePlayers,
@@ -222,6 +226,7 @@ export function sanitizeSharedSnapshot(snapshot: SharedSnapshotLike) {
     playerOrder: safePlayerOrder,
     battlefieldViewScale: safeBattlefieldViewScale,
     roomHostId,
+    activePlayerId,
     roomOverCapacity,
   };
 }

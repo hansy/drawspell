@@ -99,6 +99,11 @@ const ConfirmationDialog = React.lazy(() =>
     default: module.ConfirmationDialog,
   })),
 );
+const TurnPickerDialog = React.lazy(() =>
+  import("../turn/TurnPickerDialog").then((module) => ({
+    default: module.TurnPickerDialog,
+  })),
+);
 
 type MultiplayerBoardViewProps = Omit<
   MultiplayerBoardController,
@@ -229,6 +234,8 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   zones,
   cards,
   players,
+  playerOrder,
+  activePlayerId,
   libraryRevealsToAll,
   battlefieldViewScale,
   battlefieldGridSizing,
@@ -300,6 +307,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   handleFlipCoin,
   handleRollDice,
   handleEndTurn,
+  handleSetTurn,
   handleLeave,
   confirmationRequest,
   cancelConfirmation,
@@ -309,6 +317,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   shareDialogError,
   canShareRoom,
 }) => {
+  const [isTurnPickerOpen, setIsTurnPickerOpen] = React.useState(false);
   const suppressSingleOverlay = isGroupDragging && !showGroupDragOverlay;
   const showConnectingOverlay = syncStatus === "connecting";
   const activeCard = activeCardId
@@ -463,6 +472,24 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
 
   const isPortraitViewport = usePortraitViewport();
   const occupiedSlots = React.useMemo(() => slots.filter(isOccupiedSeat), [slots]);
+  const orderedTurnPlayers = React.useMemo(
+    () =>
+      playerOrder
+        .map((playerId) => players[playerId])
+        .filter((player): player is NonNullable<typeof player> => Boolean(player)),
+    [playerOrder, players],
+  );
+  const hasMultipleTurnPlayers = orderedTurnPlayers.length > 1;
+
+  React.useEffect(() => {
+    if (
+      !hasMultipleTurnPlayers ||
+      activePlayerId !== myPlayerId ||
+      viewerRole === "spectator"
+    ) {
+      setIsTurnPickerOpen(false);
+    }
+  }, [activePlayerId, hasMultipleTurnPlayers, myPlayerId, viewerRole]);
   const defaultSeat = React.useMemo(
     () => {
       const mySeat = occupiedSlots.find((slot) => slot.player.id === myPlayerId);
@@ -714,6 +741,16 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           cards={cards}
           libraryRevealsToAll={libraryRevealsToAll}
           isMe={seatPlayer.id === myPlayerId}
+          isActiveTurn={
+            hasMultipleTurnPlayers && seatPlayer.id === activePlayerId
+          }
+          onActiveTurnClick={
+            hasMultipleTurnPlayers &&
+            seatPlayer.id === myPlayerId &&
+            seatPlayer.id === activePlayerId
+              ? () => setIsTurnPickerOpen(true)
+              : undefined
+          }
           viewerPlayerId={myPlayerId}
           viewerRole={viewerRole}
           onCardContextMenu={handleCardContextMenu}
@@ -771,6 +808,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
       isEditUsernameOpen ||
       zoneViewerState.isOpen ||
       revealedLibraryZoneId ||
+      isTurnPickerOpen ||
       isPortraitSidenavMenuOpen,
   );
   const shouldShowPortraitSeatSwitcher =
@@ -1062,6 +1100,16 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
               linksReady={shareLinksReady}
               errorMessage={shareDialogError}
               players={players}
+            />
+          )}
+          {hasMultipleTurnPlayers && isTurnPickerOpen && activePlayerId && (
+            <TurnPickerDialog
+              open
+              players={orderedTurnPlayers}
+              activePlayerId={activePlayerId}
+              viewerPlayerId={myPlayerId}
+              onClose={() => setIsTurnPickerOpen(false)}
+              onSelect={handleSetTurn}
             />
           )}
         </React.Suspense>

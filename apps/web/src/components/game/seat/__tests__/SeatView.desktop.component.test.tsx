@@ -492,7 +492,7 @@ describe("SeatView desktop side-zone previews", () => {
       /^repeat\(3, [\d.]+px\)$/,
     );
     expect(zoneCluster?.style.gridTemplateRows).toBe(
-      "36px minmax(0, 1fr)",
+      "40px minmax(0, 1fr)",
     );
     expect(
       container
@@ -502,7 +502,7 @@ describe("SeatView desktop side-zone previews", () => {
     expect(
       container
         .querySelector("[data-desktop-mana-row]")
-        ?.classList.contains("items-start"),
+        ?.classList.contains("items-center"),
     ).toBe(true);
     expect(
       (
@@ -659,5 +659,67 @@ describe("SeatView desktop side-zone previews", () => {
     expect(battlefieldSurface?.style.right).toBe("var(--seat-side-column-w)");
     expect(battlefieldSurface?.style.top).toBe("0px");
     expect(battlefieldSurface?.style.bottom).toBe("160px");
+  });
+
+  it("makes the active-turn pill clickable only for its player", () => {
+    const onActiveTurnClick = vi.fn();
+    const battlefieldZone = makeZone("battlefield-p1", "battlefield");
+    const model = {
+      isTop: false,
+      isRight: false,
+      mirrorBattlefieldY: false,
+      inverseScalePercent: 100,
+      zones: { battlefield: battlefieldZone },
+      cards: {
+        hand: [],
+        library: [],
+        graveyard: [],
+        exile: [],
+        battlefield: [],
+        commander: [],
+      },
+      opponentLibraryRevealCount: 0,
+    } as const;
+
+    const { rerender } = render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer()}
+            color="sky"
+            isMe
+            isActiveTurn
+            onActiveTurnClick={onActiveTurnClick}
+            viewerPlayerId="p1"
+            opponentColors={{ p1: "sky" }}
+            model={model as any}
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Your turn. Choose next player" }),
+    );
+    expect(onActiveTurnClick).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer({ name: "Alice" })}
+            color="sky"
+            isMe={false}
+            isActiveTurn
+            viewerPlayerId="viewer"
+            opponentColors={{ p1: "sky", viewer: "rose" }}
+            model={model as any}
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    expect(screen.queryByRole("button", { name: /Alice's turn/ })).toBeNull();
+    expect(screen.getByLabelText("Alice's turn")).not.toBeNull();
   });
 });

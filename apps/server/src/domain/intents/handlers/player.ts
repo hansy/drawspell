@@ -102,6 +102,10 @@ const handlePlayerJoin: IntentHandler = ({ actorId, maps, hidden, payload, markH
   if (typeof currentHost !== "string" || !maps.players.get(currentHost)) {
     maps.meta.set("hostId", player.id);
   }
+  const activePlayerId = maps.meta.get("activePlayerId");
+  if (typeof activePlayerId !== "string" || !maps.players.get(activePlayerId)) {
+    maps.meta.set("activePlayerId", maps.playerOrder.toArray()[0] ?? player.id);
+  }
   return { ok: true };
 };
 
@@ -295,6 +299,15 @@ const handlePlayerLeave: IntentHandler = ({ actorId, maps, hidden, payload, mark
   if (!hostId || hostId === playerId || !nextPlayers[hostId]) {
     nextMeta.hostId = resolveNextHostId(nextPlayers, nextOrder);
   }
+  const activePlayerId =
+    typeof nextMeta.activePlayerId === "string" ? nextMeta.activePlayerId : null;
+  if (!activePlayerId || activePlayerId === playerId || !nextPlayers[activePlayerId]) {
+    const departedIndex = snapshot.playerOrder.indexOf(playerId);
+    nextMeta.activePlayerId =
+      nextOrder.length > 0
+        ? nextOrder[Math.max(0, departedIndex) % nextOrder.length]
+        : null;
+  }
 
   applyRecordToMap(maps.players, nextPlayers as Record<string, unknown>);
   applyRecordToMap(maps.cards, nextCards as Record<string, unknown>);
@@ -336,8 +349,31 @@ const handlePlayerLeave: IntentHandler = ({ actorId, maps, hidden, payload, mark
   return { ok: true };
 };
 
-const handlePlayerEndTurn: IntentHandler = ({ actorId, pushLogEvent }) => {
-  pushLogEvent("player.endTurn", { actorId });
+const handlePlayerEndTurn: IntentHandler = ({ actorId, maps, payload, pushLogEvent }) => {
+  const playerOrder = maps.playerOrder
+    .toArray()
+    .filter((id): id is string => typeof id === "string" && Boolean(maps.players.get(id)));
+  if (playerOrder.length === 0) return { ok: false, error: "no players" };
+
+  const storedActivePlayerId = maps.meta.get("activePlayerId");
+  const activePlayerId =
+    typeof storedActivePlayerId === "string" && playerOrder.includes(storedActivePlayerId)
+      ? storedActivePlayerId
+      : playerOrder[0];
+  if (actorId !== activePlayerId) return { ok: false, error: "not your turn" };
+
+  const currentIndex = playerOrder.indexOf(activePlayerId);
+  const requestedNextPlayerId = payload.nextPlayerId;
+  if (
+    requestedNextPlayerId !== undefined &&
+    (typeof requestedNextPlayerId !== "string" || !playerOrder.includes(requestedNextPlayerId))
+  ) {
+    return { ok: false, error: "invalid next player" };
+  }
+  const nextPlayerId =
+    requestedNextPlayerId ?? playerOrder[(currentIndex + 1) % playerOrder.length];
+  maps.meta.set("activePlayerId", nextPlayerId);
+  pushLogEvent("player.endTurn", { actorId, nextPlayerId });
   return { ok: true };
 };
 

@@ -19,7 +19,6 @@ const PUBLIC_DOC_NOOP_INTENTS = new Set([
   "library.view.ping",
   "coin.flip",
   "dice.roll",
-  "player.endTurn",
 ]);
 
 type HiddenChangeImpact = {

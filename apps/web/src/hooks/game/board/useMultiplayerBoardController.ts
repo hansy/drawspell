@@ -86,6 +86,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const viewerRole = useGameStore((state) => state.viewerRole);
   const setViewerRole = useGameStore((state) => state.setViewerRole);
   const roomOverCapacity = useGameStore((state) => state.roomOverCapacity);
+  const activePlayerId = useGameStore((state) => state.activePlayerId);
   const activeModal = useGameStore((state) => state.activeModal);
   const setActiveModal = useGameStore((state) => state.setActiveModal);
   const overCardScale = useDragStore((state) => state.overCardScale);
@@ -447,11 +448,26 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   );
 
   const handleEndTurn = React.useCallback(() => {
-    if (isSpectator) return;
+    if (isSpectator || activePlayerId !== myPlayerId) return;
     sendLogIntent("player.endTurn", {
       actorId: myPlayerId,
     });
-  }, [isSpectator, myPlayerId, sendLogIntent]);
+  }, [activePlayerId, isSpectator, myPlayerId, sendLogIntent]);
+
+  const handleSetTurn = React.useCallback((nextPlayerId: string) => {
+    if (
+      isSpectator ||
+      activePlayerId !== myPlayerId ||
+      nextPlayerId === myPlayerId ||
+      !players[nextPlayerId]
+    ) {
+      return;
+    }
+    sendLogIntent("player.endTurn", {
+      actorId: myPlayerId,
+      nextPlayerId,
+    });
+  }, [activePlayerId, isSpectator, myPlayerId, players, sendLogIntent]);
 
   const handleOpenCoinFlipper = React.useCallback(() => {
     if (isSpectator) return;
@@ -556,6 +572,8 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     zones,
     cards,
     players,
+    playerOrder,
+    activePlayerId,
     libraryRevealsToAll,
     battlefieldViewScale,
     battlefieldGridSizing,
@@ -625,6 +643,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     handleFlipCoin,
     handleRollDice,
     handleEndTurn,
+    handleSetTurn,
     handleOpenCoinFlipper,
     handleLeave,
     handleCreateNewGame,

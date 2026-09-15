@@ -26,6 +26,7 @@ export type CommanderTaxPayload = {
 
 export type EndTurnPayload = {
   actorId?: string;
+  nextPlayerId?: string;
 };
 
 export type ManaPayload = {

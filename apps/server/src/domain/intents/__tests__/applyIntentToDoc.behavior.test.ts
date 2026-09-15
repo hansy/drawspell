@@ -93,9 +93,94 @@ describe("applyIntentToDoc", () => {
       expect(result.hiddenChanged).toBe(true);
     }
     expect(maps.meta.get("hostId")).toBe("p1");
+    expect(maps.meta.get("activePlayerId")).toBe("p1");
     expect(hidden.handOrder.p1).toEqual([]);
     expect(hidden.libraryOrder.p1).toEqual([]);
     expect(hidden.sideboardOrder.p1).toEqual([]);
+  });
+
+  it("advances the active player when the current player ends their turn", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    writePlayer(maps, makePlayer("p2"));
+    maps.meta.set("activePlayerId", "p1");
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-end-turn",
+      type: "player.endTurn",
+      payload: { actorId: "p1" },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(maps.meta.get("activePlayerId")).toBe("p2");
+    if (result.ok) {
+      expect(result.logEvents[0]).toMatchObject({
+        eventId: "player.endTurn",
+        payload: { actorId: "p1", nextPlayerId: "p2" },
+      });
+    }
+  });
+
+  it("rejects ending another player's active turn", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    writePlayer(maps, makePlayer("p2"));
+    maps.meta.set("activePlayerId", "p1");
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-end-turn-out-of-order",
+      type: "player.endTurn",
+      payload: { actorId: "p2" },
+    }, hidden);
+
+    expect(result).toEqual({ ok: false, error: "not your turn" });
+    expect(maps.meta.get("activePlayerId")).toBe("p1");
+  });
+
+  it("lets the active player choose who takes the next turn", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    writePlayer(maps, makePlayer("p2"));
+    writePlayer(maps, makePlayer("p3"));
+    maps.meta.set("activePlayerId", "p1");
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-set-turn",
+      type: "player.endTurn",
+      payload: { actorId: "p1", nextPlayerId: "p3" },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(maps.meta.get("activePlayerId")).toBe("p3");
+    if (result.ok) {
+      expect(result.logEvents[0]).toMatchObject({
+        eventId: "player.endTurn",
+        payload: { actorId: "p1", nextPlayerId: "p3" },
+      });
+    }
+  });
+
+  it("rejects setting the turn to a player outside the room", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    maps.meta.set("activePlayerId", "p1");
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-set-turn-invalid",
+      type: "player.endTurn",
+      payload: { actorId: "p1", nextPlayerId: "departed-player" },
+    }, hidden);
+
+    expect(result).toEqual({ ok: false, error: "invalid next player" });
+    expect(maps.meta.get("activePlayerId")).toBe("p1");
   });
 
   it("normalizes library top reveal recipients when a player joins", () => {
@@ -496,7 +581,7 @@ describe("applyIntentToDoc", () => {
     expect(readPlayer(maps, "p1")?.libraryTopReveal).toEqual({ toAll: true });
   });
 
-  it("logs end turn without changing public document state", () => {
+  it("logs end turn and publishes the next active player", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
     const hidden = createEmptyHiddenState();
@@ -514,12 +599,13 @@ describe("applyIntentToDoc", () => {
       expect(result.logEvents).toEqual([
         {
           eventId: "player.endTurn",
-          payload: { actorId: "p1" },
+          payload: { actorId: "p1", nextPlayerId: "p1" },
         },
       ]);
       expect(result.impact).toBeDefined();
-      expect(result.impact?.changedPublicDoc).toBe(false);
+      expect(result.impact?.changedPublicDoc).toBe(true);
     }
+    expect(maps.meta.get("activePlayerId")).toBe("p1");
     expect(readPlayer(maps, "p1")).toEqual(
       makePlayer("p1", { manaPool: { U: 2 } }),
     );
