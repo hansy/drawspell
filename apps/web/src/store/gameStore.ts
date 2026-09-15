@@ -19,7 +19,10 @@ interface GameStore extends GameState {
     // Additional actions or computed properties can go here
 }
 
-type PersistedGameStoreState = Pick<GameStore, 'playerIdsBySession' | 'sessionVersions'>;
+type PersistedGameStoreState = Pick<
+    GameStore,
+    'playerIdsBySession' | 'sessionVersions'
+>;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === 'object' && value !== null && !Array.isArray(value);

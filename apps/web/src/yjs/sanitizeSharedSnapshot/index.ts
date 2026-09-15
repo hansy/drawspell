@@ -6,6 +6,10 @@ import type {
   Player,
   Zone,
 } from "@/types";
+import {
+  MAX_BATTLEFIELD_VIEW_SCALE,
+  MIN_BATTLEFIELD_VIEW_SCALE,
+} from "@mtg/shared/constants/geometry";
 
 import { enforceZoneCounterRules } from "@/lib/counters";
 import { MAX_CARDS, MAX_CARDS_PER_ZONE } from "@/lib/limits";
@@ -192,7 +196,12 @@ export function sanitizeSharedSnapshot(snapshot: SharedSnapshotLike) {
   const safeBattlefieldViewScale: Record<string, number> = {};
   Object.entries(snapshot.battlefieldViewScale ?? {}).forEach(([pid, value]) => {
     if (!safePlayers[pid]) return;
-    safeBattlefieldViewScale[pid] = clampNumber(value, 0.5, 1, 1);
+    safeBattlefieldViewScale[pid] = clampNumber(
+      value,
+      MIN_BATTLEFIELD_VIEW_SCALE,
+      MAX_BATTLEFIELD_VIEW_SCALE,
+      1,
+    );
   });
 
   const safePlayerOrder = sanitizePlayerOrder(snapshot.playerOrder, safePlayers, MAX_PLAYERS);

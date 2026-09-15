@@ -1189,7 +1189,7 @@ describe("server migration behavior", () => {
       createEmptyHiddenState()
     );
     expect(allowed.ok).toBe(true);
-    expect(doc.getMap("battlefieldViewScale").get("p1")).toBe(1);
+    expect(doc.getMap("battlefieldViewScale").get("p1")).toBe(2);
   });
 
   it("adds global counters once without logging creation", () => {

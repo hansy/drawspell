@@ -94,6 +94,11 @@ const ShareRoomDialog = React.lazy(() =>
     default: module.ShareRoomDialog,
   })),
 );
+const ConfirmationDialog = React.lazy(() =>
+  import("../confirmation/ConfirmationDialog").then((module) => ({
+    default: module.ConfirmationDialog,
+  })),
+);
 
 type MultiplayerBoardViewProps = Omit<
   MultiplayerBoardController,
@@ -296,6 +301,9 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   handleRollDice,
   handleEndTurn,
   handleLeave,
+  confirmationRequest,
+  cancelConfirmation,
+  confirmPendingAction,
   shareLinks,
   shareLinksReady,
   shareDialogError,
@@ -936,6 +944,16 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           )}
         </div>
         <React.Suspense fallback={null}>
+          {confirmationRequest && (
+            <ConfirmationDialog
+              open
+              title={confirmationRequest.title}
+              message={confirmationRequest.message}
+              confirmLabel={confirmationRequest.confirmLabel}
+              onCancel={cancelConfirmation}
+              onConfirm={confirmPendingAction}
+            />
+          )}
           {contextMenu && (
             <ContextMenu
               x={contextMenu.x}

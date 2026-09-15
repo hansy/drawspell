@@ -5,6 +5,8 @@ import type {
   GameShortcutDefinition,
   GameShortcutId,
 } from "@/models/game/shortcuts/gameShortcuts";
+import type { RequestConfirmation } from "@/hooks/shared/useConfirmationDialog";
+import { DESTRUCTIVE_ACTION_CONFIRMATIONS } from "@/models/game/destructiveActions";
 
 export type CountPromptOptions = {
   title: string;
@@ -41,6 +43,8 @@ export const findShortcutForEvent = (
 ): GameShortcutDefinition | undefined => shortcuts.find((s) => matchesBinding(s.binding, e));
 
 export type CloseTopmostUiArgs = {
+  confirmationOpen?: boolean;
+  closeConfirmation?: () => void;
   contextMenuOpen: boolean;
   closeContextMenu: () => void;
   countPromptOpen: boolean;
@@ -75,6 +79,10 @@ type UiClosePriority = {
 };
 
 const getCloseTopmostUiPriorities = (args: CloseTopmostUiArgs): UiClosePriority[] => [
+  {
+    isOpen: Boolean(args.confirmationOpen),
+    close: args.closeConfirmation ?? (() => {}),
+  },
   { isOpen: args.contextMenuOpen, close: args.closeContextMenu },
   { isOpen: args.countPromptOpen, close: args.closeCountPrompt },
   { isOpen: args.textPromptOpen, close: args.closeTextPrompt },
@@ -100,6 +108,7 @@ export const closeTopmostUi = (args: CloseTopmostUiArgs): boolean => {
 };
 
 export const areShortcutsBlockedByUi = (args: {
+  confirmationOpen?: boolean;
   contextMenuOpen: boolean;
   countPromptOpen: boolean;
   textPromptOpen: boolean;
@@ -113,6 +122,7 @@ export const areShortcutsBlockedByUi = (args: {
   opponentRevealsOpen: boolean;
 }): boolean => {
   return (
+    args.confirmationOpen ||
     args.contextMenuOpen ||
     args.countPromptOpen ||
     args.textPromptOpen ||
@@ -156,10 +166,9 @@ export const runGameShortcut = (params: {
   openCountPrompt: (opts: CountPromptOptions) => void;
   handleViewZone: (zoneId: ZoneId, count?: number) => void;
   handleLeave: () => void;
-  confirm?: (message: string) => boolean;
+  requestConfirmation?: RequestConfirmation;
   actions: GameShortcutActions;
 }): boolean => {
-  const confirm = params.confirm ?? window.confirm.bind(window);
   const myZones = getPlayerZones(params.zones, params.myPlayerId);
 
   switch (params.id) {
@@ -219,9 +228,18 @@ export const runGameShortcut = (params: {
         onSubmit: (count) => params.actions.exile(count),
       });
       return true;
-    case "game.shuffleLibrary":
-      params.actions.shuffle();
+    case "game.shuffleLibrary": {
+      const library = myZones.library;
+      if (!library || library.cardIds.length < 2) {
+        params.actions.shuffle();
+        return true;
+      }
+      params.requestConfirmation?.({
+        ...DESTRUCTIVE_ACTION_CONFIRMATIONS.shuffleLibrary,
+        onConfirm: params.actions.shuffle,
+      });
       return true;
+    }
     case "ui.openCoinFlipper":
       params.setCoinFlipperOpen(true);
       return true;
@@ -268,22 +286,20 @@ export const runGameShortcut = (params: {
       });
       return true;
     case "deck.reset": {
-      const ok = confirm(
-        "Reset deck? This will return all owned cards to your library and reshuffle."
-      );
-      if (!ok) return true;
-      params.actions.resetDeck();
+      params.requestConfirmation?.({
+        ...DESTRUCTIVE_ACTION_CONFIRMATIONS.resetDeck,
+        onConfirm: params.actions.resetDeck,
+      });
       return true;
     }
     case "deck.unload": {
-      const ok = confirm("Unload deck? This removes your deck from the game state.");
-      if (!ok) return true;
-      params.actions.unloadDeck();
+      params.requestConfirmation?.({
+        ...DESTRUCTIVE_ACTION_CONFIRMATIONS.unloadDeck,
+        onConfirm: params.actions.unloadDeck,
+      });
       return true;
     }
     case "room.leave": {
-      const ok = confirm("Leave room?");
-      if (!ok) return true;
       params.handleLeave();
       return true;
     }

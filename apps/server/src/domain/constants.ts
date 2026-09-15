@@ -38,4 +38,5 @@ export const ROOM_TOKENS_KEY = "roomTokens";
 export const EMPTY_ROOM_STARTED_AT_KEY = "roomLifecycle:emptyStartedAt";
 export const DISCORD_INVITE_METADATA_KEY = "discordInviteMetadata";
 export const PLAYER_RESUME_TOKENS_KEY = "playerResumeTokens";
+export const PLAYER_LEAVE_TOKENS_KEY = "playerLeaveTokens";
 export const MAX_HIDDEN_STATE_CHUNK_SIZE = 120_000;

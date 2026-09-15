@@ -635,6 +635,33 @@ describe("buildZoneViewActions", () => {
 });
 
 describe("buildGroupActions", () => {
+  it("offers one destructive removal for a group of tokens", () => {
+    const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1");
+    const cards = [
+      { ...baseCard, id: "t1", zoneId: battlefield.id, isToken: true },
+      { ...baseCard, id: "t2", zoneId: battlefield.id, isToken: true },
+    ];
+    const removeCards = vi.fn();
+    const actions = buildGroupActions({
+      cards,
+      currentZone: battlefield,
+      zones: { [battlefield.id]: battlefield },
+      myPlayerId: "p1",
+      viewerRole: "player",
+      moveCards: vi.fn(),
+      setCardsReveal: vi.fn(),
+      removeCards,
+    });
+
+    const remove = actions.find(
+      (item) => item.type === "action" && item.label === "Remove Cards",
+    );
+    expect(remove).toMatchObject({ type: "action", danger: true });
+    if (!remove || remove.type !== "action") return;
+    remove.onSelect();
+    expect(removeCards).toHaveBeenCalledTimes(1);
+  });
+
   it("builds the restricted Hand group menu", () => {
     const hand = makeZone("hand", ZONE.HAND, "p1");
     const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1");

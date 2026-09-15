@@ -168,7 +168,7 @@ export const createCardActionAdapters = (params: {
 };
 
 export const createGroupActionAdapters = (params: {
-  store: Pick<GameState, "moveCards" | "setCardsReveal">;
+  store: Pick<GameState, "moveCards" | "setCardsReveal" | "removeCard">;
   myPlayerId: PlayerId;
   targetIds: CardId[];
 }) => {
@@ -190,6 +190,11 @@ export const createGroupActionAdapters = (params: {
     },
     setCardsReveal: (reveal: CardReveal) =>
       params.store.setCardsReveal(targetIds, reveal, params.myPlayerId),
+    removeCards: () => {
+      targetIds.forEach((cardId) => {
+        params.store.removeCard(cardId, params.myPlayerId);
+      });
+    },
   };
 };
 

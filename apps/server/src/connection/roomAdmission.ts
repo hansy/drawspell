@@ -5,6 +5,7 @@ import type {
 } from "../domain/types";
 import {
   DISCORD_INVITE_METADATA_KEY,
+  PLAYER_LEAVE_TOKENS_KEY,
   PLAYER_RESUME_TOKENS_KEY,
   ROOM_TOKENS_KEY,
 } from "../domain/constants";
@@ -33,6 +34,7 @@ export type PlayerResumeTokenEntry = {
 };
 
 export type PlayerResumeTokens = Record<string, PlayerResumeTokenEntry>;
+export type PlayerLeaveTokens = Record<string, string>;
 
 type RoomAdmissionStorage = {
   get<T = unknown>(key: string): Promise<T | undefined>;
@@ -73,6 +75,8 @@ export class RoomAdmission {
   private roomTokens: RoomTokens | null = null;
   private playerResumeTokens: PlayerResumeTokens | null = null;
   private playerResumeTokensMutation: Promise<void> = Promise.resolve();
+  private playerLeaveTokens: PlayerLeaveTokens | null = null;
+  private playerLeaveTokensMutation: Promise<void> = Promise.resolve();
   private storage: RoomAdmissionStorage;
   private resumeTokenTtlMs: number;
   private generateToken: () => string;
@@ -103,6 +107,8 @@ export class RoomAdmission {
     this.roomTokens = null;
     this.playerResumeTokens = null;
     this.playerResumeTokensMutation = Promise.resolve();
+    this.playerLeaveTokens = null;
+    this.playerLeaveTokensMutation = Promise.resolve();
   }
 
   async loadRoomTokens(): Promise<RoomTokens | null> {
@@ -296,6 +302,105 @@ export class RoomAdmission {
         return { result: false, nextTokens };
       }
       return { result: existing.token === normalizedToken };
+    });
+  }
+
+  private async loadPlayerLeaveTokens(): Promise<PlayerLeaveTokens> {
+    if (this.playerLeaveTokens) return this.playerLeaveTokens;
+    const stored = await this.storage.get<unknown>(PLAYER_LEAVE_TOKENS_KEY);
+    const normalized: PlayerLeaveTokens = {};
+    if (stored && typeof stored === "object") {
+      for (const [playerId, token] of Object.entries(
+        stored as Record<string, unknown>,
+      )) {
+        if (typeof token !== "string") continue;
+        const normalizedPlayerId = playerId.trim();
+        const normalizedToken = token.trim();
+        if (normalizedPlayerId && normalizedToken) {
+          normalized[normalizedPlayerId] = normalizedToken;
+        }
+      }
+    }
+    this.playerLeaveTokens = normalized;
+    return normalized;
+  }
+
+  private async mutatePlayerLeaveTokens<T>(
+    mutator: (tokens: PlayerLeaveTokens) => {
+      result: T;
+      nextTokens?: PlayerLeaveTokens;
+    },
+  ): Promise<T> {
+    const operation = this.playerLeaveTokensMutation.then(async () => {
+      const tokens = await this.loadPlayerLeaveTokens();
+      const { result, nextTokens } = mutator(tokens);
+      if (nextTokens) {
+        this.playerLeaveTokens = nextTokens;
+        await this.storage.put(PLAYER_LEAVE_TOKENS_KEY, nextTokens);
+      }
+      return result;
+    });
+    this.playerLeaveTokensMutation = operation.then(
+      () => undefined,
+      () => undefined,
+    );
+    return operation;
+  }
+
+  async ensurePlayerLeaveToken(
+    playerId: string,
+    options?: { rotate?: boolean },
+  ): Promise<string> {
+    const normalizedPlayerId = playerId.trim();
+    return this.mutatePlayerLeaveTokens((tokens) => {
+      const existing = tokens[normalizedPlayerId];
+      if (existing && !options?.rotate) return { result: existing };
+      const created = this.generateToken();
+      return {
+        result: created,
+        nextTokens: { ...tokens, [normalizedPlayerId]: created },
+      };
+    });
+  }
+
+  async validatePlayerLeaveToken(
+    playerId: string,
+    leaveToken: string,
+  ): Promise<boolean> {
+    const normalizedPlayerId = playerId.trim();
+    const normalizedToken = leaveToken.trim();
+    if (!normalizedPlayerId || !normalizedToken) return false;
+    const tokens = await this.loadPlayerLeaveTokens();
+    return tokens[normalizedPlayerId] === normalizedToken;
+  }
+
+  async revokePlayerLeaveToken(playerId: string): Promise<void> {
+    const normalizedPlayerId = playerId.trim();
+    if (!normalizedPlayerId) return;
+    await this.mutatePlayerLeaveTokens((tokens) => {
+      if (!tokens[normalizedPlayerId]) return { result: undefined };
+      const { [normalizedPlayerId]: _removed, ...nextTokens } = tokens;
+      return { result: undefined, nextTokens };
+    });
+  }
+
+  async restorePlayerLeaveToken(
+    playerId: string,
+    leaveToken?: string,
+  ): Promise<void> {
+    const normalizedPlayerId = playerId.trim();
+    if (!normalizedPlayerId) return;
+    const normalizedToken =
+      typeof leaveToken === "string" ? leaveToken.trim() : "";
+    await this.mutatePlayerLeaveTokens((tokens) => {
+      if (!normalizedToken) {
+        const { [normalizedPlayerId]: _removed, ...nextTokens } = tokens;
+        return { result: undefined, nextTokens };
+      }
+      return {
+        result: undefined,
+        nextTokens: { ...tokens, [normalizedPlayerId]: normalizedToken },
+      };
     });
   }
 

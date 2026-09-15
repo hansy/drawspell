@@ -1541,6 +1541,7 @@ describe("server lifecycle guards", () => {
     expect(roomTokensMessage?.payload?.playerToken).toBeTypeOf("string");
     expect(roomTokensMessage?.payload?.spectatorToken).toBeTypeOf("string");
     expect(roomTokensMessage?.payload?.resumeToken).toBeTypeOf("string");
+    expect(roomTokensMessage?.payload?.leaveToken).toBeTypeOf("string");
   });
 
   it("keeps normal intent auth free of routine debug logs", async () => {
@@ -1830,6 +1831,45 @@ describe("server lifecycle guards", () => {
     tokens.p1.expiresAt = Date.now() - 1;
 
     expect(await (server as any).validatePlayerResumeToken("p1", rotated)).toBe(false);
+  });
+
+  it("rotates leave authorization when player ownership resumes elsewhere", async () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const initialResumeToken = await (server as any).ensurePlayerResumeToken("p1");
+    const initialLeaveToken = await (server as any).admission.ensurePlayerLeaveToken(
+      "p1",
+    );
+    const conn = new TestConnection();
+    conn.id = "resumed-device-intent";
+    const sent: string[] = [];
+    conn.send = (payload: string) => sent.push(payload);
+
+    await (server as any).bindIntentConnection(
+      conn,
+      new URL(
+        `https://example.test/?role=intent&playerId=p1&rt=${initialResumeToken}&cid=new-device&gt=player-token`,
+      ),
+    );
+
+    const roomTokensMessage = sent
+      .map((raw) => JSON.parse(raw) as { type?: string; payload?: Record<string, unknown> })
+      .find((message) => message.type === "roomTokens");
+    const rotatedLeaveToken = roomTokensMessage?.payload?.leaveToken;
+    expect(rotatedLeaveToken).toBeTypeOf("string");
+    expect(rotatedLeaveToken).not.toBe(initialLeaveToken);
+    expect(
+      await (server as any).admission.validatePlayerLeaveToken(
+        "p1",
+        initialLeaveToken,
+      ),
+    ).toBe(false);
+    expect(
+      await (server as any).admission.validatePlayerLeaveToken(
+        "p1",
+        rotatedLeaveToken,
+      ),
+    ).toBe(true);
   });
 
   it("preserves concurrent resume token issuance for different players", async () => {
@@ -2631,5 +2671,79 @@ describe("room status", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ exists: false });
+  });
+});
+
+describe("landing-page Leave Room", () => {
+  it("applies an authenticated player departure before responding", async () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const leaveToken = await (server as any).admission.ensurePlayerLeaveToken("p1");
+    const { applyIntentToDoc } = await import("../domain/intents/applyIntentToDoc");
+    const applyMock = vi.mocked(applyIntentToDoc);
+    applyMock.mockClear();
+
+    const response = await server.onRequest(
+      new Request("https://internal/__room/leave", {
+        method: "POST",
+        headers: {
+          "x-drawspell-room-access-token": leaveToken,
+          "x-drawspell-room-player-id": "p1",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(applyMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        type: "player.leave",
+        payload: { playerId: "p1", actorId: "p1" },
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("rejects a credential that is not bound to the departing player", async () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const otherPlayerToken = await (server as any).admission.ensurePlayerLeaveToken("p2");
+
+    const response = await server.onRequest(
+      new Request("https://internal/__room/leave", {
+        method: "POST",
+        headers: {
+          "x-drawspell-room-access-token": otherPlayerToken,
+          "x-drawspell-room-player-id": "p1",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(401);
+  });
+
+  it("reports success when token cleanup fails after departure commits", async () => {
+    const state = createState();
+    const server = new Room(state, createEnv());
+    const leaveToken = await (server as any).admission.ensurePlayerLeaveToken("p1");
+    vi.spyOn((server as any).admission, "revokePlayerLeaveToken").mockRejectedValueOnce(
+      new Error("storage unavailable"),
+    );
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await server.onRequest(
+      new Request("https://internal/__room/leave", {
+        method: "POST",
+        headers: {
+          "x-drawspell-room-access-token": leaveToken,
+          "x-drawspell-room-player-id": "p1",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ left: true });
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });

@@ -21,6 +21,22 @@ describe("sanitizeSharedSnapshot", () => {
     expect(safe.players.p1.name.length).toBeLessThanOrEqual(MAX_NAME_LENGTH);
   });
 
+  it("clamps battlefield zoom to the shared 0.5x through 2x range", () => {
+    const safe = sanitizeSharedSnapshot({
+      players: {
+        p1: { id: "p1", name: "P1", life: 40 },
+        p2: { id: "p2", name: "P2", life: 40 },
+      },
+      zones: {},
+      cards: {},
+      globalCounters: {},
+      battlefieldViewScale: { p1: 4, p2: 0.1 },
+      playerOrder: [],
+    });
+
+    expect(safe.battlefieldViewScale).toEqual({ p1: 2, p2: 0.5 });
+  });
+
   it("preserves and bounds public floating mana", () => {
     const safe = sanitizeSharedSnapshot({
       players: {

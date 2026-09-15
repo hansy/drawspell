@@ -33,6 +33,8 @@ import {
   requestShareLinks,
 } from "@/partykit/shareLinksClient";
 import { getPortraitViewportMatch } from "@/models/game/board/viewportModel";
+import { useConfirmationDialog } from "@/hooks/shared/useConfirmationDialog";
+import { DESTRUCTIVE_ACTION_CONFIRMATIONS } from "@/models/game/destructiveActions";
 
 const IDLE_TIMEOUT_MS = 10 * 60_000;
 const IDLE_POLL_MS = 30_000;
@@ -58,6 +60,7 @@ const getDefaultLogOpen = () => {
 
 export const useMultiplayerBoardController = (sessionId: string) => {
   const navigate = useNavigate();
+  const confirmation = useConfirmationDialog();
 
   const zones = useGameStore((state) => state.zones);
   const cards = useGameStore((state) => state.cards);
@@ -193,12 +196,22 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     };
   }, [sendLogIntent, zoneViewerState.isOpen, zoneViewerState.zoneId]);
 
-  const handleLeave = React.useCallback(() => {
+  const performLeave = React.useCallback(() => {
     useGameStore.getState().leaveGame();
     navigate({ to: "/" });
   }, [navigate]);
 
   const isSpectator = viewerRole === "spectator";
+  const handleLeave = React.useCallback(() => {
+    if (isSpectator) {
+      performLeave();
+      return;
+    }
+    confirmation.requestConfirmation({
+      ...DESTRUCTIVE_ACTION_CONFIRMATIONS.leaveRoom,
+      onConfirm: performLeave,
+    });
+  }, [confirmation.requestConfirmation, isSpectator, performLeave]);
 
   const handleIdleTimeout = React.useCallback(() => {
     navigate({ to: "/" });
@@ -239,6 +252,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     handleViewZone,
     () => setIsCoinFlipperOpen(true),
     () => setIsDiceRollerOpen(true),
+    confirmation.requestConfirmation,
   );
 
   const [isLoadDeckModalOpen, setIsLoadDeckModalOpen] = React.useState(false);
@@ -452,6 +466,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const isJoinBlocked = !isSpectator && joinBlocked && !players[myPlayerId];
 
   const zoomControlsBlocked = areShortcutsBlockedByUi({
+    confirmationOpen: Boolean(confirmation.request),
     contextMenuOpen: Boolean(contextMenu),
     countPromptOpen: Boolean(countPrompt),
     textPromptOpen: Boolean(textPrompt),
@@ -466,6 +481,9 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   });
 
   useGameShortcuts({
+    confirmationOpen: Boolean(confirmation.request),
+    closeConfirmation: confirmation.cancel,
+    requestConfirmation: confirmation.requestConfirmation,
     viewerRole,
     myPlayerId,
     zones,
@@ -532,6 +550,9 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   );
 
   return {
+    confirmationRequest: confirmation.request,
+    cancelConfirmation: confirmation.cancel,
+    confirmPendingAction: confirmation.confirm,
     zones,
     cards,
     players,

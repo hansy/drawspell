@@ -131,16 +131,17 @@ export const readRoomTokensFromStorage = (
     const payload: RoomTokensPayload = {};
     if (typeof parsed.playerToken === "string") payload.playerToken = parsed.playerToken;
     if (typeof parsed.spectatorToken === "string") payload.spectatorToken = parsed.spectatorToken;
+    if (typeof parsed.leaveToken === "string") payload.leaveToken = parsed.leaveToken;
     if (typeof parsed.resumeToken === "string") {
       // Resume links are private takeover credentials and should not persist in
       // long-lived browser storage.
-      if (payload.playerToken || payload.spectatorToken) {
+      if (payload.playerToken || payload.spectatorToken || payload.leaveToken) {
         storage.setItem(tokenKey(sessionId), JSON.stringify(payload));
       } else {
         storage.removeItem(tokenKey(sessionId));
       }
     }
-    return payload.playerToken || payload.spectatorToken ? payload : null;
+    return payload.playerToken || payload.spectatorToken || payload.leaveToken ? payload : null;
   } catch (_err) {
     return null;
   }
@@ -151,13 +152,14 @@ export const writeRoomTokensToStorage = (
   tokens: RoomTokensPayload | null
 ) => {
   if (!sessionId) return;
-  if (!tokens || (!tokens.playerToken && !tokens.spectatorToken)) {
+  if (!tokens || (!tokens.playerToken && !tokens.spectatorToken && !tokens.leaveToken)) {
     storage.removeItem(tokenKey(sessionId));
     return;
   }
   const payload: RoomTokensPayload = {};
   if (tokens.playerToken) payload.playerToken = tokens.playerToken;
   if (tokens.spectatorToken) payload.spectatorToken = tokens.spectatorToken;
+  if (tokens.leaveToken) payload.leaveToken = tokens.leaveToken;
   try {
     storage.setItem(tokenKey(sessionId), JSON.stringify(payload));
   } catch (_err) {}
@@ -199,5 +201,7 @@ export const mergeRoomTokens = (
 ): RoomTokensPayload | null => {
   if (!base && !update) return null;
   const next = { ...(base ?? {}), ...(update ?? {}) };
-  return next.playerToken || next.spectatorToken || next.resumeToken ? next : null;
+  return next.playerToken || next.spectatorToken || next.resumeToken || next.leaveToken
+    ? next
+    : null;
 };

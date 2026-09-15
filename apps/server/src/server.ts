@@ -108,7 +108,10 @@ const ROOM_ADMIN_INTERNAL_REPAIR_PATH = "/__admin/rooms/repair";
 const ROOM_ADMIN_AUTH_HEADER = "x-drawspell-room-admin-auth";
 const ROOM_STATUS_PATH = "/rooms/status";
 const ROOM_STATUS_INTERNAL_PATH = "/__room/status";
+const ROOM_LEAVE_PATH = "/rooms/leave";
+const ROOM_LEAVE_INTERNAL_PATH = "/__room/leave";
 const ROOM_ACCESS_TOKEN_HEADER = "x-drawspell-room-access-token";
+const ROOM_PLAYER_ID_HEADER = "x-drawspell-room-player-id";
 const OVERLAY_DIFF_CAPABILITY = "overlay-diff-v1";
 const PERF_METRICS_ENABLED = false;
 const PERF_METRICS_ALLOW_PARAM = false;
@@ -509,6 +512,50 @@ const handleRoomStatusRequest = async (
   }
 };
 
+const handleRoomLeaveRequest = async (
+  request: Request,
+  env: Env,
+): Promise<Response> => {
+  if (request.method !== "POST") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+  if (!env.rooms) {
+    return new Response("Rooms namespace unavailable", { status: 503 });
+  }
+
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch (_err) {
+    return new Response("Invalid JSON body", { status: 400 });
+  }
+  if (!rawBody || typeof rawBody !== "object") {
+    return new Response("Invalid request body", { status: 400 });
+  }
+  const body = rawBody as Record<string, unknown>;
+  const roomId = normalizeNonEmptyString(body.roomId);
+  const playerId = normalizeNonEmptyString(body.playerId);
+  const leaveToken = normalizeNonEmptyString(body.leaveToken);
+  if (!roomId || roomId.length > 128 || !playerId || !leaveToken) {
+    return new Response("Invalid request body", { status: 400 });
+  }
+
+  const roomRequest = new Request(`https://internal${ROOM_LEAVE_INTERNAL_PATH}`, {
+    method: "POST",
+    headers: {
+      "x-partykit-namespace": "rooms",
+      "x-partykit-room": roomId,
+      [ROOM_ACCESS_TOKEN_HEADER]: leaveToken,
+      [ROOM_PLAYER_ID_HEADER]: playerId,
+    },
+  });
+  try {
+    return await env.rooms.get(env.rooms.idFromName(roomId)).fetch(roomRequest);
+  } catch (_err) {
+    return new Response("Leave Room unavailable", { status: 503 });
+  }
+};
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
@@ -535,6 +582,9 @@ export default {
       }
       if (url.pathname === ROOM_STATUS_PATH) {
         return handleRoomStatusRequest(request, env);
+      }
+      if (url.pathname === ROOM_LEAVE_PATH) {
+        return handleRoomLeaveRequest(request, env);
       }
       if (url.pathname === DISCORD_ROOM_PROVISION_PATH) {
         if (request.method !== "POST") {
@@ -699,6 +749,74 @@ export class Room extends YServer<Env> {
             accessToken === tokens.spectatorToken),
       );
       return Response.json({ exists });
+    }
+    if (url.pathname === ROOM_LEAVE_INTERNAL_PATH) {
+      if (request.method !== "POST") {
+        return new Response("Method not allowed", { status: 405 });
+      }
+      const leaveToken = normalizeNonEmptyString(
+        request.headers.get(ROOM_ACCESS_TOKEN_HEADER),
+      );
+      const playerId = normalizeNonEmptyString(
+        request.headers.get(ROOM_PLAYER_ID_HEADER),
+      );
+      if (!leaveToken || !playerId) {
+        return new Response("Missing player", { status: 400 });
+      }
+      const authenticated = await this.admission.validatePlayerLeaveToken(
+        playerId,
+        leaveToken,
+      );
+      if (!authenticated) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      const resetGeneration = this.resetGeneration;
+      const intent: Intent = {
+        id: crypto.randomUUID(),
+        type: "player.leave",
+        payload: { playerId, actorId: playerId },
+      };
+      const hidden = await this.ensureHiddenState(this.document);
+      const result = applyIntentToDoc(this.document, intent, hidden);
+      if (!result.ok) {
+        return new Response(result.error ?? "Leave Room rejected", {
+          status: 409,
+        });
+      }
+
+      if (this.shouldLogIntent(Boolean(result.hiddenChanged), result.impact)) {
+        const logged = await this.appendIntentLog(
+          intent,
+          resetGeneration,
+          "http-leave",
+        );
+        if (!logged) {
+          this.enqueueHiddenStatePersist(resetGeneration, "http-leave");
+        }
+        this.scheduleHiddenStatePersist(resetGeneration, "http-leave");
+      }
+      if (result.hiddenChanged) {
+        try {
+          await this.broadcastOverlays(result.impact);
+        } catch (error) {
+          console.error("[party] failed to broadcast overlays after Leave Room", {
+            room: this.name,
+            playerId,
+            error,
+          });
+        }
+      }
+      try {
+        await this.admission.revokePlayerLeaveToken(playerId);
+      } catch (error) {
+        console.error("[party] failed to revoke Leave Room token", {
+          room: this.name,
+          playerId,
+          error,
+        });
+      }
+      return Response.json({ left: true });
     }
     if (url.pathname === ROOM_ADMIN_INTERNAL_PROBE_PATH) {
       return this.handleRoomAdminRequest(request, "probe");
@@ -1864,12 +1982,14 @@ export class Room extends YServer<Env> {
     tokens: RoomTokens,
     viewerRole: "player" | "spectator",
     resumeToken?: string,
+    leaveToken?: string,
   ): boolean {
     const payload =
       viewerRole === "player"
         ? {
             ...tokens,
             ...(resumeToken ? { resumeToken } : {}),
+            ...(leaveToken ? { leaveToken } : {}),
           }
         : { spectatorToken: tokens.spectatorToken };
     try {
@@ -3133,9 +3253,18 @@ export class Room extends YServer<Env> {
         : undefined);
     const priorResumeToken =
       auth.resumed && resolvedRole === "player" ? state.resumeToken : undefined;
-    const rollbackResumeToken = async () => {
-      if (!priorResumeToken || !resolvedPlayerId) return;
-      await this.restorePlayerResumeToken(resolvedPlayerId, priorResumeToken);
+    let priorLeaveToken: string | undefined;
+    const rollbackRotatedCredentials = async () => {
+      if (!resolvedPlayerId) return;
+      if (priorResumeToken) {
+        await this.restorePlayerResumeToken(resolvedPlayerId, priorResumeToken);
+      }
+      if (auth.resumed && priorLeaveToken) {
+        await this.admission.restorePlayerLeaveToken(
+          resolvedPlayerId,
+          priorLeaveToken,
+        );
+      }
     };
     this.logHandoffDebug("intent.auth.accepted", () => ({
       room: this.name,
@@ -3168,6 +3297,7 @@ export class Room extends YServer<Env> {
     connectionRegistered = true;
 
     let resumeToken: string | undefined;
+    let leaveToken: string | undefined;
     try {
       resumeToken =
         resolvedRole === "player" && resolvedPlayerId
@@ -3175,6 +3305,17 @@ export class Room extends YServer<Env> {
               rotate: auth.resumed,
             })
           : undefined;
+      leaveToken =
+        resolvedRole === "player" && resolvedPlayerId
+          ? await this.admission.ensurePlayerLeaveToken(resolvedPlayerId)
+          : undefined;
+      if (auth.resumed && resolvedPlayerId && leaveToken) {
+        priorLeaveToken = leaveToken;
+        leaveToken = await this.admission.ensurePlayerLeaveToken(
+          resolvedPlayerId,
+          { rotate: true },
+        );
+      }
     } catch (err) {
       console.error("[party] failed to rotate resume token", {
         room: this.name,
@@ -3186,8 +3327,9 @@ export class Room extends YServer<Env> {
             : String(err),
       });
       try {
-        await rollbackResumeToken();
+        await rollbackRotatedCredentials();
         resumeToken = priorResumeToken;
+        leaveToken = priorLeaveToken;
       } catch (_rollbackErr) {
         rejectConnection("internal error", 1011);
         return;
@@ -3201,7 +3343,7 @@ export class Room extends YServer<Env> {
     }
 
     if (this.isConnectionClosed(conn)) {
-      await rollbackResumeToken();
+      await rollbackRotatedCredentials();
       return;
     }
 
@@ -3214,6 +3356,7 @@ export class Room extends YServer<Env> {
       hasPlayerToken: Boolean(activeTokens?.playerToken),
       hasSpectatorToken: Boolean(activeTokens?.spectatorToken),
       generatedResumeToken: summarizeSecretToken(resumeToken),
+      generatedLeaveToken: summarizeSecretToken(leaveToken),
     }));
 
     if (activeTokens) {
@@ -3222,10 +3365,11 @@ export class Room extends YServer<Env> {
         activeTokens,
         resolvedRole,
         resumeToken,
+        leaveToken,
       );
       if (!sent) {
         try {
-          await rollbackResumeToken();
+          await rollbackRotatedCredentials();
         } catch (_rollbackErr) {}
         rejectConnection("internal error", 1011);
         return;

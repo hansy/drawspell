@@ -2,6 +2,7 @@ import * as React from "react";
 
 import { useGameStore } from "@/store/gameStore";
 import { debugLog, type DebugFlagKey } from "@/lib/debug";
+import { BATTLEFIELD_VIEW_SCALE_STEP } from "@mtg/shared/constants/geometry";
 
 export type UseBattlefieldZoomControlsArgs = {
   playerId: string;
@@ -29,7 +30,7 @@ export const useBattlefieldZoomControls = ({
 
       const currentScale =
         useGameStore.getState().battlefieldViewScale[playerId] ?? 1;
-      const delta = 0.05;
+      const delta = BATTLEFIELD_VIEW_SCALE_STEP;
       const nextScale = direction === "in"
         ? currentScale + delta
         : currentScale - delta;

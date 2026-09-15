@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { createRoomId } from "@/lib/roomId";
 import {
@@ -18,6 +19,10 @@ import { OrbitAnimation } from "@/components/landing/OrbitAnimation";
 import { ResumeCard } from "@/components/landing/ResumeCard";
 import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
 import { getRoomStatus } from "@/server/roomStatus";
+import { leaveRoom } from "@/server/leaveRoom";
+import { useConfirmationDialog } from "@/hooks/shared/useConfirmationDialog";
+import { DESTRUCTIVE_ACTION_CONFIRMATIONS } from "@/models/game/destructiveActions";
+import { ConfirmationDialog } from "@/components/game/confirmation/ConfirmationDialog";
 
 const origins = resolveOriginsForEnv(import.meta.env.VITE_ENV);
 type GameRuntimeWindow = Window & { __drawspellGameRuntimeLoaded?: boolean };
@@ -36,6 +41,7 @@ const cleanupGameRuntime = async () => {
 
 export const LandingPage = () => {
   const navigate = useNavigate();
+  const confirmation = useConfirmationDialog();
   const hasHydrated = useClientPrefsStore((state) => state.hasHydrated);
   const lastSessionId = useClientPrefsStore((state) => state.lastSessionId);
   const clearLastSessionId = useClientPrefsStore(
@@ -43,6 +49,7 @@ export const LandingPage = () => {
   );
   const [resumeSessionId, setResumeSessionId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   // Debug toggle: show the CTA even when the reconnect card is visible.
   const showCtaWithReconnect = false;
 
@@ -140,20 +147,62 @@ export const LandingPage = () => {
     });
   };
 
-  const handleLeave = () => {
-    if (!resumeSessionId) return;
-    clearRoomHostPending(resumeSessionId);
-    writeRoomTokensToStorage(resumeSessionId, null);
+  const clearLocalRoom = async (sessionId: string) => {
+    clearRoomHostPending(sessionId);
+    writeRoomTokensToStorage(sessionId, null);
     clearLastSessionId();
     setResumeSessionId(null);
 
-    void import("@/store/gameStore").then(({ useGameStore }) => {
-      const store = useGameStore.getState();
-      store.setRoomTokens(null);
-      store.forgetSessionIdentity(resumeSessionId);
-      store.resetSession();
+    const { useGameStore } = await import("@/store/gameStore");
+    const store = useGameStore.getState();
+    store.setRoomTokens(null);
+    store.forgetSessionIdentity(sessionId);
+    store.resetSession();
+    await cleanupGameRuntime();
+  };
+
+  const performPlayerLeave = async (sessionId: string) => {
+    if (isLeaving) return;
+    const { useGameStore } = await import("@/store/gameStore");
+    const state = useGameStore.getState();
+    const playerId = state.playerIdsBySession[sessionId];
+    const leaveToken = readRoomTokensFromStorage(sessionId)?.leaveToken;
+    if (!leaveToken || !playerId) {
+      toast.error("Unable to verify your player identity for this Room.");
+      return;
+    }
+
+    setIsLeaving(true);
+    try {
+      await leaveRoom({
+        data: {
+          roomId: sessionId,
+          playerId,
+          leaveToken,
+        },
+      });
+      await clearLocalRoom(sessionId);
+    } catch (_error) {
+      toast.error("Unable to leave the Room. Please try again.");
+    } finally {
+      setIsLeaving(false);
+    }
+  };
+
+  const handleLeave = () => {
+    if (!resumeSessionId || isLeaving) return;
+    const sessionId = resumeSessionId;
+    const storedTokens = readRoomTokensFromStorage(sessionId);
+    if (!storedTokens?.playerToken) {
+      void clearLocalRoom(sessionId);
+      return;
+    }
+    confirmation.requestConfirmation({
+      ...DESTRUCTIVE_ACTION_CONFIRMATIONS.leaveRoom,
+      onConfirm: () => {
+        void performPlayerLeave(sessionId);
+      },
     });
-    void cleanupGameRuntime();
   };
 
   return (
@@ -177,7 +226,11 @@ export const LandingPage = () => {
           }
           secondaryPanel={
             resumeSessionId ? (
-              <ResumeCard onReconnect={handleReconnect} onLeave={handleLeave} />
+              <ResumeCard
+                onReconnect={handleReconnect}
+                onLeave={handleLeave}
+                isLeaving={isLeaving}
+              />
             ) : null
           }
           primaryAction={
@@ -203,6 +256,16 @@ export const LandingPage = () => {
         />
         <FooterLinks />
       </div>
+      {confirmation.request && (
+        <ConfirmationDialog
+          open
+          title={confirmation.request.title}
+          message={confirmation.request.message}
+          confirmLabel={confirmation.request.confirmLabel}
+          onCancel={confirmation.cancel}
+          onConfirm={confirmation.confirm}
+        />
+      )}
     </div>
   );
 };

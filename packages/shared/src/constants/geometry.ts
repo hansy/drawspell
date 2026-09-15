@@ -2,6 +2,9 @@
 export const CARD_ASPECT_RATIO = 63 / 88;
 export const BATTLEFIELD_SLOT_ASPECT_RATIO = 2 / 3;
 export const BASE_CARD_HEIGHT = 120; // Base height in px
+export const MIN_BATTLEFIELD_VIEW_SCALE = 0.5;
+export const MAX_BATTLEFIELD_VIEW_SCALE = 2;
+export const BATTLEFIELD_VIEW_SCALE_STEP = 0.05;
 
 export const LEGACY_BATTLEFIELD_WIDTH = 1000;
 export const LEGACY_BATTLEFIELD_HEIGHT = 600;

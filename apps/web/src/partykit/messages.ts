@@ -75,6 +75,7 @@ export type RoomTokensPayload = {
   playerToken?: string;
   spectatorToken?: string;
   resumeToken?: string;
+  leaveToken?: string;
 };
 
 export type RoomTokensMessage = {

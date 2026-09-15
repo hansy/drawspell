@@ -1,5 +1,9 @@
 import type { Player } from '@/types';
 import {
+  MAX_BATTLEFIELD_VIEW_SCALE,
+  MIN_BATTLEFIELD_VIEW_SCALE,
+} from '@mtg/shared/constants/geometry';
+import {
   normalizeLibraryTopRevealMode,
   normalizeManaPool,
 } from '@mtg/shared/types/players';
@@ -144,6 +148,9 @@ export function patchPlayer(maps: SharedMaps, playerId: string, updates: Partial
 }
 
 export function setBattlefieldViewScale(maps: SharedMaps, playerId: string, scale: number) {
-  const clamped = Math.max(0.5, Math.min(1, scale));
+  const clamped = Math.max(
+    MIN_BATTLEFIELD_VIEW_SCALE,
+    Math.min(MAX_BATTLEFIELD_VIEW_SCALE, scale),
+  );
   maps.battlefieldViewScale.set(playerId, clamped);
 }

@@ -29,8 +29,8 @@ describe('gameStore ui actions', () => {
     useGameStore.getState().setBattlefieldViewScale('me', 0.1);
     expect(useGameStore.getState().battlefieldViewScale.me).toBe(0.5);
 
-    useGameStore.getState().setBattlefieldViewScale('me', 2);
-    expect(useGameStore.getState().battlefieldViewScale.me).toBe(1);
+    useGameStore.getState().setBattlefieldViewScale('me', 3);
+    expect(useGameStore.getState().battlefieldViewScale.me).toBe(2);
 
     useGameStore.getState().setBattlefieldViewScale('me', 0.8);
     expect(useGameStore.getState().battlefieldViewScale.me).toBe(0.8);

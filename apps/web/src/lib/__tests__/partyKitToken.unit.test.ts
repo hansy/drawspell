@@ -32,6 +32,19 @@ describe("partyKitToken storage", () => {
     );
   });
 
+  it("persists the scoped leave token", () => {
+    writeRoomTokensToStorage("session-leave", {
+      playerToken: "player-token",
+      leaveToken: "leave-token",
+      resumeToken: "resume-token",
+    });
+
+    expect(readRoomTokensFromStorage("session-leave")).toEqual({
+      playerToken: "player-token",
+      leaveToken: "leave-token",
+    });
+  });
+
   it("strips legacy persisted resume-only payloads", () => {
     window.localStorage.setItem(
       keyFor("session-2"),

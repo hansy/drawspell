@@ -8,6 +8,10 @@ Drawspell is a multiplayer tabletop for Magic: The Gathering cards, with realtim
 A realtime tabletop space backed by one Yjs document and one PartyServer Durable Object.
 _Avoid_: lobby, game session
 
+**Leave Room**:
+The player action that removes that player and their owned game objects from a Room, then removes the player's local ability to resume it. Clearing only local Room credentials is not Leave Room.
+_Avoid_: forget room, leave game
+
 **Yjs Document**:
 The shared realtime public state for a Room.
 _Avoid_: store, database
@@ -31,6 +35,10 @@ _Avoid_: log line, activity event, debug event, connection event
 **Card Movement Resolution**:
 The domain decision for how a card changes zone, controller, position, face-down status, reveal status, counters, and commander status during a move.
 _Avoid_: move helper, drag logic
+
+**Explicit Shuffle**:
+A standalone Shuffle action deliberately requested by a player. Shuffling performed as part of Reset, Mulligan, Deck Import, or another composite action is not an Explicit Shuffle.
+_Avoid_: automatic shuffle, internal shuffle
 
 **Deck Import**:
 The process that turns an external deck list and Scryfall card data into Drawspell cards for a player who does not already have an imported deck in the Room.
@@ -59,6 +67,7 @@ _Avoid_: Discord game, slash-command room
 ## Relationships
 
 - A **Room** has exactly one **Yjs Document**.
+- **Leave Room** removes one player's participation and owned game objects from a **Room**.
 - A **Room** has server-owned **Hidden State** when cards are in hidden zones or face-down on the battlefield.
 - A **Private Overlay** is derived from **Hidden State** for one viewer.
 - A **Room** has one **Game Log** made of public **Game Log Events** for that Room's lifetime.

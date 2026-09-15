@@ -22,6 +22,11 @@ import { ZONE } from "@/constants/zones";
 import { getShortcutLabel } from "@/models/game/shortcuts/gameShortcuts";
 import type { ContextMenuItem } from "@/models/game/context-menu/menu/types";
 import { requestCardPreviewLock } from "@/lib/cardPreviewLock";
+import type { RequestConfirmation } from "@/hooks/shared/useConfirmationDialog";
+import {
+    DESTRUCTIVE_ACTION_CONFIRMATIONS,
+    removeTokensConfirmation,
+} from "@/models/game/destructiveActions";
 
 import { fetchBattlefieldRelatedParts } from "./relatedParts";
 import {
@@ -36,9 +41,10 @@ import { useContextMenuState } from "./useContextMenuState";
 export const useGameContextMenu = (
     viewerRole: ViewerRole | undefined,
     myPlayerId: string,
-    onViewZone?: (zoneId: ZoneId, count?: number) => void,
-    onFlipCoin?: () => void,
-    onRollDice?: () => void
+    onViewZone: ((zoneId: ZoneId, count?: number) => void) | undefined,
+    onFlipCoin: (() => void) | undefined,
+    onRollDice: (() => void) | undefined,
+    requestConfirmation: RequestConfirmation,
 ) => {
     const isSpectator = viewerRole === "spectator";
     const {
@@ -201,6 +207,12 @@ export const useGameContextMenu = (
                     myPlayerId,
                     viewerRole,
                     ...adapters,
+                    removeCards: () => {
+                        requestConfirmation({
+                            ...removeTokensConfirmation(selectedCards.length),
+                            onConfirm: adapters.removeCards,
+                        });
+                    },
                 });
                 if (groupActions.length > 0) {
                     openContextMenu(
@@ -267,13 +279,41 @@ export const useGameContextMenu = (
             openCountPrompt,
             libraryTopReveal,
             setLibraryTopReveal,
-            ...createZoneActionAdapters({ store, myPlayerId }),
+            ...(() => {
+                const adapters = createZoneActionAdapters({ store, myPlayerId });
+                return {
+                    ...adapters,
+                    shuffleLibrary: (playerId: string) => {
+                        const library = getPlayerZones(store.zones, playerId).library;
+                        if (!library || library.cardIds.length < 2) {
+                            adapters.shuffleLibrary(playerId);
+                            return;
+                        }
+                        requestConfirmation({
+                            ...DESTRUCTIVE_ACTION_CONFIRMATIONS.shuffleLibrary,
+                            onConfirm: () => adapters.shuffleLibrary(playerId),
+                        });
+                    },
+                    resetDeck: (playerId: string) => {
+                        requestConfirmation({
+                            ...DESTRUCTIVE_ACTION_CONFIRMATIONS.resetDeck,
+                            onConfirm: () => adapters.resetDeck(playerId),
+                        });
+                    },
+                    unloadDeck: (playerId: string) => {
+                        requestConfirmation({
+                            ...DESTRUCTIVE_ACTION_CONFIRMATIONS.unloadDeck,
+                            onConfirm: () => adapters.unloadDeck(playerId),
+                        });
+                    },
+                };
+            })(),
         });
         if (items.length > 0) {
             contextMenuRequestRef.current += 1;
             openContextMenu(e, items);
         }
-    }, [isSpectator, myPlayerId, onViewZone, openContextMenu, openCountPrompt, seatHasDeckLoaded]);
+    }, [isSpectator, myPlayerId, onViewZone, openContextMenu, openCountPrompt, requestConfirmation, seatHasDeckLoaded]);
 
     const handleHandContextMenu = React.useCallback((e: React.MouseEvent, zoneId: ZoneId) => {
         if (isSpectator) return;

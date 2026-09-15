@@ -129,6 +129,7 @@ describe("gameContextMenu actionAdapters", () => {
     const store = {
       moveCards: vi.fn(),
       setCardsReveal: vi.fn(),
+      removeCard: vi.fn(),
     } as any;
     const adapters = createGroupActionAdapters({
       store,
@@ -154,6 +155,10 @@ describe("gameContextMenu actionAdapters", () => {
       { toAll: true },
       "me",
     );
+
+    adapters.removeCards();
+    expect(store.removeCard).toHaveBeenNthCalledWith(1, "c1", "me");
+    expect(store.removeCard).toHaveBeenNthCalledWith(2, "c2", "me");
   });
 
   it("zone adapters forward actions with myPlayerId", () => {

@@ -627,4 +627,28 @@ describe("useMultiplayerBoardController", () => {
     expect(options.enabled).toBe(false);
   });
 
+  it("confirms a player's explicit Leave Room action", () => {
+    const { result } = renderHook(() => useMultiplayerBoardController("room-1"));
+
+    act(() => result.current.handleLeave());
+    expect(mockGameState.leaveGame).not.toHaveBeenCalled();
+    expect(result.current.confirmationRequest).toMatchObject({
+      title: "Leave this Room?",
+      confirmLabel: "Leave Room",
+    });
+
+    act(() => result.current.confirmPendingAction());
+    expect(mockGameState.leaveGame).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith({ to: "/" });
+  });
+
+  it("lets a spectator leave without confirmation", () => {
+    mockGameState.viewerRole = "spectator";
+    const { result } = renderHook(() => useMultiplayerBoardController("room-1"));
+
+    act(() => result.current.handleLeave());
+    expect(result.current.confirmationRequest).toBeNull();
+    expect(mockGameState.leaveGame).toHaveBeenCalledTimes(1);
+  });
+
 });

@@ -620,11 +620,11 @@ describe('players', () => {
     expect(snapshot.players.p1?.manaPool).toEqual({ U: 2 });
   });
 
-  it('setBattlefieldViewScale clamps to [0.5, 1]', () => {
+  it('setBattlefieldViewScale clamps to [0.5, 2]', () => {
     const maps = createSharedMaps();
 
     setBattlefieldViewScale(maps, 'p1', 2);
-    expect(sharedSnapshot(maps).battlefieldViewScale.p1).toBe(1);
+    expect(sharedSnapshot(maps).battlefieldViewScale.p1).toBe(2);
 
     setBattlefieldViewScale(maps, 'p1', 0.1);
     expect(sharedSnapshot(maps).battlefieldViewScale.p1).toBe(0.5);

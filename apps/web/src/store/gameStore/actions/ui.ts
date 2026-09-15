@@ -1,4 +1,8 @@
 import type { BattlefieldGridSizing, GameState } from "@/types";
+import {
+  MAX_BATTLEFIELD_VIEW_SCALE,
+  MIN_BATTLEFIELD_VIEW_SCALE,
+} from "@mtg/shared/constants/geometry";
 import type { DispatchIntent } from "@/store/gameStore/dispatchIntent";
 import { debugLog, type DebugFlagKey } from "@/lib/debug";
 import type { GetState, SetState } from "./types";
@@ -28,7 +32,10 @@ export const createUiActions = (
   },
 
   setBattlefieldViewScale: (playerId, scale) => {
-    const clamped = Math.min(Math.max(scale, 0.5), 1);
+    const clamped = Math.min(
+      Math.max(scale, MIN_BATTLEFIELD_VIEW_SCALE),
+      MAX_BATTLEFIELD_VIEW_SCALE,
+    );
     const current = get().battlefieldViewScale[playerId];
     if (current === clamped) return;
 

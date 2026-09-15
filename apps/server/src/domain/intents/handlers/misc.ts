@@ -1,4 +1,8 @@
 import { normalizeCounterType } from "@mtg/shared/counters";
+import {
+  MAX_BATTLEFIELD_VIEW_SCALE,
+  MIN_BATTLEFIELD_VIEW_SCALE,
+} from "@mtg/shared/constants/geometry";
 import { clampNumber } from "../../positions";
 import { ensureActorMatches, readNumber, requireNonEmptyStringProp } from "../validation";
 import type { IntentHandler } from "./types";
@@ -10,7 +14,14 @@ const handleBattlefieldScale: IntentHandler = ({ actorId, maps, payload }) => {
   if (scaleRaw === undefined) return { ok: false, error: "invalid scale" };
   const allowed = ensureActorMatches(actorId, playerIdResult.value);
   if (!allowed.ok) return allowed;
-  maps.battlefieldViewScale.set(playerIdResult.value, clampNumber(scaleRaw, 0.5, 1));
+  maps.battlefieldViewScale.set(
+    playerIdResult.value,
+    clampNumber(
+      scaleRaw,
+      MIN_BATTLEFIELD_VIEW_SCALE,
+      MAX_BATTLEFIELD_VIEW_SCALE,
+    ),
+  );
   return { ok: true };
 };
 

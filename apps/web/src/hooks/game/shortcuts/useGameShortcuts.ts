@@ -1,4 +1,5 @@
 import React from "react";
+import { BATTLEFIELD_VIEW_SCALE_STEP } from "@mtg/shared/constants/geometry";
 import { useLatestRef } from "@/hooks/shared/useLatestRef";
 import { useGameStore } from "@/store/gameStore";
 import type { Player, PlayerId, ViewerRole, Zone, ZoneId } from "@/types";
@@ -12,8 +13,12 @@ import {
   runGameShortcut,
   type CountPromptOptions,
 } from "./model";
+import type { RequestConfirmation } from "@/hooks/shared/useConfirmationDialog";
 
 export type UseGameShortcutsArgs = {
+  confirmationOpen?: boolean;
+  closeConfirmation?: () => void;
+  requestConfirmation?: RequestConfirmation;
   viewerRole?: ViewerRole;
   myPlayerId: PlayerId;
   zones: Record<ZoneId, Zone>;
@@ -60,6 +65,9 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
 
       const {
         viewerRole,
+        confirmationOpen,
+        closeConfirmation,
+        requestConfirmation,
         myPlayerId,
         zones,
         players,
@@ -104,6 +112,8 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
 
       if (shortcut.id === "ui.closeTopmost") {
         const closed = closeTopmostUi({
+          confirmationOpen,
+          closeConfirmation,
           contextMenuOpen,
           closeContextMenu,
           countPromptOpen,
@@ -150,6 +160,7 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
 
       if (
         areShortcutsBlockedByUi({
+          confirmationOpen,
           contextMenuOpen,
           countPromptOpen,
           textPromptOpen,
@@ -183,7 +194,7 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
       const adjustBattlefieldZoom = (direction: "in" | "out") => {
         const currentScale =
           useGameStore.getState().battlefieldViewScale[myPlayerId] ?? 1;
-        const delta = 0.05;
+        const delta = BATTLEFIELD_VIEW_SCALE_STEP;
         const nextScale =
           direction === "in" ? currentScale + delta : currentScale - delta;
         useGameStore.getState().setBattlefieldViewScale(myPlayerId, nextScale);
@@ -209,6 +220,7 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
         openCountPrompt,
         handleViewZone,
         handleLeave,
+        requestConfirmation,
         actions: {
           drawOne,
           discard,

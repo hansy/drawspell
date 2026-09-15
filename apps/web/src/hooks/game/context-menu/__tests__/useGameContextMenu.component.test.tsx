@@ -10,6 +10,7 @@ import { useSelectionStore } from "@/store/selectionStore";
 import { fetchBattlefieldRelatedParts } from "../relatedParts";
 import { useGameContextMenu } from "../useGameContextMenu";
 import type { ContextMenuItem } from "@/models/game/context-menu/menu/types";
+import type { RequestConfirmation } from "@/hooks/shared/useConfirmationDialog";
 
 vi.mock("../relatedParts", async () => {
   const actual = await vi.importActual<typeof import("../relatedParts")>("../relatedParts");
@@ -69,11 +70,23 @@ const createEvent = () =>
     clientY: 20,
   }) as any;
 
-const Probe: React.FC<{ myPlayerId: string; onValue: (value: HookValue) => void }> = ({
+const Probe: React.FC<{
+  myPlayerId: string;
+  onValue: (value: HookValue) => void;
+  requestConfirmation?: RequestConfirmation;
+}> = ({
   myPlayerId,
   onValue,
+  requestConfirmation,
 }) => {
-  const value = useGameContextMenu("player", myPlayerId);
+  const value = useGameContextMenu(
+    "player",
+    myPlayerId,
+    undefined,
+    undefined,
+    undefined,
+    requestConfirmation ?? (() => true),
+  );
   React.useEffect(() => {
     onValue(value);
   }, [value, onValue]);
@@ -130,6 +143,91 @@ describe("useGameContextMenu", () => {
     await waitFor(() => {
       expect(value!.contextMenu).toBeNull();
     });
+  });
+
+  it("guards visible deck actions and only guards meaningful shuffles", async () => {
+    const library = createZone("me-library", "me", ZONE.LIBRARY, ["c1", "c2"]);
+    const shuffleLibrary = vi.fn();
+    const resetDeck = vi.fn();
+    const unloadDeck = vi.fn();
+    const requestConfirmation = vi.fn();
+    resetStore({
+      players: { me: createPlayer("me", true) } as any,
+      zones: { [library.id]: library } as any,
+      shuffleLibrary,
+      resetDeck,
+      unloadDeck,
+    });
+
+    let value: HookValue | null = null;
+    render(
+      <Probe
+        myPlayerId="me"
+        requestConfirmation={requestConfirmation}
+        onValue={(next) => { value = next; }}
+      />,
+    );
+    await waitFor(() => expect(value).not.toBeNull());
+    act(() => value!.handleZoneContextMenu(createEvent(), library.id));
+
+    const action = (label: string) =>
+      value!.contextMenu!.items.find(
+        (item): item is Extract<ContextMenuItem, { type: "action" }> =>
+          item.type === "action" && item.label === label,
+      )!;
+
+    act(() => action("Shuffle").onSelect());
+    expect(requestConfirmation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ title: "Shuffle this Library?" }),
+    );
+    requestConfirmation.mock.calls.at(-1)![0].onConfirm();
+    expect(shuffleLibrary).toHaveBeenCalledTimes(1);
+
+    act(() => action("Reset").onSelect());
+    expect(requestConfirmation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ title: "Reset this deck?" }),
+    );
+
+    act(() => action("Unload").onSelect());
+    expect(requestConfirmation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ title: "Unload this deck?" }),
+    );
+  });
+
+  it("guards removal of multiple selected tokens", async () => {
+    const battlefield = createZone("me-battlefield", "me", ZONE.BATTLEFIELD, ["t1", "t2"]);
+    const first = { ...createCard("t1", battlefield.id, "me"), isToken: true };
+    const second = { ...createCard("t2", battlefield.id, "me"), isToken: true };
+    const removeCard = vi.fn();
+    const requestConfirmation = vi.fn();
+    resetStore({
+      players: { me: createPlayer("me", true) } as any,
+      zones: { [battlefield.id]: battlefield } as any,
+      cards: { t1: first, t2: second } as any,
+      removeCard,
+    });
+    useSelectionStore.getState().setSelection(["t1", "t2"], battlefield.id);
+
+    let value: HookValue | null = null;
+    render(
+      <Probe
+        myPlayerId="me"
+        requestConfirmation={requestConfirmation}
+        onValue={(next) => { value = next; }}
+      />,
+    );
+    await waitFor(() => expect(value).not.toBeNull());
+    act(() => value!.handleCardContextMenu(createEvent(), first));
+    const remove = value!.contextMenu!.items.find(
+      (item) => item.type === "action" && item.label === "Remove Cards",
+    );
+    if (!remove || remove.type !== "action") throw new Error("Missing Remove Cards");
+    act(() => remove.onSelect());
+    expect(requestConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Remove these 2 tokens?" }),
+    );
+    requestConfirmation.mock.calls[0][0].onConfirm();
+    expect(removeCard).toHaveBeenCalledTimes(2);
   });
 
   it("opens card context menu for battlefield cards when deck is loaded", async () => {

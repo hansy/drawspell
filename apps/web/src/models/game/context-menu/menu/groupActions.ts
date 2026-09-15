@@ -32,6 +32,7 @@ type GroupActionBuilderParams = {
   viewerRole?: ViewerRole;
   moveCards: (moves: GroupMove[]) => void;
   setCardsReveal: (reveal: CardReveal) => void;
+  removeCards?: () => void;
 };
 
 const buildGroupRevealMenu = ({
@@ -230,8 +231,19 @@ export const buildGroupActions = (
     return [];
   }
 
+  const removeTokens =
+    params.removeCards && params.cards.every((card) => card.isToken)
+      ? {
+          type: "action" as const,
+          label: "Remove Cards",
+          onSelect: params.removeCards,
+          danger: true,
+        }
+      : null;
+
   return [
     buildGroupRevealMenu(params),
     buildGroupMoveMenu(params),
+    removeTokens,
   ].filter((item): item is ContextMenuItem => item !== null);
 };

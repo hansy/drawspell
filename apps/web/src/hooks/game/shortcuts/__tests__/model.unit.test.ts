@@ -127,6 +127,23 @@ describe("gameShortcuts/model", () => {
   it("reports when shortcuts are blocked by open UI", () => {
     expect(
       areShortcutsBlockedByUi({
+        confirmationOpen: true,
+        contextMenuOpen: false,
+        countPromptOpen: false,
+        textPromptOpen: false,
+        activeModalOpen: false,
+        tokenModalOpen: false,
+        coinFlipperOpen: false,
+        diceRollerOpen: false,
+        loadDeckModalOpen: false,
+        shareDialogOpen: false,
+        zoneViewerOpen: false,
+        opponentRevealsOpen: false,
+      }),
+    ).toBe(true);
+
+    expect(
+      areShortcutsBlockedByUi({
         contextMenuOpen: false,
         countPromptOpen: false,
         textPromptOpen: false,
@@ -190,7 +207,7 @@ describe("gameShortcuts/model", () => {
     ).toBe(true);
   });
 
-  it("runs deck reset only when confirmed", () => {
+  it("requests confirmation before resetting a deck", () => {
     const actions = {
       drawOne: vi.fn(),
       discard: vi.fn(),
@@ -225,11 +242,57 @@ describe("gameShortcuts/model", () => {
       actions,
     };
 
-    expect(runGameShortcut({ ...base, confirm: () => false })).toBe(true);
+    const requestConfirmation = vi.fn();
+    expect(runGameShortcut({ ...base, requestConfirmation })).toBe(true);
     expect(actions.resetDeck).toHaveBeenCalledTimes(0);
-
-    expect(runGameShortcut({ ...base, confirm: () => true })).toBe(true);
+    expect(requestConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Reset this deck?" }),
+    );
+    requestConfirmation.mock.calls[0][0].onConfirm();
     expect(actions.resetDeck).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirms only an explicit shuffle that can change Library order", () => {
+    const shuffle = vi.fn();
+    const requestConfirmation = vi.fn();
+    const base = {
+      id: "game.shuffleLibrary" as const,
+      myPlayerId: "me",
+      shortcutsOpen: false,
+      setShortcutsOpen: vi.fn(),
+      logOpen: false,
+      setLogOpen: vi.fn(),
+      setTokenModalOpen: vi.fn(),
+      coinFlipperOpen: false,
+      setCoinFlipperOpen: vi.fn(),
+      diceRollerOpen: false,
+      setDiceRollerOpen: vi.fn(),
+      openCountPrompt: vi.fn(),
+      handleViewZone: vi.fn(),
+      handleLeave: vi.fn(),
+      requestConfirmation,
+      actions: {
+        drawOne: vi.fn(), discard: vi.fn(), exile: vi.fn(), shuffle,
+        resetDeck: vi.fn(), mulligan: vi.fn(), unloadDeck: vi.fn(),
+        untapAll: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(),
+      },
+    };
+
+    runGameShortcut({
+      ...base,
+      zones: { lib: { id: "lib", ownerId: "me", type: ZONE.LIBRARY, cardIds: ["a"] } } as any,
+    });
+    expect(shuffle).toHaveBeenCalledTimes(1);
+    expect(requestConfirmation).not.toHaveBeenCalled();
+
+    runGameShortcut({
+      ...base,
+      zones: { lib: { id: "lib", ownerId: "me", type: ZONE.LIBRARY, cardIds: ["a", "b"] } } as any,
+    });
+    expect(requestConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Shuffle this Library?" }),
+    );
+    expect(shuffle).toHaveBeenCalledTimes(1);
   });
 
   it("does not handle view-top when no library exists", () => {
