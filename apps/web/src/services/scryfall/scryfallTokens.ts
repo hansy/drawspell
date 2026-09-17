@@ -2,7 +2,7 @@ import { ScryfallCard, ScryfallListResult } from "@/types/scryfall";
 import { isAbortError } from "@/lib/errors";
 
 export const TOKEN_SEARCH_PREFIX =
-  "(type:token OR type:emblem OR type:card OR type:dungeon) (game:paper)";
+  "(type:token OR type:emblem OR set_type:token) (game:paper)";
 export const MIN_TOKEN_SEARCH_CHARS = 3;
 export const DEFAULT_TOKEN_SEARCH_DEBOUNCE_MS = 300;
 
@@ -23,8 +23,21 @@ export interface DebouncedTokenSearch {
   cancel: () => void;
 }
 
-export const buildTokenSearchQuery = (query: string) =>
-  `${TOKEN_SEARCH_PREFIX} ${query}`.trim();
+const hasExplicitScryfallSyntax = (query: string) =>
+  /(?:^|[\s(])-?[a-z_]+(?:[:=<>])/.test(query) ||
+  /\b(?:AND|OR|NOT)\b/.test(query);
+
+const quoteScryfallValue = (value: string) =>
+  value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+
+export const buildTokenSearchQuery = (query: string) => {
+  const trimmedQuery = query.trim();
+  const userQuery = hasExplicitScryfallSyntax(trimmedQuery)
+    ? trimmedQuery
+    : `(name:"${quoteScryfallValue(trimmedQuery)}" OR type:"${quoteScryfallValue(trimmedQuery)}")`;
+
+  return `${TOKEN_SEARCH_PREFIX} ${userQuery}`.trim();
+};
 
 export const buildTokenSearchUrl = (
   query: string,

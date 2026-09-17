@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { ScryfallCard } from "@/types/scryfall";
 import {
+  buildTokenSearchQuery,
   buildTokenSearchUrl,
   createDebouncedTokenSearch,
   MIN_TOKEN_SEARCH_CHARS,
@@ -35,15 +36,29 @@ const mockListResponse = {
   data: [mockTokenCard],
 };
 
+describe("buildTokenSearchQuery", () => {
+  it("searches both names and type lines for plain text", () => {
+    expect(buildTokenSearchQuery("dungeon")).toBe(
+      '(type:token OR type:emblem OR set_type:token) (game:paper) (name:"dungeon" OR type:"dungeon")'
+    );
+  });
+
+  it("preserves explicit Scryfall filters", () => {
+    expect(buildTokenSearchQuery("type:dungeon")).toBe(
+      "(type:token OR type:emblem OR set_type:token) (game:paper) type:dungeon"
+    );
+  });
+});
+
 describe("buildTokenSearchUrl", () => {
-  it("includes the token prefix, game filter, and unique=cards by default", () => {
+  it("includes tokens, emblems, and token-set helpers", () => {
     const url = buildTokenSearchUrl("soldier");
     const parsed = new URL(url);
 
     expect(parsed.pathname).toBe("/cards/search");
     expect(parsed.searchParams.get("unique")).toBe("cards");
     expect(parsed.searchParams.get("q")).toBe(
-      "(type:token OR type:emblem OR type:card OR type:dungeon) (game:paper) soldier"
+      '(type:token OR type:emblem OR set_type:token) (game:paper) (name:"soldier" OR type:"soldier")'
     );
   });
 });
@@ -90,7 +105,7 @@ describe("createDebouncedTokenSearch", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const calledUrl = fetchMock.mock.calls[0][0] as string;
     expect(new URL(calledUrl).searchParams.get("q")).toBe(
-      "(type:token OR type:emblem OR type:card OR type:dungeon) (game:paper) soldier"
+      '(type:token OR type:emblem OR set_type:token) (game:paper) (name:"soldier" OR type:"soldier")'
     );
   });
 
