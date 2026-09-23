@@ -1,5 +1,9 @@
 import type { Card } from "./types/cards";
 
+type FaceStatSyncOptions = {
+  preserveExisting?: boolean;
+};
+
 export const getCardFaces = (card: Card) => card.scryfall?.card_faces ?? [];
 
 export const getCurrentFaceIndex = (card: Card): number => {
@@ -14,7 +18,7 @@ export const getCurrentFaceIndex = (card: Card): number => {
 export const syncCardStatsToFace = (
   card: Card,
   faceIndex?: number,
-  options?: { preserveExisting?: boolean }
+  options?: FaceStatSyncOptions
 ): Card => {
   const faces = getCardFaces(card);
   const targetIndex = faceIndex ?? getCurrentFaceIndex(card);
