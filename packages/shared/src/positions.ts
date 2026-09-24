@@ -435,15 +435,7 @@ export const resolveBattlefieldGroupCollisionPositions = ({
   getStepY,
   stepY = getCanonicalBattlefieldPlacementGridSteps().stepY,
   maxAttempts = 200,
-}: {
-  movingCardIds: string[];
-  targetPositions: Record<string, Position | undefined>;
-  orderedCardIds: string[];
-  getPosition: (cardId: string) => Position | null | undefined;
-  getStepY?: (cardId: string) => number | undefined;
-  stepY?: number;
-  maxAttempts?: number;
-}) => {
+}: BattlefieldGroupCollisionOptions) => {
   if (movingCardIds.length === 0) return {} as Record<string, Position>;
 
   const movingSet = new Set(movingCardIds);
@@ -467,6 +459,16 @@ export const resolveBattlefieldGroupCollisionPositions = ({
   });
 
   return resolved;
+};
+
+type BattlefieldGroupCollisionOptions = {
+  movingCardIds: string[];
+  targetPositions: Record<string, Position | undefined>;
+  orderedCardIds: string[];
+  getPosition: (cardId: string) => Position | null | undefined;
+  getStepY?: (cardId: string) => number | undefined;
+  stepY?: number;
+  maxAttempts?: number;
 };
 
 export const bumpPosition = (
