@@ -63,27 +63,12 @@ describe("Sidenav", () => {
     expect(onEndTurn).not.toHaveBeenCalled();
   });
 
-  it("shows Pass Turn and its shortcut in the game menu", () => {
-    const onEndTurn = vi.fn();
-    render(<Sidenav onEndTurn={onEndTurn} />);
+  it("does not show the menu label or Pass Turn option", () => {
+    render(<Sidenav />);
 
     fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
-    const passTurn = screen.getByRole("button", { name: "Pass Turn" });
-    expect(screen.getByText("Space")).not.toBeNull();
-    fireEvent.click(passTurn);
-    expect(onEndTurn).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Drawspell Menu")).toBeNull();
     expect(screen.queryByRole("button", { name: "Pass Turn" })).toBeNull();
-  });
-
-  it("disables Pass Turn in the game menu when the turn cannot be passed", () => {
-    const onEndTurn = vi.fn();
-    render(<Sidenav onEndTurn={onEndTurn} canEndTurn={false} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
-    const passTurn = screen.getByRole("button", { name: "Pass Turn" });
-    expect((passTurn as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(passTurn);
-    expect(onEndTurn).not.toHaveBeenCalled();
   });
 
   it("uses active tap feedback classes on nav icon buttons", () => {

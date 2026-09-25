@@ -274,10 +274,6 @@ export const SidenavView: React.FC<SidenavController> = ({
                   : "slide-in-from-left-2",
               )}
             >
-              <div className="px-2 py-1 text-xs font-semibold text-zinc-500 uppercase tracking-wider border-b border-zinc-800 mb-1">
-                Drawspell Menu
-              </div>
-
               {!isSpectator && (
                 <>
                   <div className="flex items-center gap-3 p-2 text-sm">
@@ -303,24 +299,6 @@ export const SidenavView: React.FC<SidenavController> = ({
                   </div>
 
                   <div className="border-t border-zinc-800 my-1" />
-
-                  <button
-                    type="button"
-                    aria-label="Pass Turn"
-                    onClick={() => {
-                      if (!canEndTurn) return;
-                      onEndTurn?.();
-                      closeMenu();
-                    }}
-                    disabled={!canEndTurn}
-                    className="flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <UserRoundCheck size={16} />
-                    <span>Pass Turn</span>
-                    <kbd aria-hidden="true" className="ml-auto rounded border border-zinc-700 px-1.5 py-0.5 font-mono text-xs text-zinc-400">
-                      {passTurnShortcut}
-                    </kbd>
-                  </button>
 
                   <button
                     onClick={handleOpenShortcuts}
