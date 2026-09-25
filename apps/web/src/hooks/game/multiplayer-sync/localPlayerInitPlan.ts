@@ -2,10 +2,12 @@ import type { Player, Zone } from "@/types";
 import { ZONE } from "@/constants/zones";
 import { computePlayerColors, resolveOrderedPlayerIds } from "@/lib/playerColors";
 
+type PlayerColorPatch = { playerId: string; color: string };
+
 export type LocalPlayerInitPlan = {
   upsertPlayer?: Player;
   patchLocalPlayer?: Partial<Player>;
-  patchColors: Array<{ playerId: string; color: string }>;
+  patchColors: PlayerColorPatch[];
   zonesToCreate: Zone[];
 };
 
@@ -62,7 +64,7 @@ export const computeLocalPlayerInitPlan = ({
     playerExists && desiredColor && currentColor !== desiredColor
   );
 
-  const patchColors: Array<{ playerId: string; color: string }> = [];
+  const patchColors: PlayerColorPatch[] = [];
   Object.entries(desiredColors).forEach(([id, color]) => {
     if (id === playerId && shouldPatchLocalColor) return;
     if (!players[id]?.color) {
