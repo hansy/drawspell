@@ -13,8 +13,10 @@ import { getNormalizedCounterTotal, normalizeCounterType } from "@mtg/shared/cou
 
 import { ZONE, ZONE_LABEL } from "@/constants/zones";
 import { getPlayerZones } from "@/lib/gameSelectors";
+import { resolveCounterColor } from "@/lib/counters";
 import { shuffle } from "@/lib/shuffle";
 import { canModifyCardState, canMoveCard } from "@/rules/permissions";
+import { buildRecentlyUsedCounterItems } from "./cardActions/counterMenu";
 import type { ContextMenuItem, OpenCountPrompt } from "./types";
 
 type GroupMove = {
@@ -34,7 +36,9 @@ type GroupActionBuilderParams = {
   moveCards: (moves: GroupMove[]) => void;
   setCardsReveal: (reveal: CardReveal) => void;
   removeCards?: () => void;
+  globalCounters?: Record<string, string>;
   openAddCounterModal?: () => void;
+  addCounter?: (counter: { type: string; count: number; color?: string }) => void;
   removeCounter?: (counterType: string, count: number) => void;
   openCountPrompt?: OpenCountPrompt;
 };
@@ -44,12 +48,15 @@ const buildGroupCounterMenu = ({
   currentZone,
   myPlayerId,
   viewerRole,
+  globalCounters = {},
   openAddCounterModal,
+  addCounter,
   removeCounter,
   openCountPrompt,
 }: GroupActionBuilderParams): ContextMenuItem | null => {
   if (
     !openAddCounterModal ||
+    !addCounter ||
     !removeCounter ||
     !openCountPrompt ||
     viewerRole === "spectator" ||
@@ -59,12 +66,12 @@ const buildGroupCounterMenu = ({
     return null;
   }
 
-  const counterTypes = new Map<string, string>();
+  const counterTypes = new Map<string, { label: string; color?: string }>();
   cards.forEach((card) => {
     card.counters.forEach((counter) => {
       const type = normalizeCounterType(counter.type);
       if (type && counter.count > 0 && !counterTypes.has(type)) {
-        counterTypes.set(type, counter.type);
+        counterTypes.set(type, { label: counter.type, color: counter.color });
       }
     });
   });
@@ -72,25 +79,58 @@ const buildGroupCounterMenu = ({
   const submenu: ContextMenuItem[] = [
     {
       type: "action",
-      label: "Add counters...",
+      label: "Add a new counter...",
       onSelect: openAddCounterModal,
     },
   ];
 
+  submenu.push(
+    ...buildRecentlyUsedCounterItems({
+      globalCounters,
+      activeCounterTypes: new Set(counterTypes.keys()),
+      addCounter: (type, color) => addCounter({ type, count: 1, color }),
+    }),
+  );
+
   if (counterTypes.size > 0) {
+    submenu.push({ type: "separator", id: "counter-controls-divider" });
+    submenu.push(
+      ...Array.from(counterTypes, ([type, counter]): ContextMenuItem => {
+        const counts = cards.map((card) =>
+          getNormalizedCounterTotal(card.counters, type),
+        );
+        const firstCount = counts[0] ?? 0;
+        return {
+          type: "counter-control",
+          label: counter.label,
+          count: counts.every((count) => count === firstCount)
+            ? firstCount
+            : "mixed",
+          onIncrement: () =>
+            addCounter({
+              type,
+              count: 1,
+              color: counter.color ?? resolveCounterColor(type, globalCounters),
+            }),
+          onDecrement: () => removeCounter(type, 1),
+        };
+      }),
+    );
+
+    submenu.push({ type: "separator" });
     submenu.push({
       type: "action",
-      label: "Remove counters...",
+      label: "Remove multiple counters...",
       onSelect: () => {},
-      submenu: Array.from(counterTypes, ([type, label]) => ({
+      submenu: Array.from(counterTypes, ([type, counter]) => ({
         type: "action" as const,
-        label,
+        label: counter.label,
         onSelect: () => {
           const maxCount = Math.max(
             ...cards.map((card) => getNormalizedCounterTotal(card.counters, type)),
           );
           openCountPrompt({
-            title: `Remove ${label} counters`,
+            title: `Remove ${counter.label} counters`,
             message: "Remove up to this many from each selected card.",
             initialValue: 1,
             minValue: 1,

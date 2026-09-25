@@ -346,6 +346,7 @@ describe("useGameContextMenu", () => {
       players: { me: createPlayer("me", true) } as any,
       zones: { [battlefield.id]: battlefield } as any,
       cards: { [firstCard.id]: firstCard, [secondCard.id]: secondCard } as any,
+      globalCounters: { charge: "#2563eb" },
       activeModal: null,
     });
     useSelectionStore.getState().setSelection(["c1", "c2"], battlefield.id);
@@ -361,8 +362,32 @@ describe("useGameContextMenu", () => {
     );
     expect(counterMenu?.type).toBe("action");
     if (!counterMenu || counterMenu.type !== "action") return;
+    const recentAction = counterMenu.submenu?.find(
+      (item) => item.type === "action" && item.label === "charge",
+    );
+    expect(recentAction?.type).toBe("action");
+    if (!recentAction || recentAction.type !== "action") return;
+    act(() => recentAction.onSelect());
+    expect(useGameStore.getState().cards.c1?.counters).toEqual([
+      { type: "charge", count: 1, color: "#2563eb" },
+    ]);
+    expect(useGameStore.getState().cards.c2?.counters).toEqual([
+      { type: "charge", count: 1, color: "#2563eb" },
+    ]);
+    await waitFor(() => {
+      const refreshedMenu = value!.contextMenu?.items.find(
+        (item) => item.type === "action" && item.label === "Add/remove counters",
+      );
+      expect(refreshedMenu?.type).toBe("action");
+      if (!refreshedMenu || refreshedMenu.type !== "action") return;
+      expect(refreshedMenu.submenu).toContainEqual(expect.objectContaining({
+        type: "counter-control",
+        label: "charge",
+        count: 1,
+      }));
+    });
     const addAction = counterMenu.submenu?.find(
-      (item) => item.type === "action" && item.label === "Add counters...",
+      (item) => item.type === "action" && item.label === "Add a new counter...",
     );
     expect(addAction?.type).toBe("action");
     if (!addAction || addAction.type !== "action") return;

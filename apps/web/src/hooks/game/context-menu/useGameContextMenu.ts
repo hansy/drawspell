@@ -199,22 +199,49 @@ export const useGameContextMenu = (
                     myPlayerId,
                     targetIds: [...selectedIds],
                 });
-                const groupActions = actionRegistry.buildGroupActions({
-                    cards: selectedCards,
-                    currentZone: zone,
-                    zones: store.zones,
-                    players: store.players,
-                    myPlayerId,
-                    viewerRole,
-                    openCountPrompt,
-                    ...adapters,
-                    removeCards: () => {
-                        requestConfirmation({
-                            ...removeTokensConfirmation(selectedCards.length),
-                            onConfirm: adapters.removeCards,
-                        });
-                    },
-                });
+                const buildGroupMenuItems = (): ContextMenuItem[] => {
+                    const latestStore = useGameStore.getState();
+                    const latestZone = latestStore.zones[card.zoneId];
+                    const latestCards = selectedIds
+                        .map((id) => latestStore.cards[id])
+                        .filter((selectedCard): selectedCard is Card => Boolean(selectedCard));
+                    if (!latestZone || latestCards.length !== selectedIds.length) return [];
+
+                    return actionRegistry.buildGroupActions({
+                        cards: latestCards,
+                        currentZone: latestZone,
+                        zones: latestStore.zones,
+                        players: latestStore.players,
+                        globalCounters: latestStore.globalCounters,
+                        myPlayerId,
+                        viewerRole,
+                        openCountPrompt,
+                        ...adapters,
+                        addCounter: (counter) => {
+                            adapters.addCounter(counter);
+                            refreshGroupMenu();
+                        },
+                        removeCounter: (counterType, count) => {
+                            adapters.removeCounter(counterType, count);
+                            refreshGroupMenu();
+                        },
+                        removeCards: () => {
+                            requestConfirmation({
+                                ...removeTokensConfirmation(latestCards.length),
+                                onConfirm: adapters.removeCards,
+                            });
+                        },
+                    });
+                };
+                const refreshGroupMenu = () => {
+                    const items = buildGroupMenuItems();
+                    if (items.length === 0) {
+                        closeContextMenu();
+                        return;
+                    }
+                    updateContextMenu((current) => ({ ...current, items }));
+                };
+                const groupActions = buildGroupMenuItems();
                 if (groupActions.length > 0) {
                     openContextMenu(
                         e,
@@ -253,7 +280,7 @@ export const useGameContextMenu = (
                 };
             });
         })();
-    }, [buildCardMenuItems, isSpectator, myPlayerId, openContextMenu, openCountPrompt, seatHasDeckLoaded, updateContextMenu]);
+    }, [buildCardMenuItems, closeContextMenu, isSpectator, myPlayerId, openContextMenu, openCountPrompt, seatHasDeckLoaded, updateContextMenu]);
 
     // Builds and opens zone-specific actions (draw/shuffle/view).
     const handleZoneContextMenu = React.useCallback((e: React.MouseEvent, zoneId: ZoneId) => {

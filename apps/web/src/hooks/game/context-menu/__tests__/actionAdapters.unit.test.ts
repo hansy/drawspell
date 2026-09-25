@@ -131,6 +131,7 @@ describe("gameContextMenu actionAdapters", () => {
       setCardsReveal: vi.fn(),
       removeCard: vi.fn(),
       setActiveModal: vi.fn(),
+      addCounterToCard: vi.fn(),
       removeCounterFromCard: vi.fn(),
     } as any;
     const adapters = createGroupActionAdapters({
@@ -163,6 +164,14 @@ describe("gameContextMenu actionAdapters", () => {
       type: "ADD_COUNTER",
       cardIds: ["c1", "c2"],
     });
+
+    adapters.addCounter({ type: "charge", count: 1, color: "#2563eb" });
+    expect(store.addCounterToCard).toHaveBeenNthCalledWith(
+      1, "c1", { type: "charge", count: 1, color: "#2563eb" }, "me",
+    );
+    expect(store.addCounterToCard).toHaveBeenNthCalledWith(
+      2, "c2", { type: "charge", count: 1, color: "#2563eb" }, "me",
+    );
 
     adapters.removeCounter("+1/+1", 2);
     expect(store.removeCounterFromCard).toHaveBeenNthCalledWith(

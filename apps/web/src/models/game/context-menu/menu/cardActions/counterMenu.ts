@@ -25,6 +25,34 @@ type AggregatedCounter = {
   color?: string;
 };
 
+export const buildRecentlyUsedCounterItems = (params: {
+  globalCounters: Record<string, string>;
+  activeCounterTypes: ReadonlySet<string>;
+  addCounter: (type: string, color: string) => void;
+}): ContextMenuItem[] => {
+  const recentCounterTypes = Object.keys(params.globalCounters)
+    .filter(
+      (counterType) =>
+        !params.activeCounterTypes.has(normalizeCounterType(counterType)),
+    )
+    .reverse();
+  if (recentCounterTypes.length === 0) return [];
+
+  return [
+    { type: "label", label: "Recently used counters:" },
+    ...recentCounterTypes.map((counterType): ContextMenuItem => ({
+      type: "action",
+      label: counterType,
+      closeOnSelect: false,
+      onSelect: () =>
+        params.addCounter(
+          counterType,
+          resolveCounterColor(counterType, params.globalCounters),
+        ),
+    })),
+  ];
+};
+
 export const buildCounterMenuItems = ({
   cardId,
   counters,
@@ -60,12 +88,6 @@ export const buildCounterMenuItems = ({
   const activeCounterTypes = new Set(
     aggregatedCounters.map((counter) => counter.normalizedType)
   );
-  const recentCounterTypes = Object.keys(globalCounters)
-    .filter(
-      (counterType) => !activeCounterTypes.has(normalizeCounterType(counterType))
-    )
-    .reverse();
-
   const submenu: ContextMenuItem[] = [
     {
       type: "action",
@@ -76,29 +98,14 @@ export const buildCounterMenuItems = ({
     },
   ];
 
-  if (recentCounterTypes.length > 0) {
-    submenu.push({
-      type: "label",
-      label: "Recently used counters:",
-    });
-
-    submenu.push(
-      ...recentCounterTypes.map(
-        (counterType): ContextMenuItem => ({
-          type: "action",
-          label: counterType,
-          closeOnSelect: false,
-          onSelect: () => {
-            addCounter(cardId, {
-              type: counterType,
-              count: 1,
-              color: resolveCounterColor(counterType, globalCounters),
-            });
-          },
-        })
-      )
-    );
-  }
+  submenu.push(
+    ...buildRecentlyUsedCounterItems({
+      globalCounters,
+      activeCounterTypes,
+      addCounter: (type, color) =>
+        addCounter(cardId, { type, count: 1, color }),
+    }),
+  );
 
   if (aggregatedCounters.length > 0) {
     submenu.push({ type: "separator", id: "counter-controls-divider" });

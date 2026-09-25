@@ -642,6 +642,7 @@ describe("buildGroupActions", () => {
       { ...baseCard, id: "c2", zoneId: battlefield.id, counters: [{ type: "+1/+1", count: 1 }] },
     ];
     const openAddCounterModal = vi.fn();
+    const addCounter = vi.fn();
     const removeCounter = vi.fn();
     const openCountPrompt = vi.fn();
     const actions = buildGroupActions({
@@ -652,7 +653,9 @@ describe("buildGroupActions", () => {
       viewerRole: "player",
       moveCards: vi.fn(),
       setCardsReveal: vi.fn(),
+      globalCounters: { charge: "#2563eb", "+1/+1": "#16a34a" },
       openAddCounterModal,
+      addCounter,
       removeCounter,
       openCountPrompt,
     });
@@ -664,15 +667,37 @@ describe("buildGroupActions", () => {
     if (!counterMenu || counterMenu.type !== "action") return;
 
     const addAction = counterMenu.submenu?.find(
-      (item) => item.type === "action" && item.label === "Add counters...",
+      (item) => item.type === "action" && item.label === "Add a new counter...",
     );
     expect(addAction?.type).toBe("action");
     if (!addAction || addAction.type !== "action") return;
     addAction.onSelect();
     expect(openAddCounterModal).toHaveBeenCalledTimes(1);
 
+    const recentAction = counterMenu.submenu?.find(
+      (item) => item.type === "action" && item.label === "charge",
+    );
+    expect(recentAction).toMatchObject({ type: "action", closeOnSelect: false });
+    if (!recentAction || recentAction.type !== "action") return;
+    recentAction.onSelect();
+    expect(addCounter).toHaveBeenCalledWith({
+      type: "charge", count: 1, color: "#2563eb",
+    });
+
+    const activeControl = counterMenu.submenu?.find(
+      (item) => item.type === "counter-control" && item.label === "+1/+1",
+    );
+    expect(activeControl).toMatchObject({ type: "counter-control", count: "mixed" });
+    if (!activeControl || activeControl.type !== "counter-control") return;
+    activeControl.onIncrement();
+    expect(addCounter).toHaveBeenCalledWith({
+      type: "+1/+1", count: 1, color: "#16a34a",
+    });
+    activeControl.onDecrement();
+    expect(removeCounter).toHaveBeenCalledWith("+1/+1", 1);
+
     const removeMenu = counterMenu.submenu?.find(
-      (item) => item.type === "action" && item.label === "Remove counters...",
+      (item) => item.type === "action" && item.label === "Remove multiple counters...",
     );
     expect(removeMenu?.type).toBe("action");
     if (!removeMenu || removeMenu.type !== "action") return;
@@ -703,6 +728,7 @@ describe("buildGroupActions", () => {
       moveCards: vi.fn(),
       setCardsReveal: vi.fn(),
       openAddCounterModal: vi.fn(),
+      addCounter: vi.fn(),
       removeCounter: vi.fn(),
       openCountPrompt: vi.fn(),
     });
