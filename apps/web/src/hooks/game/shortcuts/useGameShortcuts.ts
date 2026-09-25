@@ -9,7 +9,6 @@ import {
   closeTopmostUi,
   findShortcutForEvent,
   isDeckLoadedForShortcut,
-  isSpaceActivationTarget,
   isTypingTarget,
   runGameShortcut,
   type CountPromptOptions,
@@ -160,9 +159,6 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
       }
 
       if (isTypingTarget(e.target)) return;
-      if (shortcut.id === "game.passTurn" && (
-        isSpaceActivationTarget(e.target) || shortcutsOpen || logOpen
-      )) return;
 
       if (
         areShortcutsBlockedByUi({

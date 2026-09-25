@@ -25,12 +25,6 @@ export const isTypingTarget = (target: EventTarget | null) => {
   return Boolean(el.isContentEditable);
 };
 
-export const isSpaceActivationTarget = (target: EventTarget | null) =>
-  target instanceof HTMLElement &&
-  Boolean(target.closest(
-    "button, a, summary, [role='button'], [role='menuitem'], [role='checkbox'], [role='switch'], [role='tab']",
-  ));
-
 export const matchesBinding = (binding: GameShortcutBinding, e: KeyboardEvent) => {
   const key = e.key.toLowerCase();
   const bindingKey = binding.key.toLowerCase();

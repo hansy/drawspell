@@ -106,16 +106,35 @@ describe("useGameShortcuts", () => {
     expect(second.defaultPrevented).toBe(false);
   });
 
-  it("leaves Space for focused controls and blocks it when play is unavailable", () => {
+  it("passes the turn with a game button focused or a nonblocking panel open", () => {
     const onPassTurn = vi.fn(() => true);
     const { rerender } = render(<Probe args={passTurnArgs(onPassTurn)} />);
     const button = document.createElement("button");
     document.body.appendChild(button);
-    button.dispatchEvent(new KeyboardEvent("keydown", {
+    const focusedButtonSpace = new KeyboardEvent("keydown", {
+      key: " ", code: "Space", bubbles: true, cancelable: true,
+    });
+    button.dispatchEvent(focusedButtonSpace);
+    expect(onPassTurn).toHaveBeenCalledTimes(1);
+    expect(focusedButtonSpace.defaultPrevented).toBe(true);
+    button.remove();
+
+    rerender(<Probe args={passTurnArgs(onPassTurn, { logOpen: true })} />);
+    window.dispatchEvent(new KeyboardEvent("keydown", {
       key: " ", code: "Space", bubbles: true, cancelable: true,
     }));
-    expect(onPassTurn).not.toHaveBeenCalled();
-    button.remove();
+    expect(onPassTurn).toHaveBeenCalledTimes(2);
+
+    rerender(<Probe args={passTurnArgs(onPassTurn, { shortcutsOpen: true })} />);
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      key: " ", code: "Space", bubbles: true, cancelable: true,
+    }));
+    expect(onPassTurn).toHaveBeenCalledTimes(3);
+  });
+
+  it("blocks Space when play is unavailable", () => {
+    const onPassTurn = vi.fn(() => true);
+    const { rerender } = render(<Probe args={passTurnArgs(onPassTurn)} />);
 
     rerender(<Probe args={passTurnArgs(onPassTurn, { contextMenuOpen: true })} />);
     window.dispatchEvent(new KeyboardEvent("keydown", {
