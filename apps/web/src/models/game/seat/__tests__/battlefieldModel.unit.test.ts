@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { Card } from "@/types";
-import { getCanonicalBattlefieldPlacementGridSteps, getCardPixelSize } from "@/lib/positions";
-import {
-  computeBattlefieldCardLayout,
-  computeBattlefieldGridProjection,
-} from "../battlefieldModel";
+import { getCardPixelSize } from "@/lib/positions";
+import { computeBattlefieldCardLayout } from "../battlefieldModel";
 
 const measuredCardSizing = {
   baseCardHeight: 135,
@@ -110,55 +107,6 @@ describe("battlefield layout contracts", () => {
     expect(atNinetyPercent.top).toBe(atFullScale.top);
     expect(Math.abs(atNinetyPercent.transformCenterX - atFullScale.transformCenterX)).toBeLessThanOrEqual(1);
     expect(Math.abs(atNinetyPercent.transformCenterY - atFullScale.transformCenterY)).toBeLessThanOrEqual(1);
-  });
-
-  it("uses half-width square grid steps independent of tapped state", () => {
-    const zoneWidth = 1000;
-    const zoneHeight = 600;
-    const untappedFullScale = computeBattlefieldGridProjection({
-      zoneWidth,
-      zoneHeight,
-      viewScale: 1,
-      isTapped: false,
-      ...measuredCardSizing,
-    });
-    const tappedZoomedOut = computeBattlefieldGridProjection({
-      zoneWidth,
-      zoneHeight,
-      viewScale: 0.9,
-      isTapped: true,
-      ...measuredCardSizing,
-    });
-    const untappedZoomedOut = computeBattlefieldGridProjection({
-      zoneWidth,
-      zoneHeight,
-      viewScale: 0.9,
-      isTapped: false,
-      ...measuredCardSizing,
-    });
-    const placementSteps = getCanonicalBattlefieldPlacementGridSteps({
-      zoneWidth,
-      zoneHeight,
-      viewScale: 1,
-      ...measuredCardSizing,
-    });
-    const zoomedOutSteps = getCanonicalBattlefieldPlacementGridSteps({
-      zoneWidth,
-      zoneHeight,
-      viewScale: 0.9,
-      ...measuredCardSizing,
-    });
-
-    expect(untappedFullScale.gridStepX).toBeCloseTo(zoneWidth * placementSteps.stepX);
-    expect(untappedFullScale.gridStepY).toBeCloseTo(zoneHeight * placementSteps.stepY);
-    expect(untappedFullScale.gridStepX).toBeCloseTo(measuredCardSizing.baseCardWidth / 2);
-    expect(untappedFullScale.gridStepY).toBeCloseTo(measuredCardSizing.baseCardWidth / 2);
-    expect(tappedZoomedOut.gridStepX).toBeCloseTo(zoneWidth * zoomedOutSteps.stepX);
-    expect(tappedZoomedOut.gridStepY).toBeCloseTo(zoneHeight * zoomedOutSteps.stepY);
-    expect(tappedZoomedOut.gridStepY).toBeCloseTo(
-      (measuredCardSizing.baseCardWidth * 0.9) / 2
-    );
-    expect(tappedZoomedOut).toEqual(untappedZoomedOut);
   });
 
   it("keeps drag permission independent of visual movement state", () => {

@@ -6,8 +6,8 @@ import {
 import {
   clampNormalizedToCanonicalBattlefieldBounds,
   fromNormalizedPosition,
-  getCanonicalBattlefieldPlacementGridSteps,
   mirrorNormalizedY,
+  snapNormalizedToBattlefieldPlacementCenter,
   toNormalizedPosition,
 } from './positions';
 
@@ -15,20 +15,6 @@ export type RectLike = Pick<
   DOMRect,
   'left' | 'top' | 'right' | 'bottom' | 'width' | 'height'
 >;
-
-const snapCardEdgeToGrid = (params: {
-  center: number;
-  size: number;
-  step: number;
-}) => {
-  if (!params.step) return params.center;
-
-  const halfSize = params.size / 2;
-  return (
-    Math.round((params.center - halfSize) / params.step) * params.step +
-    halfSize
-  );
-};
 
 export const getEffectiveCardSize = (params: {
   viewScale: number;
@@ -172,27 +158,6 @@ export const computeBattlefieldPlacement = (params: {
     x: (previewCenterScreen.x - params.overRect.left) / safeScale,
     y: (previewCenterScreen.y - params.overRect.top) / safeScale,
   };
-  const placementGrid = getCanonicalBattlefieldPlacementGridSteps({
-    zoneWidth,
-    zoneHeight,
-    viewScale: params.viewScale || 1,
-    baseCardHeight: params.baseCardHeight,
-    baseCardWidth: params.baseCardWidth,
-  });
-  const gridStepX = placementGrid.stepX * zoneWidth;
-  const gridStepY = placementGrid.stepY * zoneHeight;
-  const snappedViewPosition = {
-    x: snapCardEdgeToGrid({
-      center: previewPosition.x,
-      size: slotWidth,
-      step: gridStepX,
-    }),
-    y: snapCardEdgeToGrid({
-      center: previewPosition.y,
-      size: slotHeight,
-      step: gridStepY,
-    }),
-  };
   const liveCanonicalNormalized = toNormalizedPosition(
     livePosition,
     zoneWidth,
@@ -203,29 +168,26 @@ export const computeBattlefieldPlacement = (params: {
     zoneWidth,
     zoneHeight
   );
-  const snappedCanonicalNormalized = toNormalizedPosition(
-    snappedViewPosition,
-    zoneWidth,
-    zoneHeight
-  );
   const liveCanonical = params.mirrorY
     ? mirrorNormalizedY(liveCanonicalNormalized)
     : liveCanonicalNormalized;
   const baseCanonical = params.mirrorY
     ? mirrorNormalizedY(previewCanonicalNormalized)
     : previewCanonicalNormalized;
+  const snappedCanonical = snapNormalizedToBattlefieldPlacementCenter(
+    baseCanonical,
+    {
+      zoneWidth,
+      zoneHeight,
+      baseCardHeight: params.baseCardHeight,
+      baseCardWidth: params.baseCardWidth,
+      isTapped: params.isTapped,
+    }
+  );
   const previewCanonical = clampNormalizedToCanonicalBattlefieldBounds(
     baseCanonical,
     { isTapped: params.isTapped }
   );
-  const baseSnappedCanonical = params.mirrorY
-    ? mirrorNormalizedY(snappedCanonicalNormalized)
-    : snappedCanonicalNormalized;
-  const snappedCanonical = clampNormalizedToCanonicalBattlefieldBounds(
-    baseSnappedCanonical,
-    { isTapped: params.isTapped }
-  );
-
   const snappedNormalized = params.mirrorY
     ? mirrorNormalizedY(snappedCanonical)
     : snappedCanonical;

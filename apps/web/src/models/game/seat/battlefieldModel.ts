@@ -3,7 +3,6 @@ import type { Card, PlayerId } from '@/types';
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from '@/lib/constants';
 import {
   fromNormalizedPosition,
-  getCanonicalBattlefieldPlacementGridSteps,
   mirrorNormalizedY,
 } from '@/lib/positions';
 
@@ -12,18 +11,6 @@ export type BattlefieldCardLayout = {
   top: number;
   highlightColor?: string;
   disableDrag: boolean;
-};
-
-export type BattlefieldGridProjection = {
-  gridStepX: number;
-  gridStepY: number;
-  originOffsetX: number;
-  originOffsetY: number;
-};
-
-const positiveModulo = (value: number, divisor: number) => {
-  if (!divisor) return 0;
-  return ((value % divisor) + divisor) % divisor;
 };
 
 export const computeBattlefieldCardLayout = (params: {
@@ -56,30 +43,4 @@ export const computeBattlefieldCardLayout = (params: {
   const disableDrag = !canDrag;
 
   return { left, top, highlightColor, disableDrag };
-};
-
-export const computeBattlefieldGridProjection = (params: {
-  zoneWidth: number;
-  zoneHeight: number;
-  viewScale: number;
-  isTapped?: boolean;
-  baseCardHeight?: number;
-  baseCardWidth?: number;
-}): BattlefieldGridProjection => {
-  const placementSteps = getCanonicalBattlefieldPlacementGridSteps({
-    zoneWidth: params.zoneWidth,
-    zoneHeight: params.zoneHeight,
-    viewScale: params.viewScale,
-    baseCardHeight: params.baseCardHeight,
-    baseCardWidth: params.baseCardWidth,
-  });
-  const gridStepX = params.zoneWidth * placementSteps.stepX;
-  const gridStepY = params.zoneHeight * placementSteps.stepY;
-
-  return {
-    gridStepX,
-    gridStepY,
-    originOffsetX: positiveModulo(0, gridStepX),
-    originOffsetY: positiveModulo(0, gridStepY),
-  };
 };

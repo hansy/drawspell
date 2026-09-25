@@ -28,15 +28,18 @@ lead, free-flowing previews, and quarter-card stacking.
 
 ### Grid And Snap
 
-- Battlefield grid lines are visible only while a drag/drop interaction is active.
-- The grid is intentionally tied to card geometry: one card footprint is two
-  columns by three rows.
-- The placement indicator snaps one grid step at a time. It should not drift
-  between grid cells.
+- No grid markers are drawn during a drag. The placement outline shows the
+  snapped card center and footprint.
+- The center lattice has twelve battlefield rows. At the usual card height of
+  one quarter of the battlefield, one row exposes one third of a stacked card.
+- Tapping and local card zoom change the outline, not the snap points.
+- The placement indicator moves one snap point at a time. It should not drift
+  between snap points.
 - Drops commit to snapped center positions.
 - Stacking is intentionally simple: if cards share the same snapped center, the
   incoming card bumps by one grid row until it reaches a free center. Recursive
-  bumping remains so stacks resolve without overlap.
+  bumping remains, and the single-card placement outline previews that resolved
+  center.
 - The older rule that allowed vertical quarter-card stacking is retired.
 
 ### Drag Preview
@@ -44,7 +47,7 @@ lead, free-flowing previews, and quarter-card stacking.
 - The old ghost-lead behavior is retired.
 - The desktop bottom bar is a continuous compact drag-cue surface. Gaps between
   its zones keep the overlay at zone scale while continuing to reject drops.
-- The current preview is a filled cyan battlefield placement rectangle.
+- The current preview is a filled cyan card-sized placement outline.
 - The dragged card overlay stays cursor anchored.
 - The placement rectangle represents the snapped final battlefield target. It may
   move discretely as the cursor crosses snap thresholds, while the dragged card
@@ -146,10 +149,10 @@ bun run --cwd apps/web typecheck
 - Tap moving a card: tap is now tested as state-only, with no center mutation.
 - Moving a tapped card showing the vertical card: tapped drag geometry preserves
   landscape orientation.
-- Grid density not matching zoom/card size: grid is tied to card geometry and
-  remains visible as thin lines.
-- Cards not aligning to the visible grid: both indicator and committed drops use
-  the same snap math.
+- Grid density not matching zoom/card size: snapping uses a fixed center
+  lattice while the card-sized outline reflects the current card size.
+- Cards not aligning to snap points: both indicator and committed drops use the
+  same snap math.
 - Hand-to-battlefield drag offset after size changes: cursor anchoring is
   computed against the dragged overlay dimensions rather than the larger hand
   card dimensions.
@@ -162,7 +165,7 @@ Do not reintroduce these older assumptions without updating this contract and th
 tests first:
 
 - Ghost should barely lead the dragged card.
-- Ghost should free-flow between grid lines.
+- Ghost should free-flow between snap points.
 - Battlefield stacking should use quarter-card vertical offsets.
 - A card model's current `zoneId` is enough to identify the rendered source zone
   during a cross-zone drop.

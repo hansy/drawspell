@@ -195,13 +195,8 @@ describe("game DnD movement contracts", () => {
       c1: createCard("c1", { tapped: true }),
     };
     const grid = placementGridPixels();
-    const expectedCardSize = {
-      width: measuredCardSizing.baseCardHeight,
-      height: measuredCardSizing.baseCardWidth,
-    };
     const pointerScreen = gridAlignedCenter({
       grid,
-      cardSize: expectedCardSize,
       xIndex: 9,
       yIndex: 7,
     });
@@ -236,6 +231,37 @@ describe("game DnD movement contracts", () => {
     });
 
     expect(distance(state.ghostCard!.position, liveCenter)).toBeLessThanOrEqual(2);
+  });
+
+  it("previews the next snap dot when the chosen center is occupied", () => {
+    const battlefield = {
+      ...createBattlefield("p1"),
+      cardIds: ["c1", "c2"],
+    };
+    const state = computeDragMoveUiState({
+      myPlayerId: "p1",
+      cards: {
+        c1: createCard("c1"),
+        c2: createCard("c2", { position: { x: 0.495, y: 0.5 } }),
+      },
+      zones: { [battlefield.id]: battlefield },
+      activeCardId: "c1",
+      activeRect: rect({ left: 450, top: 232.5, width: 90, height: 135 }),
+      pointerScreen: { x: 495, y: 300 },
+      dragAnchor: { x: 0.5, y: 0.5 },
+      over: {
+        id: battlefield.id,
+        type: ZONE.BATTLEFIELD,
+        rect: rect({ left: 0, top: 0, width: 1000, height: 600 }),
+        scale: 1,
+        cardScale: 1,
+        cardBaseHeight: measuredCardSizing.baseCardHeight,
+        cardBaseWidth: measuredCardSizing.baseCardWidth,
+      },
+    });
+
+    expect(state.debug?.placement.snappedCanonical.y).toBeCloseTo(0.5);
+    expect(state.ghostCard?.position.y).toBeCloseTo(350);
   });
 
   it("uses pointer and drag anchor as the live dragged center when dnd translated rect is stale", () => {

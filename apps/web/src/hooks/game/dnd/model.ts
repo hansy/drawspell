@@ -12,6 +12,7 @@ import {
   clampNormalizedToCanonicalBattlefieldBounds,
   fromNormalizedPosition,
   mirrorNormalizedY,
+  resolveBattlefieldCollisionPosition,
   toNormalizedPosition,
 } from "@/lib/positions";
 
@@ -149,6 +150,20 @@ export const computeDragMoveUiState = (params: {
     baseCardHeight: params.over.cardBaseHeight,
     baseCardWidth: params.over.cardBaseWidth,
   });
+  const resolvedCanonical = resolveBattlefieldCollisionPosition({
+    movingCardId: activeCard.id,
+    targetPosition: placement.snappedCanonical,
+    orderedCardIds: targetZone.cardIds,
+    getPosition: (id) => params.cards[id]?.position,
+  });
+  const resolvedView = mirrorY
+    ? mirrorNormalizedY(resolvedCanonical)
+    : resolvedCanonical;
+  const ghostPosition = fromNormalizedPosition(
+    resolvedView,
+    placement.zoneWidth,
+    placement.zoneHeight,
+  );
   const liveCenterScreen = {
     x: params.over.rect.left + placement.livePosition.x * zoneScale,
     y: params.over.rect.top + placement.livePosition.y * zoneScale,
@@ -157,9 +172,9 @@ export const computeDragMoveUiState = (params: {
   return {
     ghostCard: {
       zoneId: targetZone.id,
-      position: placement.ghostPosition,
+      position: ghostPosition,
       tapped: isTapped,
-      size: { width: placement.slotWidth, height: placement.slotHeight },
+      size: { width: placement.cardWidth, height: placement.cardHeight },
     },
     overCardScale,
     ...(params.over.dragOverlayScale !== undefined

@@ -17,27 +17,21 @@ import {
   getEffectiveCardSize,
 } from "../dndBattlefield";
 
-const expectEdgesAlignedToGrid = (params: {
+const expectCenterOnGrid = (params: {
   placement: ReturnType<typeof computeBattlefieldPlacement>;
-  viewScale: number;
+  mirrorY?: boolean;
 }) => {
   const grid = getCanonicalBattlefieldPlacementGridSteps({
     zoneWidth: zoneRect.width,
     zoneHeight: zoneRect.height,
-    viewScale: params.viewScale,
     ...measuredCardSizing,
   });
   const stepX = grid.stepX * zoneRect.width;
   const stepY = grid.stepY * zoneRect.height;
-  const left = params.placement.snappedPosition.x - params.placement.cardWidth / 2;
-  const right = params.placement.snappedPosition.x + params.placement.cardWidth / 2;
-  const top = params.placement.snappedPosition.y - params.placement.cardHeight / 2;
-  const bottom = params.placement.snappedPosition.y + params.placement.cardHeight / 2;
-
-  expect(left / stepX).toBeCloseTo(Math.round(left / stepX), 6);
-  expect(right / stepX).toBeCloseTo(Math.round(right / stepX), 6);
-  expect(top / stepY).toBeCloseTo(Math.round(top / stepY), 6);
-  expect(bottom / stepY).toBeCloseTo(Math.round(bottom / stepY), 6);
+  const center = params.placement.snappedPosition;
+  expect(center.x / stepX).toBeCloseTo(Math.round(center.x / stepX), 6);
+  const canonicalY = params.mirrorY ? zoneRect.height - center.y : center.y;
+  expect(canonicalY / stepY).toBeCloseTo(Math.round(canonicalY / stepY), 6);
 };
 
 describe("battlefield placement contracts", () => {
@@ -187,7 +181,6 @@ describe("battlefield placement contracts", () => {
     });
     const pointerScreen = gridAlignedCenter({
       grid,
-      cardSize,
       xIndex: 9,
       yIndex: 7,
     });
@@ -215,14 +208,8 @@ describe("battlefield placement contracts", () => {
   it("keeps a moving drop preview snapped from the live dragged center without lead bias", () => {
     const grid = placementGridPixels();
     const dragAnchor = { x: 0.5, y: 0.5 };
-    const cardSize = getEffectiveCardSize({
-      viewScale: 1,
-      isTapped: true,
-      ...measuredCardSizing,
-    });
     const nextGridCenter = gridAlignedCenter({
       grid,
-      cardSize,
       xIndex: 10,
       yIndex: 7,
     });
@@ -242,21 +229,16 @@ describe("battlefield placement contracts", () => {
 
     expect(placement.leadScreen).toEqual({ x: 0, y: 0 });
     expect(placement.ghostPosition).toEqual(placement.snappedPosition);
-    expect(placement.snappedPosition).toEqual(nextGridCenter);
-    expectEdgesAlignedToGrid({ placement, viewScale: 1 });
+    expect(placement.snappedPosition.x).toBeCloseTo(nextGridCenter.x);
+    expect(placement.snappedPosition.y).toBeCloseTo(nextGridCenter.y);
+    expectCenterOnGrid({ placement });
   });
 
   it("keeps snap displacement separate from artificial ghost lead while moving", () => {
     const grid = placementGridPixels();
     const dragAnchor = { x: 0.5, y: 0.5 };
-    const cardSize = getEffectiveCardSize({
-      viewScale: 1,
-      isTapped: true,
-      ...measuredCardSizing,
-    });
     const justPastGridCenter = gridAlignedCenter({
       grid,
-      cardSize,
       xIndex: 10,
       yIndex: 7,
     });
@@ -279,8 +261,9 @@ describe("battlefield placement contracts", () => {
 
     expect(placement.leadScreen).toEqual({ x: 0, y: 0 });
     expect(placement.ghostPosition).toEqual(placement.snappedPosition);
-    expect(placement.snappedPosition).toEqual(justPastGridCenter);
-    expectEdgesAlignedToGrid({ placement, viewScale: 1 });
+    expect(placement.snappedPosition.x).toBeCloseTo(justPastGridCenter.x);
+    expect(placement.snappedPosition.y).toBeCloseTo(justPastGridCenter.y);
+    expectCenterOnGrid({ placement });
   });
 
   it("uses tapped card dimensions for the final placed preview", () => {
@@ -300,7 +283,7 @@ describe("battlefield placement contracts", () => {
     expect(placement.cardWidth).toBeGreaterThan(placement.cardHeight);
   });
 
-  it("snaps final untapped drop card edges to the visible placement grid", () => {
+  it("snaps an untapped drop to a visible center point", () => {
     const placement = computeBattlefieldPlacement({
       pointerScreen: { x: 503, y: 297 },
       dragAnchor: { x: 0.5, y: 0.5 },
@@ -312,38 +295,10 @@ describe("battlefield placement contracts", () => {
       isTapped: false,
       ...measuredCardSizing,
     });
-    const grid = getCanonicalBattlefieldPlacementGridSteps({
-      zoneWidth: zoneRect.width,
-      zoneHeight: zoneRect.height,
-      viewScale: 1,
-      ...measuredCardSizing,
-    });
-    const stepX = grid.stepX * zoneRect.width;
-    const stepY = grid.stepY * zoneRect.height;
-    const left = placement.snappedPosition.x - placement.cardWidth / 2;
-    const right = placement.snappedPosition.x + placement.cardWidth / 2;
-    const top = placement.snappedPosition.y - placement.cardHeight / 2;
-    const bottom = placement.snappedPosition.y + placement.cardHeight / 2;
-
-    expect(left / stepX).toBeCloseTo(
-      Math.round(left / stepX),
-      6
-    );
-    expect(right / stepX).toBeCloseTo(
-      Math.round(right / stepX),
-      6
-    );
-    expect(top / stepY).toBeCloseTo(
-      Math.round(top / stepY),
-      6
-    );
-    expect(bottom / stepY).toBeCloseTo(
-      Math.round(bottom / stepY),
-      6
-    );
+    expectCenterOnGrid({ placement });
   });
 
-  it("snaps final tapped drop card edges to the visible placement grid", () => {
+  it("snaps a tapped drop to the same visible center lattice", () => {
     const viewScale = 0.9;
     const placement = computeBattlefieldPlacement({
       pointerScreen: { x: 503, y: 297 },
@@ -356,51 +311,23 @@ describe("battlefield placement contracts", () => {
       isTapped: true,
       ...measuredCardSizing,
     });
-    const grid = getCanonicalBattlefieldPlacementGridSteps({
-      zoneWidth: zoneRect.width,
-      zoneHeight: zoneRect.height,
-      viewScale,
-      ...measuredCardSizing,
-    });
-    const stepX = grid.stepX * zoneRect.width;
-    const stepY = grid.stepY * zoneRect.height;
-    const left = placement.snappedPosition.x - placement.cardWidth / 2;
-    const right = placement.snappedPosition.x + placement.cardWidth / 2;
-    const top = placement.snappedPosition.y - placement.cardHeight / 2;
-    const bottom = placement.snappedPosition.y + placement.cardHeight / 2;
-
-    expect(placement.cardWidth).toBeCloseTo(stepX * 3);
-    expect(placement.cardHeight).toBeCloseTo(stepY * 2);
-    expect(left / stepX).toBeCloseTo(
-      Math.round(left / stepX),
-      6
-    );
-    expect(right / stepX).toBeCloseTo(
-      Math.round(right / stepX),
-      6
-    );
-    expect(top / stepY).toBeCloseTo(
-      Math.round(top / stepY),
-      6
-    );
-    expect(bottom / stepY).toBeCloseTo(
-      Math.round(bottom / stepY),
-      6
-    );
+    expect(placement.cardWidth).toBeCloseTo(measuredCardSizing.baseCardHeight * viewScale);
+    expect(placement.cardHeight).toBeCloseTo(measuredCardSizing.baseCardWidth * viewScale);
+    expectCenterOnGrid({ placement });
   });
 
   it.each([
-    { viewScale: 1, isTapped: false, expectedCellsX: 2, expectedCellsY: 3 },
-    { viewScale: 1, isTapped: true, expectedCellsX: 3, expectedCellsY: 2 },
-    { viewScale: 0.9, isTapped: false, expectedCellsX: 2, expectedCellsY: 3 },
-    { viewScale: 0.9, isTapped: true, expectedCellsX: 3, expectedCellsY: 2 },
-    { viewScale: 0.75, isTapped: false, expectedCellsX: 2, expectedCellsY: 3 },
-    { viewScale: 0.75, isTapped: true, expectedCellsX: 3, expectedCellsY: 2 },
-    { viewScale: 0.5, isTapped: false, expectedCellsX: 2, expectedCellsY: 3 },
-    { viewScale: 0.5, isTapped: true, expectedCellsX: 3, expectedCellsY: 2 },
+    { viewScale: 1, isTapped: false },
+    { viewScale: 1, isTapped: true },
+    { viewScale: 0.9, isTapped: false },
+    { viewScale: 0.9, isTapped: true },
+    { viewScale: 0.75, isTapped: false },
+    { viewScale: 0.75, isTapped: true },
+    { viewScale: 0.5, isTapped: false },
+    { viewScale: 0.5, isTapped: true },
   ])(
-    "keeps $isTapped tapped=$isTapped card edges aligned to the zoomed grid at viewScale=$viewScale",
-    ({ viewScale, isTapped, expectedCellsX, expectedCellsY }) => {
+    "keeps the card center on a fixed grid at tapped=$isTapped and viewScale=$viewScale",
+    ({ viewScale, isTapped }) => {
       const placement = computeBattlefieldPlacement({
         pointerScreen: { x: 503, y: 297 },
         dragAnchor: { x: 0.5, y: 0.5 },
@@ -412,13 +339,47 @@ describe("battlefield placement contracts", () => {
         isTapped,
         ...measuredCardSizing,
       });
-      const grid = placementGridPixels(viewScale);
-
-      expect(placement.cardWidth).toBeCloseTo(grid.x * expectedCellsX);
-      expect(placement.cardHeight).toBeCloseTo(grid.y * expectedCellsY);
-      expectEdgesAlignedToGrid({ placement, viewScale });
+      expectCenterOnGrid({ placement });
     }
   );
+
+  it("uses the same snap center for tapped and untapped cards at every zoom", () => {
+    const positions = [false, true].flatMap((isTapped) =>
+      [0.5, 0.75, 1, 1.5].map((viewScale) =>
+        computeBattlefieldPlacement({
+          pointerScreen: { x: 503, y: 297 },
+          dragAnchor: { x: 0.5, y: 0.5 },
+          overRect: zoneRect,
+          zoneScale: 1,
+          viewScale,
+          mirrorY: false,
+          isTapped,
+          ...measuredCardSizing,
+        }).snappedPosition
+      )
+    );
+
+    for (const position of positions) {
+      expect(position).toEqual(positions[0]);
+    }
+  });
+
+  it("keeps the snapped center on a visible dot near the battlefield edge", () => {
+    const placement = computeBattlefieldPlacement({
+      pointerScreen: { x: 2, y: 2 },
+      dragAnchor: { x: 0.5, y: 0.5 },
+      overRect: zoneRect,
+      zoneScale: 1,
+      viewScale: 1,
+      mirrorY: false,
+      isTapped: true,
+      ...measuredCardSizing,
+    });
+
+    expectCenterOnGrid({ placement });
+    expect(placement.snappedPosition.x).toBeGreaterThan(0);
+    expect(placement.snappedPosition.y).toBeGreaterThan(0);
+  });
 
   it("keeps mirrored battlefield ghost geometry in view coordinates while storing canonical Y", () => {
     const viewScale = 0.9;
@@ -438,6 +399,6 @@ describe("battlefield placement contracts", () => {
       1 - placement.snappedPosition.y / zoneRect.height,
       6
     );
-    expectEdgesAlignedToGrid({ placement, viewScale });
+    expectCenterOnGrid({ placement, mirrorY: true });
   });
 });

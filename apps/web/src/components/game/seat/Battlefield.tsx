@@ -8,15 +8,11 @@ import type { TouchContextMenuPressState } from "../touchContextMenu";
 import { useDragStore } from '@/store/dragStore';
 import { useGameStore } from '@/store/gameStore';
 import { selectIsCardSelected, useSelectionStore } from '@/store/selectionStore';
-import {
-    computeBattlefieldCardLayout,
-    computeBattlefieldGridProjection,
-} from '@/models/game/seat/battlefieldModel';
+import { computeBattlefieldCardLayout } from '@/models/game/seat/battlefieldModel';
 import { getCardPixelSize } from '@/lib/positions';
 import { useElementSize } from "@/hooks/shared/useElementSize";
 import { useBattlefieldZoomControls } from "@/hooks/game/board/useBattlefieldZoomControls";
 import { useBattlefieldSelection } from "@/hooks/game/board/useBattlefieldSelection";
-import { BattlefieldGridOverlay } from "./BattlefieldGridOverlay";
 import { BattlefieldGhostOverlay } from "./BattlefieldGhostOverlay";
 import {
     debugLog,
@@ -167,36 +163,18 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     playerColors,
     disableZoomControls,
 }) => {
-    const activeCardId = useDragStore((state) => state.activeCardId);
     const ghostCards = useDragStore((state) => state.ghostCards);
     const isGroupDragging = useDragStore((state) => state.isGroupDragging);
-    const showGrid = Boolean(activeCardId);
     const groupGhostForZone = React.useMemo(() => {
         if (!ghostCards || ghostCards.length < 2) return [];
         return ghostCards.filter((ghost) => ghost.zoneId === zone.id);
     }, [ghostCards, zone.id]);
-    const activeCard = useGameStore((state) =>
-        activeCardId ? state.cards[activeCardId] : undefined
-    );
     const ghostSourceCards = useGameStore(
         useShallow((state) =>
             groupGhostForZone.map((ghost) => state.cards[ghost.cardId])
         )
     );
     const { ref: zoneSizeRef, size: zoneSize } = useElementSize<HTMLDivElement>();
-    const {
-        gridStepX,
-        gridStepY,
-        originOffsetX: gridOriginOffsetX,
-        originOffsetY: gridOriginOffsetY,
-    } = computeBattlefieldGridProjection({
-        zoneWidth: zoneSize.width,
-        zoneHeight: zoneSize.height,
-        viewScale,
-        isTapped: Boolean(activeCard?.tapped),
-        baseCardHeight,
-        baseCardWidth,
-    });
     const zoneNodeRef = React.useRef<HTMLDivElement | null>(null);
     const [zoneNode, setZoneNode] = React.useState<HTMLDivElement | null>(null);
     const setBattlefieldGridSizing = useGameStore(
@@ -285,15 +263,6 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                         height: tappedSize.cardHeight,
                     },
                 },
-                grid: {
-                    visible: showGrid,
-                    gridStepX,
-                    gridStepY,
-                    originOffsetX: gridOriginOffsetX,
-                    originOffsetY: gridOriginOffsetY,
-                    activeCardId,
-                    activeCardTapped: activeCard?.tapped,
-                },
                 zoneElement: summarizeZoneElement(zone.id),
                 cards: cards.map((card) => ({
                     cardId: card.id,
@@ -307,19 +276,12 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
         });
         return () => cancelAnimationFrame(frame);
     }, [
-        activeCard?.tapped,
-        activeCardId,
         baseCardHeight,
         baseCardHeightPx,
         baseCardWidth,
         baseCardWidthPx,
         cards,
-        gridOriginOffsetX,
-        gridOriginOffsetY,
-        gridStepX,
-        gridStepY,
         scale,
-        showGrid,
         viewScale,
         zone.id,
         zone.ownerId,
@@ -493,13 +455,6 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                 onPointerCancel={handlePointerCancel}
                 onPointerLeave={handlePointerCancel}
             >
-                <BattlefieldGridOverlay
-                    visible={showGrid}
-                    gridStepX={gridStepX}
-                    gridStepY={gridStepY}
-                    originOffsetX={gridOriginOffsetX}
-                    originOffsetY={gridOriginOffsetY}
-                />
                 {selectionRect && (
                     <div
                         className="pointer-events-none absolute z-10 border border-indigo-400/70 bg-indigo-400/10"

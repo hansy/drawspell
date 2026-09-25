@@ -95,17 +95,17 @@ describe('positions', () => {
     );
   });
 
-  it('uses half-short-side square steps for visible battlefield placement', () => {
+  it('uses half-card-width columns and twelve normalized rows', () => {
     const steps = getCanonicalBattlefieldPlacementGridSteps({
       zoneWidth: 1000,
       zoneHeight: 600,
-      viewScale: 0.9,
       baseCardHeight: 135,
       baseCardWidth: 90,
     });
 
-    expect(steps.stepX * 1000).toBeCloseTo((90 * 0.9) / 2, 6);
-    expect(steps.stepY * 600).toBeCloseTo((90 * 0.9) / 2, 6);
+    expect(steps.stepX * 1000).toBeCloseTo(90 / 2, 6);
+    expect(steps.stepY * 600).toBeCloseTo(600 / 12, 6);
+    expect(getCanonicalBattlefieldPlacementGridSteps().stepY).toBeCloseTo(1 / 12, 6);
   });
 
   it('clamps a group delta without changing the relative card offsets', () => {

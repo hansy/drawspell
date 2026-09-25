@@ -41,11 +41,10 @@ export const liveDraggedCenter = (params: {
   };
 };
 
-export const placementGridPixels = (viewScale = 1) => {
+export const placementGridPixels = () => {
   const steps = getCanonicalBattlefieldPlacementGridSteps({
     zoneWidth: zoneRect.width,
     zoneHeight: zoneRect.height,
-    viewScale,
     ...measuredCardSizing,
   });
   return {
@@ -56,13 +55,11 @@ export const placementGridPixels = (viewScale = 1) => {
 
 export const gridAlignedCenter = (params: {
   grid: Point;
-  cardSize: CardSize;
   xIndex: number;
   yIndex: number;
 }) => {
-  const cardSize = readCardSize(params.cardSize);
   return {
-    x: params.grid.x * params.xIndex + cardSize.width / 2,
-    y: params.grid.y * params.yIndex + cardSize.height / 2,
+    x: params.grid.x * params.xIndex,
+    y: params.grid.y * params.yIndex,
   };
 };

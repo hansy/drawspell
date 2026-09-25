@@ -38,9 +38,7 @@ type ViewScaleOptions = {
   viewScale?: number;
 };
 
-type BattlefieldPlacementGridOptions = ZoneDimensionOptions &
-  ViewScaleOptions &
-  CardDimensionOptions;
+type BattlefieldPlacementGridOptions = ZoneDimensionOptions & CardDimensionOptions;
 
 export const resolveBaseCardDimensions = (params?: CardDimensionOptions) => {
   const baseCardHeight = params?.baseCardHeight ?? BASE_CARD_HEIGHT;
@@ -148,7 +146,7 @@ export const getCanonicalBattlefieldGridSteps = (params?: CardOrientationOptions
   });
 
 export const BATTLEFIELD_PLACEMENT_GRID_WIDTH_FRACTION = 1 / 2;
-export const BATTLEFIELD_PLACEMENT_GRID_SHORT_SIDE_FRACTION = 1 / 2;
+export const BATTLEFIELD_PLACEMENT_ROWS = 12;
 
 const snapNormalizedValueToStep = (value: number, step: number) =>
   step > 0 ? Math.round(value / step) * step : value;
@@ -164,17 +162,15 @@ export const getCanonicalBattlefieldPlacementGridSteps = (
     baseCardHeight * BATTLEFIELD_SLOT_ASPECT_RATIO;
   const zoneWidth = params?.zoneWidth ?? LEGACY_BATTLEFIELD_WIDTH;
   const zoneHeight = params?.zoneHeight ?? LEGACY_BATTLEFIELD_HEIGHT;
-  const viewScale = params?.viewScale ?? 1;
-
   return {
     stepX: zoneWidth
-      ? (battlefieldSlotWidth * viewScale * BATTLEFIELD_PLACEMENT_GRID_WIDTH_FRACTION) /
+      ? (battlefieldSlotWidth * BATTLEFIELD_PLACEMENT_GRID_WIDTH_FRACTION) /
         zoneWidth
       : 0,
-    stepY: zoneHeight
-      ? (battlefieldSlotWidth * viewScale * BATTLEFIELD_PLACEMENT_GRID_SHORT_SIDE_FRACTION) /
-        zoneHeight
-      : 0,
+    // A card normally occupies one quarter of the battlefield height, so one
+    // row is one third of that card. Keep this normalized row stable for the
+    // server collision bump and every viewer's snap points.
+    stepY: zoneHeight ? 1 / BATTLEFIELD_PLACEMENT_ROWS : 0,
   };
 };
 
@@ -310,6 +306,35 @@ export const getCanonicalBattlefieldCardBounds = (
     maxX: 1 - halfW,
     minY: halfH,
     maxY: 1 - halfH,
+  };
+};
+
+const getBoundedGridRange = (min: number, max: number, step: number) => {
+  if (step <= 0) return { min, max };
+  const first = Math.ceil((min - 1e-9) / step) * step;
+  const last = Math.floor((max + 1e-9) / step) * step;
+  return first <= last ? { min: first, max: last } : { min, max };
+};
+
+export const getBattlefieldPlacementSnapBounds = (
+  params?: BattlefieldPlacementGridOptions & CardOrientationOptions
+) => {
+  const steps = getCanonicalBattlefieldPlacementGridSteps(params);
+  const cardBounds = getCanonicalBattlefieldCardBounds(params);
+  const x = getBoundedGridRange(cardBounds.minX, cardBounds.maxX, steps.stepX);
+  const y = getBoundedGridRange(cardBounds.minY, cardBounds.maxY, steps.stepY);
+  return { minX: x.min, maxX: x.max, minY: y.min, maxY: y.max };
+};
+
+export const snapNormalizedToBattlefieldPlacementCenter = (
+  position: Position,
+  params?: BattlefieldPlacementGridOptions & CardOrientationOptions
+) => {
+  const { stepX, stepY } = getCanonicalBattlefieldPlacementGridSteps(params);
+  const bounds = getBattlefieldPlacementSnapBounds(params);
+  return {
+    x: clampNumber(snapNormalizedValueToStep(position.x, stepX), bounds.minX, bounds.maxX),
+    y: clampNumber(snapNormalizedValueToStep(position.y, stepY), bounds.minY, bounds.maxY),
   };
 };
 

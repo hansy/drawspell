@@ -34,7 +34,23 @@ describe('resolveBattlefieldCollisionPosition', () => {
     );
   });
 
-  it('accepts a custom visible grid row size', () => {
+  it('reveals one third of a card when two cards target the same snap point', () => {
+    const battlefieldHeight = 600;
+    const cardHeight = battlefieldHeight / 4;
+    const target = { x: 0.45, y: 0.5 };
+    const position = resolveBattlefieldCollisionPosition({
+      movingCardId: 'incoming',
+      targetPosition: target,
+      orderedCardIds: ['existing', 'incoming'],
+      getPosition: (id) => (id === 'existing' ? target : null),
+    });
+
+    expect(position.x).toBe(target.x);
+    expect((position.y - target.y) * battlefieldHeight).toBeCloseTo(cardHeight / 3);
+    expect(position.y * 12).toBeCloseTo(Math.round(position.y * 12));
+  });
+
+  it('accepts a custom snap row size', () => {
     const stepY = 0.125;
     const position = resolveBattlefieldCollisionPosition({
       movingCardId: 'c1',
