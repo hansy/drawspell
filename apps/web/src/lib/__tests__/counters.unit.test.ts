@@ -45,6 +45,14 @@ describe('counters helpers', () => {
     expect(decrementCounter(counters, 'charge')).toEqual([{ type: 'charge', count: 1 }]);
     expect(decrementCounter(counters, 'missing')).toEqual(counters);
     expect(decrementCounter([{ type: 'charge', count: 1 }], 'charge')).toEqual([]);
+    expect(decrementCounter([{ type: 'charge', count: 3 }], 'charge', 2)).toEqual([
+      { type: 'charge', count: 1 },
+    ]);
+    expect(decrementCounter([{ type: 'charge', count: 1 }], 'charge', 2)).toEqual([]);
+    expect(decrementCounter([
+      { type: 'Poison', count: 1 },
+      { type: 'poison', count: 3 },
+    ], 'poison', 2)).toEqual([{ type: 'poison', count: 2 }]);
   });
 
   it('resolves counter colors using presets and globals', () => {

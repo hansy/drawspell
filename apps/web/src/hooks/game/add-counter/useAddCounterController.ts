@@ -91,6 +91,7 @@ export const useAddCounterController = ({
 
   return {
     isOpen,
+    targetCardCount: cardIds.length,
     handleClose: onClose,
     counterType,
     handleCounterTypeChange,

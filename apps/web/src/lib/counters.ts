@@ -74,23 +74,23 @@ export const mergeCounters = (existing: Counter[], incoming: Counter): Counter[]
   return [...existing, { ...incoming, type: normalizedType, count: normalizedCount }];
 };
 
-// Decrements a counter by one; removes it if it hits zero.
-export const decrementCounter = (existing: Counter[], type: string): Counter[] => {
+// Decrements a counter by up to count; removes it if it hits zero.
+export const decrementCounter = (existing: Counter[], type: string, count = 1): Counter[] => {
   const normalizedType = normalizeCounterType(type);
-  if (!normalizedType) return existing;
+  if (!normalizedType || !Number.isSafeInteger(count) || count <= 0) return existing;
 
-  const idx = findCounterIndex(existing, normalizedType);
-  if (idx === -1) return existing;
-
-  const next = [...existing];
-  const target = next[idx];
-  if (target.count > 1) {
-    next[idx] = { ...target, type: normalizedType, count: target.count - 1 };
-    return next;
-  }
-
-  next.splice(idx, 1);
-  return next;
+  let remaining = count;
+  const next = existing.flatMap((counter) => {
+    if (remaining === 0 || !matchesCounterType(counter.type, normalizedType)) {
+      return [counter];
+    }
+    const removed = Math.min(counter.count, remaining);
+    remaining -= removed;
+    return counter.count > removed
+      ? [{ ...counter, type: normalizedType, count: counter.count - removed }]
+      : [];
+  });
+  return remaining === count ? existing : next;
 };
 
 const deriveColorFromString = (value: string): string => {

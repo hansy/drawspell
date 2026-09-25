@@ -635,6 +635,83 @@ describe("buildZoneViewActions", () => {
 });
 
 describe("buildGroupActions", () => {
+  it("offers batch counter addition and count-based removal on controlled battlefield cards", () => {
+    const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1");
+    const cards = [
+      { ...baseCard, id: "c1", zoneId: battlefield.id, counters: [{ type: "+1/+1", count: 3 }] },
+      { ...baseCard, id: "c2", zoneId: battlefield.id, counters: [{ type: "+1/+1", count: 1 }] },
+    ];
+    const openAddCounterModal = vi.fn();
+    const removeCounter = vi.fn();
+    const openCountPrompt = vi.fn();
+    const actions = buildGroupActions({
+      cards,
+      currentZone: battlefield,
+      zones: { [battlefield.id]: battlefield },
+      myPlayerId: "p1",
+      viewerRole: "player",
+      moveCards: vi.fn(),
+      setCardsReveal: vi.fn(),
+      openAddCounterModal,
+      removeCounter,
+      openCountPrompt,
+    });
+
+    const counterMenu = actions.find(
+      (item) => item.type === "action" && item.label === "Add/remove counters",
+    );
+    expect(counterMenu?.type).toBe("action");
+    if (!counterMenu || counterMenu.type !== "action") return;
+
+    const addAction = counterMenu.submenu?.find(
+      (item) => item.type === "action" && item.label === "Add counters...",
+    );
+    expect(addAction?.type).toBe("action");
+    if (!addAction || addAction.type !== "action") return;
+    addAction.onSelect();
+    expect(openAddCounterModal).toHaveBeenCalledTimes(1);
+
+    const removeMenu = counterMenu.submenu?.find(
+      (item) => item.type === "action" && item.label === "Remove counters...",
+    );
+    expect(removeMenu?.type).toBe("action");
+    if (!removeMenu || removeMenu.type !== "action") return;
+    const removeType = removeMenu.submenu?.[0];
+    expect(removeType).toMatchObject({ type: "action", label: "+1/+1" });
+    if (!removeType || removeType.type !== "action") return;
+    removeType.onSelect();
+    expect(openCountPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      maxValue: 3,
+      inputLabel: "How many from each card?",
+    }));
+    openCountPrompt.mock.calls[0]?.[0]?.onSubmit(2);
+    expect(removeCounter).toHaveBeenCalledWith("+1/+1", 2);
+  });
+
+  it("does not offer batch counters for cards outside the player's control", () => {
+    const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1");
+    const cards = [
+      { ...baseCard, id: "c1", zoneId: battlefield.id },
+      { ...baseCard, id: "c2", zoneId: battlefield.id, controllerId: "p2" },
+    ];
+    const actions = buildGroupActions({
+      cards,
+      currentZone: battlefield,
+      zones: { [battlefield.id]: battlefield },
+      myPlayerId: "p1",
+      viewerRole: "player",
+      moveCards: vi.fn(),
+      setCardsReveal: vi.fn(),
+      openAddCounterModal: vi.fn(),
+      removeCounter: vi.fn(),
+      openCountPrompt: vi.fn(),
+    });
+
+    expect(actions.some(
+      (item) => item.type === "action" && item.label === "Add/remove counters",
+    )).toBe(false);
+  });
+
   it("offers one destructive removal for a group of tokens", () => {
     const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1");
     const cards = [

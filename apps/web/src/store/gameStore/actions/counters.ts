@@ -131,9 +131,9 @@ export const createCounterActions = (
     });
   },
 
-  removeCounterFromCard: (cardId, counterType, actorId, _isRemote) => {
+  removeCounterFromCard: (cardId, counterType, actorId, _isRemote, count = 1) => {
     const normalizedType = normalizeCounterType(counterType);
-    if (!normalizedType) return;
+    if (!normalizedType || !Number.isSafeInteger(count) || count <= 0) return;
 
     const context = resolveCardCounterContext(
       get,
@@ -146,7 +146,7 @@ export const createCounterActions = (
 
     const { card, actor } = context;
     const prevCount = getNormalizedCounterTotal(card.counters, normalizedType);
-    const newCounters = decrementCounter(card.counters, normalizedType);
+    const newCounters = decrementCounter(card.counters, normalizedType, count);
     const nextCount = getNormalizedCounterTotal(newCounters, normalizedType);
     const delta = nextCount - prevCount;
     if (delta === 0) return;

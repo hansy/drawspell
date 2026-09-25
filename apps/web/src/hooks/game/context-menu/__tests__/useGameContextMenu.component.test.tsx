@@ -338,6 +338,42 @@ describe("useGameContextMenu", () => {
     ).toEqual(["Reveal to...", "Move to..."]);
   });
 
+  it("opens counter addition for the selected battlefield cards", async () => {
+    const battlefield = createZone("me-battlefield", "me", ZONE.BATTLEFIELD, ["c1", "c2"]);
+    const firstCard = createCard("c1", battlefield.id, "me");
+    const secondCard = createCard("c2", battlefield.id, "me");
+    resetStore({
+      players: { me: createPlayer("me", true) } as any,
+      zones: { [battlefield.id]: battlefield } as any,
+      cards: { [firstCard.id]: firstCard, [secondCard.id]: secondCard } as any,
+      activeModal: null,
+    });
+    useSelectionStore.getState().setSelection(["c1", "c2"], battlefield.id);
+
+    let value: HookValue | null = null;
+    render(<Probe myPlayerId="me" onValue={(v) => { value = v; }} />);
+    await waitFor(() => expect(value).not.toBeNull());
+
+    act(() => value!.handleCardContextMenu(createEvent(), firstCard));
+    expect(value!.contextMenu?.title).toBe("2 cards selected");
+    const counterMenu = value!.contextMenu?.items.find(
+      (item) => item.type === "action" && item.label === "Add/remove counters",
+    );
+    expect(counterMenu?.type).toBe("action");
+    if (!counterMenu || counterMenu.type !== "action") return;
+    const addAction = counterMenu.submenu?.find(
+      (item) => item.type === "action" && item.label === "Add counters...",
+    );
+    expect(addAction?.type).toBe("action");
+    if (!addAction || addAction.type !== "action") return;
+
+    act(() => addAction.onSelect());
+    expect(useGameStore.getState().activeModal).toEqual({
+      type: "ADD_COUNTER",
+      cardIds: ["c1", "c2"],
+    });
+  });
+
   it("uses group library placement rules for a graveyard selection", async () => {
     const battlefield = createZone("me-battlefield", "me", ZONE.BATTLEFIELD);
     const hand = createZone("me-hand", "me", ZONE.HAND);

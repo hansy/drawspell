@@ -9,12 +9,13 @@ import type {
   ZoneId,
 } from "@/types";
 import type { CardMovementOptions } from "@mtg/shared/movement";
+import { getNormalizedCounterTotal, normalizeCounterType } from "@mtg/shared/counters";
 
 import { ZONE, ZONE_LABEL } from "@/constants/zones";
 import { getPlayerZones } from "@/lib/gameSelectors";
 import { shuffle } from "@/lib/shuffle";
-import { canMoveCard } from "@/rules/permissions";
-import type { ContextMenuItem } from "./types";
+import { canModifyCardState, canMoveCard } from "@/rules/permissions";
+import type { ContextMenuItem, OpenCountPrompt } from "./types";
 
 type GroupMove = {
   cardId: CardId;
@@ -33,6 +34,83 @@ type GroupActionBuilderParams = {
   moveCards: (moves: GroupMove[]) => void;
   setCardsReveal: (reveal: CardReveal) => void;
   removeCards?: () => void;
+  openAddCounterModal?: () => void;
+  removeCounter?: (counterType: string, count: number) => void;
+  openCountPrompt?: OpenCountPrompt;
+};
+
+const buildGroupCounterMenu = ({
+  cards,
+  currentZone,
+  myPlayerId,
+  viewerRole,
+  openAddCounterModal,
+  removeCounter,
+  openCountPrompt,
+}: GroupActionBuilderParams): ContextMenuItem | null => {
+  if (
+    !openAddCounterModal ||
+    !removeCounter ||
+    !openCountPrompt ||
+    viewerRole === "spectator" ||
+    currentZone.type !== ZONE.BATTLEFIELD ||
+    !cards.every((card) => canModifyCardState(myPlayerId, card, currentZone).allowed)
+  ) {
+    return null;
+  }
+
+  const counterTypes = new Map<string, string>();
+  cards.forEach((card) => {
+    card.counters.forEach((counter) => {
+      const type = normalizeCounterType(counter.type);
+      if (type && counter.count > 0 && !counterTypes.has(type)) {
+        counterTypes.set(type, counter.type);
+      }
+    });
+  });
+
+  const submenu: ContextMenuItem[] = [
+    {
+      type: "action",
+      label: "Add counters...",
+      onSelect: openAddCounterModal,
+    },
+  ];
+
+  if (counterTypes.size > 0) {
+    submenu.push({
+      type: "action",
+      label: "Remove counters...",
+      onSelect: () => {},
+      submenu: Array.from(counterTypes, ([type, label]) => ({
+        type: "action" as const,
+        label,
+        onSelect: () => {
+          const maxCount = Math.max(
+            ...cards.map((card) => getNormalizedCounterTotal(card.counters, type)),
+          );
+          openCountPrompt({
+            title: `Remove ${label} counters`,
+            message: "Remove up to this many from each selected card.",
+            initialValue: 1,
+            minValue: 1,
+            maxValue: maxCount,
+            showMaxButton: true,
+            inputLabel: "How many from each card?",
+            confirmLabel: "Remove counters",
+            onSubmit: (count) => removeCounter(type, count),
+          });
+        },
+      })),
+    });
+  }
+
+  return {
+    type: "action",
+    label: "Add/remove counters",
+    onSelect: () => {},
+    submenu,
+  };
 };
 
 const buildGroupRevealMenu = ({
@@ -243,6 +321,7 @@ export const buildGroupActions = (
 
   return [
     buildGroupRevealMenu(params),
+    buildGroupCounterMenu(params),
     buildGroupMoveMenu(params),
     removeTokens,
   ].filter((item): item is ContextMenuItem => item !== null);

@@ -71,6 +71,21 @@ export const decrementCounter = (existing: Counter[], type: string, delta: numbe
   const normalizedType = normalizeCounterType(type);
   if (!normalizedType) return existing;
 
+  if (delta < 0) {
+    let remaining = -delta;
+    const next = existing.flatMap((counter) => {
+      if (remaining === 0 || normalizeCounterType(counter.type) !== normalizedType) {
+        return [counter];
+      }
+      const removed = Math.min(counter.count, remaining);
+      remaining -= removed;
+      return counter.count > removed
+        ? [{ ...counter, type: normalizedType, count: counter.count - removed }]
+        : [];
+    });
+    return remaining === -delta ? existing : next;
+  }
+
   const idx = existing.findIndex((counter) => normalizeCounterType(counter.type) === normalizedType);
   if (idx === -1) return existing;
 

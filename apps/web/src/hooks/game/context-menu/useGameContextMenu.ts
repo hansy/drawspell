@@ -206,6 +206,7 @@ export const useGameContextMenu = (
                     players: store.players,
                     myPlayerId,
                     viewerRole,
+                    openCountPrompt,
                     ...adapters,
                     removeCards: () => {
                         requestConfirmation({
@@ -252,7 +253,7 @@ export const useGameContextMenu = (
                 };
             });
         })();
-    }, [buildCardMenuItems, isSpectator, myPlayerId, openContextMenu, seatHasDeckLoaded, updateContextMenu]);
+    }, [buildCardMenuItems, isSpectator, myPlayerId, openContextMenu, openCountPrompt, seatHasDeckLoaded, updateContextMenu]);
 
     // Builds and opens zone-specific actions (draw/shuffle/view).
     const handleZoneContextMenu = React.useCallback((e: React.MouseEvent, zoneId: ZoneId) => {

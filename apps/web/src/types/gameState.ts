@@ -208,7 +208,8 @@ export interface GameState {
     cardId: CardId,
     counterType: string,
     actorId?: PlayerId,
-    isRemote?: boolean
+    isRemote?: boolean,
+    count?: number
   ) => void;
   setActiveModal: (modal: { type: "ADD_COUNTER"; cardIds: string[] } | null) => void;
 

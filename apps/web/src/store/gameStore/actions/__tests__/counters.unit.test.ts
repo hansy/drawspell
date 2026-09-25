@@ -41,7 +41,7 @@ describe("createCounterActions", () => {
       dispatchIntent,
     });
 
-    actions.removeCounterFromCard(card.id, " poison ", "me");
+    actions.removeCounterFromCard(card.id, " poison ", "me", undefined, 2);
 
     expect(dispatchIntent).toHaveBeenCalledTimes(1);
     expect(dispatchIntent).toHaveBeenCalledWith(
@@ -50,7 +50,7 @@ describe("createCounterActions", () => {
         payload: expect.objectContaining({
           cardId: "c1",
           counterType: "poison",
-          delta: -1,
+          delta: -2,
         }),
       })
     );

@@ -88,8 +88,7 @@ describe('gameStore counter actions', () => {
     useGameStore.getState().removeCounterFromCard(card.id, '+1/+1', 'me');
     expect(useGameStore.getState().cards[card.id].counters).toEqual([{ type: '+1/+1', count: 2 }]);
 
-    useGameStore.getState().removeCounterFromCard(card.id, '+1/+1', 'me');
-    useGameStore.getState().removeCounterFromCard(card.id, '+1/+1', 'me');
+    useGameStore.getState().removeCounterFromCard(card.id, '+1/+1', 'me', undefined, 2);
     expect(useGameStore.getState().cards[card.id].counters).toEqual([]);
   });
 

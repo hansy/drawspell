@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Card } from "@mtg/shared/types/cards";
 
-import { buildCardIdentity, stripCardIdentity, toCardLite } from "../cards";
+import { buildCardIdentity, decrementCounter, stripCardIdentity, toCardLite } from "../cards";
 
 const card: Card = {
   id: "card-1",
@@ -41,5 +41,14 @@ describe("card identity metadata", () => {
       manaCost: undefined,
       manaValue: undefined,
     });
+  });
+});
+
+describe("counter removal", () => {
+  it("removes the requested count across legacy duplicate entries", () => {
+    expect(decrementCounter([
+      { type: "Poison", count: 1 },
+      { type: "poison", count: 3 },
+    ], "poison", -2)).toEqual([{ type: "poison", count: 2 }]);
   });
 });

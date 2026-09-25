@@ -168,7 +168,7 @@ export const createCardActionAdapters = (params: {
 };
 
 export const createGroupActionAdapters = (params: {
-  store: Pick<GameState, "moveCards" | "setCardsReveal" | "removeCard">;
+  store: Pick<GameState, "moveCards" | "setCardsReveal" | "removeCard" | "setActiveModal" | "removeCounterFromCard">;
   myPlayerId: PlayerId;
   targetIds: CardId[];
 }) => {
@@ -190,6 +190,20 @@ export const createGroupActionAdapters = (params: {
     },
     setCardsReveal: (reveal: CardReveal) =>
       params.store.setCardsReveal(targetIds, reveal, params.myPlayerId),
+    openAddCounterModal: () =>
+      params.store.setActiveModal({ type: "ADD_COUNTER", cardIds: targetIds }),
+    removeCounter: (counterType: string, count: number) => {
+      if (!Number.isSafeInteger(count) || count <= 0) return;
+      targetIds.forEach((cardId) => {
+        params.store.removeCounterFromCard(
+          cardId,
+          counterType,
+          params.myPlayerId,
+          undefined,
+          count,
+        );
+      });
+    },
     removeCards: () => {
       targetIds.forEach((cardId) => {
         params.store.removeCard(cardId, params.myPlayerId);

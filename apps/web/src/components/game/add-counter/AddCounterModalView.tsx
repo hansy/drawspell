@@ -10,6 +10,7 @@ import type { AddCounterController } from "@/hooks/game/add-counter/useAddCounte
 
 export const AddCounterModalView: React.FC<AddCounterController> = ({
   isOpen,
+  targetCardCount,
   handleClose,
   counterType,
   handleCounterTypeChange,
@@ -27,7 +28,11 @@ export const AddCounterModalView: React.FC<AddCounterController> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="ds-dialog-size-xs bg-zinc-950 border-zinc-800 text-zinc-100">
         <DialogHeader>
-          <DialogTitle>Add Counter</DialogTitle>
+          <DialogTitle>
+            {targetCardCount > 1
+              ? `Add Counters to ${targetCardCount} Cards`
+              : "Add Counter"}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4 py-1 sm:py-4">
@@ -107,7 +112,7 @@ export const AddCounterModalView: React.FC<AddCounterController> = ({
             onClick={handleAdd}
             disabled={!canSubmit}
           >
-            Add Counter
+            {targetCardCount > 1 ? "Add Counters" : "Add Counter"}
           </GameDialogActionButton>
         </DialogFooter>
       </DialogContent>
