@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { Card } from "@/types";
 import { getCardPixelSize } from "@/lib/positions";
-import { computeBattlefieldCardLayout } from "../battlefieldModel";
+import {
+  computeBattlefieldCardLayout,
+  computeBattlefieldGridGeometry,
+} from "../battlefieldModel";
 
 const measuredCardSizing = {
   baseCardHeight: 135,
@@ -59,6 +62,23 @@ const renderedCardGeometry = (params: {
 };
 
 describe("battlefield layout contracts", () => {
+  it("places grid lines around snapped card centers", () => {
+    const { gridStepX, gridStepY, gridOriginX, gridOriginY } =
+      computeBattlefieldGridGeometry({
+        zoneWidth: 1000,
+        zoneHeight: 600,
+        ...measuredCardSizing,
+      });
+
+    expect(gridStepX).toBe(45);
+    expect(gridStepY).toBe(50);
+    expect(gridOriginX).toBe(0);
+    expect(gridOriginY).toBe(25);
+    // A card centered on the lattice spans two columns and three rows.
+    expect(gridStepX * 2).toBe(measuredCardSizing.baseCardWidth);
+    expect(gridStepY * 3).toBe(600 / 4);
+  });
+
   it("keeps the rendered card center stable when tapping", () => {
     const zoneWidth = 1000;
     const zoneHeight = 600;

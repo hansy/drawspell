@@ -28,8 +28,10 @@ lead, free-flowing previews, and quarter-card stacking.
 
 ### Grid And Snap
 
-- No grid markers are drawn during a drag. The placement outline shows the
-  snapped card center and footprint.
+- A thin grid appears during a drag. Its lines are phased around the snapped
+  centers: vertical lines pass through centers, while horizontal lines sit
+  halfway between center rows. At the base card size, a card spans about two
+  columns and three rows.
 - The center lattice has twelve battlefield rows. At the usual card height of
   one quarter of the battlefield, one row exposes one third of a stacked card.
 - Tapping and local card zoom change the outline, not the snap points.

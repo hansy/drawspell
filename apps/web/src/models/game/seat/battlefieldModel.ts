@@ -3,6 +3,7 @@ import type { Card, PlayerId } from '@/types';
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from '@/lib/constants';
 import {
   fromNormalizedPosition,
+  getCanonicalBattlefieldPlacementGridSteps,
   mirrorNormalizedY,
 } from '@/lib/positions';
 
@@ -11,6 +12,26 @@ export type BattlefieldCardLayout = {
   top: number;
   highlightColor?: string;
   disableDrag: boolean;
+};
+
+export const computeBattlefieldGridGeometry = (params: {
+  zoneWidth: number;
+  zoneHeight: number;
+  baseCardHeight?: number;
+  baseCardWidth?: number;
+}) => {
+  const { stepX, stepY } = getCanonicalBattlefieldPlacementGridSteps(params);
+  const gridStepX = params.zoneWidth * stepX;
+  const gridStepY = params.zoneHeight * stepY;
+
+  // Snap centers sit on vertical lines. Horizontal lines fall halfway between
+  // rows, framing a three-row-tall card around its snapped center.
+  return {
+    gridStepX,
+    gridStepY,
+    gridOriginX: 0,
+    gridOriginY: gridStepY / 2,
+  };
 };
 
 export const computeBattlefieldCardLayout = (params: {

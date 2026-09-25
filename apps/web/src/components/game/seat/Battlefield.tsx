@@ -8,11 +8,15 @@ import type { TouchContextMenuPressState } from "../touchContextMenu";
 import { useDragStore } from '@/store/dragStore';
 import { useGameStore } from '@/store/gameStore';
 import { selectIsCardSelected, useSelectionStore } from '@/store/selectionStore';
-import { computeBattlefieldCardLayout } from '@/models/game/seat/battlefieldModel';
+import {
+    computeBattlefieldCardLayout,
+    computeBattlefieldGridGeometry,
+} from '@/models/game/seat/battlefieldModel';
 import { getCardPixelSize } from '@/lib/positions';
 import { useElementSize } from "@/hooks/shared/useElementSize";
 import { useBattlefieldZoomControls } from "@/hooks/game/board/useBattlefieldZoomControls";
 import { useBattlefieldSelection } from "@/hooks/game/board/useBattlefieldSelection";
+import { BattlefieldGridOverlay } from "./BattlefieldGridOverlay";
 import { BattlefieldGhostOverlay } from "./BattlefieldGhostOverlay";
 import {
     debugLog,
@@ -163,6 +167,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     playerColors,
     disableZoomControls,
 }) => {
+    const activeCardId = useDragStore((state) => state.activeCardId);
     const ghostCards = useDragStore((state) => state.ghostCards);
     const isGroupDragging = useDragStore((state) => state.isGroupDragging);
     const groupGhostForZone = React.useMemo(() => {
@@ -175,6 +180,12 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
         )
     );
     const { ref: zoneSizeRef, size: zoneSize } = useElementSize<HTMLDivElement>();
+    const gridGeometry = computeBattlefieldGridGeometry({
+        zoneWidth: zoneSize.width,
+        zoneHeight: zoneSize.height,
+        baseCardHeight,
+        baseCardWidth,
+    });
     const zoneNodeRef = React.useRef<HTMLDivElement | null>(null);
     const [zoneNode, setZoneNode] = React.useState<HTMLDivElement | null>(null);
     const setBattlefieldGridSizing = useGameStore(
@@ -455,6 +466,10 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
                 onPointerCancel={handlePointerCancel}
                 onPointerLeave={handlePointerCancel}
             >
+                <BattlefieldGridOverlay
+                    visible={Boolean(activeCardId)}
+                    {...gridGeometry}
+                />
                 {selectionRect && (
                     <div
                         className="pointer-events-none absolute z-10 border border-indigo-400/70 bg-indigo-400/10"
