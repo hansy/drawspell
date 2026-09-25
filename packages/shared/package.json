@@ -18,6 +18,7 @@
     "./movement": "./src/movement.ts",
     "./zones": "./src/zones.ts",
     "./positions": "./src/positions.ts",
+    "./turns": "./src/turns.ts",
     "./rules/types": "./src/rules/types.ts",
     "./rules/permissions": "./src/rules/permissions.ts",
     "./security/joinToken": "./src/security/joinToken.ts",

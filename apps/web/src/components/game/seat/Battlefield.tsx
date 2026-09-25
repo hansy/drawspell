@@ -134,7 +134,6 @@ const BattlefieldCard = React.memo<{
                 onContextMenu={handleContextMenu}
                 scale={viewScale}
                 faceDown={card.faceDown}
-                rotateLabel={isTop}
                 highlightColor={highlightColor}
                 isSelected={isSelected}
                 isDragging={isSourceVisualSuppressed ? true : undefined}

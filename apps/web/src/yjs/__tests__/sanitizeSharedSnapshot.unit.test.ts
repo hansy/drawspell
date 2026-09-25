@@ -296,7 +296,7 @@ describe("sanitizeSharedSnapshot", () => {
 
   it("hydrates room metadata from snapshot", () => {
     const safe = sanitizeSharedSnapshot({
-      players: { p1: { id: "p1", name: "P1", life: 40 } },
+      players: { p1: { id: "p1", name: "P1", life: 40, deckLoaded: true } },
       zones: {},
       cards: {},
       globalCounters: {},
@@ -312,8 +312,8 @@ describe("sanitizeSharedSnapshot", () => {
   it("falls back to the first seated player when active turn metadata is stale", () => {
     const safe = sanitizeSharedSnapshot({
       players: {
-        p1: { id: "p1", name: "P1", life: 40 },
-        p2: { id: "p2", name: "P2", life: 40 },
+        p1: { id: "p1", name: "P1", life: 40, deckLoaded: true },
+        p2: { id: "p2", name: "P2", life: 40, deckLoaded: true },
       },
       zones: {},
       cards: {},
@@ -323,6 +323,22 @@ describe("sanitizeSharedSnapshot", () => {
     });
 
     expect(safe.activePlayerId).toBe("p2");
+  });
+
+  it("shows no active turn when nobody has a loaded deck or positive life", () => {
+    const safe = sanitizeSharedSnapshot({
+      players: {
+        p1: { id: "p1", name: "P1", life: 40, deckLoaded: false },
+        p2: { id: "p2", name: "P2", life: 0, deckLoaded: true },
+      },
+      zones: {},
+      cards: {},
+      globalCounters: {},
+      playerOrder: ["p1", "p2"],
+      meta: { activePlayerId: "p2" },
+    });
+
+    expect(safe.activePlayerId).toBeNull();
   });
 
   it("flags rooms that exceed the player cap", () => {

@@ -9,7 +9,6 @@ export interface CardProps {
   faceDown?: boolean;
   scale?: number;
   preferArtCrop?: boolean;
-  rotateLabel?: boolean;
   disableDrag?: boolean;
   isDragging?: boolean;
   disableInteractions?: boolean;
@@ -28,7 +27,6 @@ export interface CardViewProps {
   onContextMenu?: (e: React.MouseEvent) => void;
   faceDown?: boolean;
   isDragging?: boolean;
-  rotateLabel?: boolean;
   onDoubleClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
   onClick?: (e: React.MouseEvent) => void;
   onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void;

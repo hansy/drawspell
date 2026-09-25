@@ -86,11 +86,10 @@ describe("CardFaceView", () => {
     expect(onPTDelta).toHaveBeenCalledWith("toughness", -1);
   });
 
-  it("counter-rotates the name and power/toughness labels", () => {
+  it("keeps the name and power/toughness labels aligned with the card", () => {
     const { container } = render(
       <CardFaceView
         model={buildModel({ showPT: true, showNameLabel: true })}
-        rotateLabel
       />
     );
 
@@ -98,10 +97,10 @@ describe("CardFaceView", () => {
       screen.getAllByText("Test Card").some((label) =>
         label.classList.contains("rotate-180"),
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       container.querySelector("[data-card-pt-badge]")?.classList.contains("rotate-180"),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("calls counter callbacks when interactive", () => {

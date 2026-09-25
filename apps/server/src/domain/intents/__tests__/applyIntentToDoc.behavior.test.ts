@@ -25,6 +25,7 @@ const makePlayer = (id: string, overrides: Partial<Player> = {}): Player => ({
   counters: [],
   commanderDamage: {},
   commanderTax: 0,
+  deckLoaded: true,
   ...overrides,
 });
 
@@ -99,6 +100,21 @@ describe("applyIntentToDoc", () => {
     expect(hidden.sideboardOrder.p1).toEqual([]);
   });
 
+  it("starts a Room without an active turn until its first deck is loaded", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-join-without-deck",
+      type: "player.join",
+      payload: { actorId: "p1", player: makePlayer("p1", { deckLoaded: false }) },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(maps.meta.get("activePlayerId")).toBeNull();
+  });
+
   it("advances the active player when the current player ends their turn", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
@@ -121,6 +137,162 @@ describe("applyIntentToDoc", () => {
         payload: { actorId: "p1", nextPlayerId: "p2" },
       });
     }
+  });
+
+  it("skips zero-life, negative-life, and unloaded players in turn order", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    writePlayer(maps, makePlayer("p2", { life: 0 }));
+    writePlayer(maps, makePlayer("p3", { life: -1 }));
+    writePlayer(maps, makePlayer("p4", { deckLoaded: false }));
+    writePlayer(maps, makePlayer("p5"));
+    maps.meta.set("activePlayerId", "p1");
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-skip-ineligible",
+      type: "player.endTurn",
+      payload: { actorId: "p1" },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(maps.meta.get("activePlayerId")).toBe("p5");
+    expect(applyIntentToDoc(doc, {
+      id: "intent-reject-ineligible-choice",
+      type: "player.endTurn",
+      payload: { actorId: "p5", nextPlayerId: "p2" },
+    }, hidden)).toEqual({ ok: false, error: "invalid next player" });
+  });
+
+  it("moves the turn immediately when the active player's life reaches zero", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    writePlayer(maps, makePlayer("p2"));
+    maps.meta.set("activePlayerId", "p1");
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-eliminate-active",
+      type: "player.update",
+      payload: { actorId: "p1", playerId: "p1", updates: { life: 0 } },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(maps.meta.get("activePlayerId")).toBe("p2");
+  });
+
+  it("restores a turn when the only loaded player's life becomes positive", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1", { life: 0 }));
+    maps.meta.set("activePlayerId", null);
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-restore-life",
+      type: "player.update",
+      payload: { actorId: "p1", playerId: "p1", updates: { life: 1 } },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(maps.meta.get("activePlayerId")).toBe("p1");
+  });
+
+  it("leaves no active turn until a player loads a deck", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1", { deckLoaded: false }));
+    writePlayer(maps, makePlayer("p2", { deckLoaded: false }));
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-first-deck-loaded",
+      type: "deck.load",
+      payload: { actorId: "p2", playerId: "p2" },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(maps.meta.get("activePlayerId")).toBe("p2");
+  });
+
+  it("gives the turn to the next eligible player when the active player unloads", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    writePlayer(maps, makePlayer("p2"));
+    writeZone(maps, makeZone("lib-p1", ZONE.LIBRARY, "p1"));
+    maps.meta.set("activePlayerId", "p1");
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-unload-active",
+      type: "deck.unload",
+      payload: { actorId: "p1", playerId: "p1" },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(readPlayer(maps, "p1")?.deckLoaded).toBe(false);
+    expect(maps.meta.get("activePlayerId")).toBe("p2");
+  });
+
+  it("keeps a positive-life player in rotation after Reset Deck", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    writePlayer(maps, makePlayer("p2"));
+    writeZone(maps, makeZone("lib-p1", ZONE.LIBRARY, "p1"));
+    maps.meta.set("activePlayerId", "p1");
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-reset-active",
+      type: "deck.reset",
+      payload: { actorId: "p1", playerId: "p1" },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(readPlayer(maps, "p1")?.deckLoaded).toBe(true);
+    expect(maps.meta.get("activePlayerId")).toBe("p1");
+  });
+
+  it("does not put a zero-life player back in rotation when they reset their deck", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1", { life: 0 }));
+    writePlayer(maps, makePlayer("p2"));
+    writeZone(maps, makeZone("lib-p1", ZONE.LIBRARY, "p1"));
+    maps.meta.set("activePlayerId", "p2");
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-reset-eliminated",
+      type: "deck.reset",
+      payload: { actorId: "p1", playerId: "p1" },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(maps.meta.get("activePlayerId")).toBe("p2");
+  });
+
+  it("repairs an already-stale eliminated active turn when the next player acts", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1", { life: 0 }));
+    writePlayer(maps, makePlayer("p2"));
+    writePlayer(maps, makePlayer("p3"));
+    maps.meta.set("activePlayerId", "p1");
+
+    const result = applyIntentToDoc(doc, {
+      id: "intent-recover-stale-turn",
+      type: "player.endTurn",
+      payload: { actorId: "p2" },
+    }, hidden);
+
+    expect(result.ok).toBe(true);
+    expect(maps.meta.get("activePlayerId")).toBe("p3");
   });
 
   it("rejects ending another player's active turn", () => {

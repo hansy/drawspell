@@ -34,7 +34,6 @@ interface CardFaceProps {
   revealInteractiveCounterControls?: boolean;
   preferArtCrop?: boolean;
   showNameLabel?: boolean;
-  rotateLabel?: boolean;
   customTextNode?: React.ReactNode;
   customTextPosition?: "sidebar" | "bottom-left" | "center";
   hideRevealIcon?: boolean;
@@ -56,7 +55,6 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
   revealInteractiveCounterControls,
   preferArtCrop = false,
   showNameLabel = true,
-  rotateLabel = false,
   customTextNode,
   customTextPosition,
   hideRevealIcon,
@@ -233,7 +231,6 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
         showCounterLabels={showCounterLabels}
         revealInteractiveCounterControls={revealInteractiveCounterControls}
         desktopAdjustableCounters={desktopAdjustableCounters}
-        rotateLabel={rotateLabel}
         customTextNode={customTextNode}
         customTextPosition={customTextPosition}
         onPTDelta={handlePTDelta}
@@ -269,7 +266,6 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
             showCounterLabels={showCounterLabels}
             revealInteractiveCounterControls={revealInteractiveCounterControls}
             desktopAdjustableCounters={desktopAdjustableCounters}
-            rotateLabel={rotateLabel}
             customTextNode={customTextNode}
             customTextPosition={customTextPosition}
             onPTDelta={handlePTDelta}
@@ -295,7 +291,6 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
             showCounterLabels={showCounterLabels}
             revealInteractiveCounterControls={revealInteractiveCounterControls}
             desktopAdjustableCounters={desktopAdjustableCounters}
-            rotateLabel={rotateLabel}
             customTextNode={customTextNode}
             customTextPosition={customTextPosition}
             onPTDelta={handlePTDelta}

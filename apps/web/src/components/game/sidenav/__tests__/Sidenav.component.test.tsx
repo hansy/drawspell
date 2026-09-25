@@ -53,6 +53,16 @@ describe("Sidenav", () => {
     expect(onEndTurn).toHaveBeenCalledTimes(1);
   });
 
+  it("disables end turn when the player is not eligible to act", () => {
+    const onEndTurn = vi.fn();
+    render(<Sidenav onEndTurn={onEndTurn} canEndTurn={false} />);
+
+    const button = screen.getByRole("button", { name: "End turn" });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(button);
+    expect(onEndTurn).not.toHaveBeenCalled();
+  });
+
   it("uses active tap feedback classes on nav icon buttons", () => {
     render(<Sidenav onOpenCoinFlipper={vi.fn()} onOpenDiceRoller={vi.fn()} />);
 

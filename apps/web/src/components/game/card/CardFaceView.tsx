@@ -22,7 +22,6 @@ interface CardFaceViewProps {
   showCounterLabels?: boolean;
   revealInteractiveCounterControls?: boolean;
   desktopAdjustableCounters?: boolean;
-  rotateLabel?: boolean;
   customTextNode?: React.ReactNode;
   customTextPosition?: "sidebar" | "bottom-left" | "center";
   onPTDelta?: (type: CardStatKey, delta: number) => void;
@@ -44,7 +43,6 @@ export const CardFaceView: React.FC<CardFaceViewProps> = ({
   showCounterLabels,
   revealInteractiveCounterControls,
   desktopAdjustableCounters,
-  rotateLabel,
   customTextNode,
   customTextPosition,
   onPTDelta,
@@ -70,14 +68,12 @@ export const CardFaceView: React.FC<CardFaceViewProps> = ({
         displayToughness={model.displayToughness}
         powerClassName={model.powerClassName}
         toughnessClassName={model.toughnessClassName}
-        rotateLabel={rotateLabel}
         onPTDelta={onPTDelta}
       />
 
       <CardFaceNameLabel
         showNameLabel={model.showNameLabel}
         displayName={model.displayName}
-        rotateLabel={rotateLabel}
       />
 
       <CardFaceCountersOverlay

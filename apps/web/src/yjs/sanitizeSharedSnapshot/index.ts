@@ -10,6 +10,7 @@ import {
   MAX_BATTLEFIELD_VIEW_SCALE,
   MIN_BATTLEFIELD_VIEW_SCALE,
 } from "@mtg/shared/constants/geometry";
+import { resolveActiveTurnPlayerId } from "@mtg/shared/turns";
 
 import { enforceZoneCounterRules } from "@/lib/counters";
 import { MAX_CARDS, MAX_CARDS_PER_ZONE } from "@/lib/limits";
@@ -210,10 +211,11 @@ export function sanitizeSharedSnapshot(snapshot: SharedSnapshotLike) {
     typeof rawMeta.hostId === "string" && rawMeta.hostId.length > 0
       ? rawMeta.hostId
       : null;
-  const activePlayerId =
-    typeof rawMeta.activePlayerId === "string" && safePlayers[rawMeta.activePlayerId]
-      ? rawMeta.activePlayerId
-      : (safePlayerOrder[0] ?? null);
+  const activePlayerId = resolveActiveTurnPlayerId(
+    safePlayerOrder,
+    safePlayers,
+    typeof rawMeta.activePlayerId === "string" ? rawMeta.activePlayerId : null,
+  );
 
   return {
     players: safePlayers,

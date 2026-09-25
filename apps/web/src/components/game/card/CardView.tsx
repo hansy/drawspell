@@ -23,7 +23,6 @@ export const CardView = React.memo(
         onMouseLeave,
         imageTransform,
         preferArtCrop = false,
-        rotateLabel,
         highlightColor,
         disableHoverAnimation,
         isSelected,
@@ -88,7 +87,6 @@ export const CardView = React.memo(
             imageClassName={imageClassName}
             imageTransform={imageTransform}
             preferArtCrop={preferArtCrop}
-            rotateLabel={rotateLabel}
             customTextPosition="center"
             customTextNode={customTextNode}
           />

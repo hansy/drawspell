@@ -2,6 +2,7 @@ import { isCommanderZoneType, ZONE } from "../../constants";
 import { syncLibraryRevealsToAllForPlayer, updatePlayerCounts } from "../../hiddenState";
 import { buildLibraryTopRevealScope } from "../../libraryTopReveal";
 import { applyMulligan, applyResetDeck, applyUnloadDeck } from "../../deck";
+import { repairActiveTurn } from "../../turnState";
 import { shuffle } from "../../random";
 import { findZoneByTypeInMaps } from "../../zones";
 import { canMoveCard, canViewHiddenZone } from "../../permissions";
@@ -341,6 +342,7 @@ const handleDeckUnload: IntentHandler = ({ actorId, maps, hidden, payload, pushL
 
   const { playerId, libraryZone } = libraryContext;
   applyUnloadDeck(maps, hidden, playerId);
+  repairActiveTurn(maps);
   markLibraryChanged(maps, markHiddenChanged, playerId, libraryZone.id);
   pushLogEvent("deck.unload", {
     actorId,
@@ -381,6 +383,7 @@ const handleDeckLoad: IntentHandler = ({ actorId, maps, payload }) => {
   const player = readPlayer(maps, playerId);
   if (!player) return { ok: true };
   writePlayer(maps, { ...player, deckLoaded: true });
+  repairActiveTurn(maps);
   return { ok: true };
 };
 

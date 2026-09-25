@@ -121,6 +121,7 @@ const NavIcon: React.FC<NavIconProps> = ({
 export const SidenavView: React.FC<SidenavController> = ({
   onCreateToken,
   onEndTurn,
+  canEndTurn,
   onOpenCoinFlipper,
   onOpenDiceRoller,
   onToggleLog,
@@ -374,7 +375,7 @@ export const SidenavView: React.FC<SidenavController> = ({
               label="End turn"
               onClick={onEndTurn}
               className="hover:text-red-400 active:text-red-400"
-              disabled={isSpectator}
+              disabled={isSpectator || !canEndTurn}
               hideTooltip={isHorizontal}
             />
 

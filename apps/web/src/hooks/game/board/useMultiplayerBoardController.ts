@@ -9,6 +9,7 @@ import { useGameStore } from "@/store/gameStore";
 import { useSelectionStore } from "@/store/selectionStore";
 import { resolvePlayerColors } from "@/lib/playerColors";
 import { ZONE } from "@/constants/zones";
+import { isTurnEligible } from "@mtg/shared/turns";
 import { useScryfallCards } from "@/hooks/scryfall/useScryfallCard";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -459,7 +460,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
       isSpectator ||
       activePlayerId !== myPlayerId ||
       nextPlayerId === myPlayerId ||
-      !players[nextPlayerId]
+      !isTurnEligible(players[nextPlayerId])
     ) {
       return;
     }

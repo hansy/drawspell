@@ -7,6 +7,7 @@ import { useGameStore } from "@/store/gameStore";
 import { ZONE } from "@/constants/zones";
 
 import { CardFace } from "../CardFace";
+import { CardView } from "../CardView";
 
 const cachedCards = vi.hoisted(() => new Map<string, any>());
 const cacheListeners = vi.hoisted(
@@ -92,6 +93,97 @@ describe("CardFace", () => {
     render(<CardFace card={card} />);
 
     expect(screen.queryAllByText("1")).toHaveLength(2);
+  });
+
+  it("keeps tapped top-seat name and P/T aligned with the card", () => {
+    const zone = buildZone("bf-me", "BATTLEFIELD", "me");
+    const card = {
+      ...buildTransformCard(zone.id),
+      tapped: true,
+      currentFaceIndex: 0,
+      name: "Six Power",
+      power: "6",
+      toughness: "6",
+    };
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { ...state.zones, [zone.id]: zone },
+      cards: { ...state.cards, [card.id]: card },
+      players: { me: buildPlayer("me", "Me") },
+    }));
+
+    const { container } = render(
+      <CardView card={card} style={{ transform: "rotate(180deg) rotate(90deg)" }} />,
+    );
+
+    expect(container.querySelector("[data-card-pt-badge]")?.classList.contains("rotate-180"))
+      .toBe(false);
+    expect(screen.getAllByText("Front").some((element) => element.classList.contains("rotate-180")))
+      .toBe(false);
+  });
+
+  it("lets tapped bottom-seat P/T follow the card", () => {
+    const zone = buildZone("bf-me", "BATTLEFIELD", "me");
+    const card = {
+      ...buildTransformCard(zone.id),
+      tapped: true,
+      currentFaceIndex: 0,
+      power: "6",
+      toughness: "6",
+    };
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { ...state.zones, [zone.id]: zone },
+      cards: { ...state.cards, [card.id]: card },
+      players: { me: buildPlayer("me", "Me") },
+    }));
+
+    const { container } = render(<CardView card={card} />);
+
+    expect(container.querySelector("[data-card-pt-badge]")?.classList.contains("rotate-180"))
+      .toBe(false);
+  });
+
+  it("keeps untapped top-seat name and P/T aligned with the card", () => {
+    const zone = buildZone("bf-me", "BATTLEFIELD", "me");
+    const card = {
+      ...buildTransformCard(zone.id),
+      tapped: false,
+      currentFaceIndex: 0,
+      power: "6",
+      toughness: "6",
+    };
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { ...state.zones, [zone.id]: zone },
+      cards: { ...state.cards, [card.id]: card },
+      players: { me: buildPlayer("me", "Me") },
+    }));
+
+    const { container } = render(
+      <CardView card={card} style={{ transform: "rotate(180deg)" }} />,
+    );
+
+    expect(container.querySelector("[data-card-pt-badge]")?.classList.contains("rotate-180"))
+      .toBe(false);
+    expect(screen.getAllByText("Front").some((element) => element.classList.contains("rotate-180")))
+      .toBe(false);
+  });
+
+  it("does not rotate P/T on a standalone card face preview", () => {
+    const zone = buildZone("bf-me", "BATTLEFIELD", "me");
+    const card = { ...buildTransformCard(zone.id), tapped: true, currentFaceIndex: 0 };
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { ...state.zones, [zone.id]: zone },
+      cards: { ...state.cards, [card.id]: card },
+      players: { me: buildPlayer("me", "Me") },
+    }));
+
+    const { container } = render(<CardFace card={card} />);
+
+    expect(container.querySelector("[data-card-pt-badge]")?.classList.contains("rotate-180"))
+      .toBe(false);
   });
 
   it("preserves PT overrides on the active face during transform flips", () => {

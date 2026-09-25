@@ -8,6 +8,7 @@ import {
 } from "@dnd-kit/core";
 
 import { ZONE } from "@/constants/zones";
+import { isTurnEligible } from "@mtg/shared/turns";
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from "@/lib/constants";
 import { debugLog, isDebugEnabled, summarizeDndCardGeometry } from "@/lib/debug";
 import {
@@ -476,7 +477,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
     () =>
       playerOrder
         .map((playerId) => players[playerId])
-        .filter((player): player is NonNullable<typeof player> => Boolean(player)),
+        .filter((player): player is NonNullable<typeof player> => isTurnEligible(player)),
     [playerOrder, players],
   );
   const hasMultipleTurnPlayers = orderedTurnPlayers.length > 1;
@@ -931,6 +932,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                     orientation="horizontal"
                     onCreateToken={() => setIsTokenModalOpen(true)}
                     onEndTurn={handleEndTurn}
+                    canEndTurn={hasMultipleTurnPlayers && activePlayerId === myPlayerId}
                     onOpenCoinFlipper={handleOpenCoinFlipper}
                     onOpenDiceRoller={handleOpenDiceRoller}
                     onToggleLog={() => setIsLogOpen(!isLogOpen)}
@@ -958,6 +960,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
               <Sidenav
                 onCreateToken={() => setIsTokenModalOpen(true)}
                 onEndTurn={handleEndTurn}
+                canEndTurn={hasMultipleTurnPlayers && activePlayerId === myPlayerId}
                 onOpenCoinFlipper={handleOpenCoinFlipper}
                 onOpenDiceRoller={handleOpenDiceRoller}
                 onToggleLog={() => setIsLogOpen(!isLogOpen)}

@@ -330,7 +330,6 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
                 >
                   <Card
                     card={card}
-                    rotateLabel={isTop}
                     style={isTop ? { transform: "rotate(180deg)" } : undefined}
                     disableHoverAnimation
                     className="h-full w-full cursor-grab active:cursor-grabbing lg:!h-full lg:!w-full"

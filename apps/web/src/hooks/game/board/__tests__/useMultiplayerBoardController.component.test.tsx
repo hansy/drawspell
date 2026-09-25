@@ -312,8 +312,8 @@ describe("useMultiplayerBoardController", () => {
     Object.assign(mockGameState, {
       activePlayerId: "player-1",
       players: {
-        "player-1": { id: "player-1" },
-        "player-2": { id: "player-2" },
+        "player-1": { id: "player-1", life: 20, deckLoaded: true },
+        "player-2": { id: "player-2", life: 20, deckLoaded: true },
       },
       playerOrder: ["player-1", "player-2"],
     });
@@ -345,6 +345,22 @@ describe("useMultiplayerBoardController", () => {
     const { result } = renderHook(() =>
       useMultiplayerBoardController("room-1"),
     );
+
+    act(() => result.current.handleSetTurn("player-2"));
+
+    expect(mockSendIntent).not.toHaveBeenCalled();
+  });
+
+  it("does not let the active player select an eliminated player", () => {
+    Object.assign(mockGameState, {
+      activePlayerId: "player-1",
+      players: {
+        "player-1": { id: "player-1", life: 20, deckLoaded: true },
+        "player-2": { id: "player-2", life: 0, deckLoaded: true },
+      },
+      playerOrder: ["player-1", "player-2"],
+    });
+    const { result } = renderHook(() => useMultiplayerBoardController("room-1"));
 
     act(() => result.current.handleSetTurn("player-2"));
 

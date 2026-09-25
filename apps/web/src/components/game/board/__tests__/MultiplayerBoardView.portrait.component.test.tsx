@@ -240,6 +240,36 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
     expect(props.handleSetTurn).toHaveBeenCalledWith("p2");
   });
 
+  it("omits eliminated players from the turn picker", async () => {
+    const props = buildBoardProps([
+      { id: "p1", name: "Alice", color: "sky", position: "bottom-left" },
+      { id: "p2", name: "Bob", color: "rose", position: "top-left" },
+      { id: "p3", name: "Carol", color: "amber", position: "top-right" },
+    ]);
+    props.players.p2.life = 0;
+
+    render(<MultiplayerBoardView {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Your turn. Choose next player" }));
+
+    expect(await screen.findByRole("heading", { name: "Set turn" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Bob" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Carol" }));
+    expect(props.handleSetTurn).toHaveBeenCalledWith("p3");
+  });
+
+  it("disables End turn when only one player remains eligible", () => {
+    const props = buildBoardProps([
+      { id: "p1", name: "Alice", color: "sky", position: "bottom-left" },
+      { id: "p2", name: "Bob", color: "rose", position: "top-left" },
+    ]);
+    props.players.p2.life = 0;
+
+    render(<MultiplayerBoardView {...props} />);
+
+    expect((screen.getByRole("button", { name: "End turn" }) as HTMLButtonElement).disabled)
+      .toBe(true);
+  });
+
   it("hides turn UI in a one-player room", () => {
     renderBoard([
       {

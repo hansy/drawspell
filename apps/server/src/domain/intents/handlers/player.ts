@@ -12,6 +12,7 @@ import {
 import type { Zone } from "@mtg/shared/types/zones";
 import { MAX_PLAYERS } from "@mtg/shared/constants/room";
 import { ZONE } from "@mtg/shared/constants/zones";
+import { isTurnEligible, nextEligibleTurnPlayerId, resolveActiveTurnPlayerId } from "@mtg/shared/turns";
 
 import {
   applyRecordToMap,
@@ -25,6 +26,7 @@ import {
 import { syncLibraryRevealsToAllForPlayer, updatePlayerCounts } from "../../hiddenState";
 import { buildLibraryTopRevealScope } from "../../libraryTopReveal";
 import { canUpdatePlayer } from "../../permissions";
+import { readTurnOrder, readTurnPlayers, repairActiveTurn } from "../../turnState";
 import {
   ensurePermission,
   readString,
@@ -102,10 +104,7 @@ const handlePlayerJoin: IntentHandler = ({ actorId, maps, hidden, payload, markH
   if (typeof currentHost !== "string" || !maps.players.get(currentHost)) {
     maps.meta.set("hostId", player.id);
   }
-  const activePlayerId = maps.meta.get("activePlayerId");
-  if (typeof activePlayerId !== "string" || !maps.players.get(activePlayerId)) {
-    maps.meta.set("activePlayerId", maps.playerOrder.toArray()[0] ?? player.id);
-  }
+  repairActiveTurn(maps);
   return { ok: true };
 };
 
@@ -244,6 +243,7 @@ const handlePlayerUpdate: IntentHandler = ({ actorId, maps, hidden, payload, pus
       id: playerId,
       libraryTopReveal: nextMode,
     });
+    repairActiveTurn(maps);
     syncLibraryRevealsToAllForPlayer(maps, hidden, playerId);
     const prevReveal = buildLibraryTopRevealScope(maps, playerId, previousMode);
     const nextReveal = buildLibraryTopRevealScope(
@@ -259,6 +259,7 @@ const handlePlayerUpdate: IntentHandler = ({ actorId, maps, hidden, payload, pus
     return { ok: true };
   }
   writePlayer(maps, { ...current, ...updates, id: playerId });
+  repairActiveTurn(maps);
   return { ok: true };
 };
 
@@ -301,13 +302,10 @@ const handlePlayerLeave: IntentHandler = ({ actorId, maps, hidden, payload, mark
   }
   const activePlayerId =
     typeof nextMeta.activePlayerId === "string" ? nextMeta.activePlayerId : null;
-  if (!activePlayerId || activePlayerId === playerId || !nextPlayers[activePlayerId]) {
-    const departedIndex = snapshot.playerOrder.indexOf(playerId);
-    nextMeta.activePlayerId =
-      nextOrder.length > 0
-        ? nextOrder[Math.max(0, departedIndex) % nextOrder.length]
-        : null;
-  }
+  nextMeta.activePlayerId =
+    activePlayerId && nextOrder.includes(activePlayerId) && isTurnEligible(nextPlayers[activePlayerId])
+      ? activePlayerId
+      : nextEligibleTurnPlayerId(snapshot.playerOrder, nextPlayers, activePlayerId ?? playerId);
 
   applyRecordToMap(maps.players, nextPlayers as Record<string, unknown>);
   applyRecordToMap(maps.cards, nextCards as Record<string, unknown>);
@@ -350,28 +348,29 @@ const handlePlayerLeave: IntentHandler = ({ actorId, maps, hidden, payload, mark
 };
 
 const handlePlayerEndTurn: IntentHandler = ({ actorId, maps, payload, pushLogEvent }) => {
-  const playerOrder = maps.playerOrder
-    .toArray()
-    .filter((id): id is string => typeof id === "string" && Boolean(maps.players.get(id)));
+  const playerOrder = readTurnOrder(maps);
   if (playerOrder.length === 0) return { ok: false, error: "no players" };
 
   const storedActivePlayerId = maps.meta.get("activePlayerId");
-  const activePlayerId =
-    typeof storedActivePlayerId === "string" && playerOrder.includes(storedActivePlayerId)
-      ? storedActivePlayerId
-      : playerOrder[0];
+  const players = readTurnPlayers(maps, playerOrder);
+  const activePlayerId = resolveActiveTurnPlayerId(
+    playerOrder,
+    players,
+    typeof storedActivePlayerId === "string" ? storedActivePlayerId : null,
+  );
+  if (!activePlayerId) return { ok: false, error: "no eligible players" };
   if (actorId !== activePlayerId) return { ok: false, error: "not your turn" };
 
-  const currentIndex = playerOrder.indexOf(activePlayerId);
   const requestedNextPlayerId = payload.nextPlayerId;
   if (
     requestedNextPlayerId !== undefined &&
-    (typeof requestedNextPlayerId !== "string" || !playerOrder.includes(requestedNextPlayerId))
+    (typeof requestedNextPlayerId !== "string" || !playerOrder.includes(requestedNextPlayerId) || !isTurnEligible(players[requestedNextPlayerId]))
   ) {
     return { ok: false, error: "invalid next player" };
   }
   const nextPlayerId =
-    requestedNextPlayerId ?? playerOrder[(currentIndex + 1) % playerOrder.length];
+    requestedNextPlayerId ?? nextEligibleTurnPlayerId(playerOrder, players, activePlayerId);
+  if (!nextPlayerId) return { ok: false, error: "no eligible players" };
   maps.meta.set("activePlayerId", nextPlayerId);
   pushLogEvent("player.endTurn", { actorId, nextPlayerId });
   return { ok: true };
