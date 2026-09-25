@@ -26,7 +26,7 @@ import {
 import type { ContextMenuMoveCardFn } from "./actionTypes";
 import type { ContextMenuItem, OpenCountPrompt } from "./types";
 import { buildRevealMenu } from "./reveal";
-import { buildCounterMenuItems } from "./cardActions/counterMenu";
+import { buildCounterMenu } from "./cardActions/counterMenu";
 import { buildHandZoneMenuItems } from "./cardActions/handZoneMenu";
 import { buildMoveToMenuItem } from "./cardActions/moveToMenu";
 import { getRelatedParts } from "./cardActions/relatedParts";
@@ -273,16 +273,13 @@ export const buildCardActions = ({
   }
 
   if (countersAllowed && canModify.allowed) {
-    items.push(
-      ...buildCounterMenuItems({
-        cardId: card.id,
-        counters: card.counters,
-        globalCounters,
-        openAddCounterModal,
-        addCounter,
-        removeCounter,
-      })
-    );
+    items.push(buildCounterMenu({
+      countersByTarget: [card.counters],
+      globalCounters,
+      openAddCounterModal: () => openAddCounterModal([card.id]),
+      addCounter: (counter) => addCounter(card.id, counter),
+      removeCounter: (type) => removeCounter(card.id, type),
+    }));
   }
 
   if (card.isCommander && updateCard && card.ownerId === myPlayerId) {

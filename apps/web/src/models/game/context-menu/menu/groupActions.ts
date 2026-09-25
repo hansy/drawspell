@@ -9,14 +9,12 @@ import type {
   ZoneId,
 } from "@/types";
 import type { CardMovementOptions } from "@mtg/shared/movement";
-import { getNormalizedCounterTotal, normalizeCounterType } from "@mtg/shared/counters";
 
 import { ZONE, ZONE_LABEL } from "@/constants/zones";
 import { getPlayerZones } from "@/lib/gameSelectors";
-import { resolveCounterColor } from "@/lib/counters";
 import { shuffle } from "@/lib/shuffle";
 import { canModifyCardState, canMoveCard } from "@/rules/permissions";
-import { buildRecentlyUsedCounterItems } from "./cardActions/counterMenu";
+import { buildCounterMenu } from "./cardActions/counterMenu";
 import type { ContextMenuItem, OpenCountPrompt } from "./types";
 
 type GroupMove = {
@@ -66,91 +64,26 @@ const buildGroupCounterMenu = ({
     return null;
   }
 
-  const counterTypes = new Map<string, { label: string; color?: string }>();
-  cards.forEach((card) => {
-    card.counters.forEach((counter) => {
-      const type = normalizeCounterType(counter.type);
-      if (type && counter.count > 0 && !counterTypes.has(type)) {
-        counterTypes.set(type, { label: counter.type, color: counter.color });
-      }
-    });
-  });
-
-  const submenu: ContextMenuItem[] = [
-    {
-      type: "action",
-      label: "Add a new counter...",
-      onSelect: openAddCounterModal,
+  return buildCounterMenu({
+    countersByTarget: cards.map((card) => card.counters),
+    globalCounters,
+    openAddCounterModal,
+    addCounter,
+    removeCounter: (type) => removeCounter(type, 1),
+    removeMultiple: (type, label, maxCount) => {
+      openCountPrompt({
+        title: `Remove ${label} counters`,
+        message: "Remove up to this many from each selected card.",
+        initialValue: 1,
+        minValue: 1,
+        maxValue: maxCount,
+        showMaxButton: true,
+        inputLabel: "How many from each card?",
+        confirmLabel: "Remove counters",
+        onSubmit: (count) => removeCounter(type, count),
+      });
     },
-  ];
-
-  submenu.push(
-    ...buildRecentlyUsedCounterItems({
-      globalCounters,
-      activeCounterTypes: new Set(counterTypes.keys()),
-      addCounter: (type, color) => addCounter({ type, count: 1, color }),
-    }),
-  );
-
-  if (counterTypes.size > 0) {
-    submenu.push({ type: "separator", id: "counter-controls-divider" });
-    submenu.push(
-      ...Array.from(counterTypes, ([type, counter]): ContextMenuItem => {
-        const counts = cards.map((card) =>
-          getNormalizedCounterTotal(card.counters, type),
-        );
-        const firstCount = counts[0] ?? 0;
-        return {
-          type: "counter-control",
-          label: counter.label,
-          count: counts.every((count) => count === firstCount)
-            ? firstCount
-            : "mixed",
-          onIncrement: () =>
-            addCounter({
-              type,
-              count: 1,
-              color: counter.color ?? resolveCounterColor(type, globalCounters),
-            }),
-          onDecrement: () => removeCounter(type, 1),
-        };
-      }),
-    );
-
-    submenu.push({ type: "separator" });
-    submenu.push({
-      type: "action",
-      label: "Remove multiple counters...",
-      onSelect: () => {},
-      submenu: Array.from(counterTypes, ([type, counter]) => ({
-        type: "action" as const,
-        label: counter.label,
-        onSelect: () => {
-          const maxCount = Math.max(
-            ...cards.map((card) => getNormalizedCounterTotal(card.counters, type)),
-          );
-          openCountPrompt({
-            title: `Remove ${counter.label} counters`,
-            message: "Remove up to this many from each selected card.",
-            initialValue: 1,
-            minValue: 1,
-            maxValue: maxCount,
-            showMaxButton: true,
-            inputLabel: "How many from each card?",
-            confirmLabel: "Remove counters",
-            onSubmit: (count) => removeCounter(type, count),
-          });
-        },
-      })),
-    });
-  }
-
-  return {
-    type: "action",
-    label: "Add/remove counters",
-    onSelect: () => {},
-    submenu,
-  };
+  });
 };
 
 const buildGroupRevealMenu = ({
