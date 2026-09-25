@@ -87,6 +87,26 @@ describe("ContextMenu", () => {
     expect(onClose).toHaveBeenCalledTimes(0);
   });
 
+  it("renders group counter controls without a count", () => {
+    render(
+      <ContextMenu
+        x={10}
+        y={10}
+        items={[{
+          type: "counter-control",
+          label: "+1/+1",
+          onIncrement: vi.fn(),
+          onDecrement: vi.fn(),
+        }]}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Add +1/+1 counter" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Remove +1/+1 counter" })).toBeTruthy();
+    expect(screen.queryByText("mixed")).toBeNull();
+  });
+
   it("closes on click outside (root menu only)", () => {
     const onClose = vi.fn();
 

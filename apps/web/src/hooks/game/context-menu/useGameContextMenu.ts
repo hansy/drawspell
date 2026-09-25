@@ -215,7 +215,6 @@ export const useGameContextMenu = (
                         globalCounters: latestStore.globalCounters,
                         myPlayerId,
                         viewerRole,
-                        openCountPrompt,
                         ...adapters,
                         addCounter: (counter) => {
                             adapters.addCounter(counter);

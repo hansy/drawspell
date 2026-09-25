@@ -383,7 +383,7 @@ describe("useGameContextMenu", () => {
       expect(refreshedMenu.submenu).toContainEqual(expect.objectContaining({
         type: "counter-control",
         label: "charge",
-        count: 1,
+        count: undefined,
       }));
     });
     const addAction = counterMenu.submenu?.find(

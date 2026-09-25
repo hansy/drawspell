@@ -29,7 +29,7 @@ export interface ContextMenuLabel {
 export interface ContextMenuCounterControl {
   type: "counter-control";
   label: string;
-  count: number | "mixed";
+  count?: number;
   onIncrement: () => void;
   onDecrement: () => void;
 }

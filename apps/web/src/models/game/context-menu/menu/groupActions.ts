@@ -15,7 +15,7 @@ import { getPlayerZones } from "@/lib/gameSelectors";
 import { shuffle } from "@/lib/shuffle";
 import { canModifyCardState, canMoveCard } from "@/rules/permissions";
 import { buildCounterMenu } from "./cardActions/counterMenu";
-import type { ContextMenuItem, OpenCountPrompt } from "./types";
+import type { ContextMenuItem } from "./types";
 
 type GroupMove = {
   cardId: CardId;
@@ -38,7 +38,6 @@ type GroupActionBuilderParams = {
   openAddCounterModal?: () => void;
   addCounter?: (counter: { type: string; count: number; color?: string }) => void;
   removeCounter?: (counterType: string, count: number) => void;
-  openCountPrompt?: OpenCountPrompt;
 };
 
 const buildGroupCounterMenu = ({
@@ -50,13 +49,11 @@ const buildGroupCounterMenu = ({
   openAddCounterModal,
   addCounter,
   removeCounter,
-  openCountPrompt,
 }: GroupActionBuilderParams): ContextMenuItem | null => {
   if (
     !openAddCounterModal ||
     !addCounter ||
     !removeCounter ||
-    !openCountPrompt ||
     viewerRole === "spectator" ||
     currentZone.type !== ZONE.BATTLEFIELD ||
     !cards.every((card) => canModifyCardState(myPlayerId, card, currentZone).allowed)
@@ -70,19 +67,6 @@ const buildGroupCounterMenu = ({
     openAddCounterModal,
     addCounter,
     removeCounter: (type) => removeCounter(type, 1),
-    removeMultiple: (type, label, maxCount) => {
-      openCountPrompt({
-        title: `Remove ${label} counters`,
-        message: "Remove up to this many from each selected card.",
-        initialValue: 1,
-        minValue: 1,
-        maxValue: maxCount,
-        showMaxButton: true,
-        inputLabel: "How many from each card?",
-        confirmLabel: "Remove counters",
-        onSubmit: (count) => removeCounter(type, count),
-      });
-    },
   });
 };
 

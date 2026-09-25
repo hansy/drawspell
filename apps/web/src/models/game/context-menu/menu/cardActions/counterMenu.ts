@@ -12,7 +12,6 @@ type BuildCounterMenuParams = {
   openAddCounterModal: () => void;
   addCounter: (counter: { type: string; count: number; color?: string }) => void;
   removeCounter: (counterType: string) => void;
-  removeMultiple?: (counterType: string, label: string, maxCount: number) => void;
 };
 
 type ActiveCounter = {
@@ -27,7 +26,6 @@ export const buildCounterMenu = ({
   openAddCounterModal,
   addCounter,
   removeCounter,
-  removeMultiple,
 }: BuildCounterMenuParams): ContextMenuItem => {
   const activeCounters = new Map<string, ActiveCounter>();
   for (const counters of countersByTarget) {
@@ -80,16 +78,15 @@ export const buildCounterMenu = ({
     submenu.push({ type: "separator", id: "counter-controls-divider" });
     submenu.push(
       ...Array.from(activeCounters.values(), (counter): ContextMenuItem => {
-        const counts = countersByTarget.map((counters) =>
-          getNormalizedCounterTotal(counters, counter.normalizedType),
-        );
-        const firstCount = counts[0] ?? 0;
         return {
           type: "counter-control",
           label: counter.label,
-          count: counts.every((count) => count === firstCount)
-            ? firstCount
-            : "mixed",
+          count: countersByTarget.length === 1
+            ? getNormalizedCounterTotal(
+                countersByTarget[0],
+                counter.normalizedType,
+              )
+            : undefined,
           onIncrement: () =>
             addCounter({
               type: counter.normalizedType,
@@ -102,29 +99,6 @@ export const buildCounterMenu = ({
         };
       }),
     );
-
-    if (removeMultiple) {
-      submenu.push({ type: "separator" });
-      submenu.push({
-        type: "action",
-        label: "Remove multiple counters...",
-        onSelect: () => {},
-        submenu: Array.from(activeCounters.values(), (counter) => ({
-          type: "action" as const,
-          label: counter.label,
-          onSelect: () =>
-            removeMultiple(
-              counter.normalizedType,
-              counter.label,
-              Math.max(
-                ...countersByTarget.map((counters) =>
-                  getNormalizedCounterTotal(counters, counter.normalizedType),
-                ),
-              ),
-            ),
-        })),
-      });
-    }
   }
 
   return {

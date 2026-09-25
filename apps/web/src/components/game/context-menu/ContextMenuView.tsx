@@ -234,9 +234,11 @@ export const ContextMenuView: React.FC<ContextMenuViewProps> = ({
                     -
                   </button>
 
-                  <span className="min-w-[1.75rem] text-center text-xs font-semibold text-zinc-300">
-                    {item.count}
-                  </span>
+                  {item.count !== undefined && (
+                    <span className="min-w-[1.75rem] text-center text-xs font-semibold text-zinc-300">
+                      {item.count}
+                    </span>
+                  )}
 
                   <button
                     type="button"

@@ -635,7 +635,7 @@ describe("buildZoneViewActions", () => {
 });
 
 describe("buildGroupActions", () => {
-  it("offers batch counter addition and count-based removal on controlled battlefield cards", () => {
+  it("offers batch counter adjustments on controlled battlefield cards", () => {
     const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1");
     const cards = [
       { ...baseCard, id: "c1", zoneId: battlefield.id, counters: [{ type: "+1/+1", count: 3 }] },
@@ -644,7 +644,6 @@ describe("buildGroupActions", () => {
     const openAddCounterModal = vi.fn();
     const addCounter = vi.fn();
     const removeCounter = vi.fn();
-    const openCountPrompt = vi.fn();
     const actions = buildGroupActions({
       cards,
       currentZone: battlefield,
@@ -657,7 +656,6 @@ describe("buildGroupActions", () => {
       openAddCounterModal,
       addCounter,
       removeCounter,
-      openCountPrompt,
     });
 
     const counterMenu = actions.find(
@@ -687,8 +685,9 @@ describe("buildGroupActions", () => {
     const activeControl = counterMenu.submenu?.find(
       (item) => item.type === "counter-control" && item.label === "+1/+1",
     );
-    expect(activeControl).toMatchObject({ type: "counter-control", count: "mixed" });
+    expect(activeControl).toMatchObject({ type: "counter-control" });
     if (!activeControl || activeControl.type !== "counter-control") return;
+    expect(activeControl.count).toBeUndefined();
     activeControl.onIncrement();
     expect(addCounter).toHaveBeenCalledWith({
       type: "+1/+1", count: 1, color: "#16a34a",
@@ -696,21 +695,9 @@ describe("buildGroupActions", () => {
     activeControl.onDecrement();
     expect(removeCounter).toHaveBeenCalledWith("+1/+1", 1);
 
-    const removeMenu = counterMenu.submenu?.find(
+    expect(counterMenu.submenu?.some(
       (item) => item.type === "action" && item.label === "Remove multiple counters...",
-    );
-    expect(removeMenu?.type).toBe("action");
-    if (!removeMenu || removeMenu.type !== "action") return;
-    const removeType = removeMenu.submenu?.[0];
-    expect(removeType).toMatchObject({ type: "action", label: "+1/+1" });
-    if (!removeType || removeType.type !== "action") return;
-    removeType.onSelect();
-    expect(openCountPrompt).toHaveBeenCalledWith(expect.objectContaining({
-      maxValue: 3,
-      inputLabel: "How many from each card?",
-    }));
-    openCountPrompt.mock.calls[0]?.[0]?.onSubmit(2);
-    expect(removeCounter).toHaveBeenCalledWith("+1/+1", 2);
+    )).toBe(false);
   });
 
   it("does not offer batch counters for cards outside the player's control", () => {
@@ -730,7 +717,6 @@ describe("buildGroupActions", () => {
       openAddCounterModal: vi.fn(),
       addCounter: vi.fn(),
       removeCounter: vi.fn(),
-      openCountPrompt: vi.fn(),
     });
 
     expect(actions.some(
