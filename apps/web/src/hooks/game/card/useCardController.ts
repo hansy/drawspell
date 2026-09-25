@@ -137,6 +137,7 @@ export const useCardController = (props: CardProps): CardController => {
     disableHoverAnimation: propDisableHoverAnimation,
     highlightColor,
     isSelected: propIsSelected,
+    isTopSeat,
   } = props;
 
   const {
@@ -879,6 +880,7 @@ export const useCardController = (props: CardProps): CardController => {
       isSelected: propIsSelected,
       disableHoverAnimation,
       showCommanderBadge: card.isCommander && zoneType === ZONE.BATTLEFIELD,
+      isTopSeat,
     },
     draggableProps: {
       ...listeners,

@@ -27,6 +27,7 @@ export const CardView = React.memo(
         disableHoverAnimation,
         isSelected,
         showCommanderBadge,
+        isTopSeat,
         ...props
       },
       ref
@@ -83,6 +84,7 @@ export const CardView = React.memo(
           )}
           <CardFace
             card={card}
+            isTopSeat={isTopSeat}
             faceDown={faceDown}
             imageClassName={imageClassName}
             imageTransform={imageTransform}

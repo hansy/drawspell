@@ -130,6 +130,7 @@ const BattlefieldCard = React.memo<{
         return (
             <Card
                 card={card}
+                isTopSeat={isTop}
                 style={style}
                 onContextMenu={handleContextMenu}
                 scale={viewScale}

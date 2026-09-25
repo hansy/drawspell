@@ -12,6 +12,7 @@ import { CardFaceRevealBadge } from "./CardFaceRevealBadge";
 
 interface CardFaceViewProps {
   faceDown?: boolean;
+  labelsFaceViewer?: boolean;
   model: CardFaceModel;
   imageClassName?: string;
   imageTransform?: string;
@@ -33,6 +34,7 @@ interface CardFaceViewProps {
 
 export const CardFaceView: React.FC<CardFaceViewProps> = ({
   faceDown,
+  labelsFaceViewer,
   model,
   imageClassName,
   imageTransform,
@@ -63,6 +65,7 @@ export const CardFaceView: React.FC<CardFaceViewProps> = ({
 
       <CardFacePTBadge
         showPT={model.showPT}
+        labelsFaceViewer={labelsFaceViewer}
         interactive={interactive}
         displayPower={model.displayPower}
         displayToughness={model.displayToughness}
@@ -73,6 +76,7 @@ export const CardFaceView: React.FC<CardFaceViewProps> = ({
 
       <CardFaceNameLabel
         showNameLabel={model.showNameLabel}
+        labelsFaceViewer={labelsFaceViewer}
         displayName={model.displayName}
       />
 

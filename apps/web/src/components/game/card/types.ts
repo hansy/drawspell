@@ -15,6 +15,7 @@ export interface CardProps {
   disableHoverAnimation?: boolean;
   highlightColor?: string;
   isSelected?: boolean;
+  isTopSeat?: boolean;
 }
 
 export interface CardViewProps {
@@ -39,6 +40,7 @@ export interface CardViewProps {
   disableHoverAnimation?: boolean;
   isSelected?: boolean;
   showCommanderBadge?: boolean;
+  isTopSeat?: boolean;
   "data-dnd-ghost-card-id"?: string;
   "data-dnd-ghost-kind"?: string;
   "data-dnd-drag-overlay-card-view-id"?: string;

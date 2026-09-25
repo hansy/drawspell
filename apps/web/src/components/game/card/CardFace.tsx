@@ -37,6 +37,7 @@ interface CardFaceProps {
   customTextNode?: React.ReactNode;
   customTextPosition?: "sidebar" | "bottom-left" | "center";
   hideRevealIcon?: boolean;
+  isTopSeat?: boolean;
 }
 
 const EMPTY_REVEAL_TO_NAMES: string[] = [];
@@ -58,6 +59,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
   customTextNode,
   customTextPosition,
   hideRevealIcon,
+  isTopSeat,
 }) => {
   const addCounterToCard = useGameStore((state) => state.addCounterToCard);
   const removeCounterFromCard = useGameStore(
@@ -217,10 +219,12 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
   );
 
   const isFlipped = (card.currentFaceIndex ?? 0) === 1;
+  const labelsFaceViewer = Boolean(isTopSeat && !card.tapped);
   if (!useTransformFlip) {
     return (
       <CardFaceView
         faceDown={frontFaceDown}
+        labelsFaceViewer={labelsFaceViewer}
         model={frontModel}
         imageClassName={imageClassName}
         imageTransform={imageTransform}
@@ -256,6 +260,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
         >
           <CardFaceView
             faceDown={frontFaceDown}
+            labelsFaceViewer={labelsFaceViewer}
             model={frontModel}
             imageClassName={imageClassName}
             imageTransform={imageTransform}
@@ -281,6 +286,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
         >
           <CardFaceView
             faceDown={backFaceDown}
+            labelsFaceViewer={labelsFaceViewer}
             model={backModel}
             imageClassName={imageClassName}
             imageTransform={imageTransform}

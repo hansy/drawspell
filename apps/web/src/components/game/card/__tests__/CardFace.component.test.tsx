@@ -113,7 +113,7 @@ describe("CardFace", () => {
     }));
 
     const { container } = render(
-      <CardView card={card} style={{ transform: "rotate(180deg) rotate(90deg)" }} />,
+      <CardView card={card} isTopSeat style={{ transform: "rotate(180deg) rotate(90deg)" }} />,
     );
 
     expect(container.querySelector("[data-card-pt-badge]")?.classList.contains("rotate-180"))
@@ -144,7 +144,7 @@ describe("CardFace", () => {
       .toBe(false);
   });
 
-  it("keeps untapped top-seat name and P/T aligned with the card", () => {
+  it("keeps untapped top-seat name and P/T facing the viewer", () => {
     const zone = buildZone("bf-me", "BATTLEFIELD", "me");
     const card = {
       ...buildTransformCard(zone.id),
@@ -161,13 +161,13 @@ describe("CardFace", () => {
     }));
 
     const { container } = render(
-      <CardView card={card} style={{ transform: "rotate(180deg)" }} />,
+      <CardView card={card} isTopSeat style={{ transform: "rotate(180deg)" }} />,
     );
 
     expect(container.querySelector("[data-card-pt-badge]")?.classList.contains("rotate-180"))
-      .toBe(false);
+      .toBe(true);
     expect(screen.getAllByText("Front").some((element) => element.classList.contains("rotate-180")))
-      .toBe(false);
+      .toBe(true);
   });
 
   it("does not rotate P/T on a standalone card face preview", () => {

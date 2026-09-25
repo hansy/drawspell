@@ -6,6 +6,7 @@ import type { CardStatKey } from "@/lib/cardPT";
 
 export const CardFacePTBadge: React.FC<{
   showPT: boolean;
+  labelsFaceViewer?: boolean;
   interactive?: boolean;
   displayPower?: string;
   displayToughness?: string;
@@ -14,6 +15,7 @@ export const CardFacePTBadge: React.FC<{
   onPTDelta?: (type: CardStatKey, delta: number) => void;
 }> = ({
   showPT,
+  labelsFaceViewer,
   interactive,
   displayPower,
   displayToughness,
@@ -29,6 +31,7 @@ export const CardFacePTBadge: React.FC<{
       className={cn(
         "absolute bottom-1 right-1 bg-zinc-900/90 px-2 py-1 rounded-sm border border-zinc-700 shadow-sm z-10",
         interactive && "scale-125 origin-bottom-right",
+        labelsFaceViewer && "rotate-180",
       )}
     >
       <span className="text-sm font-bold flex items-center gap-1">

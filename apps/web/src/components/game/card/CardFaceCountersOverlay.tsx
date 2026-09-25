@@ -86,6 +86,7 @@ export const CardFaceCountersOverlay: React.FC<{
 
   return (
     <div
+      data-card-counters
       className={cn(
         "absolute top-0 right-0 flex flex-col gap-1 items-end pr-1 pt-1",
         countersClassName

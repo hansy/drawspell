@@ -90,6 +90,33 @@ describe("CardPreview", () => {
     });
   });
 
+  it("starts preview counters ten percent down the card edge", () => {
+    const zoneId = "me-battlefield";
+    const card = {
+      ...buildCard("counter-card", "Counter Card", zoneId),
+      counters: [{ type: "charge", count: 2 }],
+    };
+    useGameStore.setState((state) => ({
+      ...state,
+      zones: { [zoneId]: buildZone(zoneId, "BATTLEFIELD", "me", [card.id]) },
+      cards: { [card.id]: card },
+      players: { me: buildPlayer("me", "Me") },
+      viewerRole: "player",
+    }));
+    const anchorEl = document.createElement("div");
+    document.body.appendChild(anchorEl);
+
+    try {
+      render(<CardPreview card={card} anchorEl={anchorEl} />);
+      const counters = document.querySelector("[data-card-preview] [data-card-counters]");
+      expect(counters?.classList.contains("top-[10%]")).toBe(true);
+      expect(counters?.classList.contains("pt-0")).toBe(true);
+      expect(counters?.classList.contains("-right-2")).toBe(true);
+    } finally {
+      anchorEl.remove();
+    }
+  });
+
   it("preloads permitted card artwork as soon as hover begins", () => {
     const zoneId = "me-hand";
     const cardId = "hover-card";

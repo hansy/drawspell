@@ -149,7 +149,13 @@ export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewP
       <CardFace
         card={previewCard}
         faceDown={faceDown}
-        countersClassName={showAncillary ? "top-4 -right-2" : "hidden"}
+        countersClassName={
+          !showAncillary
+            ? "hidden"
+            : previewCard.counters.length > 0
+              ? "top-[10%] -right-2 pt-0"
+              : "top-4 -right-2"
+        }
         imageClassName="object-cover"
         imageTransform={flipRotation ? `rotate(${flipRotation}deg)` : undefined}
         imageLoading="eager"
