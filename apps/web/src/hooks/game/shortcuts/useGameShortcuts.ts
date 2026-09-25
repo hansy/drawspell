@@ -9,6 +9,7 @@ import {
   closeTopmostUi,
   findShortcutForEvent,
   isDeckLoadedForShortcut,
+  isSpaceActivationTarget,
   isTypingTarget,
   runGameShortcut,
   type CountPromptOptions,
@@ -52,6 +53,7 @@ export type UseGameShortcutsArgs = {
   openCountPrompt: (opts: CountPromptOptions) => void;
   handleViewZone: (zoneId: ZoneId, count?: number) => void;
   handleLeave: () => void;
+  onPassTurn: () => boolean;
 };
 
 export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
@@ -100,6 +102,7 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
         openCountPrompt,
         handleViewZone,
         handleLeave,
+        onPassTurn,
       } = argsRef.current;
 
       const shortcut = findShortcutForEvent(GAME_SHORTCUTS, e);
@@ -157,6 +160,9 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
       }
 
       if (isTypingTarget(e.target)) return;
+      if (shortcut.id === "game.passTurn" && (
+        isSpaceActivationTarget(e.target) || shortcutsOpen || logOpen
+      )) return;
 
       if (
         areShortcutsBlockedByUi({
@@ -222,6 +228,7 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
         handleLeave,
         requestConfirmation,
         actions: {
+          passTurn: onPassTurn,
           drawOne,
           discard,
           exile,

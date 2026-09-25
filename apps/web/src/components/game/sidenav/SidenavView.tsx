@@ -25,6 +25,7 @@ import {
 import drawspellLogo from "@/assets/drawspell-logo.png";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { getShortcutLabel } from "@/models/game/shortcuts/gameShortcuts";
 
 import type { SidenavController } from "@/hooks/game/sidenav/useSidenavController";
 
@@ -140,6 +141,7 @@ export const SidenavView: React.FC<SidenavController> = ({
   orientation,
 }) => {
   const isHorizontal = orientation === "horizontal";
+  const passTurnShortcut = getShortcutLabel("game.passTurn");
   const closeMenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -301,6 +303,24 @@ export const SidenavView: React.FC<SidenavController> = ({
                   </div>
 
                   <div className="border-t border-zinc-800 my-1" />
+
+                  <button
+                    type="button"
+                    aria-label="Pass Turn"
+                    onClick={() => {
+                      if (!canEndTurn) return;
+                      onEndTurn?.();
+                      closeMenu();
+                    }}
+                    disabled={!canEndTurn}
+                    className="flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <UserRoundCheck size={16} />
+                    <span>Pass Turn</span>
+                    <kbd aria-hidden="true" className="ml-auto rounded border border-zinc-700 px-1.5 py-0.5 font-mono text-xs text-zinc-400">
+                      {passTurnShortcut}
+                    </kbd>
+                  </button>
 
                   <button
                     onClick={handleOpenShortcuts}

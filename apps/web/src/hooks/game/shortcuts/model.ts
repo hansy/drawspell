@@ -25,6 +25,12 @@ export const isTypingTarget = (target: EventTarget | null) => {
   return Boolean(el.isContentEditable);
 };
 
+export const isSpaceActivationTarget = (target: EventTarget | null) =>
+  target instanceof HTMLElement &&
+  Boolean(target.closest(
+    "button, a, summary, [role='button'], [role='menuitem'], [role='checkbox'], [role='switch'], [role='tab']",
+  ));
+
 export const matchesBinding = (binding: GameShortcutBinding, e: KeyboardEvent) => {
   const key = e.key.toLowerCase();
   const bindingKey = binding.key.toLowerCase();
@@ -138,6 +144,7 @@ export const areShortcutsBlockedByUi = (args: {
 };
 
 export type GameShortcutActions = {
+  passTurn: () => boolean;
   drawOne: () => void;
   discard: (count?: number) => void;
   exile: (count?: number) => void;
@@ -184,6 +191,8 @@ export const runGameShortcut = (params: {
     case "game.untapAll":
       params.actions.untapAll();
       return true;
+    case "game.passTurn":
+      return params.actions.passTurn();
     case "game.zoomIn":
       params.actions.zoomIn();
       return true;

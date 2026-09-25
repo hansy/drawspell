@@ -45,6 +45,7 @@ const TestHarness = () => {
     openCountPrompt: noop,
     handleViewZone: noop,
     handleLeave: noop,
+    onPassTurn: () => false,
   });
 
   return null;

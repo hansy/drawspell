@@ -6,6 +6,7 @@ export type GameShortcutId =
   | "ui.openDiceRoller"
   | "ui.openTokenModal"
   | "game.untapAll"
+  | "game.passTurn"
   | "game.drawOne"
   | "game.drawX"
   | "game.discardOne"
@@ -38,7 +39,11 @@ export type GameShortcutDefinition = {
 };
 
 export const formatShortcutBinding = (binding: GameShortcutBinding) => {
-  const key = binding.key.toLowerCase() === "escape" ? "Esc" : binding.key.toUpperCase();
+  const key = binding.key === " "
+    ? "Space"
+    : binding.key.toLowerCase() === "escape"
+      ? "Esc"
+      : binding.key.toUpperCase();
   return binding.shift ? `Shift + ${key}` : key;
 };
 
@@ -90,6 +95,13 @@ export const GAME_SHORTCUTS: GameShortcutDefinition[] = [
     binding: { key: "u" },
     title: "Untap All",
     description: "Untaps all permanents you control.",
+    requiresDeckLoaded: true,
+  },
+  {
+    id: "game.passTurn",
+    binding: { key: " " },
+    title: "Pass Turn",
+    description: "Ends your turn and passes to the next eligible player.",
     requiresDeckLoaded: true,
   },
   {

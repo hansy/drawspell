@@ -333,6 +333,40 @@ describe("useMultiplayerBoardController", () => {
     });
   });
 
+  it("passes the active player's turn only when another player is eligible", () => {
+    Object.assign(mockGameState, {
+      activePlayerId: "player-1",
+      players: {
+        "player-1": { id: "player-1", life: 20, deckLoaded: true },
+        "player-2": { id: "player-2", life: 20, deckLoaded: true },
+      },
+      playerOrder: ["player-1", "player-2"],
+    });
+    const { result } = renderHook(() => useMultiplayerBoardController("room-1"));
+
+    expect(result.current.handleEndTurn()).toBe(true);
+    expect(mockSendIntent).toHaveBeenCalledWith({
+      id: "uuid-1",
+      type: "player.endTurn",
+      payload: { actorId: "player-1" },
+    });
+  });
+
+  it("does not pass the turn when no other player is eligible", () => {
+    Object.assign(mockGameState, {
+      activePlayerId: "player-1",
+      players: {
+        "player-1": { id: "player-1", life: 20, deckLoaded: true },
+        "player-2": { id: "player-2", life: 0, deckLoaded: true },
+      },
+      playerOrder: ["player-1", "player-2"],
+    });
+    const { result } = renderHook(() => useMultiplayerBoardController("room-1"));
+
+    expect(result.current.handleEndTurn()).toBe(false);
+    expect(mockSendIntent).not.toHaveBeenCalled();
+  });
+
   it("does not let an inactive player set the turn", () => {
     Object.assign(mockGameState, {
       activePlayerId: "player-2",

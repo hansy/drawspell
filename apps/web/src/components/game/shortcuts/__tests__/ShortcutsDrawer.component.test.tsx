@@ -17,6 +17,8 @@ describe("ShortcutsDrawer", () => {
     expect(within(mouseControls).getByText("Double click")).not.toBeNull();
     expect(within(mouseControls).getByText("Adjust Floating Mana")).not.toBeNull();
     expect(within(keyboardShortcuts).getByText("Draw 1")).not.toBeNull();
+    expect(within(keyboardShortcuts).getByText("Pass Turn")).not.toBeNull();
+    expect(within(keyboardShortcuts).getByText("Space")).not.toBeNull();
     const exileOneRow = within(keyboardShortcuts)
       .getByText("Exile 1")
       .closest<HTMLElement>(".group");

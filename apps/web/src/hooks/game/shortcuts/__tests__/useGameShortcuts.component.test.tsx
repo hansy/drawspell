@@ -41,9 +41,101 @@ const Probe: React.FC<{ args: UseGameShortcutsArgs }> = ({ args }) => {
   return null;
 };
 
+const passTurnArgs = (
+  onPassTurn: () => boolean,
+  overrides: Partial<UseGameShortcutsArgs> = {},
+): UseGameShortcutsArgs => ({
+  myPlayerId: "me",
+  zones: {},
+  players: { me: createPlayer("me", true) },
+  contextMenuOpen: false,
+  closeContextMenu: vi.fn(),
+  countPromptOpen: false,
+  closeCountPrompt: vi.fn(),
+  textPromptOpen: false,
+  closeTextPrompt: vi.fn(),
+  activeModalOpen: false,
+  closeActiveModal: vi.fn(),
+  tokenModalOpen: false,
+  setTokenModalOpen: vi.fn(),
+  coinFlipperOpen: false,
+  setCoinFlipperOpen: vi.fn(),
+  diceRollerOpen: false,
+  setDiceRollerOpen: vi.fn(),
+  loadDeckModalOpen: false,
+  setLoadDeckModalOpen: vi.fn(),
+  shareDialogOpen: false,
+  setShareDialogOpen: vi.fn(),
+  zoneViewerOpen: false,
+  closeZoneViewer: vi.fn(),
+  opponentRevealsOpen: false,
+  closeOpponentReveals: vi.fn(),
+  logOpen: false,
+  setLogOpen: vi.fn(),
+  shortcutsOpen: false,
+  setShortcutsOpen: vi.fn(),
+  openCountPrompt: vi.fn(),
+  handleViewZone: vi.fn(),
+  handleLeave: vi.fn(),
+  onPassTurn,
+  ...overrides,
+});
+
 describe("useGameShortcuts", () => {
   beforeEach(() => {
     resetStore();
+  });
+
+  it("passes the turn on Space and consumes the key only when it succeeds", () => {
+    const onPassTurn = vi.fn(() => true);
+    const { rerender } = render(<Probe args={passTurnArgs(onPassTurn)} />);
+    const first = new KeyboardEvent("keydown", {
+      key: " ", code: "Space", bubbles: true, cancelable: true,
+    });
+    window.dispatchEvent(first);
+    expect(onPassTurn).toHaveBeenCalledTimes(1);
+    expect(first.defaultPrevented).toBe(true);
+
+    const cannotPass = vi.fn(() => false);
+    rerender(<Probe args={passTurnArgs(cannotPass)} />);
+    const second = new KeyboardEvent("keydown", {
+      key: " ", code: "Space", bubbles: true, cancelable: true,
+    });
+    window.dispatchEvent(second);
+    expect(cannotPass).toHaveBeenCalledTimes(1);
+    expect(second.defaultPrevented).toBe(false);
+  });
+
+  it("leaves Space for focused controls and blocks it when play is unavailable", () => {
+    const onPassTurn = vi.fn(() => true);
+    const { rerender } = render(<Probe args={passTurnArgs(onPassTurn)} />);
+    const button = document.createElement("button");
+    document.body.appendChild(button);
+    button.dispatchEvent(new KeyboardEvent("keydown", {
+      key: " ", code: "Space", bubbles: true, cancelable: true,
+    }));
+    expect(onPassTurn).not.toHaveBeenCalled();
+    button.remove();
+
+    rerender(<Probe args={passTurnArgs(onPassTurn, { contextMenuOpen: true })} />);
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      key: " ", code: "Space", bubbles: true, cancelable: true,
+    }));
+    expect(onPassTurn).not.toHaveBeenCalled();
+
+    rerender(<Probe args={passTurnArgs(onPassTurn, {
+      players: { me: createPlayer("me", false) },
+    })} />);
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      key: " ", code: "Space", bubbles: true, cancelable: true,
+    }));
+    expect(onPassTurn).not.toHaveBeenCalled();
+
+    rerender(<Probe args={passTurnArgs(onPassTurn, { viewerRole: "spectator" })} />);
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      key: " ", code: "Space", bubbles: true, cancelable: true,
+    }));
+    expect(onPassTurn).not.toHaveBeenCalled();
   });
 
   it("does not run non-Esc shortcuts while typing", () => {
@@ -89,6 +181,7 @@ describe("useGameShortcuts", () => {
       openCountPrompt: vi.fn(),
       handleViewZone: vi.fn(),
       handleLeave: vi.fn(),
+      onPassTurn: vi.fn(() => false),
     };
 
     render(<Probe args={args} />);
@@ -135,6 +228,7 @@ describe("useGameShortcuts", () => {
       openCountPrompt: vi.fn(),
       handleViewZone: vi.fn(),
       handleLeave: vi.fn(),
+      onPassTurn: vi.fn(() => false),
     };
 
     render(<Probe args={args} />);
@@ -183,6 +277,7 @@ describe("useGameShortcuts", () => {
       openCountPrompt,
       handleViewZone: vi.fn(),
       handleLeave: vi.fn(),
+      onPassTurn: vi.fn(() => false),
     };
 
     render(<Probe args={args} />);
@@ -230,6 +325,7 @@ describe("useGameShortcuts", () => {
       openCountPrompt,
       handleViewZone: vi.fn(),
       handleLeave: vi.fn(),
+      onPassTurn: vi.fn(() => false),
     };
 
     render(<Probe args={args} />);
@@ -280,6 +376,7 @@ describe("useGameShortcuts", () => {
       openCountPrompt,
       handleViewZone: vi.fn(),
       handleLeave: vi.fn(),
+      onPassTurn: vi.fn(() => false),
     };
 
     render(<Probe args={args} />);
@@ -353,6 +450,7 @@ describe("useGameShortcuts", () => {
       openCountPrompt,
       handleViewZone: vi.fn(),
       handleLeave: vi.fn(),
+      onPassTurn: vi.fn(() => false),
     };
 
     render(<Probe args={args} />);
@@ -399,6 +497,7 @@ describe("useGameShortcuts", () => {
       openCountPrompt: vi.fn(),
       handleViewZone: vi.fn(),
       handleLeave: vi.fn(),
+      onPassTurn: vi.fn(() => false),
     };
 
     render(<Probe args={args} />);

@@ -9,7 +9,7 @@ import { useGameStore } from "@/store/gameStore";
 import { useSelectionStore } from "@/store/selectionStore";
 import { resolvePlayerColors } from "@/lib/playerColors";
 import { ZONE } from "@/constants/zones";
-import { isTurnEligible } from "@mtg/shared/turns";
+import { isTurnEligible, nextEligibleTurnPlayerId } from "@mtg/shared/turns";
 import { useScryfallCards } from "@/hooks/scryfall/useScryfallCard";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -449,11 +449,21 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   );
 
   const handleEndTurn = React.useCallback(() => {
-    if (isSpectator || activePlayerId !== myPlayerId) return;
+    const nextPlayerId = nextEligibleTurnPlayerId(playerOrder, players, myPlayerId);
+    if (
+      isSpectator ||
+      activePlayerId !== myPlayerId ||
+      !isTurnEligible(players[myPlayerId]) ||
+      !nextPlayerId ||
+      nextPlayerId === myPlayerId
+    ) {
+      return false;
+    }
     sendLogIntent("player.endTurn", {
       actorId: myPlayerId,
     });
-  }, [activePlayerId, isSpectator, myPlayerId, sendLogIntent]);
+    return true;
+  }, [activePlayerId, isSpectator, myPlayerId, playerOrder, players, sendLogIntent]);
 
   const handleSetTurn = React.useCallback((nextPlayerId: string) => {
     if (
@@ -535,6 +545,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     openCountPrompt,
     handleViewZone,
     handleLeave,
+    onPassTurn: handleEndTurn,
   });
 
   const playerColors = React.useMemo(
