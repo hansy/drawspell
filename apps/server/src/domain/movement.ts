@@ -91,14 +91,23 @@ const resolveMoveApplicationPosition = (params: {
   });
 };
 
-const pushMovementLogFacts = (
-  logFacts: CardMovementLogFacts,
-  actorId: string | undefined,
-  cardId: string,
-  fromZoneId: string,
-  toZoneId: string,
-  pushLogEvent: (eventId: string, payload: Record<string, unknown>) => void
-) => {
+type MovementLogContext = {
+  logFacts: CardMovementLogFacts;
+  actorId: string | undefined;
+  cardId: string;
+  fromZoneId: string;
+  toZoneId: string;
+  pushLogEvent: (eventId: string, payload: Record<string, unknown>) => void;
+};
+
+const pushMovementLogFacts = ({
+  logFacts,
+  actorId,
+  cardId,
+  fromZoneId,
+  toZoneId,
+  pushLogEvent,
+}: MovementLogContext) => {
   if (logFacts.event === "none") return;
   if (logFacts.event === "draw") {
     pushLogEvent("card.draw", {
@@ -207,14 +216,14 @@ export const applyCardMove = (
   const toHidden = isHiddenZoneType(toZone.type);
 
   if (!sameBattlefield || opts?.suppressLog) {
-    pushMovementLogFacts(
-      plan.logFacts,
+    pushMovementLogFacts({
+      logFacts: plan.logFacts,
       actorId,
       cardId,
-      fromZone.id,
+      fromZoneId: fromZone.id,
       toZoneId,
-      pushLogEvent
-    );
+      pushLogEvent,
+    });
   }
 
   if (!fromHidden && !toHidden) {
