@@ -273,6 +273,10 @@ export const LandingPage = () => {
 export const Route = createFileRoute("/")({
   component: LandingPage,
   head: () => ({
+    links:
+      import.meta.env.VITE_ENV === "production"
+        ? [{ rel: "canonical", href: new URL("/", origins.web).href }]
+        : [],
     meta: [
       { title: "Magic: The Gathering Virtual Tabletop | Drawspell" },
       {
