@@ -90,12 +90,14 @@ export const logDiscordProvisionEvent = (
 const readRecord = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 
-const parseDiscordProvisionRecord = (
-  rawBody: unknown,
-): {
+type ParsedDiscordProvisionRecord = {
   request: DiscordRoomProvisionRequest;
   record: Record<string, unknown>;
-} | null => {
+};
+
+const parseDiscordProvisionRecord = (
+  rawBody: unknown,
+): ParsedDiscordProvisionRecord | null => {
   const record = readRecord(rawBody);
   if (!record) return null;
   const interactionId = normalizeNonEmptyString(record.interactionId);
