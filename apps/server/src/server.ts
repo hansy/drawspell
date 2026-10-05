@@ -138,6 +138,12 @@ type ConnectionRateEntry = {
   >;
 };
 
+type ConnectionLibraryView = {
+  playerId: string;
+  count?: number;
+  lastPingAt: number;
+};
+
 type ShareLinksPayload = {
   playerInviteUrl: string;
   spectatorInviteUrl: string;
@@ -634,10 +640,7 @@ export class Room extends YServer<Env> {
       });
     },
   });
-  private libraryViews = new Map<
-    string,
-    { playerId: string; count?: number; lastPingAt: number }
-  >();
+  private libraryViews = new Map<string, ConnectionLibraryView>();
   private overlayService = new OverlayService({
     roomId: "pending",
     sampleLimit: PERF_METRICS_SAMPLE_LIMIT,
@@ -2447,7 +2450,7 @@ export class Room extends YServer<Env> {
   private normalizeConnectionLibraryView(
     conn: Connection,
     now = Date.now(),
-  ): { playerId: string; count?: number; lastPingAt: number } | undefined {
+  ): ConnectionLibraryView | undefined {
     const state = (conn.state ?? {}) as IntentConnectionState;
     if (state.viewerRole === "spectator") return undefined;
     const view = state.libraryView;
@@ -2474,9 +2477,7 @@ export class Room extends YServer<Env> {
 
   private setConnectionLibraryView(
     conn: Connection,
-    libraryView:
-      | { playerId: string; count?: number; lastPingAt: number }
-      | undefined,
+    libraryView: ConnectionLibraryView | undefined,
   ) {
     const existingState = (conn.state ?? {}) as IntentConnectionState;
     const nextState: IntentConnectionState = { ...existingState };
