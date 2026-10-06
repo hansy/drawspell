@@ -497,6 +497,24 @@ const createRoomSummaryDraft = (
   invocationTypes: {},
 });
 
+const updateRoomBucketRange = (
+  roomSummary: DurableObjectRoomSummaryDraft,
+  bucket: string | null,
+) => {
+  roomSummary.firstBucket =
+    roomSummary.firstBucket && bucket
+      ? roomSummary.firstBucket < bucket
+        ? roomSummary.firstBucket
+        : bucket
+      : bucket ?? roomSummary.firstBucket;
+  roomSummary.lastBucket =
+    roomSummary.lastBucket && bucket
+      ? roomSummary.lastBucket > bucket
+        ? roomSummary.lastBucket
+        : bucket
+      : bucket ?? roomSummary.lastBucket;
+};
+
 const buildComparison = (
   pre: DurableObjectMetricTotals,
   post: DurableObjectMetricTotals,
@@ -610,18 +628,7 @@ export const summarizeDurableObjectMetrics = ({
     splitTotals.rowsWritten += rowsWritten;
 
     const roomSummary = ensureRoom(room, row.dimensions.namespaceId);
-    roomSummary.firstBucket =
-      roomSummary.firstBucket && bucket
-        ? roomSummary.firstBucket < bucket
-          ? roomSummary.firstBucket
-          : bucket
-        : bucket ?? roomSummary.firstBucket;
-    roomSummary.lastBucket =
-      roomSummary.lastBucket && bucket
-        ? roomSummary.lastBucket > bucket
-          ? roomSummary.lastBucket
-          : bucket
-        : bucket ?? roomSummary.lastBucket;
+    updateRoomBucketRange(roomSummary, bucket);
     roomSummary.buckets += 1;
     roomSummary.durationSec += duration;
     roomSummary[split === "pre" ? "preDurationSec" : "postDurationSec"] +=
