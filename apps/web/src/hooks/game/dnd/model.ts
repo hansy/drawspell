@@ -1,3 +1,5 @@
+import { battlefieldToLocal, localToBattlefield, type BattlefieldCamera } from '@/lib/battlefieldCamera';
+import { BASE_CARD_HEIGHT } from "@mtg/shared/constants/geometry";
 import type { Card, CardId, PlayerId, ViewerRole, Zone, ZoneId, ZoneType } from "@/types";
 
 import { ZONE } from "@/constants/zones";
@@ -67,12 +69,14 @@ export const computeDragMoveUiState = (params: {
   activeRect?: RectLike | null;
   pointerScreen?: Point | null;
   movementScreen?: Point | null;
+  sourceCardScale?: number;
   dragAnchor?: Point | null;
   activeTapped?: boolean;
   over:
     | null
     | {
         id: ZoneId;
+      camera?: BattlefieldCamera;
       type?: ZoneType;
       rect: RectLike;
       scale?: number;
@@ -83,12 +87,14 @@ export const computeDragMoveUiState = (params: {
       dragOverlayScale?: number;
     };
 }): DragMoveUiState => {
-  if (!params.over) return { ghostCard: null, overCardScale: 1 };
+  if (!params.over) return { ghostCard: null, overCardScale: params.sourceCardScale ?? 1 };
 
   if (params.over.type !== ZONE.BATTLEFIELD) {
     return {
       ghostCard: null,
-      overCardScale: 1,
+      overCardScale: params.over.type === ZONE.HAND
+        ? (params.over.cardScale ?? 1) * (params.over.cardBaseHeight ?? BASE_CARD_HEIGHT) / BASE_CARD_HEIGHT
+        : params.sourceCardScale ?? 1,
       ...(params.over.dragOverlayScale !== undefined
         ? { dragOverlayScale: params.over.dragOverlayScale }
         : {}),
@@ -149,6 +155,7 @@ export const computeDragMoveUiState = (params: {
     zoneScale,
     baseCardHeight: params.over.cardBaseHeight,
     baseCardWidth: params.over.cardBaseWidth,
+    camera: params.over.camera,
   });
   const resolvedCanonical = resolveBattlefieldCollisionPosition({
     movingCardId: activeCard.id,
@@ -159,7 +166,7 @@ export const computeDragMoveUiState = (params: {
   const resolvedView = mirrorY
     ? mirrorNormalizedY(resolvedCanonical)
     : resolvedCanonical;
-  const ghostPosition = fromNormalizedPosition(
+  const ghostPosition = params.over.camera ? battlefieldToLocal(resolvedCanonical, params.over.camera) : fromNormalizedPosition(
     resolvedView,
     placement.zoneWidth,
     placement.zoneHeight,
@@ -238,6 +245,7 @@ const resolvePointerProjection = (params: {
 };
 
 export const computeBattlefieldGroupGhostCards = (params: {
+  camera?: BattlefieldCamera;
   groupCardIds: CardId[];
   activeCardId: CardId;
   startPositions: Record<CardId, Point | undefined>;
@@ -261,7 +269,7 @@ export const computeBattlefieldGroupGhostCards = (params: {
     params.zoneWidth,
     params.zoneHeight
   );
-  const activeGhostCanonical = params.mirrorY
+  const activeGhostCanonical = params.camera ? localToBattlefield(params.activeGhostPosition, params.camera) : params.mirrorY
     ? mirrorNormalizedY(activeGhostView)
     : activeGhostView;
 
@@ -296,7 +304,7 @@ export const computeBattlefieldGroupGhostCards = (params: {
         isTapped: card.tapped,
       });
       const viewNormalized = params.mirrorY ? mirrorNormalizedY(target) : target;
-      const position = fromNormalizedPosition(
+      const position = params.camera ? battlefieldToLocal(target, params.camera) : fromNormalizedPosition(
         viewNormalized,
         params.zoneWidth,
         params.zoneHeight
@@ -420,6 +428,7 @@ export const shouldUseSameHandDropFallback = (params: {
 };
 
 export const computeDragEndPlan = (params: {
+  camera?: BattlefieldCamera;
   myPlayerId: PlayerId;
   viewerRole?: ViewerRole;
   cards: Record<CardId, Card>;
@@ -545,6 +554,7 @@ export const computeDragEndPlan = (params: {
     zoneScale,
     baseCardHeight: params.overCardBaseHeight,
     baseCardWidth: params.overCardBaseWidth,
+    camera: params.camera,
   });
 
   return {

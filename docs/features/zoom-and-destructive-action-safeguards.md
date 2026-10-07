@@ -6,15 +6,14 @@ reconstructed from the current Room state.
 
 ## Battlefield Zoom
 
-- Battlefield zoom ranges from `0.5x` through `2x`, inclusive.
-- Zoom changes in `0.05` increments.
-- `1x` remains the standard scale. It is not the mathematical midpoint of the
-  range.
-- Wheel, pinch, and keyboard zoom use the same bounds and increments.
-- Entering a different Room starts at `1x`.
-- Reconnecting to the same Room preserves that player's existing zoom.
-- Client input, shared-state sanitization, and server intent handling enforce the
-  same bounds.
+Battlefield zoom now belongs to each viewer's independent camera. Default shows
+three card heights, the slider marks Default at its midpoint, and panning is
+available at any scale. Grid and card geometry scale together. Camera changes
+are never broadcast to other players.
+
+See [Battlefield cameras](battlefield-cameras.md) for the current controls,
+zoom bounds, syncing contract, and local preview. The destructive-action
+safeguards below are unchanged.
 
 ## Confirmation Contract
 
@@ -90,12 +89,9 @@ they are routine gameplay operations or already provide suitable friction:
 
 ## Verification
 
-- Exercise the `0.5x`, `1x`, and `2x` zoom boundaries through wheel, pinch, and
-  keyboard input.
-- Verify client, server, legacy mutation, and snapshot sanitization agree on the
-  zoom bounds.
-- Verify zoom starts at `1x` in a different Room and survives reconnection to the
-  same Room.
+- Verify independent camera zoom, right-drag panning, and Default/Fit using the
+  battlefield camera tests.
+- Verify snapshots, private overlays, and rejected intents preserve local zoom.
 - Exercise accept, Cancel, Escape, and duplicate-trigger behavior for the shared
   dialog.
 - Verify every visible control and shortcut for a guarded action uses the shared

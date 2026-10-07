@@ -909,6 +909,41 @@ describe("applyIntentToDoc", () => {
     expect(readPlayer(maps, "p1")?.manaPool).toBeUndefined();
   });
 
+  it("establishes an owner anchor only on a successful first placement and persists it through empty boards and reload", () => {
+    const doc = createDoc(), maps = getMaps(doc), hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    writeZone(maps, makeZone("bf", ZONE.BATTLEFIELD, "p1"));
+    writeZone(maps, makeZone("lib", ZONE.LIBRARY, "p1"));
+    const anchor = {x: -0.4, y: 0.6};
+    const apply = (type: string, payload: Record<string, unknown>) => applyIntentToDoc(doc, {id: crypto.randomUUID(), type, payload: {actorId: "p1", battlefieldCameraAnchor: anchor, ...payload}}, hidden);
+    expect(apply("card.move", {cardId: "missing", toZoneId: "bf"}).ok).toBe(false);
+    expect(readPlayer(maps, "p1")?.battlefieldCameraAnchor).toBeUndefined();
+    expect(apply("card.add", {card: makeCard("first", "p1", "bf", {position: {x: -0.3, y: 0.7}})}).ok).toBe(true);
+    expect(readPlayer(maps, "p1")?.battlefieldCameraAnchor).toEqual(anchor);
+    expect(apply("card.move", {cardId: "first", toZoneId: "lib"}).ok).toBe(true);
+    expect(apply("card.add", {card: makeCard("second", "p1", "bf"), battlefieldCameraAnchor: {x: 1, y: 1}}).ok).toBe(true);
+    expect(readPlayer(maps, "p1")?.battlefieldCameraAnchor).toEqual(anchor);
+    const restored = new Y.Doc();
+    Y.applyUpdate(restored, Y.encodeStateAsUpdate(doc));
+    expect(readPlayer(getMaps(restored), "p1")?.battlefieldCameraAnchor).toEqual(anchor);
+    expect(apply("player.update", {playerId: "p1", updates: {battlefieldCameraAnchor: {x: 0, y: 0}}}).ok).toBe(false);
+    expect(apply("deck.reset", {playerId: "p1"}).ok).toBe(true);
+    expect(readPlayer(maps, "p1")?.battlefieldCameraAnchor).toBeUndefined();
+    expect(readPlayer(maps, "p1")?.battlefieldCameraEpoch).toBe(1);
+    expect(apply("card.add", {card: makeCard("third", "p1", "bf"), battlefieldCameraAnchor: {x: 0.8, y: 0}}).ok).toBe(true);
+    expect(readPlayer(maps, "p1")?.battlefieldCameraAnchor).toEqual({x: 0.8, y: 0});
+  });
+
+  it("does not let invalid camera metadata affect placement", () => {
+    const doc = createDoc(), maps = getMaps(doc), hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    writeZone(maps, makeZone("bf", ZONE.BATTLEFIELD, "p1"));
+    expect(applyIntentToDoc(doc, {id: "bad-anchor", type: "card.add", payload: {
+      actorId: "p1", card: makeCard("c", "p1", "bf"), battlefieldCameraAnchor: {x: Infinity, y: 50},
+    }}, hidden).ok).toBe(true);
+    expect(readPlayer(maps, "p1")?.battlefieldCameraAnchor).toEqual({x: 0, y: 0});
+  });
+
   it("should add cards to a hidden zone for the owning player", () => {
     const doc = createDoc();
     const maps = getMaps(doc);

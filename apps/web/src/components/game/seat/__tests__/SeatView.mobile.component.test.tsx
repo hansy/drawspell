@@ -396,10 +396,9 @@ describe("SeatView mobile toolbar", () => {
     expect(strip?.classList.contains("justify-center")).toBe(false);
     expect(strip?.classList.contains("transition-transform")).toBe(false);
     expect(slots).toHaveLength(2);
-    expect(
-      slots.map((slot) =>
-        slot.style.getPropertyValue("--hand-card-slot-width"),
-      ),
-    ).toEqual(["128px", "128px"]);
+    // The hand uses physical 63:88 cards at its 192px display height.
+    slots.forEach(slot => {
+      expect(parseFloat(slot.style.getPropertyValue("--hand-card-slot-width"))).toBeCloseTo(192 * 63 / 88);
+    });
   });
 });

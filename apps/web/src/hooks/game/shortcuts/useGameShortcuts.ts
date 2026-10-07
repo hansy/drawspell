@@ -1,5 +1,5 @@
 import React from "react";
-import { BATTLEFIELD_VIEW_SCALE_STEP } from "@mtg/shared/constants/geometry";
+import { stepBattlefieldZoom } from "@/lib/battlefieldZoom";
 import { useLatestRef } from "@/hooks/shared/useLatestRef";
 import { useGameStore } from "@/store/gameStore";
 import type { Player, PlayerId, ViewerRole, Zone, ZoneId } from "@/types";
@@ -196,9 +196,7 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
       const adjustBattlefieldZoom = (direction: "in" | "out") => {
         const currentScale =
           useGameStore.getState().battlefieldViewScale[myPlayerId] ?? 1;
-        const delta = BATTLEFIELD_VIEW_SCALE_STEP;
-        const nextScale =
-          direction === "in" ? currentScale + delta : currentScale - delta;
+        const nextScale = stepBattlefieldZoom(currentScale, direction);
         useGameStore.getState().setBattlefieldViewScale(myPlayerId, nextScale);
       };
       const zoomIn = () => adjustBattlefieldZoom("in");

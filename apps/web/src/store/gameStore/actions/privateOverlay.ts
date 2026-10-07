@@ -27,7 +27,7 @@ export const createPrivateOverlayActions = (
     const merged = mergePrivateOverlay(base, overlay);
     setAuthoritativeState(merged, base);
     const reconciled = applyPendingIntents(merged);
-    set({ ...reconciled, privateOverlay: overlay });
+    set({ ...reconciled, privateOverlay: overlay, battlefieldViewScale: get().battlefieldViewScale, battlefieldGridSizing: get().battlefieldGridSizing });
   },
 
   applyPrivateOverlayDiff: (diff: PrivateOverlayDiffPayload) => {
@@ -95,7 +95,7 @@ export const createPrivateOverlayActions = (
     const merged = mergePrivateOverlay(base, nextOverlay);
     setAuthoritativeState(merged, base);
     const reconciled = applyPendingIntents(merged);
-    set({ ...reconciled, privateOverlay: nextOverlay });
+    set({ ...reconciled, privateOverlay: nextOverlay, battlefieldViewScale: get().battlefieldViewScale, battlefieldGridSizing: get().battlefieldGridSizing });
     return true;
   },
 });

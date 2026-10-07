@@ -17,21 +17,21 @@ const keyFor = (position: { x: number; y: number }) =>
   `${position.x.toFixed(4)}:${position.y.toFixed(4)}`;
 
 describe("server positions", () => {
-  it("should clamp negative normalized positions within bounds", () => {
+  it("preserves negative grid coordinates", () => {
     const result = normalizeMovePosition({ x: -0.25, y: 0.4 }, { x: 0.2, y: 0.2 });
 
-    expect(result.x).toBe(0);
+    expect(result.x).toBe(-0.25);
     expect(result.y).toBe(0.4);
   });
 
-  it("should migrate legacy pixel positions when values exceed 1", () => {
+  it("bounds oversized coordinates without treating them as legacy pixels", () => {
     const result = normalizeMovePosition(
       { x: LEGACY_BATTLEFIELD_WIDTH / 2, y: LEGACY_BATTLEFIELD_HEIGHT / 2 },
       { x: 0, y: 0 }
     );
 
-    expect(result.x).toBeCloseTo(0.5, 6);
-    expect(result.y).toBeCloseTo(0.5, 6);
+    expect(result.x).toBe(2.4);
+    expect(result.y).toBe(2.4);
   });
 
   it("should fall back to the provided position when input is missing", () => {

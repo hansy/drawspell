@@ -106,7 +106,7 @@ export const handleIntentAck = (
 
   if (!ack.ok && lastAuthoritativeState) {
     const reconciled = applyPendingIntents(lastAuthoritativeState);
-    setState(reconciled);
+    setState(current => ({ ...reconciled, battlefieldViewScale: current.battlefieldViewScale, battlefieldGridSizing: current.battlefieldGridSizing }));
   }
 
   if (!ack.ok) {
@@ -117,7 +117,8 @@ export const handleIntentAck = (
 };
 
 export const createIntentDispatcher = (
-  setState: StoreApi<GameState>["setState"]
+  setState: StoreApi<GameState>["setState"],
+  getState?: StoreApi<GameState>["getState"]
 ): DispatchIntent => {
   return ({
     type,
@@ -134,6 +135,11 @@ export const createIntentDispatcher = (
       return null;
     }
 
+    const state = getState?.();
+    const ownerId = state?.myPlayerId;
+    const anchor = ownerId && !state.players[ownerId]?.battlefieldCameraAnchor
+      ? state.battlefieldGridSizing[ownerId]?.startingAnchor : undefined;
+    if (anchor && (payload.actorId === undefined || payload.actorId === ownerId)) payload = {...payload, battlefieldCameraAnchor: anchor};
     const intentId = uuidv4();
     if (!skipSend) {
       const intent: Intent = {

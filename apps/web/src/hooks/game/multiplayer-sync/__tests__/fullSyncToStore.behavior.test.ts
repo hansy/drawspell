@@ -45,6 +45,7 @@ describe("createFullSyncToStore", () => {
     };
 
     upsertPlayer(maps, player);
+    maps.battlefieldViewScale.set("p1", 2);
 
     const setState = vi.fn();
     const fullSync = createFullSyncToStore(maps, setState as any);
@@ -58,7 +59,7 @@ describe("createFullSyncToStore", () => {
       cards: {},
       playerOrder: [],
       globalCounters: {},
-      battlefieldViewScale: {},
+      battlefieldViewScale: { p1: .75 },
       roomHostId: null,
       roomOverCapacity: false,
     } as any;
@@ -66,6 +67,7 @@ describe("createFullSyncToStore", () => {
     expect(next.players.p1?.name).toBe("P1");
     expect(next.players.p1?.manaPool).toEqual({ U: 2 });
     expect(next.playerOrder).toEqual(["p1"]);
+    expect(next.battlefieldViewScale).toEqual({ p1: .75 });
   });
 
   it("merges existing private overlay during reconnect sync", () => {

@@ -1,3 +1,4 @@
+import { prepareBattlefieldAnchors, establishBattlefieldAnchors } from "../battlefieldAnchor";
 import type * as Y from "yjs";
 
 import type {
@@ -111,7 +112,9 @@ export const applyIntentToDoc = (doc: Y.Doc, intent: Intent, hidden: HiddenState
   try {
     let result: InnerApplyResult = { ok: false, error: "unknown" };
     doc.transact(() => {
+      const pendingAnchors = prepareBattlefieldAnchors(maps);
       result = apply();
+      if (result.ok && actorId) changedPublicDoc = establishBattlefieldAnchors(maps, pendingAnchors, actorId, payload.battlefieldCameraAnchor);
     });
     if (result.ok) {
       if (!changedPublicDoc) {

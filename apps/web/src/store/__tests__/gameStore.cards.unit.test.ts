@@ -27,7 +27,7 @@ describe("gameStore card actions", () => {
     });
   });
 
-  it("addCard clamps face index, syncs stats, and normalizes legacy positions", () => {
+  it("addCard clamps face index, syncs stats, and bounds positions at the world edge", () => {
     const battlefield = { id: "bf-me", type: ZONE.BATTLEFIELD, ownerId: "me", cardIds: [] as string[] };
 
     useGameStore.setState((state) => ({
@@ -69,8 +69,8 @@ describe("gameStore card actions", () => {
     expect(card.basePower).toBe("3");
     expect(card.baseToughness).toBe("4");
 
-    expect(card.position.x).toBeCloseTo(0.1, 6);
-    expect(card.position.y).toBeCloseTo(100 / 600, 6);
+    expect(card.position.x).toBe(2.4);
+    expect(card.position.y).toBe(2.4);
   });
 
   it("updateCard preserves explicit P/T edits when the face does not change", () => {

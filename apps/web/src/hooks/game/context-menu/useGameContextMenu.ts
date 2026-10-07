@@ -336,6 +336,12 @@ export const useGameContextMenu = (
                 };
             })(),
         });
+        // Empty-battlefield right-click now pans. Keep sideboard access with
+        // the player's other deck actions in the library menu.
+        const sideboard = getPlayerZones(store.zones, myPlayerId).sideboard;
+        if (zone.type === ZONE.LIBRARY && zone.ownerId === myPlayerId && sideboard && onViewZone) {
+            items.push({ type: "action", label: "View Sideboard", onSelect: () => onViewZone(sideboard.id) });
+        }
         if (items.length > 0) {
             contextMenuRequestRef.current += 1;
             openContextMenu(e, items);

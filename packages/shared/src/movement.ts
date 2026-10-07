@@ -141,7 +141,7 @@ const resolveBattlefieldEntryFallbackPosition = (
   toZone: Pick<Zone, "type">
 ): Position | undefined =>
   !position && toZone.type === ZONE.BATTLEFIELD && fromZone.type !== ZONE.BATTLEFIELD
-    ? { x: 0.5, y: 0.5 }
+    ? { x: 0, y: 0 }
     : position;
 
 const resolveBattlefieldPlacementStepY = (

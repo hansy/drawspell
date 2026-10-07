@@ -1,13 +1,13 @@
 import React from "react";
 import { act, render } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useGameStore } from "@/store/gameStore";
 import { useBattlefieldZoomControls } from "../useBattlefieldZoomControls";
 
 const createPointerEvent = (
   type: string,
-  options: PointerEventInit & { pointerType?: string; pointerId?: number }
+  options: PointerEventInit & { pointerType?: string; pointerId?: number },
 ) => {
   if (typeof PointerEvent !== "undefined") {
     return new PointerEvent(type, options);
@@ -56,6 +56,43 @@ describe("useBattlefieldZoomControls pinch gestures", () => {
     }));
   });
 
+  it("accumulates small trackpad deltas and caps rapid or large scrolls to gradual steps", () => {
+    const target = document.createElement("div");
+    render(<Harness target={target} />);
+    const clock = vi.spyOn(performance, "now").mockReturnValue(1000);
+    const scroll = (deltaY: number, deltaMode = 0) =>
+      act(() => {
+        target.dispatchEvent(
+          new WheelEvent("wheel", { deltaY, deltaMode, cancelable: true }),
+        );
+      });
+    for (let i = 0; i < 5; i++) scroll(-10);
+    expect(useGameStore.getState().battlefieldViewScale.me).toBe(0.9);
+    scroll(-10);
+    expect(useGameStore.getState().battlefieldViewScale.me).toBeCloseTo(
+      0.95,
+    );
+    for (let i = 0; i < 30; i++) scroll(-100);
+    expect(useGameStore.getState().battlefieldViewScale.me).toBeCloseTo(
+      0.95,
+    );
+    clock.mockReturnValue(1060);
+    scroll(-1000);
+    expect(useGameStore.getState().battlefieldViewScale.me).toBeCloseTo(
+      1,
+    );
+    clock.mockReturnValue(1400);
+    scroll(0);
+    expect(useGameStore.getState().battlefieldViewScale.me).toBeCloseTo(
+      1,
+    );
+    scroll(5, 1);
+    expect(useGameStore.getState().battlefieldViewScale.me).toBeCloseTo(
+      0.95,
+    );
+    clock.mockRestore();
+  });
+
   it("pinch-away zooms in", () => {
     const target = document.createElement("div");
     render(<Harness target={target} />);
@@ -68,7 +105,7 @@ describe("useBattlefieldZoomControls pinch gestures", () => {
           pointerId: 1,
           clientX: 20,
           clientY: 20,
-        })
+        }),
       );
       target.dispatchEvent(
         createPointerEvent("pointerdown", {
@@ -77,7 +114,7 @@ describe("useBattlefieldZoomControls pinch gestures", () => {
           pointerId: 2,
           clientX: 100,
           clientY: 20,
-        })
+        }),
       );
       target.dispatchEvent(
         createPointerEvent("pointermove", {
@@ -87,11 +124,13 @@ describe("useBattlefieldZoomControls pinch gestures", () => {
           pointerId: 2,
           clientX: 130,
           clientY: 20,
-        })
+        }),
       );
     });
 
-    expect(useGameStore.getState().battlefieldViewScale.me).toBeCloseTo(0.95);
+    expect(useGameStore.getState().battlefieldViewScale.me).toBeCloseTo(
+      0.95,
+    );
   });
 
   it("pinch-together zooms out", () => {
@@ -106,7 +145,7 @@ describe("useBattlefieldZoomControls pinch gestures", () => {
           pointerId: 1,
           clientX: 20,
           clientY: 20,
-        })
+        }),
       );
       target.dispatchEvent(
         createPointerEvent("pointerdown", {
@@ -115,7 +154,7 @@ describe("useBattlefieldZoomControls pinch gestures", () => {
           pointerId: 2,
           clientX: 100,
           clientY: 20,
-        })
+        }),
       );
       target.dispatchEvent(
         createPointerEvent("pointermove", {
@@ -125,11 +164,32 @@ describe("useBattlefieldZoomControls pinch gestures", () => {
           pointerId: 2,
           clientX: 70,
           clientY: 20,
-        })
+        }),
       );
     });
 
-    expect(useGameStore.getState().battlefieldViewScale.me).toBeCloseTo(0.85);
+    expect(useGameStore.getState().battlefieldViewScale.me).toBeCloseTo(
+      0.85,
+    );
+  });
+
+  it("clears fingers released outside the battlefield", () => {
+    const target = document.createElement("div");
+    render(<Harness target={target} />);
+    act(() => {
+      for (const [pointerId, clientX] of [[1, 20], [2, 100]]) {
+        target.dispatchEvent(createPointerEvent("pointerdown", {
+          pointerType: "touch", pointerId, clientX, clientY: 20,
+        }));
+      }
+      window.dispatchEvent(createPointerEvent("pointerup", {
+        pointerType: "touch", pointerId: 1,
+      }));
+      target.dispatchEvent(createPointerEvent("pointermove", {
+        pointerType: "touch", pointerId: 2, clientX: 180, clientY: 20,
+      }));
+    });
+    expect(useGameStore.getState().battlefieldViewScale.me).toBe(0.9);
   });
 
   it("does not zoom while controls are blocked", () => {
@@ -144,7 +204,7 @@ describe("useBattlefieldZoomControls pinch gestures", () => {
           pointerId: 1,
           clientX: 20,
           clientY: 20,
-        })
+        }),
       );
       target.dispatchEvent(
         createPointerEvent("pointerdown", {
@@ -153,7 +213,7 @@ describe("useBattlefieldZoomControls pinch gestures", () => {
           pointerId: 2,
           clientX: 100,
           clientY: 20,
-        })
+        }),
       );
       target.dispatchEvent(
         createPointerEvent("pointermove", {
@@ -163,7 +223,7 @@ describe("useBattlefieldZoomControls pinch gestures", () => {
           pointerId: 2,
           clientX: 130,
           clientY: 20,
-        })
+        }),
       );
     });
 

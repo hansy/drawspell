@@ -30,8 +30,14 @@ const MOUSE_CONTROLS = [
     {
         id: "mouse.openContextMenu",
         title: "Open Context Menu",
-        description: "Use on cards, zones, life, and the battlefield.",
+        description: "Use on cards, zones, and life.",
         gesture: "Right click",
+    },
+    {
+        id: "mouse.panBattlefield",
+        title: "Pan Battlefield",
+        description: "Hold the right mouse button on empty battlefield space and drag. Scroll to zoom; Default resets the view.",
+        gesture: "Right drag",
     },
     {
         id: "mouse.adjustMana",

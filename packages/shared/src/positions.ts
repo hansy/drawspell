@@ -1,5 +1,6 @@
 import {
   BASE_CARD_HEIGHT,
+  BATTLEFIELD_POSITION_LIMIT,
   BATTLEFIELD_SLOT_ASPECT_RATIO,
   CARD_ASPECT_RATIO,
   GRID_STEP_X,
@@ -10,6 +11,7 @@ import {
 
 export {
   BASE_CARD_HEIGHT,
+  BATTLEFIELD_POSITION_LIMIT,
   BATTLEFIELD_SLOT_ASPECT_RATIO,
   CARD_ASPECT_RATIO,
   GRID_STEP_X,
@@ -51,9 +53,13 @@ export const clampNumber = (value: number, min: number, max: number) =>
 
 export const clamp01 = (value: number) => clampNumber(value, 0, 1);
 
+// Positions retain the existing 1000 × 600 reference units, but no longer
+// represent percentages of a viewer's viewport. The origin is inside a large
+// finite board; old normalized saves keep their coordinates without migration.
+
 export const clampNormalizedPosition = (position: Position) => ({
-  x: clamp01(position.x),
-  y: clamp01(position.y),
+  x: Number.isFinite(position.x) ? clampNumber(position.x, -BATTLEFIELD_POSITION_LIMIT, BATTLEFIELD_POSITION_LIMIT) : 0,
+  y: Number.isFinite(position.y) ? clampNumber(position.y, -BATTLEFIELD_POSITION_LIMIT, BATTLEFIELD_POSITION_LIMIT) : 0,
 });
 
 export const migratePositionToNormalized = (position: Position) =>
@@ -66,11 +72,7 @@ export const normalizeMovePosition = (
   position: Position | undefined,
   fallback: Position
 ) => {
-  const normalizedInput =
-    position && (position.x > 1 || position.y > 1)
-      ? migratePositionToNormalized(position)
-      : position;
-  return clampNormalizedPosition(normalizedInput ?? fallback);
+  return clampNormalizedPosition(position ?? fallback);
 };
 
 export const getCardPixelSize = (
@@ -146,31 +148,20 @@ export const getCanonicalBattlefieldGridSteps = (params?: CardOrientationOptions
   });
 
 export const BATTLEFIELD_PLACEMENT_GRID_WIDTH_FRACTION = 1 / 2;
-export const BATTLEFIELD_PLACEMENT_ROWS = 12;
+// Number of snap rows in the historical 600-unit reference height.
+export const BATTLEFIELD_PLACEMENT_ROWS = LEGACY_BATTLEFIELD_HEIGHT / (BASE_CARD_HEIGHT / 3);
 
 const snapNormalizedValueToStep = (value: number, step: number) =>
   step > 0 ? Math.round(value / step) * step : value;
 
 export const getCanonicalBattlefieldPlacementGridSteps = (
-  params?: BattlefieldPlacementGridOptions
+  _params?: BattlefieldPlacementGridOptions
 ) => {
-  const { baseCardHeight } = resolveBaseCardDimensions({
-    baseCardHeight: params?.baseCardHeight,
-    baseCardWidth: params?.baseCardWidth,
-  });
-  const battlefieldSlotWidth =
-    baseCardHeight * BATTLEFIELD_SLOT_ASPECT_RATIO;
-  const zoneWidth = params?.zoneWidth ?? LEGACY_BATTLEFIELD_WIDTH;
-  const zoneHeight = params?.zoneHeight ?? LEGACY_BATTLEFIELD_HEIGHT;
+  // A fixed lattice shared by server, drag preview, and all cameras.
+  // Three rows expose thirds of a card, independent of viewport and zoom.
   return {
-    stepX: zoneWidth
-      ? (battlefieldSlotWidth * BATTLEFIELD_PLACEMENT_GRID_WIDTH_FRACTION) /
-        zoneWidth
-      : 0,
-    // A card normally occupies one quarter of the battlefield height, so one
-    // row is one third of that card. Keep this normalized row stable for the
-    // server collision bump and every viewer's snap points.
-    stepY: zoneHeight ? 1 / BATTLEFIELD_PLACEMENT_ROWS : 0,
+    stepX: (BASE_CARD_HEIGHT * BATTLEFIELD_SLOT_ASPECT_RATIO / 2) / LEGACY_BATTLEFIELD_WIDTH,
+    stepY: (BASE_CARD_HEIGHT / 3) / LEGACY_BATTLEFIELD_HEIGHT,
   };
 };
 
@@ -298,14 +289,14 @@ export const snapNormalizedToCanonicalBattlefieldGrid = (
 export const getCanonicalBattlefieldCardBounds = (
   params?: CardOrientationOptions
 ) => {
-  const { cardWidth, cardHeight } = resolveCanonicalBattlefieldCardPixelSize(params);
+  const { cardWidth, cardHeight } = getCanonicalCardPixelSize({ isTapped: params?.isTapped });
   const halfW = cardWidth / 2 / LEGACY_BATTLEFIELD_WIDTH;
   const halfH = cardHeight / 2 / LEGACY_BATTLEFIELD_HEIGHT;
   return {
-    minX: halfW,
-    maxX: 1 - halfW,
-    minY: halfH,
-    maxY: 1 - halfH,
+    minX: -BATTLEFIELD_POSITION_LIMIT + halfW,
+    maxX: BATTLEFIELD_POSITION_LIMIT - halfW,
+    minY: -BATTLEFIELD_POSITION_LIMIT + halfH,
+    maxY: BATTLEFIELD_POSITION_LIMIT - halfH,
   };
 };
 

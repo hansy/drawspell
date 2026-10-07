@@ -233,7 +233,7 @@ export const applyResetDeck = (maps: Maps, hidden: HiddenState, playerId: string
   if (!result) return;
   const player = readPlayer(maps, playerId);
   if (player) {
-    writePlayer(maps, { ...player, libraryTopReveal: undefined });
+    writePlayer(maps, { ...player, battlefieldCameraAnchor: undefined, battlefieldCameraEpoch: (player.battlefieldCameraEpoch ?? 0) + 1, libraryTopReveal: undefined });
   }
   syncLibraryRevealsToAllForPlayer(maps, hidden, playerId, result.libraryZoneId);
 };
@@ -286,7 +286,7 @@ export const applyUnloadDeck = (maps: Maps, hidden: HiddenState, playerId: strin
 
   const player = readPlayer(maps, playerId);
   if (player) {
-    writePlayer(maps, { ...player, deckLoaded: false, libraryTopReveal: undefined });
+    writePlayer(maps, { ...player, deckLoaded: false, battlefieldCameraAnchor: undefined, battlefieldCameraEpoch: (player.battlefieldCameraEpoch ?? 0) + 1, libraryTopReveal: undefined });
   }
   updatePlayerCounts(maps, hidden, playerId);
 };

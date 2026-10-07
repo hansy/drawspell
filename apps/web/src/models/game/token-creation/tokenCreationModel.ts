@@ -9,7 +9,7 @@ import {
 } from "@/lib/positions";
 import { toScryfallCardLite } from "@/types/scryfallLite";
 
-const DEFAULT_START = { x: 0.5, y: 0.5 };
+const DEFAULT_START = { x: 0, y: 0 };
 
 const getTokenDerivedFields = (token: ScryfallCard) => {
   const frontFace = token.card_faces?.[0];

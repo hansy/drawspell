@@ -38,6 +38,21 @@ const makeCard = (id: string, ownerId: string, zoneId: string, overrides: Partia
 });
 
 describe("applyCardMove", () => {
+  it("syncs signed positions beyond the old viewport without rescaling on reload", () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    const battlefield = makeZone("bf", ZONE.BATTLEFIELD, "p1", ["c1"]);
+    writeZone(maps, battlefield);
+    writeCard(maps, makeCard("c1", "p1", battlefield.id));
+    const position = { x: -2, y: 2 };
+    expect(applyCardMove(maps, hidden, { actorId: "p1", cardId: "c1", toZoneId: "bf", position }, "top", () => {}, () => {}).ok).toBe(true);
+    expect(readCard(maps, "c1")?.position).toEqual(position);
+    const reloaded = createDoc();
+    Y.applyUpdate(reloaded, Y.encodeStateAsUpdate(doc));
+    expect(readCard(getMaps(reloaded), "c1")?.position).toEqual(position);
+  });
+
   it("should remove tokens that leave the battlefield", () => {
     const doc = createDoc();
     const maps = getMaps(doc);

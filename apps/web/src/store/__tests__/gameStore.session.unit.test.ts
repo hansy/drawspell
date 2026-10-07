@@ -2,6 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { sendIntent } from '@/partykit/intentTransport';
 import { useGameStore } from '../gameStore';
+import { useBattlefieldCameraStore } from '../battlefieldCameraStore';
 import { ensureLocalStorage } from '@test/utils/storage';
 
 vi.mock('@/partykit/intentTransport', () => ({
@@ -52,7 +53,9 @@ describe('gameStore session actions', () => {
       sessionVersions: { s1: 2 },
     });
 
+    useBattlefieldCameraStore.getState().setPan('s0/p0/p0', { x: 100, y: 200 });
     useGameStore.getState().resetSession('s1', 'p1');
+    expect(useBattlefieldCameraStore.getState().pans).toEqual({});
 
     const state = useGameStore.getState();
     expect(state.sessionId).toBe('s1');

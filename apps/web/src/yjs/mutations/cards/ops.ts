@@ -3,7 +3,6 @@ import { decrementCounter, enforceZoneCounterRules, mergeCounters } from "@/lib/
 import {
   clampNormalizedPosition,
   findAvailablePositionNormalized,
-  migratePositionToNormalized,
   offsetNormalizedByGrid,
 } from "@/lib/positions";
 import {
@@ -99,9 +98,7 @@ export function duplicateCard(maps: SharedMaps, cardId: string, newId: string) {
   const zone = readZone(maps, existing.zoneId);
   if (!zone) return;
 
-  const needsMigration = existing.position.x > 1 || existing.position.y > 1;
-  const normalizedPosition = needsMigration ? migratePositionToNormalized(existing.position) : existing.position;
-  if (needsMigration) writeCard(maps, { ...existing, position: normalizedPosition });
+  const normalizedPosition = existing.position;
 
   const { stepX, stepY, position: basePosition } = offsetNormalizedByGrid({
     position: clampNormalizedPosition(normalizedPosition),

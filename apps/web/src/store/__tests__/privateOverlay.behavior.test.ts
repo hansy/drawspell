@@ -386,6 +386,20 @@ describe("applyPrivateOverlay", () => {
   });
 });
 
+describe("local camera isolation", () => {
+  it("preserves local zoom when private state arrives against an older public snapshot", () => {
+    resetIntentState();
+    const publicState = buildBaseState();
+    setAuthoritativeState(publicState, publicState);
+    const harness = createPrivateOverlayActionHarness({ ...publicState, battlefieldViewScale: { p1: .75 } });
+    harness.applyPrivateOverlay(buildOverlay());
+    expect(harness.getState().battlefieldViewScale).toEqual({ p1: .75 });
+    harness.applyPrivateOverlayDiff({ schemaVersion: 1, roomId: "room", baseOverlayVersion: 1, overlayVersion: 2, upserts: [], removes: [] });
+    expect(harness.getState().battlefieldViewScale).toEqual({ p1: .75 });
+    resetIntentState();
+  });
+});
+
 describe("applyPrivateOverlayDiff", () => {
   it("applies upserts/removes and zone order versions", () => {
     resetIntentState();

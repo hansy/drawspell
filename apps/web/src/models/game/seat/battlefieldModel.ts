@@ -1,3 +1,4 @@
+import { battlefieldToLocal, type BattlefieldCamera } from '@/lib/battlefieldCamera';
 import type { Card, PlayerId } from '@/types';
 
 import { BASE_CARD_HEIGHT, CARD_ASPECT_RATIO } from '@/lib/constants';
@@ -44,11 +45,12 @@ export const computeBattlefieldCardLayout = (params: {
   playerColors: Record<string, string>;
   baseCardHeight?: number;
   baseCardWidth?: number;
+  camera?: BattlefieldCamera;
 }): BattlefieldCardLayout => {
   const { card, zoneOwnerId, viewerPlayerId, mirrorBattlefieldY, playerColors } = params;
 
   const viewPosition = mirrorBattlefieldY ? mirrorNormalizedY(card.position) : card.position;
-  const { x, y } = fromNormalizedPosition(
+  const { x, y } = params.camera ? battlefieldToLocal(card.position, params.camera) : fromNormalizedPosition(
     viewPosition,
     params.zoneWidth || 1,
     params.zoneHeight || 1

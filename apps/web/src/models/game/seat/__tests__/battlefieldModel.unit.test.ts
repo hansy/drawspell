@@ -70,13 +70,13 @@ describe("battlefield layout contracts", () => {
         ...measuredCardSizing,
       });
 
-    expect(gridStepX).toBe(45);
-    expect(gridStepY).toBe(50);
+    expect(gridStepX).toBe(40);
+    expect(gridStepY).toBe(40);
     expect(gridOriginX).toBe(0);
-    expect(gridOriginY).toBe(25);
+    expect(gridOriginY).toBe(20);
     // A card centered on the lattice spans two columns and three rows.
-    expect(gridStepX * 2).toBe(measuredCardSizing.baseCardWidth);
-    expect(gridStepY * 3).toBe(600 / 4);
+    expect(gridStepX * 2).toBe(80);
+    expect(gridStepY * 3).toBe(120);
   });
 
   it("keeps the rendered card center stable when tapping", () => {

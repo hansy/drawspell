@@ -1,3 +1,4 @@
+import { battlefieldToLocal, type BattlefieldCamera } from '@/lib/battlefieldCamera';
 import * as React from "react";
 
 import type { Card, ZoneId } from "@/types";
@@ -27,6 +28,7 @@ type CardBounds = {
 };
 
 type UseBattlefieldSelectionArgs = {
+  camera?: BattlefieldCamera;
   zoneId: ZoneId;
   cards: Card[];
   zoneSize: { width: number; height: number };
@@ -41,6 +43,7 @@ type UseBattlefieldSelectionArgs = {
 
 export const useBattlefieldSelection = ({
   zoneId,
+  camera,
   cards,
   zoneSize,
   scale,
@@ -71,7 +74,7 @@ export const useBattlefieldSelection = ({
       const viewPosition = mirrorBattlefieldY
         ? mirrorNormalizedY(card.position)
         : card.position;
-      const center = fromNormalizedPosition(
+      const center = camera ? battlefieldToLocal(card.position, camera) : fromNormalizedPosition(
         viewPosition,
         zoneSize.width,
         zoneSize.height
@@ -94,6 +97,7 @@ export const useBattlefieldSelection = ({
     });
   }, [
     cards,
+    camera,
     isSelectionEnabled,
     mirrorBattlefieldY,
     viewScale,

@@ -66,6 +66,16 @@ const createHand = (cardIds: string[]): Zone => ({
 });
 
 describe("game DnD movement contracts", () => {
+  it("sizes a battlefield drag to the responsive hand's actual card dimensions", () => {
+    const state = computeDragMoveUiState({
+      myPlayerId: "p1", cards: {}, zones: {}, sourceCardScale: 0.8,
+      over: { id: "p1-hand", type: ZONE.HAND, rect: rect({ left: 0, top: 400, width: 600, height: 200 }), cardScale: 1.5, cardBaseHeight: 160 },
+    });
+    expect(state.overCardScale * 120).toBe(240);
+  });
+  it("preserves source card size when dragging outside a drop target", () => {
+    expect(computeDragMoveUiState({ myPlayerId: "p1", cards: {}, zones: {}, sourceCardScale: 1.7, over: null }).overCardScale).toBe(1.7);
+  });
   it("uses a droppable's overlay scale cue outside the battlefield", () => {
     const state = computeDragMoveUiState({
       myPlayerId: "p1",
@@ -242,12 +252,12 @@ describe("game DnD movement contracts", () => {
       myPlayerId: "p1",
       cards: {
         c1: createCard("c1"),
-        c2: createCard("c2", { position: { x: 0.495, y: 0.5 } }),
+        c2: createCard("c2", { position: { x: 0.48, y: 8 / 15 } }),
       },
       zones: { [battlefield.id]: battlefield },
       activeCardId: "c1",
       activeRect: rect({ left: 450, top: 232.5, width: 90, height: 135 }),
-      pointerScreen: { x: 495, y: 300 },
+      pointerScreen: { x: 480, y: 320 },
       dragAnchor: { x: 0.5, y: 0.5 },
       over: {
         id: battlefield.id,
@@ -260,8 +270,8 @@ describe("game DnD movement contracts", () => {
       },
     });
 
-    expect(state.debug?.placement.snappedCanonical.y).toBeCloseTo(0.5);
-    expect(state.ghostCard?.position.y).toBeCloseTo(350);
+    expect(state.debug?.placement.snappedCanonical.y).toBeCloseTo(8 / 15);
+    expect(state.ghostCard?.position.y).toBeCloseTo(360);
   });
 
   it("uses pointer and drag anchor as the live dragged center when dnd translated rect is stale", () => {

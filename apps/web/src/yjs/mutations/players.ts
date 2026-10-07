@@ -1,3 +1,4 @@
+import { readBattlefieldAnchor } from "@mtg/shared/battlefieldAnchor";
 import type { Player } from '@/types';
 import {
   MAX_BATTLEFIELD_VIEW_SCALE,
@@ -62,6 +63,10 @@ const writePlayer = (maps: SharedMaps, player: Player) => {
   target.set('cursor', player.cursor);
   target.set('commanderTax', player.commanderTax);
   target.set('deckLoaded', player.deckLoaded);
+  const battlefieldAnchor = readBattlefieldAnchor(player.battlefieldCameraAnchor);
+  if (battlefieldAnchor) target.set('battlefieldCameraAnchor', battlefieldAnchor);
+  else target.delete('battlefieldCameraAnchor');
+  target.set('battlefieldCameraEpoch', player.battlefieldCameraEpoch ?? 0);
   target.set('manaPool', normalizeManaPool(player.manaPool));
   writeOptionalNonNegativeCount(target, "handCount", player.handCount);
   writeOptionalNonNegativeCount(target, "libraryCount", player.libraryCount);
@@ -102,6 +107,8 @@ export const readPlayer = (maps: SharedMaps, playerId: string): Player | null =>
     commanderDamage,
     commanderTax: getVal('commanderTax'),
     deckLoaded: getVal('deckLoaded'),
+    battlefieldCameraAnchor: readBattlefieldAnchor(getVal('battlefieldCameraAnchor')),
+    battlefieldCameraEpoch: getVal('battlefieldCameraEpoch'),
     handCount: getVal("handCount"),
     libraryCount: getVal("libraryCount"),
     sideboardCount: getVal("sideboardCount"),

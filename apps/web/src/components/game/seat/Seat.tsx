@@ -32,13 +32,11 @@ export interface SeatProps {
   onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
   onHandContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   onZoneContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
-  onBattlefieldContextMenu?: (e: React.MouseEvent) => void;
   onLoadDeck?: () => void;
   onEditUsername?: () => void;
   opponentColors: Record<string, string>;
   onViewZone?: (zoneId: ZoneId, count?: number) => void;
   onDrawCard?: (playerId: string) => void;
-  battlefieldScale?: number;
   onOpponentLibraryReveals?: (zoneId: ZoneId) => void;
   zoomControlsDisabled?: boolean;
   onLifeContextMenu?: (e: React.MouseEvent, player: Player) => void;
@@ -63,13 +61,11 @@ const SeatInner: React.FC<SeatProps> = ({
   onCardContextMenu,
   onHandContextMenu,
   onZoneContextMenu,
-  onBattlefieldContextMenu,
   onLoadDeck,
   onEditUsername,
   opponentColors,
   onViewZone,
   onDrawCard,
-  battlefieldScale = 1,
   onOpponentLibraryReveals,
   zoomControlsDisabled,
   onLifeContextMenu,
@@ -118,13 +114,11 @@ const SeatInner: React.FC<SeatProps> = ({
       onCardContextMenu={onCardContextMenu}
       onHandContextMenu={onHandContextMenu}
       onZoneContextMenu={onZoneContextMenu}
-      onBattlefieldContextMenu={onBattlefieldContextMenu}
       onLoadDeck={onLoadDeck}
       onEditUsername={onEditUsername}
       opponentColors={opponentColors}
       onViewZone={onViewZone}
       onDrawCard={onDrawCard}
-      battlefieldScale={battlefieldScale}
       onOpponentLibraryReveals={onOpponentLibraryReveals}
       onLifeContextMenu={onLifeContextMenu}
       model={model}

@@ -1,3 +1,4 @@
+import type { BattlefieldCamera } from '@/lib/battlefieldCamera';
 import React from 'react';
 import { useDroppable, useDndContext } from '@dnd-kit/core';
 import { Zone as ZoneType } from '@/types';
@@ -17,6 +18,7 @@ import {
 } from '@/lib/debug';
 
 interface ZoneProps {
+    camera?: BattlefieldCamera;
     zone: ZoneType;
     className?: string;
     style?: React.CSSProperties;
@@ -42,7 +44,7 @@ interface ZoneProps {
 
 const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
-const ZoneInner: React.FC<ZoneProps> = ({ zone, className, style, children, layout = 'stack', scale = 1, cardScale = 1, cardBaseHeight, cardBaseWidth, mirrorY = false, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onPointerLeave, onScroll, onMouseEnter, onMouseLeave, innerRef, disabled = false }) => {
+const ZoneInner: React.FC<ZoneProps> = ({ zone, camera, className, style, children, layout = 'stack', scale = 1, cardScale = 1, cardBaseHeight, cardBaseWidth, mirrorY = false, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onPointerLeave, onScroll, onMouseEnter, onMouseLeave, innerRef, disabled = false }) => {
     const myPlayerId = useGameStore((state) => state.myPlayerId);
     const viewerRole = useGameStore((state) => state.viewerRole);
 
@@ -68,6 +70,7 @@ const ZoneInner: React.FC<ZoneProps> = ({ zone, className, style, children, layo
             cardBaseHeight,
             cardBaseWidth,
             mirrorY,
+            camera,
             dragOverlayScale: ZONE_DRAG_OVERLAY_SCALE,
             dragOverlayCue: "zone",
         },

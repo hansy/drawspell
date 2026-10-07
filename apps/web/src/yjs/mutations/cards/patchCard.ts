@@ -2,7 +2,6 @@ import { enforceZoneCounterRules } from "@/lib/counters";
 import { MAX_REVEALED_TO } from "@/lib/limits";
 import {
   clampNormalizedPosition,
-  migratePositionToNormalized,
 } from "@/lib/positions";
 
 import { MAX_CUSTOM_TEXT_LENGTH } from "../../sanitizeLimits";
@@ -67,9 +66,7 @@ export function patchCard(maps: SharedMaps, cardId: string, updates: CardPatch) 
 
   if ("position" in updates && updates.position) {
     const normalized =
-      updates.position.x > 1 || updates.position.y > 1
-        ? migratePositionToNormalized(updates.position)
-        : clampNormalizedPosition(updates.position);
+      clampNormalizedPosition(updates.position);
     setIfChanged(target, "position", normalized);
   }
 

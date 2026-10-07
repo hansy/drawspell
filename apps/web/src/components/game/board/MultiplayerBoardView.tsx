@@ -271,7 +271,6 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   handleCardContextMenu,
   handleHandContextMenu,
   handleZoneContextMenu,
-  handleBattlefieldContextMenu,
   handleLifeContextMenu,
   handleOpenCoinFlipper,
   handleOpenDiceRoller,
@@ -334,7 +333,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   const activeBaseCardWidth = activeSizing?.baseCardWidthPx;
   const activeViewScale =
     activeZone?.type === ZONE.BATTLEFIELD
-      ? (battlefieldViewScale[activeZone.ownerId] ?? 1)
+      ? (battlefieldGridSizing[activeZone.ownerId]?.camera?.scale ?? battlefieldViewScale[activeZone.ownerId] ?? 1)
       : 1;
   const hasActiveBaseSizing = Boolean(activeBaseCardHeight || activeBaseCardWidth);
   const overlayBaseHeight =
@@ -757,12 +756,6 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           onCardContextMenu={handleCardContextMenu}
           onHandContextMenu={handleHandContextMenu}
           onZoneContextMenu={handleZoneContextMenu}
-          onBattlefieldContextMenu={(e) =>
-            handleBattlefieldContextMenu(e, {
-              onCreateToken: () => setIsTokenModalOpen(true),
-              onOpenDiceRoller: handleOpenDiceRoller,
-            })
-          }
           onLoadDeck={() => setIsLoadDeckModalOpen(true)}
           onEditUsername={
             seatPlayer.id === myPlayerId
@@ -771,7 +764,6 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           }
           opponentColors={playerColors}
           scale={scale}
-          battlefieldScale={battlefieldViewScale[seatPlayer.id] ?? 1}
           onViewZone={handleViewZone}
           onDrawCard={handleDrawCard}
           onOpponentLibraryReveals={(zoneId) => setRevealedLibraryZoneId(zoneId)}
@@ -1127,7 +1119,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                 const overlayPreferArtCrop = false;
                 const viewScale =
                   overlayZone?.type === ZONE.BATTLEFIELD
-                    ? (battlefieldViewScale[overlayZone.ownerId] ?? 1)
+                    ? (battlefieldGridSizing[overlayZone.ownerId]?.camera?.scale ?? battlefieldViewScale[overlayZone.ownerId] ?? 1)
                     : 1;
                 const targetScale =
                   dragOverlayScale !== 1
@@ -1216,7 +1208,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                   const overlayPreferArtCrop = false;
                   const viewScale =
                     overlayZone?.type === ZONE.BATTLEFIELD
-                      ? (battlefieldViewScale[overlayZone.ownerId] ?? 1)
+                      ? (battlefieldGridSizing[overlayZone.ownerId]?.camera?.scale ?? battlefieldViewScale[overlayZone.ownerId] ?? 1)
                       : 1;
                   const targetScale =
                     dragOverlayScale !== 1

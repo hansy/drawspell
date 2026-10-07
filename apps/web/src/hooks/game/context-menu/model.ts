@@ -5,14 +5,13 @@ import { ZONE } from "@/constants/zones";
 import {
   clampNormalizedPosition,
   findAvailablePositionNormalized,
-  migratePositionToNormalized,
   offsetNormalizedByGrid,
   snapNormalizedToBattlefieldPlacementGrid,
 } from "@/lib/positions";
 import { toScryfallCardLite } from "@/types/scryfallLite";
 
 const normalizeMaybeLegacyPosition = (position: { x: number; y: number }) =>
-  position.x > 1 || position.y > 1 ? migratePositionToNormalized(position) : position;
+  clampNormalizedPosition(position);
 
 export const isScryfallTokenCard = (params: {
   related: ScryfallRelatedCard;

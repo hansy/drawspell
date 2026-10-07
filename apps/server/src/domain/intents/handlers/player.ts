@@ -67,6 +67,8 @@ const handlePlayerJoin: IntentHandler = ({ actorId, maps, hidden, payload, markH
   );
   const nextPlayer = {
     ...player,
+    battlefieldCameraAnchor: undefined,
+    battlefieldCameraEpoch: 0,
     manaPool: normalizeManaPool(player.manaPool),
     libraryTopReveal: normalizePersistedLibraryTopReveal(
       player.libraryTopReveal,
@@ -195,6 +197,9 @@ const handlePlayerUpdate: IntentHandler = ({ actorId, maps, hidden, payload, pus
   if (!updatesResult.ok) return updatesResult;
   const playerId = playerIdResult.value;
   const updates = updatesResult.value;
+  if ("battlefieldCameraAnchor" in updates || "battlefieldCameraEpoch" in updates) {
+    return {ok: false, error: "battlefield anchor is managed by placement and reset"};
+  }
   if (Object.prototype.hasOwnProperty.call(updates, "manaPool")) {
     return { ok: false, error: "use dedicated mana action" };
   }

@@ -4,7 +4,6 @@ import type { Card } from "@/types";
 import { MAX_REVEALED_TO } from "@/lib/limits";
 import {
   clampNormalizedPosition,
-  migratePositionToNormalized,
 } from "@/lib/positions";
 
 import {
@@ -41,9 +40,7 @@ const normalizeCommanderTax = (value: unknown) =>
 export const writeCard = (maps: SharedMaps, card: Card) => {
   const target = ensureChildMap(maps.cards, card.id);
   const normalizedPosition =
-    card.position && (card.position.x > 1 || card.position.y > 1)
-      ? migratePositionToNormalized(card.position)
-      : clampNormalizedPosition(card.position || { x: 0.5, y: 0.5 });
+    clampNormalizedPosition(card.position || { x: 0, y: 0 });
 
   const countersMap = ensureChildMap(target, "counters");
   const counters = sanitizeCountersForSync(card.counters);
@@ -117,9 +114,7 @@ export const readCard = (maps: SharedMaps, cardId: string): Card | null => {
   const rawPosition = getVal("position");
   const normalizedPosition =
     isPositionLike(rawPosition)
-      ? rawPosition.x > 1 || rawPosition.y > 1
-        ? migratePositionToNormalized(rawPosition)
-        : clampNormalizedPosition(rawPosition)
+      ? clampNormalizedPosition(rawPosition)
       : { x: 0.5, y: 0.5 };
   const rawCommanderTax = getVal("commanderTax");
   const rawFaceDownMode = getVal("faceDownMode");

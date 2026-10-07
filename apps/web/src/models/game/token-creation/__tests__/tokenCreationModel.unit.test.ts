@@ -24,7 +24,7 @@ describe("tokenCreationModel", () => {
     let index = 0;
     const createId = () => ids[index++]!;
 
-    const snappedStart = snapNormalizedToBattlefieldPlacementGrid({ x: 0.5, y: 0.5 });
+    const snappedStart = snapNormalizedToBattlefieldPlacementGrid({ x: 0, y: 0 });
     const { stepY } = getCanonicalBattlefieldPlacementGridSteps();
     const existingCard: Card = {
       id: "existing",

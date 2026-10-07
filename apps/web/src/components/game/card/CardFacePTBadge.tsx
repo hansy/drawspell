@@ -34,7 +34,7 @@ export const CardFacePTBadge: React.FC<{
         labelsFaceViewer && "rotate-180",
       )}
     >
-      <span className="text-sm font-bold flex items-center gap-1">
+      <span className="text-sm font-bold flex items-center gap-1" style={{ fontSize: "var(--battlefield-pt-font, 14px)" }}>
         {/* Power */}
         <div className="relative group/pt">
           <span className={cn(powerClassName)}>{displayPower}</span>

@@ -1,3 +1,4 @@
+import { battlefieldToLocal, localToBattlefield, type BattlefieldCamera } from './battlefieldCamera';
 import {
   BASE_CARD_HEIGHT,
   BATTLEFIELD_SLOT_ASPECT_RATIO,
@@ -105,6 +106,7 @@ export const computeDragOverlayBaseScale = (params: {
 };
 
 export const computeBattlefieldPlacement = (params: {
+  camera?: BattlefieldCamera;
   centerScreen?: { x: number; y: number };
   pointerScreen?: { x: number; y: number };
   dragAnchor?: { x: number; y: number };
@@ -168,10 +170,10 @@ export const computeBattlefieldPlacement = (params: {
     zoneWidth,
     zoneHeight
   );
-  const liveCanonical = params.mirrorY
+  const liveCanonical = params.camera ? localToBattlefield(livePosition, params.camera) : params.mirrorY
     ? mirrorNormalizedY(liveCanonicalNormalized)
     : liveCanonicalNormalized;
-  const baseCanonical = params.mirrorY
+  const baseCanonical = params.camera ? localToBattlefield(previewPosition, params.camera) : params.mirrorY
     ? mirrorNormalizedY(previewCanonicalNormalized)
     : previewCanonicalNormalized;
   const snappedCanonical = snapNormalizedToBattlefieldPlacementCenter(
@@ -191,7 +193,7 @@ export const computeBattlefieldPlacement = (params: {
   const snappedNormalized = params.mirrorY
     ? mirrorNormalizedY(snappedCanonical)
     : snappedCanonical;
-  const snappedPosition = fromNormalizedPosition(
+  const snappedPosition = params.camera ? battlefieldToLocal(snappedCanonical, params.camera) : fromNormalizedPosition(
     snappedNormalized,
     zoneWidth,
     zoneHeight

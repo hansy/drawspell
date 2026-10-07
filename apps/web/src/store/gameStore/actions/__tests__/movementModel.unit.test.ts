@@ -140,14 +140,14 @@ describe("movementModel", () => {
   });
 
   describe("normalizeMovePosition", () => {
-    it("migrates legacy pixel coordinates", () => {
+    it("bounds coordinates beyond the world edge", () => {
       const next = normalizeMovePosition({ x: 100, y: 100 }, { x: 0.5, y: 0.5 });
-      expect(next.x).toBeCloseTo(0.1, 6);
-      expect(next.y).toBeCloseTo(100 / 600, 6);
+      expect(next.x).toBe(2.4);
+      expect(next.y).toBe(2.4);
     });
 
     it("clamps and falls back when position is missing", () => {
-      expect(normalizeMovePosition(undefined, { x: 2, y: -1 })).toEqual({ x: 1, y: 0 });
+      expect(normalizeMovePosition(undefined, { x: 2, y: -1 })).toEqual({ x: 2, y: -1 });
     });
   });
 

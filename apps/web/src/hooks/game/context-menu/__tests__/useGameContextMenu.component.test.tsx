@@ -74,15 +74,17 @@ const Probe: React.FC<{
   myPlayerId: string;
   onValue: (value: HookValue) => void;
   requestConfirmation?: RequestConfirmation;
+  onViewZone?: (zoneId: string) => void;
 }> = ({
   myPlayerId,
   onValue,
   requestConfirmation,
+  onViewZone,
 }) => {
   const value = useGameContextMenu(
     "player",
     myPlayerId,
-    undefined,
+    onViewZone,
     undefined,
     undefined,
     requestConfirmation ?? (() => true),
@@ -98,6 +100,25 @@ describe("useGameContextMenu", () => {
     resetStore();
     useSelectionStore.setState({ selectedCardIds: [], selectionZoneId: null });
     vi.mocked(fetchBattlefieldRelatedParts).mockResolvedValue(undefined);
+  });
+
+  it("preserves sideboard access in the owner library menu after battlefield right-click becomes pan", async () => {
+    resetStore({ players: { me: createPlayer("me", true), opponent: createPlayer("opponent", true) }, zones: {
+      library: createZone("library", "me", ZONE.LIBRARY), sideboard: createZone("sideboard", "me", ZONE.SIDEBOARD),
+      other: createZone("other", "opponent", ZONE.LIBRARY),
+    } });
+    const onViewZone = vi.fn();
+    let value: HookValue | undefined;
+    render(<Probe myPlayerId="me" onValue={(next) => { value = next; }} onViewZone={onViewZone} />);
+    act(() => value!.handleZoneContextMenu(createEvent(), "library"));
+    await waitFor(() => expect(value!.contextMenu?.items.some((item) => "label" in item && item.label === "View Sideboard")).toBe(true));
+    const item = value!.contextMenu!.items.find((item) => "label" in item && item.label === "View Sideboard");
+    if (item?.type !== "action") throw Error("Missing sideboard action");
+    act(() => item.onSelect());
+    expect(onViewZone).toHaveBeenCalledWith("sideboard");
+    act(() => value!.closeContextMenu());
+    act(() => value!.handleZoneContextMenu(createEvent(), "other"));
+    expect(value!.contextMenu).toBeNull();
   });
 
   it("opens battlefield context menu only when deck is loaded", async () => {

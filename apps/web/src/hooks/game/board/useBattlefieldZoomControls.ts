@@ -2,16 +2,26 @@ import * as React from "react";
 
 import { useGameStore } from "@/store/gameStore";
 import { debugLog, type DebugFlagKey } from "@/lib/debug";
-import { BATTLEFIELD_VIEW_SCALE_STEP } from "@mtg/shared/constants/geometry";
+import { stepBattlefieldZoom } from "@/lib/battlefieldZoom";
 
 export type UseBattlefieldZoomControlsArgs = {
   playerId: string;
   enabled: boolean;
   wheelTarget?: HTMLElement | null;
   isBlocked?: boolean;
+  onZoomAnchor?: (point: { x: number; y: number }) => void;
+  onPinch?: (gesture: {
+    from: { x: number; y: number };
+    to: { x: number; y: number };
+    ratio: number;
+  }) => void;
+  onTouchNavigation?: (active: boolean) => void;
 };
 
 const PINCH_STEP_PX = 20;
+const WHEEL_STEP_PX = 60;
+const WHEEL_STEP_INTERVAL_MS = 60;
+const WHEEL_GESTURE_GAP_MS = 200;
 const BATTLEFIELD_DND_DEBUG_KEY: DebugFlagKey = "battlefieldDnd";
 
 export const useBattlefieldZoomControls = ({
@@ -19,9 +29,12 @@ export const useBattlefieldZoomControls = ({
   enabled,
   wheelTarget,
   isBlocked = false,
+  onZoomAnchor,
+  onPinch,
+  onTouchNavigation,
 }: UseBattlefieldZoomControlsArgs) => {
   const setBattlefieldViewScale = useGameStore(
-    (state) => state.setBattlefieldViewScale
+    (state) => state.setBattlefieldViewScale,
   );
 
   const adjustScale = React.useCallback(
@@ -30,10 +43,7 @@ export const useBattlefieldZoomControls = ({
 
       const currentScale =
         useGameStore.getState().battlefieldViewScale[playerId] ?? 1;
-      const delta = BATTLEFIELD_VIEW_SCALE_STEP;
-      const nextScale = direction === "in"
-        ? currentScale + delta
-        : currentScale - delta;
+      const nextScale = stepBattlefieldZoom(currentScale, direction);
 
       debugLog(BATTLEFIELD_DND_DEBUG_KEY, "battlefield-zoom-adjust", {
         playerId,
@@ -46,32 +56,53 @@ export const useBattlefieldZoomControls = ({
 
       setBattlefieldViewScale(playerId, nextScale);
     },
-    [enabled, isBlocked, playerId, setBattlefieldViewScale]
+    [enabled, isBlocked, playerId, setBattlefieldViewScale],
   );
 
   React.useEffect(() => {
     if (!enabled || !wheelTarget) return;
 
+    let accumulated = 0;
+    let lastEventAt = -Infinity;
+    let lastStepAt = -Infinity;
     const handleWheel = (event: WheelEvent) => {
       if (event.ctrlKey || event.metaKey) return;
       if (isBlocked) return;
 
-      const direction = event.deltaY < 0 ? "in" : "out";
-      debugLog(BATTLEFIELD_DND_DEBUG_KEY, "battlefield-zoom-wheel", {
-        playerId,
-        deltaX: event.deltaX,
-        deltaY: event.deltaY,
-        clientX: event.clientX,
-        clientY: event.clientY,
-        direction,
-      });
-      adjustScale(direction);
+      if (!event.deltaY) return;
       event.preventDefault();
+      const now = performance.now();
+      const pixels =
+        event.deltaY *
+        (event.deltaMode === 1
+          ? 16
+          : event.deltaMode === 2
+            ? Math.max(1, wheelTarget.clientHeight)
+            : 1);
+      if (
+        now - lastEventAt > WHEEL_GESTURE_GAP_MS ||
+        Math.sign(pixels) !== Math.sign(accumulated)
+      )
+        accumulated = 0;
+      lastEventAt = now;
+      accumulated += pixels;
+      if (
+        Math.abs(accumulated) < WHEEL_STEP_PX ||
+        now - lastStepAt < WHEEL_STEP_INTERVAL_MS
+      )
+        return;
+      // One fixed step per deliberate scroll, never one per tiny
+      // trackpad event or a large jump for a high-delta mouse wheel event.
+      const direction = accumulated < 0 ? "in" : "out";
+      accumulated = 0;
+      lastStepAt = now;
+      onZoomAnchor?.({ x: event.clientX, y: event.clientY });
+      adjustScale(direction);
     };
 
     wheelTarget.addEventListener("wheel", handleWheel, { passive: false });
     return () => wheelTarget.removeEventListener("wheel", handleWheel);
-  }, [adjustScale, enabled, isBlocked, wheelTarget]);
+  }, [adjustScale, enabled, isBlocked, wheelTarget, onZoomAnchor]);
 
   React.useEffect(() => {
     if (!enabled || !wheelTarget) return;
@@ -85,20 +116,40 @@ export const useBattlefieldZoomControls = ({
       return Math.hypot(a.x - b.x, a.y - b.y);
     };
 
+    const midpoint = () => {
+      const [a, b] = Array.from(touchPoints.values());
+      return a && b ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } : null;
+    };
     const handlePointerDown = (event: PointerEvent) => {
       if (event.pointerType !== "touch") return;
       touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
       pinchDistance = getPinchDistance();
+      onTouchNavigation?.(!isBlocked && touchPoints.size === 2);
     };
 
     const handlePointerMove = (event: PointerEvent) => {
       if (event.pointerType !== "touch") return;
       if (!touchPoints.has(event.pointerId)) return;
+      const previousMidpoint = midpoint();
+      const previousDistance = getPinchDistance();
       touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (isBlocked || touchPoints.size !== 2) return;
 
       const nextDistance = getPinchDistance();
       if (!nextDistance) return;
+      const nextMidpoint = midpoint();
+      if (onPinch && previousMidpoint && nextMidpoint && previousDistance) {
+        // Accumulate half-speed pinch movement in the camera, which snaps
+        // zoom to fixed levels while preserving direct two-finger panning.
+        onPinch({
+          from: previousMidpoint,
+          to: nextMidpoint,
+          ratio: Math.sqrt(nextDistance / previousDistance),
+        });
+        pinchDistance = nextDistance;
+        event.preventDefault();
+        return;
+      }
       if (pinchDistance == null) {
         pinchDistance = nextDistance;
         return;
@@ -119,6 +170,11 @@ export const useBattlefieldZoomControls = ({
         steps,
         direction,
       });
+      const points = Array.from(touchPoints.values());
+      onZoomAnchor?.({
+        x: (points[0].x + points[1].x) / 2,
+        y: (points[0].y + points[1].y) / 2,
+      });
       for (let i = 0; i < Math.abs(steps); i += 1) {
         adjustScale(direction);
       }
@@ -130,18 +186,34 @@ export const useBattlefieldZoomControls = ({
       if (event.pointerType !== "touch") return;
       touchPoints.delete(event.pointerId);
       pinchDistance = getPinchDistance();
+      onTouchNavigation?.(!isBlocked && touchPoints.size === 2);
     };
 
     wheelTarget.addEventListener("pointerdown", handlePointerDown);
-    wheelTarget.addEventListener("pointermove", handlePointerMove, { passive: false });
+    wheelTarget.addEventListener("pointermove", handlePointerMove, {
+      passive: false,
+    });
+    // Fingers can leave the battlefield before release.
+    window.addEventListener("pointerup", handlePointerEnd);
+    window.addEventListener("pointercancel", handlePointerEnd);
     wheelTarget.addEventListener("pointerup", handlePointerEnd);
     wheelTarget.addEventListener("pointercancel", handlePointerEnd);
 
     return () => {
       wheelTarget.removeEventListener("pointerdown", handlePointerDown);
       wheelTarget.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerEnd);
+      window.removeEventListener("pointercancel", handlePointerEnd);
       wheelTarget.removeEventListener("pointerup", handlePointerEnd);
       wheelTarget.removeEventListener("pointercancel", handlePointerEnd);
     };
-  }, [adjustScale, enabled, isBlocked, wheelTarget]);
+  }, [
+    adjustScale,
+    enabled,
+    isBlocked,
+    wheelTarget,
+    onZoomAnchor,
+    onPinch,
+    onTouchNavigation,
+  ]);
 };

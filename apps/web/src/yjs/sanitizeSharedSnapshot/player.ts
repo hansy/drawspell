@@ -1,3 +1,4 @@
+import { readBattlefieldAnchor } from "@mtg/shared/battlefieldAnchor";
 import type { Player } from "@/types";
 import {
   normalizeLibraryTopRevealMode,
@@ -57,6 +58,8 @@ export const sanitizePlayer = (value: unknown): Player | null => {
     commanderDamage,
     commanderTax: clampNumber(rawPlayer.commanderTax, 0, 99, 0),
     deckLoaded: Boolean(rawPlayer.deckLoaded),
+    battlefieldCameraAnchor: readBattlefieldAnchor(rawPlayer.battlefieldCameraAnchor),
+    battlefieldCameraEpoch: typeof rawPlayer.battlefieldCameraEpoch === "number" && Number.isSafeInteger(rawPlayer.battlefieldCameraEpoch) && rawPlayer.battlefieldCameraEpoch >= 0 ? rawPlayer.battlefieldCameraEpoch : 0,
     handCount,
     libraryCount,
     sideboardCount,

@@ -35,7 +35,7 @@ export const CardView = React.memo(
       const customTextNode = React.useMemo(
         () =>
           card.customText ? (
-            <div className="bg-zinc-900/90 text-zinc-100 text-sm px-1.5 py-0.5 rounded-sm border border-zinc-700 shadow-sm leading-tight whitespace-normal break-words">
+            <div data-card-custom-text className="bg-zinc-900/90 text-zinc-100 text-sm px-1.5 py-0.5 rounded-sm border border-zinc-700 shadow-sm leading-tight whitespace-normal break-words">
               {card.customText}
             </div>
           ) : null,

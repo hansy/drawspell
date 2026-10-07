@@ -175,6 +175,9 @@ export interface Player {
   counters: Counter[];
   commanderDamage: Record<PlayerId, number>;
   commanderTax: number;
+  // Established by the server on first battlefield placement; immutable until reset.
+  battlefieldCameraAnchor?: { x: number; y: number };
+  battlefieldCameraEpoch?: number;
   deckLoaded?: boolean;
   handCount?: number;
   libraryCount?: number;

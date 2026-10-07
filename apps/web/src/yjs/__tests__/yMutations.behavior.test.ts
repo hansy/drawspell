@@ -72,6 +72,21 @@ const measureTransactionUpdateBytes = (doc: Y.Doc, fn: () => void) => {
   return bytes;
 };
 
+describe('battlefield starting anchor serialization', () => {
+  it('preserves anchor and reset epoch in both server records and nested Yjs players', () => {
+    const maps = createSharedMaps();
+    const player: Player = {id: 'p1', name: 'Player', life: 40, counters: [], commanderDamage: {}, commanderTax: 0,
+      battlefieldCameraAnchor: {x: -0.4, y: 0.6}, battlefieldCameraEpoch: 2};
+    maps.players.set('p1', player);
+    expect(sharedSnapshot(maps).players.p1.battlefieldCameraAnchor).toEqual(player.battlefieldCameraAnchor);
+    expect(sharedSnapshot(maps).players.p1.battlefieldCameraEpoch).toBe(2);
+    yUpsertPlayer(maps, player);
+    patchPlayer(maps, 'p1', {life: 35});
+    expect(sharedSnapshot(maps).players.p1.battlefieldCameraAnchor).toEqual(player.battlefieldCameraAnchor);
+    expect(sharedSnapshot(maps).players.p1.battlefieldCameraEpoch).toBe(2);
+  });
+});
+
 describe('moveCard', () => {
   it('does not duplicate card ids when moving within the same zone', () => {
     const maps = createSharedMaps();
@@ -620,14 +635,14 @@ describe('players', () => {
     expect(snapshot.players.p1?.manaPool).toEqual({ U: 2 });
   });
 
-  it('setBattlefieldViewScale clamps to [0.5, 2]', () => {
+  it('setBattlefieldViewScale clamps to [0.001, 2]', () => {
     const maps = createSharedMaps();
 
     setBattlefieldViewScale(maps, 'p1', 2);
     expect(sharedSnapshot(maps).battlefieldViewScale.p1).toBe(2);
 
     setBattlefieldViewScale(maps, 'p1', 0.1);
-    expect(sharedSnapshot(maps).battlefieldViewScale.p1).toBe(0.5);
+    expect(sharedSnapshot(maps).battlefieldViewScale.p1).toBe(0.1);
 
     setBattlefieldViewScale(maps, 'p1', 0.75);
     expect(sharedSnapshot(maps).battlefieldViewScale.p1).toBe(0.75);
@@ -905,7 +920,7 @@ describe('card ops', () => {
     expect(snapshot.cards.c1?.counters).toEqual([]);
   });
 
-  it('duplicateCard creates a token copy and normalizes legacy positions', () => {
+  it('duplicateCard creates a token copy and preserves extended grid positions', () => {
     const maps = createSharedMaps();
     const zone: Zone = {
       id: 'bf-p1',
@@ -920,11 +935,11 @@ describe('card ops', () => {
       ownerId: 'p1',
       controllerId: 'p1',
       zoneId: zone.id,
-      name: 'Legacy Positioned',
+      name: 'Extended Positioned',
       tapped: false,
       faceDown: false,
-      // Legacy pixel position (forces migration).
-      position: { x: 100, y: 100 },
+      // Signed coordinates outside the former viewport remain world positions.
+      position: { x: 1.2, y: -0.4 },
       rotation: 0,
       counters: [{ type: 'poison', count: 1, color: '#ff00ff' }],
     });
@@ -937,11 +952,11 @@ describe('card ops', () => {
     expect(snapshot.cards.t1?.zoneId).toBe(zone.id);
     expect(snapshot.cards.t1?.counters).toEqual([{ type: 'poison', count: 1, color: '#ff00ff' }]);
 
-    // Both cards should be normalized in [0,1].
-    expect(snapshot.cards.c1?.position.x).toBeLessThanOrEqual(1);
-    expect(snapshot.cards.c1?.position.y).toBeLessThanOrEqual(1);
-    expect(snapshot.cards.t1?.position.x).toBeLessThanOrEqual(1);
-    expect(snapshot.cards.t1?.position.y).toBeLessThanOrEqual(1);
+    // Both cards should remain inside the finite world bounds.
+    expect(snapshot.cards.c1?.position.x).toBeLessThanOrEqual(2.4);
+    expect(snapshot.cards.c1?.position.y).toBeLessThanOrEqual(2.4);
+    expect(snapshot.cards.t1?.position.x).toBeLessThanOrEqual(2.4);
+    expect(snapshot.cards.t1?.position.y).toBeLessThanOrEqual(2.4);
 
     // Token should not land exactly on the original position.
     expect(snapshot.cards.t1?.position).not.toEqual(snapshot.cards.c1?.position);

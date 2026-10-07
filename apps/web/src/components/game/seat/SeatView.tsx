@@ -57,12 +57,10 @@ interface SeatViewProps {
   scale?: number;
   className?: string;
   opponentColors: Record<string, string>;
-  battlefieldScale?: number;
   model: SeatModel;
   onCardContextMenu?: (e: React.MouseEvent, card: CardType) => void;
   onHandContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
   onZoneContextMenu?: (e: React.MouseEvent, zoneId: ZoneId) => void;
-  onBattlefieldContextMenu?: (e: React.MouseEvent) => void;
   onLoadDeck?: () => void;
   onEditUsername?: () => void;
   onViewZone?: (zoneId: ZoneId, count?: number) => void;
@@ -87,13 +85,11 @@ export const SeatView: React.FC<SeatViewProps> = ({
   onCardContextMenu,
   onHandContextMenu,
   onZoneContextMenu,
-  onBattlefieldContextMenu,
   onLoadDeck,
   onEditUsername,
   opponentColors,
   onViewZone,
   onDrawCard,
-  battlefieldScale = 1,
   onOpponentLibraryReveals,
   model,
   zoomControlsDisabled,
@@ -140,7 +136,6 @@ export const SeatView: React.FC<SeatViewProps> = ({
     useElementSize<HTMLDivElement>();
   const portraitHandHeight = portraitHandSize.height;
   const baseCardHeightPx = sizing?.baseCardHeightPx;
-  const baseCardWidthPx = sizing?.baseCardWidthPx;
   const handleHandHeightChange = React.useCallback((height: number) => {
     setHasHandOverride(true);
     setHandHeight(height);
@@ -149,7 +144,6 @@ export const SeatView: React.FC<SeatViewProps> = ({
   const {
     isTop,
     isRight,
-    mirrorBattlefieldY,
     inverseScalePercent,
     opponentLibraryRevealCount,
   } = model;
@@ -547,14 +541,8 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 isMe={isMe}
                 viewerPlayerId={viewerPlayerId}
                 viewerRole={viewerRole}
-                mirrorBattlefieldY={mirrorBattlefieldY}
                 scale={scale}
-                viewScale={battlefieldScale}
-                baseCardHeight={baseCardHeightPx}
-                baseCardWidth={baseCardWidthPx}
                 onCardContextMenu={onCardContextMenu}
-                onContextMenu={isMe ? onBattlefieldContextMenu : undefined}
-                showContextMenuCursor={Boolean(player.deckLoaded && isMe)}
                 playerColors={{ [player.id]: color, ...opponentColors }}
                 disableZoomControls={zoomControlsDisabled}
               />
@@ -710,14 +698,8 @@ export const SeatView: React.FC<SeatViewProps> = ({
               isMe={isMe}
               viewerPlayerId={viewerPlayerId}
               viewerRole={viewerRole}
-              mirrorBattlefieldY={mirrorBattlefieldY}
               scale={scale}
-              viewScale={battlefieldScale}
-              baseCardHeight={baseCardHeightPx}
-              baseCardWidth={baseCardWidthPx}
               onCardContextMenu={onCardContextMenu}
-              onContextMenu={isMe ? onBattlefieldContextMenu : undefined}
-              showContextMenuCursor={Boolean(player.deckLoaded && isMe)}
               playerColors={{ [player.id]: color, ...opponentColors }}
               disableZoomControls={zoomControlsDisabled}
             />

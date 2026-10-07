@@ -93,7 +93,6 @@ describe("Battlefield ghost rendering", () => {
             isMe
             viewerPlayerId="p1"
             viewerRole="player"
-            mirrorBattlefieldY
             playerColors={{ p1: "sky" }}
           />
         </CardPreviewProvider>
@@ -144,7 +143,6 @@ describe("Battlefield ghost rendering", () => {
             isMe
             viewerPlayerId="p1"
             viewerRole="player"
-            mirrorBattlefieldY={false}
             playerColors={{ p1: "sky" }}
           />
         </CardPreviewProvider>
@@ -192,7 +190,6 @@ describe("Battlefield ghost rendering", () => {
             isMe
             viewerPlayerId="p1"
             viewerRole="player"
-            mirrorBattlefieldY={false}
             playerColors={{ p1: "sky" }}
           />
         </CardPreviewProvider>
@@ -237,7 +234,6 @@ describe("Battlefield ghost rendering", () => {
               isMe
               viewerPlayerId="p1"
               viewerRole="player"
-              mirrorBattlefieldY={false}
               playerColors={{ p1: "sky" }}
             />
           </Profiler>

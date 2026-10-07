@@ -364,7 +364,7 @@ describe("battlefield placement contracts", () => {
     }
   });
 
-  it("keeps the snapped center on a visible dot near the battlefield edge", () => {
+  it("allows the origin at the old viewport edge", () => {
     const placement = computeBattlefieldPlacement({
       pointerScreen: { x: 2, y: 2 },
       dragAnchor: { x: 0.5, y: 0.5 },
@@ -377,8 +377,8 @@ describe("battlefield placement contracts", () => {
     });
 
     expectCenterOnGrid({ placement });
-    expect(placement.snappedPosition.x).toBeGreaterThan(0);
-    expect(placement.snappedPosition.y).toBeGreaterThan(0);
+    expect(placement.snappedPosition.x).toBe(0);
+    expect(placement.snappedPosition.y).toBe(0);
   });
 
   it("keeps mirrored battlefield ghost geometry in view coordinates while storing canonical Y", () => {

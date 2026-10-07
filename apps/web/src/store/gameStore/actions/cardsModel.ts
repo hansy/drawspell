@@ -5,7 +5,6 @@ import { getCardFaces, getCurrentFaceIndex, syncCardStatsToFace } from "@/lib/ca
 import {
   clampNormalizedPosition,
   findAvailablePositionNormalized,
-  migratePositionToNormalized,
   offsetNormalizedByGrid,
 } from "@/lib/positions";
 import { MAX_REVEALED_TO } from "@/lib/limits";
@@ -32,9 +31,7 @@ export const normalizeCardForAdd = (card: Card): Card => {
 
   const rawPosition = (withFaceStats as Partial<Card>).position;
   const normalizedPosition =
-    rawPosition && (rawPosition.x > 1 || rawPosition.y > 1)
-      ? migratePositionToNormalized(rawPosition)
-      : clampNormalizedPosition(rawPosition || { x: 0.5, y: 0.5 });
+    clampNormalizedPosition(rawPosition || { x: 0, y: 0 });
 
   return { ...withFaceStats, position: normalizedPosition };
 };

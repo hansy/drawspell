@@ -15,7 +15,7 @@ export const createFullSyncToStore = (
       const snapshot = sharedSnapshot(sharedMaps);
       const safe = sanitizeSharedSnapshot(snapshot);
       setState((current) => {
-        const basePublic = { ...current, ...safe };
+        const basePublic = { ...current, ...safe, battlefieldViewScale: current.battlefieldViewScale };
         const merged = mergePrivateOverlay(basePublic, basePublic.privateOverlay);
         setAuthoritativeState(merged, basePublic);
         const reconciled = applyPendingIntents(merged);

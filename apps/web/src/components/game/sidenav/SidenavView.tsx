@@ -25,7 +25,6 @@ import {
 import drawspellLogo from "@/assets/drawspell-logo.png";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { getShortcutLabel } from "@/models/game/shortcuts/gameShortcuts";
 
 import type { SidenavController } from "@/hooks/game/sidenav/useSidenavController";
 
@@ -141,7 +140,6 @@ export const SidenavView: React.FC<SidenavController> = ({
   orientation,
 }) => {
   const isHorizontal = orientation === "horizontal";
-  const passTurnShortcut = getShortcutLabel("game.passTurn");
   const closeMenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );

@@ -124,7 +124,7 @@ describe("planCardMovement", () => {
     });
     expect(plan.cardPatch).toMatchObject({
       zoneId: battlefield.id,
-      position: { x: 0.5, y: 0.5 },
+      position: { x: 0, y: 0 },
       tapped: false,
       counters: card.counters,
       faceDown: false,

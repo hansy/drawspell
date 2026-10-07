@@ -36,6 +36,21 @@ describe("dispatchIntent", () => {
     warningToastMock.mockClear();
   });
 
+  it("attaches the current starting anchor to a first placement, including batch adds without an explicit actor", () => {
+    const state: any = {
+      myPlayerId: "p1", players: {p1: {}},
+      battlefieldGridSizing: {p1: {startingAnchor: {x: -0.4, y: 0.6}}},
+    };
+    const dispatch = createIntentDispatcher(vi.fn(), () => state);
+    dispatch({type: "card.add.batch", payload: {cards: []}});
+    expect(sendIntentMock).toHaveBeenLastCalledWith(expect.objectContaining({payload: {
+      cards: [], battlefieldCameraAnchor: {x: -0.4, y: 0.6},
+    }}));
+    state.players.p1.battlefieldCameraAnchor = {x: -0.4, y: 0.6};
+    dispatch({type: "card.move", payload: {actorId: "p1", cardId: "c"}});
+    expect(sendIntentMock).toHaveBeenLastCalledWith(expect.objectContaining({payload: {actorId: "p1", cardId: "c"}}));
+  });
+
   it("sends intent and applies local update", () => {
     const setState = vi.fn();
     const dispatchIntent = createIntentDispatcher(setState);
@@ -90,7 +105,9 @@ describe("dispatchIntent", () => {
     );
 
     const reconciled = applyPendingIntents(baseState);
-    expect(setState).toHaveBeenCalledWith(reconciled);
+    const updater = setState.mock.calls.at(-1)?.[0];
+    const local = { battlefieldViewScale: { p1: .75 }, battlefieldGridSizing: {} };
+    expect(updater(local)).toEqual({ ...reconciled, ...local });
   });
 
   it("drops local updates when intent send fails", () => {

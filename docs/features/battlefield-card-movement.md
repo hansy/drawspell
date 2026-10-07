@@ -8,41 +8,30 @@ lead, free-flowing previews, and quarter-card stacking.
 
 ### Coordinate Model
 
-- Battlefield positions are canonical center points.
-- On desktop, the battlefield render and droppable bounds exclude the side
-  column and hand bar. Mirrored seats exclude those controls from the matching
-  right or top edge.
-- Rendering, drag preview, drop commit, and store writes must convert explicitly
-  between center, top-left, viewport, and battlefield coordinates.
-- Card dimensions must come from the same battlefield geometry helpers at every
-  zoom level.
-- Tapped cards preserve the same canonical center as untapped cards; only their
-  visual orientation changes.
+- Battlefield positions are canonical card centers in a fixed world reference
+  space. They are independent of viewport size, zoom, and pan.
+- Each viewer uses a local camera per battlefield. Default shows three card
+  heights, anchored near the corresponding starting corner inside the world.
+- Rotated seats reverse both axes. Rendering, selection, drag preview, and drop
+  commit share forward and inverse camera conversions.
+- On desktop, battlefield bounds exclude the side column and hand bar.
+- See [Battlefield cameras](battlefield-cameras.md) for coordinates, controls,
+  compatibility, and review instructions.
 
 ### Tap
 
-- Tapping a battlefield card toggles tapped state only.
-- A tap must not move the card center, change the stored position, or create a
-  drag/drop commit.
-- Tapped cards render with landscape battlefield geometry, including during drag.
+- Tapping changes only tapped state, never the canonical center.
+- Tapped cards render with landscape geometry, including during drag.
 
 ### Grid And Snap
 
-- A thin grid appears during a drag. Its lines are phased around the snapped
-  centers: vertical lines pass through centers, while horizontal lines sit
-  halfway between center rows. At the base card size, a card spans about two
-  columns and three rows.
-- The center lattice has twelve battlefield rows. At the usual card height of
-  one quarter of the battlefield, one row exposes one third of a stacked card.
-- Tapping and local card zoom change the outline, not the snap points.
-- The placement indicator moves one snap point at a time. It should not drift
-  between snap points.
-- Drops commit to snapped center positions.
-- Stacking is intentionally simple: if cards share the same snapped center, the
-  incoming card bumps by one grid row until it reaches a free center. Recursive
-  bumping remains, and the single-card placement outline previews that resolved
-  center.
-- The older rule that allowed vertical quarter-card stacking is retired.
+- A thin grid appears during a drag. Right-button panning makes it glow cyan.
+- Snap centers have fixed 40-world-unit spacing on both axes. A 120-unit-tall
+  card spans three rows; one-row stacking exposes one third of the card.
+- Camera zoom scales both grid spacing and cards. Tapping and zoom never change
+  the underlying snap points.
+- The placement indicator previews the snapped, collision-resolved final center.
+- If cards share a center, the incoming card bumps one world row until free.
 
 ### Drag Preview
 
@@ -151,8 +140,8 @@ bun run --cwd apps/web typecheck
 - Tap moving a card: tap is now tested as state-only, with no center mutation.
 - Moving a tapped card showing the vertical card: tapped drag geometry preserves
   landscape orientation.
-- Grid density not matching zoom/card size: snapping uses a fixed center
-  lattice while the card-sized outline reflects the current card size.
+- Grid density not matching zoom/card size: snapping uses a fixed world
+  lattice; the local camera scales both the grid and card-sized outline.
 - Cards not aligning to snap points: both indicator and committed drops use the
   same snap math.
 - Hand-to-battlefield drag offset after size changes: cursor anchoring is

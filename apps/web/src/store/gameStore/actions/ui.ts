@@ -1,8 +1,6 @@
+import { battlefieldCameraKey, useBattlefieldCameraStore } from "@/store/battlefieldCameraStore";
 import type { BattlefieldGridSizing, GameState } from "@/types";
-import {
-  MAX_BATTLEFIELD_VIEW_SCALE,
-  MIN_BATTLEFIELD_VIEW_SCALE,
-} from "@mtg/shared/constants/geometry";
+import { snapBattlefieldZoom } from "@/lib/battlefieldZoom";
 import type { DispatchIntent } from "@/store/gameStore/dispatchIntent";
 import { debugLog, type DebugFlagKey } from "@/lib/debug";
 import type { GetState, SetState } from "./types";
@@ -19,24 +17,29 @@ const areSizingEqual = (a: BattlefieldGridSizing | undefined, b: BattlefieldGrid
       a.zoneWidthPx === b.zoneWidthPx &&
       a.zoneHeightPx === b.zoneHeightPx &&
       a.baseCardHeightPx === b.baseCardHeightPx &&
-      a.baseCardWidthPx === b.baseCardWidthPx
+      a.baseCardWidthPx === b.baseCardWidthPx &&
+      a.camera === b.camera
   );
 
 export const createUiActions = (
   set: SetState,
   get: GetState,
-  { dispatchIntent }: Deps
+  _deps: Deps
 ): Pick<GameState, "setActiveModal" | "setBattlefieldViewScale" | "setBattlefieldGridSizing"> => ({
   setActiveModal: (modal) => {
     set({ activeModal: modal });
   },
 
-  setBattlefieldViewScale: (playerId, scale) => {
-    const clamped = Math.min(
-      Math.max(scale, MIN_BATTLEFIELD_VIEW_SCALE),
-      MAX_BATTLEFIELD_VIEW_SCALE,
-    );
+  setBattlefieldViewScale: (playerId, scale, automatic = false) => {
+    if (!Number.isFinite(scale)) return;
+    const clamped = snapBattlefieldZoom(scale);
     const current = get().battlefieldViewScale[playerId];
+    if (!automatic) {
+      const state = get();
+      useBattlefieldCameraStore.getState().markManual(battlefieldCameraKey(
+        state.sessionId, state.myPlayerId, playerId, state.players[playerId]?.battlefieldCameraEpoch,
+      ));
+    }
     if (current === clamped) return;
 
     debugLog(BATTLEFIELD_DND_DEBUG_KEY, "battlefield-scale-set", {
@@ -46,16 +49,9 @@ export const createUiActions = (
       nextScale: clamped,
     });
 
-    dispatchIntent({
-      type: "ui.battlefieldScale.set",
-      payload: { playerId, scale: clamped },
-      applyLocal: (state) => ({
-        battlefieldViewScale: {
-          ...state.battlefieldViewScale,
-          [playerId]: clamped,
-        },
-      }),
-    });
+    set((state) => ({
+      battlefieldViewScale: { ...state.battlefieldViewScale, [playerId]: clamped },
+    }));
   },
 
   setBattlefieldGridSizing: (playerId, sizing) => {

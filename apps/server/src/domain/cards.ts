@@ -13,7 +13,6 @@ import { ZONE } from "./constants";
 import {
   clampNormalizedPosition,
   findAvailablePositionNormalized,
-  migratePositionToNormalized,
   offsetNormalizedByGrid,
 } from "./positions";
 
@@ -209,9 +208,7 @@ export const normalizeCardForAdd = (card: Card): Card => {
 
   const rawPosition = (withFaceStats as Partial<Card>).position;
   const normalizedPosition =
-    rawPosition && (rawPosition.x > 1 || rawPosition.y > 1)
-      ? migratePositionToNormalized(rawPosition)
-      : clampNormalizedPosition(rawPosition || { x: 0.5, y: 0.5 });
+    clampNormalizedPosition(rawPosition || { x: 0, y: 0 });
 
   return { ...withFaceStats, position: normalizedPosition };
 };

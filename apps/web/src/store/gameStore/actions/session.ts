@@ -1,3 +1,4 @@
+import { useBattlefieldCameraStore } from "@/store/battlefieldCameraStore";
 import { v4 as uuidv4 } from "uuid";
 
 import type { GameState } from "@/types";
@@ -52,6 +53,7 @@ export const createSessionActions = (
   lastResumeTokenBySession: {},
 
   resetSession: (newSessionId, playerId) => {
+    useBattlefieldCameraStore.getState().clear();
     const current = get();
     const freshSessionId = newSessionId ?? uuidv4();
     const freshPlayerId =

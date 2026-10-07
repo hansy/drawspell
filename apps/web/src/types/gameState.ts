@@ -221,7 +221,7 @@ export interface GameState {
   forgetSessionIdentity: (sessionId: string) => void;
   ensureSessionVersion: (sessionId: string) => number;
   leaveGame: () => void;
-  setBattlefieldViewScale: (playerId: PlayerId, scale: number) => void;
+  setBattlefieldViewScale: (playerId: PlayerId, scale: number, automatic?: boolean) => void;
   setBattlefieldGridSizing: (
     playerId: PlayerId,
     sizing: BattlefieldGridSizing | null
@@ -240,6 +240,8 @@ export interface GameState {
 }
 
 export type BattlefieldGridSizing = {
+  startingAnchor?: { x: number; y: number };
+  camera?: import("@/lib/battlefieldCamera").BattlefieldCamera;
   zoneWidthPx: number;
   zoneHeightPx: number;
   baseCardHeightPx: number;

@@ -33,7 +33,7 @@ const DesktopAdjustableCounterValue: React.FC<{
     <span
       data-testid={`card-counter-value-${counter.type}`}
       className={cn(className, enabled && "cursor-pointer")}
-      style={style}
+      style={{ ...style, fontSize: "var(--battlefield-counter-font, 10px)", minWidth: "var(--battlefield-counter-size, 24px)", minHeight: "var(--battlefield-counter-size, 24px)" }}
       title={enabled ? "Left-click to add; right-click to remove" : undefined}
       {...adjustment}
     >

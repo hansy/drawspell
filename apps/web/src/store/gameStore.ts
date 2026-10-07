@@ -48,7 +48,7 @@ const readNumberRecord = (value: unknown): Record<string, number> => {
 export const useGameStore = create<GameStore>()(
     persist<GameStore, [], [], PersistedGameStoreState>(
         (set, get) => {
-            const dispatchIntent = createIntentDispatcher(set);
+            const dispatchIntent = createIntentDispatcher(set, get);
 
             return ({
                 players: {},

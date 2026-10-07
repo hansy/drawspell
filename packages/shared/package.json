@@ -17,6 +17,7 @@
     "./cards": "./src/cards.ts",
     "./movement": "./src/movement.ts",
     "./zones": "./src/zones.ts",
+    "./battlefieldAnchor": "./src/battlefieldAnchor.ts",
     "./positions": "./src/positions.ts",
     "./turns": "./src/turns.ts",
     "./rules/types": "./src/rules/types.ts",

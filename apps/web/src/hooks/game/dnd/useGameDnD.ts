@@ -1,3 +1,4 @@
+import { BASE_CARD_HEIGHT } from '@mtg/shared/constants/geometry';
 import React from "react";
 import {
   useSensor,
@@ -331,6 +332,7 @@ const getInitialBattlefieldGroupGhostCards = (params: {
   if (!(zoneNode instanceof HTMLElement)) return null;
 
   const zoneRect = zoneNode.getBoundingClientRect();
+  const zoneScale = zoneNode.offsetWidth ? zoneRect.width / zoneNode.offsetWidth : 1;
   const ghostCards = params.cardIds
     .map((cardId) => {
       const card = params.cards[cardId];
@@ -343,8 +345,8 @@ const getInitialBattlefieldGroupGhostCards = (params: {
         cardId,
         zoneId: params.zoneId,
         position: {
-          x: cardRect.left - zoneRect.left + cardRect.width / 2,
-          y: cardRect.top - zoneRect.top + cardRect.height / 2,
+          x: (cardRect.left - zoneRect.left + cardRect.width / 2) / zoneScale,
+          y: (cardRect.top - zoneRect.top + cardRect.height / 2) / zoneScale,
         },
         tapped: card.tapped,
       };
@@ -491,6 +493,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
           ? event.active.data.current.cardScale
           : 1;
       setActiveCardScale(cardScale);
+      setOverCardScale(cardScale);
       const visibleSourceRect = getCardElementRect(cardId);
       const activeInitialRect =
         visibleSourceRect ?? event.active.rect.current.initial ?? null;
@@ -531,6 +534,20 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       if (!activeCard) return;
       setActiveCardSnapshot(activeCard);
       const activeZone = state.zones[activeCard.zoneId];
+      // Overlays use the fixed battlefield card dimensions even when the
+      // source is a hand/zone with its own responsive card sizing.
+      const sourceZoneNode = document.querySelector<HTMLElement>(
+        `[data-zone-id="${escapeSelectorValue(activeCard.zoneId)}"]`,
+      );
+      const sourceSeatScale = sourceZoneNode?.offsetWidth
+        ? sourceZoneNode.getBoundingClientRect().width / sourceZoneNode.offsetWidth
+        : 1;
+      if (visibleSourceRect && sourceSeatScale > 0) {
+        const sourceHeight = activeCard.tapped ? visibleSourceRect.width : visibleSourceRect.height;
+        const sourceScale = sourceHeight / BASE_CARD_HEIGHT / sourceSeatScale;
+        setActiveCardScale(sourceScale);
+        setOverCardScale(sourceScale);
+      }
       debugLog(BATTLEFIELD_DND_DEBUG_KEY, "drag-start", {
         seq: currentDragSeq.current,
         cardId,
@@ -769,6 +786,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       activeRect: active.rect.current?.translated,
       pointerScreen,
       movementScreen: event.delta,
+      sourceCardScale: useDragStore.getState().activeCardScale,
       dragAnchor: dragAnchorRef.current,
       activeTapped: Boolean(active.data.current?.tapped),
       over: over
@@ -781,6 +799,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
             cardBaseHeight: over.data.current?.cardBaseHeight,
             cardBaseWidth: over.data.current?.cardBaseWidth,
             mirrorY: Boolean(over.data.current?.mirrorY),
+            camera: over.data.current?.camera,
             dragOverlayScale: over.data.current?.dragOverlayScale,
           }
         : null,
@@ -858,6 +877,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
             cardBaseHeight: over.data.current?.cardBaseHeight,
             cardBaseWidth: over.data.current?.cardBaseWidth,
             mirrorY: Boolean(over.data.current?.mirrorY),
+            camera: over.data.current?.camera,
           }
         : null,
       cardState: activeCard
@@ -1009,6 +1029,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
       startPositions: group.startPositions,
       cards: state.cards,
       targetZoneId: targetZone.id,
+      camera: over.data.current?.camera,
       activeGhostPosition: result.ghostCard.position,
       zoneWidth,
       zoneHeight,
@@ -1229,6 +1250,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
           overCardScale: over?.data.current?.cardScale,
           overCardBaseHeight: over?.data.current?.cardBaseHeight,
           overCardBaseWidth: over?.data.current?.cardBaseWidth,
+          camera: over?.data.current?.camera,
           releasePreviewPosition:
             releasePreview &&
             releasePreview.cardId === cardId &&
@@ -1255,6 +1277,7 @@ export const useGameDnD = (params: { viewerRole?: ViewerRole } = {}) => {
                 cardBaseHeight: over.data.current?.cardBaseHeight,
                 cardBaseWidth: over.data.current?.cardBaseWidth,
                 mirrorY: Boolean(over.data.current?.mirrorY),
+            camera: over.data.current?.camera,
               }
             : null,
           useSameHandFallback,

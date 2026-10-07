@@ -1,4 +1,4 @@
-import { clampNormalizedPosition, migratePositionToNormalized } from "@/lib/positions";
+import { clampNormalizedPosition } from "@/lib/positions";
 
 export const clampNumber = (
   value: unknown,
@@ -16,8 +16,7 @@ export const normalizePosition = (pos: unknown) => {
     return { x: 0.5, y: 0.5 };
   }
   const position = rawPosition as { x: number; y: number };
-  const needsMigration = position.x > 1 || position.y > 1;
-  const next = needsMigration ? migratePositionToNormalized(position) : clampNormalizedPosition(position);
+  const next = clampNormalizedPosition(position);
   return { x: next.x, y: next.y };
 };
 

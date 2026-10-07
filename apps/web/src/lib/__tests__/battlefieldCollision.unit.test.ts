@@ -36,8 +36,8 @@ describe('resolveBattlefieldCollisionPosition', () => {
 
   it('reveals one third of a card when two cards target the same snap point', () => {
     const battlefieldHeight = 600;
-    const cardHeight = battlefieldHeight / 4;
-    const target = { x: 0.45, y: 0.5 };
+    const cardHeight = 120;
+    const target = { x: 0.45, y: 0.4 };
     const position = resolveBattlefieldCollisionPosition({
       movingCardId: 'incoming',
       targetPosition: target,
@@ -47,7 +47,7 @@ describe('resolveBattlefieldCollisionPosition', () => {
 
     expect(position.x).toBe(target.x);
     expect((position.y - target.y) * battlefieldHeight).toBeCloseTo(cardHeight / 3);
-    expect(position.y * 12).toBeCloseTo(Math.round(position.y * 12));
+    expect(position.y * 15).toBeCloseTo(Math.round(position.y * 15));
   });
 
   it('accepts a custom snap row size', () => {
@@ -88,13 +88,13 @@ describe('resolveBattlefieldCollisionPosition', () => {
   it('keeps the original target if no free spot is found', () => {
     const position = resolveBattlefieldCollisionPosition({
       movingCardId: 'c1',
-      targetPosition: { x: 0.5, y: 1 },
+      targetPosition: { x: 0.5, y: 2.4 },
       orderedCardIds: ['c1', 'c2'],
-      getPosition: (id) => (id === 'c2' ? { x: 0.5, y: 1 } : null),
+      getPosition: (id) => (id === 'c2' ? { x: 0.5, y: 2.4 } : null),
       maxAttempts: 3,
     });
 
-    expect(position).toEqual({ x: 0.5, y: 1 });
+    expect(position).toEqual({ x: 0.5, y: 2.4 });
   });
 });
 
