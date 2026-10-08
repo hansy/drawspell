@@ -34,6 +34,20 @@ const updateCountsForZoneMove = (maps: Maps, hidden: HiddenState, fromOwnerId: s
 const isFaceDownIdentityZone = (zoneType: Zone["type"]) =>
   zoneType === ZONE.BATTLEFIELD || zoneType === ZONE.EXILE;
 
+const getPriorRevealForMove = (
+  hidden: HiddenState,
+  cardId: string,
+  fromZone: Pick<Zone, "type">,
+  card: Pick<Card, "faceDown">,
+) => {
+  if (fromZone.type === ZONE.HAND) return hidden.handReveals[cardId];
+  if (fromZone.type === ZONE.LIBRARY) return hidden.libraryReveals[cardId];
+  if (isFaceDownIdentityZone(fromZone.type) && card.faceDown) {
+    return hidden.faceDownReveals[cardId];
+  }
+  return undefined;
+};
+
 const buildFaceDownRevealForMove = (
   zoneType: Zone["type"],
   actorId: string | undefined,
@@ -179,14 +193,7 @@ export const applyCardMove = (
     ? readLiveZoneCardIds(maps, toZone.id, toZone.cardIds)
     : toZone.cardIds;
 
-  const priorReveal =
-    fromZone.type === ZONE.HAND
-      ? hidden.handReveals[cardId]
-      : fromZone.type === ZONE.LIBRARY
-        ? hidden.libraryReveals[cardId]
-        : isFaceDownIdentityZone(fromZone.type) && card.faceDown
-          ? hidden.faceDownReveals[cardId]
-          : undefined;
+  const priorReveal = getPriorRevealForMove(hidden, cardId, fromZone, card);
 
   const position = readMovePosition(payload.position, card.position);
 
