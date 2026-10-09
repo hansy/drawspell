@@ -13,6 +13,9 @@ export const isPublicLogZoneType = (zoneType?: string): boolean => {
 
 export const isPublicLogZone = (zone?: ZoneLike) => (zone ? isPublicLogZoneType(zone.type) : false);
 
+const hasPublicLogZone = (fromZone?: ZoneLike, toZone?: ZoneLike) =>
+  isPublicLogZone(fromZone) || isPublicLogZone(toZone);
+
 const isFaceDownInBattlefield = (card?: Card, zone?: ZoneLike) => zone?.type === 'battlefield' && card?.faceDown;
 
 const shouldHideCardName = (card: Card | undefined, fromZone?: ZoneLike, toZone?: ZoneLike) => {
@@ -85,9 +88,7 @@ export const getCardDisplayName = (
   const card = cardId ? ctx.cards[cardId] : undefined;
 
   if (!card) {
-    const fromPublic = isPublicLogZone(fromZone);
-    const toPublic = isPublicLogZone(toZone);
-    if (fromPublic || toPublic) {
+    if (hasPublicLogZone(fromZone, toZone)) {
       return fallbackName || 'a card';
     }
     return 'a card';
@@ -95,9 +96,7 @@ export const getCardDisplayName = (
 
   const hideName = shouldHideCardName(card, fromZone, toZone);
   if (hideName) {
-    const fromPublic = isPublicLogZone(fromZone);
-    const toPublic = isPublicLogZone(toZone);
-    if (fallbackName && (fromPublic || toPublic)) return fallbackName;
+    if (fallbackName && hasPublicLogZone(fromZone, toZone)) return fallbackName;
     return 'a card';
   }
 
