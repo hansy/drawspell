@@ -301,8 +301,10 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
     const storedTokens = readRoomTokensFromStorage(sessionId);
     const storeTokens = useGameStore.getState().roomTokens;
     const hasTokens = Boolean(
-      storedTokens?.playerToken ||
+      storedTokens?.personalInvite ||
+        storedTokens?.playerToken ||
         storedTokens?.spectatorToken ||
+        storeTokens?.personalInvite ||
         storeTokens?.playerToken ||
         storeTokens?.spectatorToken
     );
@@ -316,6 +318,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
     };
   }, [
     sessionId,
+    roomTokens?.personalInvite,
     roomTokens?.playerToken,
     roomTokens?.spectatorToken,
   ]);
@@ -416,7 +419,7 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
       }
       const hostPending = isRoomHostPending(sessionId);
       if (roomUnavailableRef.current || isRoomUnavailable(sessionId)) {
-        if (inviteToken.token || hasResumeFromUrl || hostPending) {
+        if (inviteToken.personalInvite || inviteToken.token || hasResumeFromUrl || hostPending) {
           clearRoomUnavailable(sessionId);
           roomUnavailableRef.current = false;
           setRoomUnavailable(false);
@@ -433,10 +436,13 @@ export function useMultiplayerSync(sessionId: string, locationKey?: string) {
 
       const storedTokens = readRoomTokensFromStorage(sessionId);
       const hasToken = Boolean(
-        inviteToken.token ||
+        inviteToken.personalInvite ||
+          inviteToken.token ||
           hasResumeFromUrl ||
+          storedTokens?.personalInvite ||
           storedTokens?.playerToken ||
           storedTokens?.spectatorToken ||
+          roomTokens?.personalInvite ||
           roomTokens?.playerToken ||
           roomTokens?.spectatorToken ||
           roomTokens?.resumeToken

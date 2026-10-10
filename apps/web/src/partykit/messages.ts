@@ -72,6 +72,7 @@ export type GameLogRequestMessage = {
 };
 
 export type RoomTokensPayload = {
+  personalInvite?: string;
   playerToken?: string;
   spectatorToken?: string;
   resumeToken?: string;
@@ -85,7 +86,7 @@ export type RoomTokensMessage = {
 
 export type ShareLinksPayload = {
   playerInviteUrl: string;
-  spectatorInviteUrl: string;
+  spectatorInviteUrl?: string;
   resumeInviteUrl?: string;
 };
 
@@ -113,7 +114,16 @@ export type PeerCountsMessage = {
   payload: PeerCountsPayload;
 };
 
+export type PreloadDeckPayload = {
+  assignmentId: string;
+  decklist: string;
+  bracket?: number;
+};
+
+export type PreloadDeckMessage = { type: "preloadDeck"; payload: PreloadDeckPayload };
+
 export type PartyMessage =
+  | PreloadDeckMessage
   | IntentMessage
   | IntentAck
   | PrivateOverlayMessage

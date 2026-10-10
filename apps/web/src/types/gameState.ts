@@ -63,9 +63,9 @@ export interface GameState {
     actorId?: PlayerId,
     isRemote?: boolean
   ) => void;
-  addZone: (zone: Zone, isRemote?: boolean) => void;
+  addZone: (zone: Zone, isRemote?: boolean) => string | null | undefined;
   addCard: (card: Card, isRemote?: boolean) => void;
-  addCards: (cards: Card[], isRemote?: boolean) => void;
+  addCards: (cards: Card[], isRemote?: boolean) => string | null | undefined;
   updateCard: (
     id: CardId,
     updates: Partial<Card>,
@@ -195,7 +195,7 @@ export interface GameState {
     playerId: PlayerId,
     loaded: boolean,
     isRemote?: boolean
-  ) => void;
+  ) => string | null | undefined;
   // Counter Actions
   addGlobalCounter: (name: string, color?: string, isRemote?: boolean) => void;
   addCounterToCard: (

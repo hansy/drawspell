@@ -5,6 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 
 import { useDragStore } from "@/store/dragStore";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
+import { usePreloadDeckStore } from "@/store/preloadDeckStore";
 import { useGameStore } from "@/store/gameStore";
 import { useSelectionStore } from "@/store/selectionStore";
 import { resolvePlayerColors } from "@/lib/playerColors";
@@ -258,6 +259,12 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   );
 
   const [isLoadDeckModalOpen, setIsLoadDeckModalOpen] = React.useState(false);
+  const preload = usePreloadDeckStore((state) => state.pending);
+  React.useEffect(() => {
+    if (preload?.sessionId === sessionId && preload.playerId === myPlayerId && !preload.started && viewerRole === "player") {
+      setIsLoadDeckModalOpen(true);
+    }
+  }, [preload, sessionId, myPlayerId, viewerRole]);
   const [isTokenModalOpen, setIsTokenModalOpen] = React.useState(false);
   const [isCoinFlipperOpen, setIsCoinFlipperOpen] = React.useState(false);
   const [isDiceRollerOpen, setIsDiceRollerOpen] = React.useState(false);
@@ -334,7 +341,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
         if (abortController.signal.aborted) return;
         const nextLinks = {
           players: payload.playerInviteUrl,
-          spectators: payload.spectatorInviteUrl,
+          spectators: payload.spectatorInviteUrl ?? "",
           resume: payload.resumeInviteUrl ?? "",
         };
         setShareLinks(nextLinks);

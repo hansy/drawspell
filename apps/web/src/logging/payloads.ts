@@ -52,6 +52,7 @@ export type LogEventPayloadMap = {
   "library.shuffle": ShufflePayload;
   "library.view": LibraryViewPayload;
   "library.topReveal": LibraryTopRevealPayload;
+  "deck.load": DeckPayload;
   "deck.reset": DeckPayload;
   "deck.unload": DeckPayload;
   "card.move": MovePayload;

@@ -28,7 +28,7 @@ export const createZoneActions = (
 ): Pick<GameState, "addZone" | "reorderZoneCards"> => ({
   addZone: (zone: Zone, _isRemote?: boolean) => {
     if (get().viewerRole === "spectator") return;
-    dispatchIntent({
+    return dispatchIntent({
       type: "zone.add",
       payload: { zone },
       applyLocal: (state) => ({

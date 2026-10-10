@@ -53,7 +53,7 @@ export type HiddenStateMeta = Omit<HiddenState, "cards"> & { cardChunkKeys: stri
 
 export type RoomTokens = {
   playerToken: string;
-  spectatorToken: string;
+  spectatorToken?: string;
 };
 
 export type DiscordRoomInviteMetadata = {
@@ -78,6 +78,7 @@ export type IntentConnectionState = {
   playerId?: string;
   viewerRole?: "player" | "spectator";
   token?: string;
+  invite?: string;
   userId?: string;
   resumeToken?: string;
   connectionGroupId?: string;

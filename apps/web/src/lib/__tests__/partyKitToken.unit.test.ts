@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   clearRoomHostPending,
+  clearInviteTokenFromUrl,
+  resolveInviteTokenFromUrl,
   clearRoomUnavailable,
   ensureClientDeviceId,
   isRoomHostPending,
@@ -19,6 +21,16 @@ const deviceKey = "drawspell:deviceId";
 describe("partyKitToken storage", () => {
   beforeEach(() => {
     window.localStorage.clear();
+  });
+
+  it("parses and persists personal invitations through URL cleanup and reconnect", () => {
+    const invitation = resolveInviteTokenFromUrl("https://drawspell.space/rooms/room1?invite=private-assignment");
+    expect(invitation).toEqual({ personalInvite: "private-assignment", role: "player", playerId: undefined, resumeToken: undefined });
+    writeRoomTokensToStorage("room1", { personalInvite: invitation.personalInvite });
+    window.history.replaceState({}, "", "/rooms/room1?invite=private-assignment");
+    clearInviteTokenFromUrl();
+    expect(new URL(window.location.href).searchParams.has("invite")).toBe(false);
+    expect(readRoomTokensFromStorage("room1")).toEqual({ personalInvite: "private-assignment" });
   });
 
   it("does not persist resume tokens to storage", () => {

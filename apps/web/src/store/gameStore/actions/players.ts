@@ -154,7 +154,7 @@ export const createPlayerActions = (
   setDeckLoaded: (playerId, loaded, _isRemote) => {
     if (get().viewerRole === "spectator") return;
     const actorId = get().myPlayerId;
-    dispatchIntent({
+    return dispatchIntent({
       type: loaded ? "deck.load" : "deck.unload",
       payload: { playerId, actorId },
       applyLocal: (state) => ({

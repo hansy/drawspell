@@ -373,7 +373,7 @@ const handleDeckMulligan: IntentHandler = ({ actorId, maps, hidden, payload, pus
   return { ok: true };
 };
 
-const handleDeckLoad: IntentHandler = ({ actorId, maps, payload }) => {
+const handleDeckLoad: IntentHandler = ({ actorId, maps, payload, pushLogEvent }) => {
   const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid player");
   if (!playerIdResult.ok) return playerIdResult;
   const playerId = playerIdResult.value;
@@ -381,8 +381,10 @@ const handleDeckLoad: IntentHandler = ({ actorId, maps, payload }) => {
     return { ok: false, error: "actor mismatch" };
   }
   const player = readPlayer(maps, playerId);
-  if (!player) return { ok: true };
+  if (!player) return { ok: false, error: "player not found" };
+  if (player.deckLoaded) return { ok: true };
   writePlayer(maps, { ...player, deckLoaded: true });
+  pushLogEvent("deck.load", { actorId, playerId });
   repairActiveTurn(maps);
   return { ok: true };
 };

@@ -64,6 +64,22 @@ _Avoid_: legality marker, product type
 A room invite provisioned from a Discord interaction and delivered to participants by DM.
 _Avoid_: Discord game, slash-command room
 
+**Preloaded Deck**:
+A deck list supplied by an external site for a particular player's initial Deck Import when joining a Room. The player may replace it afterward.
+_Avoid_: locked deck, verified deck
+
+**Bracket Tier**:
+An external site's assessment of a particular deck list's power bracket. It is an assessment of that deck list, not a permanent rating of the player.
+_Avoid_: player rating, Drawspell-verified bracket
+
+**Personal Player Invitation**:
+An invitation to join a Room with a particular initial assignment, which may include a Preloaded Deck and its Bracket Tier. It does not reserve a seat or verify the recipient's identity.
+_Avoid_: reserved seat, verified player
+
+**Shared Player Invitation**:
+An invitation that permits its holders to join a Room as players while capacity remains, without an assigned Preloaded Deck. It may coexist with Personal Player Invitations.
+_Avoid_: host invitation, personal invitation
+
 ## Relationships
 
 - A **Room** has exactly one **Yjs Document**.

@@ -446,6 +446,18 @@ describe("useMultiplayerSync", () => {
     });
   });
 
+  it("passes personal invitations privately through both connection channels and persists admission", async () => {
+    vi.mocked(isRoomHostPending).mockReturnValue(false);
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({ personalInvite: "assignment-token", role: "player" });
+    renderHook(() => useMultiplayerSync("session-personal"));
+    await waitFor(() => expect(intentTransportMocks.createIntentTransport).toHaveBeenCalledTimes(1));
+    const [transportConfig] = intentTransportMocks.createIntentTransport.mock.calls[0] as any;
+    expect(transportConfig.personalInvite).toBe("assignment-token");
+    expect(await providerInstances[0].opts.params()).toEqual(expect.objectContaining({ invite: "assignment-token", viewerRole: "player" }));
+    expect(mockGameState.roomTokens.personalInvite).toBe("assignment-token");
+    expect(clearInviteTokenFromUrl).toHaveBeenCalled();
+  });
+
   it("defers clearing resume invite params until room tokens arrive", async () => {
     vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
       playerId: "player-1",

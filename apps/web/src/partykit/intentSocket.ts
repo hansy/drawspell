@@ -13,6 +13,7 @@ export type IntentSocketOptions = {
   viewerRole?: "player" | "spectator";
   resumeToken?: string;
   connectionGroupId?: string;
+  personalInvite?: string;
   joinToken?: string;
   getJoinToken?: () => Promise<string | null>;
   onMessage?: (message: PartyMessage) => void;
@@ -42,6 +43,7 @@ export const createIntentSocket = ({
   resumeToken,
   connectionGroupId,
   tokenRole,
+  personalInvite,
   joinToken,
   getJoinToken,
   onMessage,
@@ -63,6 +65,7 @@ export const createIntentSocket = ({
     const resolvedJoinToken = getJoinToken ? await getJoinToken() : joinToken;
     return {
       role: "intent",
+      ...(personalInvite ? { invite: personalInvite } : {}),
       ...tokenParam,
       ...(resolvedJoinToken ? { jt: resolvedJoinToken } : {}),
       ...(playerId ? { playerId } : {}),
@@ -77,6 +80,7 @@ export const createIntentSocket = ({
     ? buildQuery
     : {
         role: "intent",
+        ...(personalInvite ? { invite: personalInvite } : {}),
         ...tokenParam,
         ...(joinToken ? { jt: joinToken } : {}),
         ...(playerId ? { playerId } : {}),

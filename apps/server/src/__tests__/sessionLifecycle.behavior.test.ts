@@ -2747,3 +2747,67 @@ describe("landing-page Leave Room", () => {
     errorSpy.mockRestore();
   });
 });
+
+describe('provisioned room connection channels', () => {
+  const provision = async (server: Room, spectatorsEnabled = false) => {
+    const response = await server.onRequest(new Request('https://internal/internal/rooms', {
+      method: 'POST', headers: { authorization: 'Bearer provision-secret', 'content-type': 'application/json' },
+      body: JSON.stringify({ roomId: 'room-test', creationId: 'creation-1', activationExpiresAt: Date.now() + 600000,
+        request: { spectatorsEnabled, players: [{ externalId: 'one', deck: { decklist: '1 Sol Ring', bracket: 3 } }] } }),
+    }));
+    expect(response.status).toBe(200);
+    return await response.json() as { playerInviteUrl: string; players: Array<{ joinUrl: string }> };
+  };
+  const room = () => new Room(createState(), { ...createEnv(), ROOM_PROVISION_SECRET: 'provision-secret' } as Env);
+
+  it('rejects player-token spectators through sync and intent connections', async () => {
+    const server = room();
+    const result = await provision(server);
+    const token = new URL(result.playerInviteUrl).searchParams.get('gt')!;
+    const intent = new TestConnection();
+    await (server as any).bindIntentConnection(intent, new URL(`https://test?playerId=p1&viewerRole=spectator&gt=${token}`));
+    expect(intent.closed).toContainEqual({ code: 1008, reason: 'invalid token' });
+    expect(intent.sent.some(message => message.includes('roomTokens'))).toBe(false);
+    const sync = new TestConnection();
+    await (server as any).bindSyncConnection(sync, new URL(`https://test?playerId=p1&viewerRole=spectator&gt=${token}`), {});
+    expect(sync.closed).toContainEqual({ code: 1008, reason: 'invalid token' });
+    expect(superOnConnect).not.toHaveBeenCalled();
+  });
+
+  it('delivers private preload only over the personal player intent connection and never on reconnect', async () => {
+    const server = room();
+    const result = await provision(server);
+    const invite = new URL(result.players[0].joinUrl).searchParams.get('invite')!;
+    const sync = new TestConnection(); sync.id = 'sync';
+    await (server as any).bindSyncConnection(sync, new URL(`https://test?playerId=p1&invite=${invite}`), {});
+    expect(sync.closed).toEqual([]);
+    expect(sync.sent.some(message => message.includes('preloadDeck'))).toBe(false);
+    const intent = new TestConnection(); intent.id = 'intent';
+    await (server as any).bindIntentConnection(intent, new URL(`https://test?playerId=p1&invite=${invite}`));
+    const messages = intent.sent.map(message => JSON.parse(message));
+    expect(messages.filter(message => message.type === 'preloadDeck')).toEqual([{ type: 'preloadDeck', payload: expect.objectContaining({ decklist: '1 Sol Ring', bracket: 3, assignmentId: expect.any(String) }) }]);
+    expect(messages.find(message => message.type === 'roomTokens').payload).not.toHaveProperty('spectatorToken');
+    const reconnect = new TestConnection(); reconnect.id = 'reconnect';
+    await (server as any).bindIntentConnection(reconnect, new URL(`https://test?playerId=p1&invite=${invite}`));
+    expect(reconnect.sent.some(message => message.includes('preloadDeck'))).toBe(false);
+    const shared = new TestConnection(); shared.id = 'shared';
+    const token = new URL(result.playerInviteUrl).searchParams.get('gt')!;
+    await (server as any).bindIntentConnection(shared, new URL(`https://test?playerId=p2&gt=${token}`));
+    expect(shared.sent.some(message => message.includes('Sol Ring'))).toBe(false);
+  });
+
+  it('expires pending provisioned rooms via alarm and rejects replay afterward', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(1000);
+      const server = room();
+      await provision(server);
+      vi.setSystemTime(601000);
+      await server.alarm();
+      const status = await server.onRequest(new Request('https://internal/internal/rooms/status', {
+        method: 'POST', headers: { authorization: 'Bearer provision-secret' }, body: JSON.stringify({ roomId: 'room-test', creationId: 'creation-1' }),
+      }));
+      expect(await status.json()).toEqual({ exists: false });
+    } finally { vi.useRealTimers(); }
+  });
+});

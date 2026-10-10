@@ -19,6 +19,7 @@ const EVENT_IDS = [
   "library.shuffle",
   "library.view",
   "library.topReveal",
+  "deck.load",
   "deck.reset",
   "deck.unload",
   "card.move",
@@ -69,6 +70,10 @@ const makeCard = (id: string, name: string, zoneId: string, ownerId: string): Ca
 });
 
 describe("logEventRegistry", () => {
+  it("renders every successful deck import with the generic load event", () => {
+    const parts = logEventRegistry["deck.load"].format({ playerId: "p1" }, { players: { p1: makePlayer("p1", "Alice") }, cards: {}, zones: {} });
+    expect(parts.map((part) => part.text).join("")).toBe("Alice loaded a deck");
+  });
   it("exports definitions for all log event ids", () => {
     expect(Object.keys(logEventRegistry).sort()).toEqual([...EVENT_IDS].sort());
   });

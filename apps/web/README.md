@@ -25,7 +25,7 @@ bun run build:production
 bun run preview
 bun run test
 bun run typecheck
-bun run cf-typegen
+bun run cf:typegen
 bun run deploy
 bun run deploy:staging
 ```
@@ -57,3 +57,42 @@ Vite command is `bun run dev:app` and uses Vite mode `localhost`, which loads
 - [../../README.md](../../README.md)
 - [../server/README.md](../server/README.md)
 - [../../docs/features/curated-decks.md](../../docs/features/curated-decks.md)
+
+## Developer API
+
+`/developer/login` signs developers in by magic link. `/developer` creates and
+revokes named API keys; `/docs` describes `POST /api/v1/rooms`. Personal room
+invitations use `?invite=...` to reference private, server-stored starting decks.
+The [API contract](../../docs/features/public-room-api-contract.md) records limits,
+retry semantics, and the distinction between original assignments and imported cards.
+
+Before deploying an environment:
+
+1. Create its D1 database and set its `database_id` in `wrangler.jsonc`.
+   IDs are intentionally omitted, which is supported by Wrangler automatic
+   provisioning; no fictitious database IDs are deployed. Provision explicitly
+   before the first release so migrations can run before requests reach the API.
+   Apply `migrations` with `bunx wrangler d1 migrations apply DB --remote --env staging`
+   (or `production`).
+2. Set `BETTER_AUTH_SECRET` to a random secret of at least 32 characters. Set
+   `ROOM_PROVISION_SECRET` on both web and server Workers to the same random value.
+   Keep the existing matching `JOIN_TOKEN_SECRET` configuration.
+3. Configure the `EMAIL` binding and a verified `EMAIL_FROM` sender for transactional
+   delivery. `AUTH_URL` must be the exact website origin. Confirm the `SERVER`
+   binding points at the matching room Worker environment.
+4. Issue a dedicated developer key for Discord, configure `DRAWSPELL_API_KEY`
+   there, and deploy its new `API` service binding after the web endpoint is ready.
+   Keep the legacy server `/rooms` endpoint and its service secret for this
+   compatibility release; remove them only after all Discord callers migrate.
+   Already-issued room invitations remain supported.
+
+For the local browser check, apply D1 migrations with
+`bunx wrangler d1 migrations apply DB --local`. Configure the matching secrets in
+ignored `.dev.vars` files and set `AUTH_URL=https://ds.localhost`. In the web file,
+set a nonempty `AUTH_TEST_SECRET` to capture magic links in local D1 instead of
+sending email. This capture is development-only and has no HTTP read endpoint.
+Start the room Worker, then start the web Worker with `VITE_ENV=development bun run dev`.
+From `apps/web`, run `bun run test:e2e:public-api` with Chrome installed
+(or set `CHROME_PATH`). The check reads only the local mail outbox, creates test
+rooms and a temporary developer account, and revokes its API key when successful.
+Never enable the local mail capture in deployed development environments.

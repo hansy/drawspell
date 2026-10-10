@@ -1,12 +1,12 @@
 # Discord Worker
 
 ## What is this?
-`apps/discord` is a Cloudflare Worker that handles Discord Interactions for `/drawspell create`, provisions room invites through the internal server binding, and fans out DM links to participants.
+`apps/discord` is a Cloudflare Worker that handles Discord Interactions for `/drawspell create`, provisions room invites through the public API through a service binding, and fans out DM links to participants.
 
 ## Responsibilities and boundaries
 - Verifies Discord interaction signatures.
 - Parses `/drawspell create` options and normalizes recipients.
-- Calls `POST /rooms` on `apps/server` through a Cloudflare Service Binding.
+- Calls `POST /api/v1/rooms` on `apps/web` through a Cloudflare Service Binding.
 - Sends participant DMs through Discord REST APIs.
 - **Does not** manage room state directly; room lifecycle is handled by `apps/server`.
 
@@ -30,7 +30,7 @@ bun run build
 | --- | --- | --- |
 | `DISCORD_PUBLIC_KEY` | Worker runtime | Discord app public key for interaction signature verification. |
 | `DISCORD_BOT_TOKEN` | Worker runtime + command registration script | Bot token used for DM fanout and command registration API calls. |
-| `DISCORD_SERVICE_AUTH_SECRET` | Worker runtime | Shared bearer secret used when calling `apps/server` provisioning endpoint. |
+| `DRAWSPELL_API_KEY` | Worker runtime | Developer API key with `rooms:create` permission used for room creation. |
 | `DISCORD_APPLICATION_ID` | Registration script | Discord application ID used for slash command registration endpoints. |
 
 ### Optional environment variables
@@ -41,9 +41,9 @@ bun run build
 | `DISCORD_API_BASE_URL` | Registration script | Optional Discord API base URL override for command registration (defaults to `https://discord.com/api/v10`). |
 
 ### Service binding configuration
-- The Worker expects a `SERVER` service binding in [`wrangler.jsonc`](wrangler.jsonc) that targets the matching server worker name.
-- Default/prod binding targets `drawspell-server`.
-- `env.development` binding targets `drawspell-server-development`, matching local `bun run dev` in `apps/server` (which runs the server through Portless at `https://server.ds.localhost`).
+- The Worker expects a `API` service binding in [`wrangler.jsonc`](wrangler.jsonc) that targets the matching server worker name.
+- Production binding targets `drawspell-web-production`.
+- The default binding targets the local `drawspell` web Worker. Run web and room Workers together for local development.
 
 ### Secrets setup with Wrangler
 Set secrets per environment before deploy:
@@ -52,7 +52,7 @@ Set secrets per environment before deploy:
 cd apps/discord
 wrangler secret put DISCORD_PUBLIC_KEY
 wrangler secret put DISCORD_BOT_TOKEN
-wrangler secret put DISCORD_SERVICE_AUTH_SECRET
+wrangler secret put DRAWSPELL_API_KEY
 wrangler secret put DISCORD_APPLICATION_ID
 ```
 
@@ -65,7 +65,7 @@ Example local `apps/discord/.dev.vars`:
 ```dotenv
 DISCORD_PUBLIC_KEY=your-public-key
 DISCORD_BOT_TOKEN=your-bot-token
-DISCORD_SERVICE_AUTH_SECRET=your-service-auth-secret
+DRAWSPELL_API_KEY=your-developer-api-key
 DISCORD_APPLICATION_ID=your-application-id
 ```
 
@@ -112,3 +112,7 @@ After deployment and command registration:
 ## Related docs
 - [../../README.md](../../README.md)
 - [../server/README.md](../server/README.md)
+
+## API migration
+
+Create a dedicated developer API key at `/developer` and store it as `DRAWSPELL_API_KEY` in the Discord Worker. It uses `Idempotency-Key: discord:<interactionId>` and an empty creation body, preserving shared player links and enabled spectators. Replayed API results are acknowledged without repeating DM fanout. Deploy the web API and its room-server support before updating the Discord Worker; existing issued room links remain valid. The new Discord worker uses the public API. Keep the old server `DISCORD_SERVICE_AUTH_SECRET` and `/rooms` handler during this compatibility release; remove them only after all callers have migrated.

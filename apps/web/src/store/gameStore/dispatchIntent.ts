@@ -23,6 +23,23 @@ type PendingIntent = {
 };
 
 const pendingIntents: PendingIntent[] = [];
+const acknowledgementWaiters = new Map<string, { resolve: () => void; reject: (error: Error) => void }>();
+
+// Actions expose their own intent ID, so awaiting an import never captures an
+// unrelated action dispatched by another UI interaction.
+export const waitForIntentAcknowledgement = (intentId: string | null | undefined): Promise<void> => {
+  if (!intentId) return Promise.reject(new Error("Connecting to multiplayer, please try again."));
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      acknowledgementWaiters.delete(intentId);
+      reject(new Error("The server did not confirm the deck import. Please try again."));
+    }, 15_000);
+    acknowledgementWaiters.set(intentId, {
+      resolve: () => { clearTimeout(timer); resolve(); },
+      reject: (error) => { clearTimeout(timer); reject(error); },
+    });
+  });
+};
 let lastAuthoritativeState: GameState | null = null;
 let lastPublicState: GameState | null = null;
 let lastDropToastAt = 0;
@@ -89,6 +106,8 @@ export const getAuthoritativeState = () => lastAuthoritativeState;
 export const getPublicAuthoritativeState = () => lastPublicState;
 
 export const resetIntentState = () => {
+  acknowledgementWaiters.forEach((waiter) => waiter.reject(new Error("Disconnected during deck import. Please try again.")));
+  acknowledgementWaiters.clear();
   pendingIntents.splice(0, pendingIntents.length);
   lastAuthoritativeState = null;
   lastPublicState = null;
@@ -100,6 +119,12 @@ export const handleIntentAck = (
   ack: IntentAck,
   setState: StoreApi<GameState>["setState"]
 ): string | null => {
+  const waiter = acknowledgementWaiters.get(ack.intentId);
+  if (waiter) {
+    acknowledgementWaiters.delete(ack.intentId);
+    if (ack.ok) waiter.resolve();
+    else waiter.reject(new Error(ack.error || "Deck import rejected"));
+  }
   const index = pendingIntents.findIndex((pending) => pending.id === ack.intentId);
   if (index === -1) return null;
   pendingIntents.splice(index, 1);
