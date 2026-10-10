@@ -99,11 +99,15 @@ export const getCanonicalCardPixelSize = (
     viewScale: 1,
   });
 
+const CANONICAL_BATTLEFIELD_CARD_DIMENSIONS = {
+  baseCardHeight: BASE_CARD_HEIGHT,
+  baseCardWidth: BASE_CARD_HEIGHT * BATTLEFIELD_SLOT_ASPECT_RATIO,
+};
+
 const resolveCanonicalBattlefieldCardPixelSize = (params?: CardOrientationOptions) =>
   getCanonicalCardPixelSize({
     isTapped: params?.isTapped,
-    baseCardHeight: BASE_CARD_HEIGHT,
-    baseCardWidth: BASE_CARD_HEIGHT * BATTLEFIELD_SLOT_ASPECT_RATIO,
+    ...CANONICAL_BATTLEFIELD_CARD_DIMENSIONS,
   });
 
 export const getNormalizedGridSteps = (
@@ -143,8 +147,7 @@ export const getCanonicalBattlefieldGridSteps = (params?: CardOrientationOptions
     isTapped: params?.isTapped,
     zoneWidth: LEGACY_BATTLEFIELD_WIDTH,
     zoneHeight: LEGACY_BATTLEFIELD_HEIGHT,
-    baseCardHeight: BASE_CARD_HEIGHT,
-    baseCardWidth: BASE_CARD_HEIGHT * BATTLEFIELD_SLOT_ASPECT_RATIO,
+    ...CANONICAL_BATTLEFIELD_CARD_DIMENSIONS,
   });
 
 export const BATTLEFIELD_PLACEMENT_GRID_WIDTH_FRACTION = 1 / 2;
