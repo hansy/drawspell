@@ -12,22 +12,28 @@ Drawspell's realtime backend, built on PartyServer and Cloudflare Durable Object
 ## Public API
 - PartyServer room name: `rooms` (see `src/server.ts` and `apps/web/src/partykit/config.ts`).
 - Connection roles via query params: `role=sync` (Yjs provider) and `role=intent` (intent channel). Tokens are passed via `gt` (player) or `st` (spectator), along with optional `playerId` and `viewerRole` (see `apps/web/src/partykit/intentSocket.ts` and `apps/web/src/hooks/game/multiplayer-sync/sessionResources.ts`).
-- Message envelopes: `intent`, `ack`, `privateOverlay`, `logEvent`, `roomTokens` (see `apps/web/src/partykit/messages.ts` and `src/domain/types.ts`).
-- Internal provisioning endpoint: `POST /rooms` with bearer service auth; idempotent per `interactionId`, returns `{ roomId, playerToken, playerInviteUrl, expiresAt, alreadyProvisioned }` where `playerInviteUrl` is absolute (`<known web origin>/rooms/<roomId>?gt=<playerToken>`), and stores pending Discord invite metadata in room Durable Object storage.
+- Message envelopes: `intent`, `ack`, `privateOverlay`, `logEvent`, `roomTokens`, `preloadDeck` (see `apps/web/src/partykit/messages.ts` and `src/domain/types.ts`).
 - Other non-Party requests return `404` (see `src/server.ts`).
 
-### Internal Discord provisioning contract (`POST /rooms`)
-- Auth: `Authorization: Bearer <DISCORD_SERVICE_AUTH_SECRET>`.
-- Request body:
-  - `interactionId: string` (idempotency key from Discord interaction payload)
-  - `guildId: string`
-  - `channelId: string`
-  - `invokerDiscordUserId: string`
-  - `participantDiscordUserIds: string[]`
-- Behavior:
-  - Derives deterministic room id from `interactionId`.
-  - Returns `alreadyProvisioned: true` when the same interaction is replayed.
-  - Stores invite metadata in room DO storage for join gating.
+### Internal room provisioning
+
+The public room-creation API is hosted by the web Worker. Its `SERVER` service
+binding calls `POST /internal/rooms` and `POST /internal/rooms/status` on this
+Worker using `Authorization: Bearer <ROOM_PROVISION_SECRET>`. Configure the same
+secret in both Workers for each environment using Wrangler secrets; never put it
+in public client configuration. The Discord-specific `POST /rooms` route remains available for one compatibility
+release using `DISCORD_SERVICE_AUTH_SECRET`, so server-first deployment preserves
+currently deployed Discord commands. Remove it only after the web API and migrated
+Discord Worker are deployed and verified. Existing stored Discord invitations
+continue to work.
+
+Provision requests include a stable `roomId`, `creationId`, activation deadline,
+and normalized room request. The Room stores tokens, immutable spectator policy,
+and personal deck assignments together before returning invitations. Status
+checks only inspect the matching creation and never initialize a room. Pending
+rooms expire after ten minutes; activated rooms use the usual empty-room cleanup.
+Personal invitation deck lists are sent only to the joining player's intent
+connection and are attempted at most once per player identity.
 
 ## Local development
 Run these from `apps/server` (or prefix with `bun run --cwd apps/server` from the repo root):
@@ -63,7 +69,8 @@ port through `PORT`, and the script passes that port to Wrangler.
 - Env vars:
   - `NODE_ENV` (required): must be `development`, `staging`, or `production`; used to resolve Drawspell hosts from `@mtg/shared/constants/hosts`.
   - `JOIN_TOKEN_SECRET` (required): HMAC secret used to validate join tokens. Must match `apps/web`.
-  - `DISCORD_SERVICE_AUTH_SECRET` (required for Discord provisioning): shared secret used to authenticate internal `/rooms` calls.
+  - `ROOM_PROVISION_SECRET` (required for API provisioning): shared secret used by the web Worker service binding.
+  - `DISCORD_SERVICE_AUTH_SECRET` (required during the compatibility release): existing secret for deployed Discord callers of `POST /rooms`.
 
 For local dev, set secrets in `apps/server/.dev.vars` or via `wrangler secret put JOIN_TOKEN_SECRET`.
 Development accepts websocket requests from any `Origin` and `Host` so multiple

@@ -39,6 +39,7 @@ import type {
   RoomTokensPayload,
 } from "@/partykit/messages";
 import { handleShareLinksResponse } from "@/partykit/shareLinksClient";
+import { usePreloadDeckStore } from "@/store/preloadDeckStore";
 import { useGameStore } from "@/store/gameStore";
 import { handleIntentAck } from "@/store/gameStore/dispatchIntent";
 import {
@@ -189,8 +190,10 @@ export function setupSessionResources({
     store.sessionId === sessionId && store.myPlayerId ? store.myPlayerId : undefined;
   const existingSessionPlayerId = activePlayerId ?? cachedPlayerId;
   const hasExistingRoomSession = Boolean(
-    storedTokens?.playerToken ||
+    storedTokens?.personalInvite ||
+      storedTokens?.playerToken ||
       storedTokens?.spectatorToken ||
+      existingRoomTokens?.personalInvite ||
       existingRoomTokens?.playerToken ||
       existingRoomTokens?.spectatorToken
   );
@@ -224,9 +227,10 @@ export function setupSessionResources({
     useGameStore.getState().setRoomTokens(storedTokens);
     clearRoomHostPending(sessionId);
   }
-  if (inviteToken.token || inviteToken.resumeToken) {
+  if (inviteToken.personalInvite || inviteToken.token || inviteToken.resumeToken) {
     const currentTokens = useGameStore.getState().roomTokens;
     const nextTokens = mergeRoomTokens(storedTokens ?? currentTokens, {
+      ...(inviteToken.personalInvite ? { personalInvite: inviteToken.personalInvite } : {}),
       ...(inviteToken.token && inviteToken.role === "spectator"
         ? { spectatorToken: inviteToken.token }
         : inviteToken.token
@@ -324,6 +328,7 @@ export function setupSessionResources({
               : {};
         return {
           role: "sync",
+          ...(state.roomTokens?.personalInvite ? { invite: state.roomTokens.personalInvite } : {}),
           ...tokenParam,
           ...(resolvedJoinToken ? { jt: resolvedJoinToken } : {}),
           ...(ensuredPlayerId ? { playerId: ensuredPlayerId } : {}),
@@ -379,6 +384,7 @@ export function setupSessionResources({
   const intentTransport = createIntentTransport({
     host: partyHost,
     room: sessionId,
+    personalInvite: useGameStore.getState().roomTokens?.personalInvite,
     token,
     tokenRole,
     playerId: ensuredPlayerId,
@@ -405,6 +411,13 @@ export function setupSessionResources({
       });
     },
     onMessage: (message) => {
+      if (message.type === "preloadDeck") {
+        const state = useGameStore.getState();
+        if (state.viewerRole === "player" && !state.players[ensuredPlayerId]?.deckLoaded) {
+          usePreloadDeckStore.getState().receive(sessionId, ensuredPlayerId, message.payload);
+        }
+        return;
+      }
       if (message.type === "ack") {
         const error = handleIntentAck(message, useGameStore.setState);
         if (error) {

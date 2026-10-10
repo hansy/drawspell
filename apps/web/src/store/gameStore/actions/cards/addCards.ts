@@ -12,7 +12,7 @@ export const createAddCards =
 
     const normalizedCards = cards.map((card) => normalizeCardForAdd(card));
 
-    dispatchIntent({
+    return dispatchIntent({
       type: "card.add.batch",
       payload: { cards: normalizedCards },
       applyLocal: (state) => {

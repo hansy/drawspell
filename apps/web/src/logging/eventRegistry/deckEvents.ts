@@ -14,6 +14,9 @@ const formatDeckUnload: LogEventDefinition<DeckPayload>["format"] = (payload, ct
 };
 
 export const deckEvents = {
+  "deck.load": {
+    format: (payload: DeckPayload, ctx) => [buildPlayerPart(ctx, payload.playerId), { kind: "text", text: " loaded a deck" }],
+  },
   "deck.reset": {
     format: formatDeckReset,
   },

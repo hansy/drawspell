@@ -1,3 +1,6 @@
+import type { DiscordRoomInternalProvisionPayload, DiscordRoomInternalProvisionResponse } from "@mtg/shared/discord/provisioning";
+import type { ProvisionRoomRequest } from "@mtg/shared/api/rooms";
+import { ROOM_PROVISION_METADATA_KEY, ROOM_SETTINGS_KEY, PRELOAD_ATTEMPTS_KEY, ProvisionError, type ProvisionMetadata } from "../rooms/provisioning";
 import type {
   DiscordRoomInviteMetadata,
   IntentConnectionState,
@@ -73,6 +76,8 @@ const hasInviteActivated = (metadata: DiscordRoomInviteMetadata): boolean =>
 
 export class RoomAdmission {
   private roomTokens: RoomTokens | null = null;
+  private initialization: Promise<unknown> = Promise.resolve();
+  private preloadMutation: Promise<unknown> = Promise.resolve();
   private playerResumeTokens: PlayerResumeTokens | null = null;
   private playerResumeTokensMutation: Promise<void> = Promise.resolve();
   private playerLeaveTokens: PlayerLeaveTokens | null = null;
@@ -113,11 +118,13 @@ export class RoomAdmission {
 
   async loadRoomTokens(): Promise<RoomTokens | null> {
     if (this.roomTokens) return this.roomTokens;
-    const stored = await this.storage.get<RoomTokens>(ROOM_TOKENS_KEY);
+    const provision = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
+    const legacy = await this.storage.get<DiscordRoomInviteMetadata & { tokens?: RoomTokens }>(DISCORD_INVITE_METADATA_KEY);
+    const stored = provision?.tokens ?? legacy?.tokens ?? await this.storage.get<RoomTokens>(ROOM_TOKENS_KEY);
     if (
       stored &&
       typeof stored.playerToken === "string" &&
-      typeof stored.spectatorToken === "string"
+      (stored.spectatorToken === undefined || typeof stored.spectatorToken === "string")
     ) {
       this.roomTokens = stored;
       return stored;
@@ -125,16 +132,136 @@ export class RoomAdmission {
     return null;
   }
 
+  private serializeInitialization<T>(operation: () => Promise<T>): Promise<T> {
+    const pending = this.initialization.then(operation);
+    this.initialization = pending.catch(() => undefined);
+    return pending;
+  }
+
+  async spectatorsEnabled(): Promise<boolean> {
+    const provision = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
+    if (provision) return provision.request.spectatorsEnabled;
+    const settings = await this.storage.get<{ spectatorsEnabled: boolean }>(ROOM_SETTINGS_KEY);
+    return settings?.spectatorsEnabled !== false;
+  }
+
   async ensureRoomTokens(): Promise<RoomTokens> {
-    const existing = await this.loadRoomTokens();
-    if (existing) return existing;
-    const generated = {
-      playerToken: this.generateToken(),
-      spectatorToken: this.generateToken(),
-    };
-    this.roomTokens = generated;
-    await this.storage.put(ROOM_TOKENS_KEY, generated);
-    return generated;
+    return this.serializeInitialization(async () => {
+      const provision = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
+      if (provision) {
+        this.roomTokens = provision.tokens;
+        return provision.tokens;
+      }
+      const existing = await this.loadRoomTokens();
+      if (existing) return existing;
+      const spectatorsEnabled = await this.spectatorsEnabled();
+      const generated = {
+        playerToken: this.generateToken(),
+        ...(spectatorsEnabled ? { spectatorToken: this.generateToken() } : {}),
+      };
+      await this.storage.put(ROOM_SETTINGS_KEY, { spectatorsEnabled });
+      await this.storage.put(ROOM_TOKENS_KEY, generated);
+      this.roomTokens = generated;
+      return generated;
+    });
+  }
+
+  async provisionLegacyDiscord(
+    roomId: string,
+    payload: DiscordRoomInternalProvisionPayload,
+  ): Promise<DiscordRoomInternalProvisionResponse> {
+    return this.serializeInitialization(async () => {
+      if (await this.storage.get(ROOM_PROVISION_METADATA_KEY)) {
+        throw new ProvisionError(409, "Room already exists");
+      }
+      const raw = await this.storage.get<unknown>(DISCORD_INVITE_METADATA_KEY);
+      const existing = isDiscordRoomInviteMetadata(raw) ? raw : null;
+      if (existing && existing.interactionId !== payload.interactionId) {
+        throw new ProvisionError(409, "Room creation conflicts with existing room");
+      }
+      if (!existing && (await this.loadRoomTokens() || await this.storage.get(ROOM_SETTINGS_KEY))) {
+        throw new ProvisionError(409, "Room already exists");
+      }
+      if (!existing && this.now() >= payload.inviteExpiresAt) {
+        throw new ProvisionError(410, "Room invitation expired");
+      }
+      const tokens = await this.loadRoomTokens() ?? {
+        playerToken: this.generateToken(),
+        spectatorToken: this.generateToken(),
+      };
+      if (!existing) {
+        const metadata: DiscordRoomInviteMetadata & { tokens: RoomTokens } = {
+          source: "discord", interactionId: payload.interactionId,
+          inviteExpiresAt: payload.inviteExpiresAt,
+          createdByDiscordUserId: payload.invokerDiscordUserId,
+          participantDiscordUserIds: payload.participantDiscordUserIds,
+          guildId: payload.guildId, channelId: payload.channelId, tokens,
+        };
+        // Persist credentials with legacy metadata too, so a failed second write
+        // cannot change invitations during a compatibility-route retry.
+        await this.storage.put(DISCORD_INVITE_METADATA_KEY, metadata);
+      }
+      this.roomTokens = tokens;
+      await this.storage.put(ROOM_TOKENS_KEY, tokens);
+      return {
+        roomId, playerToken: tokens.playerToken,
+        expiresAt: existing?.inviteExpiresAt ?? payload.inviteExpiresAt,
+        alreadyProvisioned: Boolean(existing),
+      };
+    });
+  }
+
+  async provision(payload: ProvisionRoomRequest): Promise<ProvisionMetadata> {
+    return this.serializeInitialization(async () => {
+      const existing = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
+      if (existing) {
+        if (existing.creationId !== payload.creationId || existing.activationExpiresAt !== payload.activationExpiresAt || JSON.stringify(existing.request) !== JSON.stringify(payload.request)) {
+          throw new ProvisionError(409, "Room creation conflicts with existing room");
+        }
+        if (!existing.activatedAt && this.now() >= existing.activationExpiresAt) throw new ProvisionError(410, "Room invitation expired");
+        return existing;
+      }
+      if (this.now() >= payload.activationExpiresAt) throw new ProvisionError(410, "Room invitation expired");
+      if (await this.loadRoomTokens() || await this.storage.get(ROOM_SETTINGS_KEY) || await this.storage.get(DISCORD_INVITE_METADATA_KEY)) {
+        throw new ProvisionError(409, "Room already exists");
+      }
+      const metadata: ProvisionMetadata = {
+        creationId: payload.creationId,
+        activationExpiresAt: payload.activationExpiresAt,
+        request: payload.request,
+        tokens: {
+          playerToken: this.generateToken(),
+          ...(payload.request.spectatorsEnabled ? { spectatorToken: this.generateToken() } : {}),
+        },
+        assignments: payload.request.players.map(player => ({ ...player, assignmentId: this.generateToken(), token: this.generateToken() })),
+      };
+      // This single durable record owns settings, assignments and tokens, including recovery
+      // after a timeout before the compatibility token record has been written.
+      await this.storage.put(ROOM_PROVISION_METADATA_KEY, metadata);
+      this.roomTokens = metadata.tokens;
+      await this.storage.put(ROOM_TOKENS_KEY, metadata.tokens);
+      return metadata;
+    });
+  }
+
+  async provisionExists(creationId: string): Promise<boolean> {
+    const metadata = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
+    return Boolean(metadata && metadata.creationId === creationId && (metadata.activatedAt || this.now() < metadata.activationExpiresAt));
+  }
+
+  async takePreload(playerId: string, invite: string | undefined, deckLoaded: boolean) {
+    const operation = this.preloadMutation.then(async () => {
+      if (!invite) return null;
+      const metadata = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
+      const assignment = metadata?.assignments.find(item => item.token === invite);
+      if (!assignment?.deck) return null;
+      const attempts = await this.storage.get<Record<string, string>>(PRELOAD_ATTEMPTS_KEY) ?? {};
+      if (attempts[playerId]) return null;
+      await this.storage.put(PRELOAD_ATTEMPTS_KEY, { ...attempts, [playerId]: assignment.assignmentId });
+      return deckLoaded ? null : { assignmentId: assignment.assignmentId, ...assignment.deck };
+    });
+    this.preloadMutation = operation.catch(() => undefined);
+    return operation;
   }
 
   async clearPendingDiscordInviteState() {
@@ -436,6 +563,25 @@ export class RoomAdmission {
     storedTokens: RoomTokens | null,
     options: { allowTokenCreation: boolean },
   ): Promise<ConnectionAuthWithResumeResult> {
+    const provision = await this.serializeInitialization(async () => {
+      const current = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
+      if (!current && !storedTokens && !state.token && !state.invite && state.playerId && state.viewerRole !== "spectator") {
+        await this.storage.put(ROOM_SETTINGS_KEY, { spectatorsEnabled: true });
+      }
+      return current;
+    });
+    if (provision) storedTokens = provision.tokens;
+    const spectatorsEnabled = await this.spectatorsEnabled();
+    if (!spectatorsEnabled && (state.viewerRole === "spectator" || (storedTokens?.spectatorToken && state.token === storedTokens.spectatorToken))) {
+      return { ok: false, reason: "invalid token" };
+    }
+    if (provision && !provision.activatedAt && this.now() >= provision.activationExpiresAt) {
+      return { ok: false, reason: "invalid token" };
+    }
+    if (state.invite) {
+      if (!provision?.assignments.some(assignment => assignment.token === state.invite)) return { ok: false, reason: "invalid token" };
+      state = { ...state, token: provision.tokens.playerToken };
+    }
     const inviteGate = await this.evaluateDiscordInviteForJoin();
     if (!inviteGate.allow) {
       return { ok: false, reason: inviteGate.reason };
@@ -447,7 +593,21 @@ export class RoomAdmission {
         | Promise<ConnectionAuthWithResumeResult>,
     ): Promise<ConnectionAuthWithResumeResult> => {
       const result = await resultOrPromise;
-      if (!result.ok || !inviteGate.pendingInvite) return result;
+      if (!result.ok) return result;
+      if (result.resolvedRole === "spectator" && !spectatorsEnabled) return { ok: false, reason: "invalid token" };
+      if (result.resolvedRole === "player" && provision && !provision.activatedAt) {
+        const activated = await this.serializeInitialization(async () => {
+          const current = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
+          if (!current || current.creationId !== provision.creationId) return false;
+          if (!current.activatedAt) {
+            if (this.now() >= current.activationExpiresAt) return false;
+            await this.storage.put(ROOM_PROVISION_METADATA_KEY, { ...current, activatedAt: this.now() });
+          }
+          return true;
+        });
+        if (!activated) return { ok: false, reason: "invalid token" };
+      }
+      if (!inviteGate.pendingInvite || result.resolvedRole !== "player") return result;
       try {
         await this.activateDiscordInvite(inviteGate.pendingInvite);
       } catch (error) {

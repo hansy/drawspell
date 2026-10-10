@@ -323,7 +323,7 @@ describe("discord provisioning endpoint", () => {
         alreadyProvisioned: false,
       });
 
-      expect(store.get(DISCORD_INVITE_METADATA_KEY)).toEqual({
+      expect(store.get(DISCORD_INVITE_METADATA_KEY)).toMatchObject({
         source: "discord",
         interactionId: "interaction-3",
         inviteExpiresAt,

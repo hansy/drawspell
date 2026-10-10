@@ -1,5 +1,4 @@
 {
-  // hello world
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "drawspell",
   "workers_dev": true,
@@ -11,12 +10,24 @@
   },
   "vars": {
     "VITE_ENV": "development",
+    "AUTH_URL": "https://ds.localhost",
+    "EMAIL_FROM": "support@drawspell.space",
   },
+  // IDs are omitted intentionally: Wrangler provisions missing bindings on deployment.
+  // For a controlled rollout, create each database and set its ID before applying migrations.
+  "d1_databases": [{ "binding": "DB", "database_name": "drawspell-developers-local", "migrations_dir": "migrations" }],
+  "send_email": [{ "name": "EMAIL" }],
+  "services": [{ "binding": "SERVER", "service": "drawspell-server" }],
   "env": {
     "staging": {
       "name": "drawspell-web-staging",
+      "d1_databases": [{ "binding": "DB", "database_name": "drawspell-developers-staging", "migrations_dir": "migrations" }],
+      "send_email": [{ "name": "EMAIL" }],
+      "services": [{ "binding": "SERVER", "service": "drawspell-server-staging" }],
       "vars": {
         "VITE_ENV": "staging",
+        "AUTH_URL": "https://staging.drawspell.space",
+        "EMAIL_FROM": "support@drawspell.space",
       },
       "routes": [
         {
@@ -27,8 +38,13 @@
     },
     "production": {
       "name": "drawspell-web-production",
+      "d1_databases": [{ "binding": "DB", "database_name": "drawspell-developers-production", "database_id": "92e58273-8e41-4653-b2c8-7cbca9d3a948", "migrations_dir": "migrations" }],
+      "send_email": [{ "name": "EMAIL" }],
+      "services": [{ "binding": "SERVER", "service": "drawspell-server-production" }],
       "vars": {
         "VITE_ENV": "production",
+        "AUTH_URL": "https://drawspell.space",
+        "EMAIL_FROM": "support@drawspell.space",
       },
       "routes": [
         {

@@ -1,3 +1,11 @@
+import { DISCORD_ROOM_PROVISION_PATH, type DiscordRoomInternalProvisionPayload } from "@mtg/shared/discord/provisioning";
+import {
+  createRoomIdFromSeed, DISCORD_INVITE_TTL_MS, DISCORD_REQUEST_ID_HEADER,
+  DISCORD_SERVICE_AUTH_HEADER, logDiscordProvisionEvent,
+  parseDiscordProvisionRequest, parseDiscordRoomProvisionPayload,
+  parseDiscordRoomProvisionResponse, resolveDiscordRequestId,
+  resolveDiscordServiceAuthSecret,
+} from "./discord/provisioning";
 import {
   routePartykitRequest,
   type Connection,
@@ -9,14 +17,10 @@ import * as Y from "yjs";
 import { RoomAnalyticsTracker } from "./analytics/roomAnalytics";
 
 import type { Card } from "@mtg/shared/types/cards";
-import {
-  DISCORD_ROOM_PROVISION_PATH,
-  type DiscordRoomInternalProvisionPayload,
-  type DiscordRoomInternalProvisionResponse,
-} from "@mtg/shared/discord/provisioning";
+import { ROOM_PROVISION_PATH, ROOM_PROVISION_STATUS_PATH, parseCreateRoomRequest } from "@mtg/shared/api/rooms";
+import { ROOM_PROVISION_METADATA_KEY, type ProvisionMetadata, isProvisionRequest, provisionResponse, ProvisionError, parseBearerToken, resolveDrawspellWebOrigin, resolveErrorMessage } from "./rooms/provisioning";
 
 import {
-  DISCORD_INVITE_METADATA_KEY,
   EMPTY_ROOM_STARTED_AT_KEY,
   HIDDEN_STATE_CARDS_PREFIX,
   HIDDEN_STATE_KEY,
@@ -24,7 +28,6 @@ import {
   ROOM_TOKENS_KEY,
 } from "./domain/constants";
 import type {
-  DiscordRoomInviteMetadata,
   HiddenState,
   HiddenStateMeta,
   Intent,
@@ -56,21 +59,6 @@ import {
   RoomAdmission,
   type ConnectionAuthWithResumeResult,
 } from "./connection/roomAdmission";
-import {
-  createRoomIdFromSeed,
-  DISCORD_INVITE_TTL_MS,
-  DISCORD_REQUEST_ID_HEADER,
-  DISCORD_SERVICE_AUTH_HEADER,
-  logDiscordProvisionEvent,
-  parseBearerToken,
-  parseDiscordProvisionRequest,
-  parseDiscordRoomProvisionPayload,
-  parseDiscordRoomProvisionResponse,
-  resolveDiscordRequestId,
-  resolveDiscordServiceAuthSecret,
-  resolveDrawspellWebOrigin,
-  resolveErrorMessage,
-} from "./discord/provisioning";
 import { validatePartyHandshake } from "./http/partyHandshake";
 import { OverlayService, type OverlayBuildResult } from "./overlay/service";
 import { SnapshotStore, type SnapshotMeta } from "./storage/snapshotStore";
@@ -146,7 +134,7 @@ type ConnectionLibraryView = {
 
 type ShareLinksPayload = {
   playerInviteUrl: string;
-  spectatorInviteUrl: string;
+  spectatorInviteUrl?: string;
   resumeInviteUrl?: string;
 };
 
@@ -282,6 +270,23 @@ const isNetworkConnectionLost = (error: unknown) => {
     message.trim().replace(/\.$/, "").toLowerCase() ===
     "network connection lost"
   );
+};
+
+const resolveProvisionSecret = (env: Env) => normalizeNonEmptyString((env as Env & { ROOM_PROVISION_SECRET?: string }).ROOM_PROVISION_SECRET);
+const handleRoomProvisioningRequest = async (request: Request, env: Env): Promise<Response> => {
+  if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
+  const secret = resolveProvisionSecret(env);
+  if (!secret) return new Response("Room provisioning is not configured", { status: 503 });
+  if (parseBearerToken(request.headers.get("authorization")) !== secret) return new Response("Unauthorized", { status: 401 });
+  let body: unknown;
+  try { body = await request.json(); } catch { return new Response("Invalid JSON", { status: 400 }); }
+  if (!body || typeof body !== "object") return new Response("Invalid request", { status: 400 });
+  const roomId = (body as { roomId?: unknown }).roomId;
+  if (typeof roomId !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(roomId)) return new Response("Invalid room", { status: 400 });
+  const stub = env.rooms.get(env.rooms.idFromName(roomId));
+  return stub.fetch(new Request(`https://internal${new URL(request.url).pathname}`, {
+    method: "POST", headers: { authorization: `Bearer ${secret}`, "content-type": "application/json", "x-partykit-room": roomId }, body: JSON.stringify(body),
+  }));
 };
 
 const handleDiscordRoomProvisioningRequest = async (
@@ -592,12 +597,13 @@ export default {
       if (url.pathname === ROOM_LEAVE_PATH) {
         return handleRoomLeaveRequest(request, env);
       }
+      // Retained for one compatibility release while deployed Discord migrates.
       if (url.pathname === DISCORD_ROOM_PROVISION_PATH) {
-        if (request.method !== "POST") {
-          return new Response("Method not allowed", { status: 405 });
-        }
-
+        if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
         return handleDiscordRoomProvisioningRequest(request, env);
+      }
+      if (url.pathname === ROOM_PROVISION_PATH || url.pathname === ROOM_PROVISION_STATUS_PATH) {
+        return handleRoomProvisioningRequest(request, env);
       }
       const isWsUpgrade =
         request.headers.get("Upgrade")?.toLowerCase() === "websocket";
@@ -827,97 +833,48 @@ export class Room extends YServer<Env> {
     if (url.pathname === ROOM_ADMIN_INTERNAL_REPAIR_PATH) {
       return this.handleRoomAdminRequest(request, "repair");
     }
-    if (url.pathname !== DISCORD_ROOM_PROVISION_PATH) {
-      return new Response("Not Found", { status: 404 });
+    if (url.pathname === DISCORD_ROOM_PROVISION_PATH) {
+      if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
+      const secret = resolveDiscordServiceAuthSecret(this.env);
+      if (!secret) return new Response("Discord service auth is not configured", { status: 500 });
+      if (request.headers.get(DISCORD_SERVICE_AUTH_HEADER) !== secret) return new Response("Unauthorized", { status: 401 });
+      let raw: unknown;
+      try { raw = await request.json(); } catch { return new Response("Invalid JSON body", { status: 400 }); }
+      const payload = parseDiscordRoomProvisionPayload(raw);
+      if (!payload) return new Response("Invalid request body", { status: 400 });
+      try {
+        return Response.json(await this.admission.provisionLegacyDiscord(this.name, payload));
+      } catch (error) {
+        if (error instanceof ProvisionError) return new Response(error.message, { status: error.status });
+        throw error;
+      }
     }
-    if (request.method !== "POST") {
-      return new Response("Method not allowed", { status: 405 });
+    if (url.pathname !== ROOM_PROVISION_PATH && url.pathname !== ROOM_PROVISION_STATUS_PATH) return new Response("Not Found", { status: 404 });
+    if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
+    const secret = resolveProvisionSecret(this.env);
+    if (!secret) return new Response("Room provisioning is not configured", { status: 503 });
+    if (parseBearerToken(request.headers.get("authorization")) !== secret) return new Response("Unauthorized", { status: 401 });
+    let body: unknown;
+    try { body = await request.json(); } catch { return new Response("Invalid JSON", { status: 400 }); }
+    if (!body || typeof body !== "object" || (body as { roomId?: unknown }).roomId !== this.name) return new Response("Invalid room", { status: 400 });
+    if (url.pathname === ROOM_PROVISION_STATUS_PATH) {
+      const creationId = (body as { creationId?: unknown }).creationId;
+      if (typeof creationId !== "string" || !creationId) return new Response("Invalid creation", { status: 400 });
+      return Response.json({ exists: await this.admission.provisionExists(creationId) });
     }
-    const requestId = resolveDiscordRequestId(request);
-    logDiscordProvisionEvent("room_request_received", {
-      requestId,
-      roomId: this.name,
-    });
-
-    const serviceSecret = resolveDiscordServiceAuthSecret(this.env);
-    if (!serviceSecret) {
-      logDiscordProvisionEvent("room_missing_service_secret", {
-        requestId,
-        roomId: this.name,
-      });
-      return new Response("Discord service auth is not configured", {
-        status: 500,
-      });
-    }
-    const providedSecret = normalizeNonEmptyString(
-      request.headers.get(DISCORD_SERVICE_AUTH_HEADER),
-    );
-    if (!providedSecret || providedSecret !== serviceSecret) {
-      logDiscordProvisionEvent("room_unauthorized", {
-        requestId,
-        roomId: this.name,
-      });
-      return new Response("Unauthorized", { status: 401 });
-    }
-
-    let rawBody: unknown;
+    if (!isProvisionRequest(body)) return new Response("Invalid request", { status: 400 });
+    const normalized = parseCreateRoomRequest(body.request);
+    if (!normalized) return new Response("Invalid request", { status: 400 });
+    const origin = resolveDrawspellWebOrigin(this.env);
+    if (!origin) return new Response("Web origin is not configured", { status: 503 });
     try {
-      rawBody = await request.json();
-    } catch (_err) {
-      logDiscordProvisionEvent("room_invalid_json_body", {
-        requestId,
-        roomId: this.name,
-      });
-      return new Response("Invalid JSON body", { status: 400 });
+      const metadata = await this.admission.provision({ ...body, request: normalized });
+      if (!metadata.activatedAt) await this.setEmptyRoomAlarm(metadata.activationExpiresAt);
+      return Response.json(provisionResponse(this.name, origin, metadata), { headers: { "cache-control": "no-store" } });
+    } catch (error) {
+      if (error instanceof ProvisionError) return new Response(error.message, { status: error.status });
+      throw error;
     }
-    const payload = parseDiscordRoomProvisionPayload(rawBody);
-    if (!payload) {
-      logDiscordProvisionEvent("room_invalid_request_body", {
-        requestId,
-        roomId: this.name,
-      });
-      return new Response("Invalid request body", { status: 400 });
-    }
-
-    const existingMetadataRaw = await this.ctx.storage.get<unknown>(
-      DISCORD_INVITE_METADATA_KEY,
-    );
-    const existingMetadata = this.isDiscordRoomInviteMetadata(
-      existingMetadataRaw,
-    )
-      ? existingMetadataRaw
-      : null;
-    const alreadyProvisioned =
-      existingMetadata?.interactionId === payload.interactionId;
-    const tokens = await this.ensureRoomTokens();
-    if (!alreadyProvisioned) {
-      const inviteMetadata: DiscordRoomInviteMetadata = {
-        source: "discord",
-        interactionId: payload.interactionId,
-        inviteExpiresAt: payload.inviteExpiresAt,
-        createdByDiscordUserId: payload.invokerDiscordUserId,
-        participantDiscordUserIds: payload.participantDiscordUserIds,
-        guildId: payload.guildId,
-        channelId: payload.channelId,
-      };
-      await this.ctx.storage.put(DISCORD_INVITE_METADATA_KEY, inviteMetadata);
-    }
-    logDiscordProvisionEvent("room_request_succeeded", {
-      requestId,
-      roomId: this.name,
-      interactionId: payload.interactionId,
-      participants: payload.participantDiscordUserIds.length,
-      alreadyProvisioned,
-    });
-
-    return Response.json({
-      roomId: this.name,
-      playerToken: tokens.playerToken,
-      expiresAt: alreadyProvisioned
-        ? (existingMetadata?.inviteExpiresAt ?? payload.inviteExpiresAt)
-        : payload.inviteExpiresAt,
-      alreadyProvisioned,
-    } satisfies DiscordRoomInternalProvisionResponse);
   }
 
   private async handleRoomAdminRequest(
@@ -1303,6 +1260,15 @@ export class Room extends YServer<Env> {
   }
 
   async alarm() {
+    const metadata = await this.ctx.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
+    if (metadata && !metadata.activatedAt) {
+      if (Date.now() < metadata.activationExpiresAt) {
+        await this.setEmptyRoomAlarm(metadata.activationExpiresAt);
+      } else {
+        await this.teardownRoomIfEmpty(this.teardownGeneration);
+      }
+      return;
+    }
     await this.handleEmptyRoomAlarm();
   }
 
@@ -1952,20 +1918,6 @@ export class Room extends YServer<Env> {
     return this.admission.ensureRoomTokens();
   }
 
-  private isDiscordRoomInviteMetadata(
-    value: unknown,
-  ): value is DiscordRoomInviteMetadata {
-    if (!value || typeof value !== "object") return false;
-    const record = value as Record<string, unknown>;
-    return (
-      record.source === "discord" &&
-      typeof record.interactionId === "string" &&
-      record.interactionId.trim().length > 0 &&
-      typeof record.inviteExpiresAt === "number" &&
-      Number.isFinite(record.inviteExpiresAt)
-    );
-  }
-
   private async ensurePlayerResumeToken(
     playerId: string,
     options?: { rotate?: boolean },
@@ -2091,9 +2043,9 @@ export class Room extends YServer<Env> {
           playerInviteUrl: this.buildRoomInviteUrl(webOrigin, {
             tokenParam: { name: "gt", value: tokens.playerToken },
           }),
-          spectatorInviteUrl: this.buildRoomInviteUrl(webOrigin, {
+          ...(tokens.spectatorToken ? { spectatorInviteUrl: this.buildRoomInviteUrl(webOrigin, {
             tokenParam: { name: "st", value: tokens.spectatorToken },
-          }),
+          }) } : {}),
           resumeInviteUrl: this.buildRoomInviteUrl(webOrigin, {
             tokenParam: { name: "rt", value: resumeToken },
             playerId,
@@ -3375,6 +3327,12 @@ export class Room extends YServer<Env> {
         rejectConnection("internal error", 1011);
         return;
       }
+    }
+
+    if (resolvedRole === "player" && resolvedPlayerId) {
+      const player = getMaps(this.document).players.get(resolvedPlayerId) as { deckLoaded?: boolean } | undefined;
+      const preload = await this.admission.takePreload(resolvedPlayerId, state.invite, player?.deckLoaded === true);
+      if (preload && !this.isConnectionClosed(conn)) conn.send(JSON.stringify({ type: "preloadDeck", payload: preload }));
     }
 
     if (auth.resumed && resolvedRole === "player" && resolvedPlayerId) {

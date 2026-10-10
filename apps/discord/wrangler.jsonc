@@ -7,8 +7,8 @@
   },
   "services": [
     {
-      "binding": "SERVER",
-      "service": "drawspell-server-development",
+      "binding": "API",
+      "service": "drawspell",
     },
   ],
   "env": {
@@ -19,8 +19,8 @@
       },
       "services": [
         {
-          "binding": "SERVER",
-          "service": "drawspell-server-production",
+          "binding": "API",
+          "service": "drawspell-web-production",
         },
       ],
       "routes": [

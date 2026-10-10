@@ -6,6 +6,7 @@ import {
   handleIntentAck,
   resetIntentState,
   setAuthoritativeState,
+  waitForIntentAcknowledgement,
 } from "../gameStore/dispatchIntent";
 import { sendIntent } from "@/partykit/intentTransport";
 import { toast } from "sonner";
@@ -34,6 +35,36 @@ describe("dispatchIntent", () => {
     sendIntentMock.mockClear();
     sendIntentMock.mockReturnValue(true);
     warningToastMock.mockClear();
+  });
+
+  it("resolves only the matching acknowledged import intent", async () => {
+    const setState = vi.fn();
+    const dispatch = createIntentDispatcher(setState);
+    const importId = dispatch({ type: "card.add.batch", payload: { cards: [] } });
+    const unrelatedId = dispatch({ type: "player.update", payload: {} });
+    const settled = vi.fn();
+    const waiting = waitForIntentAcknowledgement(importId).then(settled);
+    handleIntentAck({ type: "ack", intentId: unrelatedId!, ok: true }, setState);
+    await Promise.resolve();
+    expect(settled).not.toHaveBeenCalled();
+    handleIntentAck({ type: "ack", intentId: importId!, ok: true }, setState);
+    await waiting;
+    expect(settled).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects the import acknowledgement when the server rejects its batch", async () => {
+    const setState = vi.fn();
+    const intentId = createIntentDispatcher(setState)({ type: "card.add.batch", payload: { cards: [] } });
+    const waiting = waitForIntentAcknowledgement(intentId);
+    const assertion = expect(waiting).rejects.toThrow("Rejected batch");
+    handleIntentAck({ type: "ack", intentId: intentId!, ok: false, error: "Rejected batch" }, setState);
+    await assertion;
+  });
+
+  it("rejects an import that could not be sent", async () => {
+    sendIntentMock.mockReturnValueOnce(false);
+    const intentId = createIntentDispatcher(vi.fn())({ type: "deck.load", payload: {} });
+    await expect(waitForIntentAcknowledgement(intentId)).rejects.toThrow("Connecting to multiplayer");
   });
 
   it("attaches the current starting anchor to a first placement, including batch adds without an explicit actor", () => {

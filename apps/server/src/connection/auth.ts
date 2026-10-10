@@ -78,6 +78,7 @@ export const parseConnectionParams = (url: URL): IntentConnectionState => {
     playerId,
     viewerRole,
     token,
+    invite: getFirstSearchParam(searchParams, ["invite"]),
     userId,
     resumeToken,
     connectionGroupId,

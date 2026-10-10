@@ -1,0 +1,21 @@
+{
+  "name": "@mtg/auth",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "better-auth": "1.7.7",
+    "@better-auth/api-key": "1.7.7",
+    "drizzle-orm": "0.45.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251202.0",
+    "typescript": "^5.7.2"
+  },
+  "scripts": {
+    "test": "bun test src",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

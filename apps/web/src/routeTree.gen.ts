@@ -11,9 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TosRouteImport } from './routes/tos'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as DocsRouteImport } from './routes/docs'
+import { Route as DeveloperRouteImport } from './routes/developer'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RoomsSessionIdRouteImport } from './routes/rooms.$sessionId'
 import { Route as DiscordInstallRouteImport } from './routes/discord.install'
+import { Route as DeveloperLoginRouteImport } from './routes/developer.login'
+import { Route as ApiV1RoomsRouteImport } from './routes/api.v1.rooms'
+import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
 
 const TosRoute = TosRouteImport.update({
   id: '/tos',
@@ -23,6 +28,16 @@ const TosRoute = TosRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeveloperRoute = DeveloperRouteImport.update({
+  id: '/developer',
+  path: '/developer',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -40,54 +55,108 @@ const DiscordInstallRoute = DiscordInstallRouteImport.update({
   path: '/discord/install',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DeveloperLoginRoute = DeveloperLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => DeveloperRoute,
+} as any)
+const ApiV1RoomsRoute = ApiV1RoomsRouteImport.update({
+  id: '/api/v1/rooms',
+  path: '/api/v1/rooms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/developer': typeof DeveloperRouteWithChildren
+  '/docs': typeof DocsRoute
   '/privacy': typeof PrivacyRoute
   '/tos': typeof TosRoute
+  '/developer/login': typeof DeveloperLoginRoute
   '/discord/install': typeof DiscordInstallRoute
   '/rooms/$sessionId': typeof RoomsSessionIdRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/v1/rooms': typeof ApiV1RoomsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/developer': typeof DeveloperRouteWithChildren
+  '/docs': typeof DocsRoute
   '/privacy': typeof PrivacyRoute
   '/tos': typeof TosRoute
+  '/developer/login': typeof DeveloperLoginRoute
   '/discord/install': typeof DiscordInstallRoute
   '/rooms/$sessionId': typeof RoomsSessionIdRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/v1/rooms': typeof ApiV1RoomsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/developer': typeof DeveloperRouteWithChildren
+  '/docs': typeof DocsRoute
   '/privacy': typeof PrivacyRoute
   '/tos': typeof TosRoute
+  '/developer/login': typeof DeveloperLoginRoute
   '/discord/install': typeof DiscordInstallRoute
   '/rooms/$sessionId': typeof RoomsSessionIdRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/v1/rooms': typeof ApiV1RoomsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/developer'
+    | '/docs'
     | '/privacy'
     | '/tos'
+    | '/developer/login'
     | '/discord/install'
     | '/rooms/$sessionId'
+    | '/api/auth/$'
+    | '/api/v1/rooms'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/privacy' | '/tos' | '/discord/install' | '/rooms/$sessionId'
+  to:
+    | '/'
+    | '/developer'
+    | '/docs'
+    | '/privacy'
+    | '/tos'
+    | '/developer/login'
+    | '/discord/install'
+    | '/rooms/$sessionId'
+    | '/api/auth/$'
+    | '/api/v1/rooms'
   id:
     | '__root__'
     | '/'
+    | '/developer'
+    | '/docs'
     | '/privacy'
     | '/tos'
+    | '/developer/login'
     | '/discord/install'
     | '/rooms/$sessionId'
+    | '/api/auth/$'
+    | '/api/v1/rooms'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DeveloperRoute: typeof DeveloperRouteWithChildren
+  DocsRoute: typeof DocsRoute
   PrivacyRoute: typeof PrivacyRoute
   TosRoute: typeof TosRoute
   DiscordInstallRoute: typeof DiscordInstallRoute
   RoomsSessionIdRoute: typeof RoomsSessionIdRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiV1RoomsRoute: typeof ApiV1RoomsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -104,6 +173,20 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/developer': {
+      id: '/developer'
+      path: '/developer'
+      fullPath: '/developer'
+      preLoaderRoute: typeof DeveloperRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -127,15 +210,52 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DiscordInstallRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/developer/login': {
+      id: '/developer/login'
+      path: '/login'
+      fullPath: '/developer/login'
+      preLoaderRoute: typeof DeveloperLoginRouteImport
+      parentRoute: typeof DeveloperRoute
+    }
+    '/api/v1/rooms': {
+      id: '/api/v1/rooms'
+      path: '/api/v1/rooms'
+      fullPath: '/api/v1/rooms'
+      preLoaderRoute: typeof ApiV1RoomsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface DeveloperRouteChildren {
+  DeveloperLoginRoute: typeof DeveloperLoginRoute
+}
+
+const DeveloperRouteChildren: DeveloperRouteChildren = {
+  DeveloperLoginRoute: DeveloperLoginRoute,
+}
+
+const DeveloperRouteWithChildren = DeveloperRoute._addFileChildren(
+  DeveloperRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DeveloperRoute: DeveloperRouteWithChildren,
+  DocsRoute: DocsRoute,
   PrivacyRoute: PrivacyRoute,
   TosRoute: TosRoute,
   DiscordInstallRoute: DiscordInstallRoute,
   RoomsSessionIdRoute: RoomsSessionIdRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiV1RoomsRoute: ApiV1RoomsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

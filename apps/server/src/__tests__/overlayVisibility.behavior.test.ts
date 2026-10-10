@@ -2390,10 +2390,14 @@ describe("server migration behavior", () => {
 
     expect(allowed.ok).toBe(true);
     if (allowed.ok) {
-      expect(allowed.logEvents).toHaveLength(0);
+      expect(allowed.logEvents).toEqual([{ eventId: "deck.load", payload: { actorId: "p1", playerId: "p1" } }]);
     }
     const player = doc.getMap("players").get("p1") as Player;
     expect(player.deckLoaded).toBe(true);
+    const repeated = applyIntentToDoc(doc, { id: "repeat-load", type: "deck.load", payload: { actorId: "p1", playerId: "p1" } }, hidden);
+    expect(repeated).toMatchObject({ ok: true, logEvents: [] });
+    const missing = applyIntentToDoc(doc, { id: "missing-player", type: "deck.load", payload: { actorId: "missing", playerId: "missing" } }, hidden);
+    expect(missing.ok).toBe(false);
   });
 
   it("resets decks by clearing zones, reveals, and top reveal state", () => {

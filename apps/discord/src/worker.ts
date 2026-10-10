@@ -4,10 +4,9 @@ import {
   MessageFlags,
 } from "discord-api-types/v10";
 import {
-  DISCORD_ROOM_PROVISION_PATH,
-  type DiscordRoomProvisionRequest,
-  type DiscordRoomProvisionResponse,
-} from "@mtg/shared/discord/provisioning";
+  CREATE_ROOM_PATH,
+  type CreateRoomResponse,
+} from "@mtg/shared/api/rooms";
 import { verifyKey } from "discord-interactions";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -58,10 +57,11 @@ const interactionTypeSchema = z.object({
 
 const provisionResponseSchema = z.object({
   roomId: z.string().trim().min(1),
-  playerToken: z.string().trim().min(1),
   playerInviteUrl: z.string().trim().min(1),
-  expiresAt: z.number(),
-  alreadyProvisioned: z.boolean(),
+  spectatorsEnabled: z.boolean(),
+  activationExpiresAt: z.string(),
+  spectatorInviteUrl: z.string().optional(),
+  players: z.array(z.object({ externalId: z.string(), joinUrl: z.string() })),
 });
 
 const createDmChannelResponseSchema = z.object({
@@ -177,44 +177,27 @@ const resolveRoomRecipients = (
   };
 };
 
-const createProvisionRequest = (
-  interaction: ParsedInteraction,
-  invoker: DiscordUser,
-  recipientIds: string[],
-): DiscordRoomProvisionRequest => ({
-  interactionId: interaction.id,
-  guildId: interaction.guild_id ?? "unknown-guild",
-  channelId: interaction.channel_id ?? "unknown-channel",
-  invokerDiscordUserId: invoker.id,
-  participantDiscordUserIds: recipientIds,
-});
-
-const provisioningServerHost = (nodeEnv: string): string =>
-  nodeEnv === "development"
-    ? "drawspell-server-development"
-    : "drawspell-server-production";
-
 const callProvisioningEndpoint = async (
   input: {
-    SERVER: Env["SERVER"];
-    NODE_ENV: string;
-    DISCORD_SERVICE_AUTH_SECRET: string;
+    API: Env["API"];
+    DRAWSPELL_API_KEY: string;
     requestId: string;
+    interactionId: string;
   },
-  requestBody: DiscordRoomProvisionRequest,
-): Promise<DiscordRoomProvisionResponse> => {
+): Promise<CreateRoomResponse & { alreadyProvisioned: boolean }> => {
   let response: Response;
   try {
-    response = await input.SERVER.fetch(
-      `https://${provisioningServerHost(input.NODE_ENV)}${DISCORD_ROOM_PROVISION_PATH}`,
+    response = await input.API.fetch(
+      `https://drawspell-api${CREATE_ROOM_PATH}`,
       {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          authorization: `Bearer ${input.DISCORD_SERVICE_AUTH_SECRET}`,
+          authorization: `Bearer ${input.DRAWSPELL_API_KEY}`,
           [DISCORD_REQUEST_ID_HEADER]: input.requestId,
+          "Idempotency-Key": `discord:${input.interactionId}`,
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({}),
       },
     );
   } catch (error) {
@@ -235,7 +218,7 @@ const callProvisioningEndpoint = async (
     );
   }
   try {
-    return provisionResponseSchema.parse(raw);
+    return { ...provisionResponseSchema.parse(raw), alreadyProvisioned: response.headers.get("Idempotency-Replayed") === "true" };
   } catch (error) {
     throw new Error(
       `Provisioning response schema parse failed: ${errorMessage(error)}`,
@@ -426,7 +409,7 @@ app.post("/interactions", async (c) => {
   const discordBotToken = readRequiredSecret(c.env, "DISCORD_BOT_TOKEN");
   const serviceAuthSecret = readRequiredSecret(
     c.env,
-    "DISCORD_SERVICE_AUTH_SECRET",
+    "DRAWSPELL_API_KEY",
   );
   if (!discordPublicKey || !discordBotToken || !serviceAuthSecret) {
     logInteractionEvent("misconfigured_env", {
@@ -541,11 +524,6 @@ app.post("/interactions", async (c) => {
   const roomRecipients = recipientResolution.recipients;
   const recipientIds = roomRecipients.map((recipient) => recipient.userId);
   const recipientNames = roomRecipients.map((recipient) => recipient.displayName);
-  const provisioningPayload = createProvisionRequest(
-    interaction,
-    invoker,
-    recipientIds,
-  );
   logInteractionEvent("provisioning_request_started", {
     requestId,
     interactionId: interaction.id,
@@ -554,16 +532,15 @@ app.post("/interactions", async (c) => {
     participants: recipientIds.length,
   });
 
-  let provisionedRoom: DiscordRoomProvisionResponse;
+  let provisionedRoom: CreateRoomResponse & { alreadyProvisioned: boolean };
   try {
     provisionedRoom = await callProvisioningEndpoint(
       {
-        SERVER: c.env.SERVER,
-        NODE_ENV: c.env.NODE_ENV,
-        DISCORD_SERVICE_AUTH_SECRET: serviceAuthSecret,
+        API: c.env.API,
+        DRAWSPELL_API_KEY: serviceAuthSecret,
         requestId,
+        interactionId: interaction.id,
       },
-      provisioningPayload,
     );
     logInteractionEvent("provisioning_request_succeeded", {
       requestId,

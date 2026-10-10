@@ -10,6 +10,9 @@ import {
 } from "@/services/deck-import/deckImport";
 import { curatedDecks, type CuratedDeck } from "@/data/curatedDecks";
 import { useGameStore } from "@/store/gameStore";
+import { usePreloadDeckStore } from "@/store/preloadDeckStore";
+import { waitForIntentAcknowledgement } from "@/store/gameStore/dispatchIntent";
+import { getIntentConnectionMeta } from "@/partykit/intentTransport";
 import { getYDocHandles, getYProvider } from "@/yjs/docManager";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
 import {
@@ -35,6 +38,11 @@ export const useLoadDeckController = ({
   const [prefilledFromLastImport, setPrefilledFromLastImport] = React.useState(false);
   const [selectedCuratedDeckId, setSelectedCuratedDeckId] = React.useState<string | null>(null);
 
+  const preload = usePreloadDeckStore((state) => state.pending);
+  const sessionId = useGameStore((state) => state.sessionId);
+  const matchingPreload =
+    preload?.sessionId === sessionId && preload.playerId === playerId ? preload : null;
+
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
   const wasOpenRef = React.useRef(false);
 
@@ -58,6 +66,11 @@ export const useLoadDeckController = ({
 
     setError(null);
 
+    if (matchingPreload && !matchingPreload.started) {
+      setImportText(matchingPreload.decklist);
+      setPrefilledFromLastImport(false);
+      return;
+    }
     const stored = (lastImportedDeckText ?? "").trim();
     if (stored) {
       setImportText(stored);
@@ -70,7 +83,7 @@ export const useLoadDeckController = ({
       setPrefilledFromLastImport(false);
       setTimeout(() => textareaRef.current?.focus(), 0);
     }
-  }, [isOpen, lastImportedDeckText]);
+  }, [isOpen, lastImportedDeckText, matchingPreload]);
 
   const handleImportTextChange = React.useCallback(
     (next: string) => {
@@ -119,30 +132,32 @@ export const useLoadDeckController = ({
           string,
           (typeof planned.chunks)[number][number]["zoneType"]
         >();
-        planned.chunks.forEach((chunk) => {
+        for (const chunk of planned.chunks) {
           chunk.forEach(({ zoneId, zoneType }) => {
             if (!zones[zoneId] && !missingZones.has(zoneId)) {
               missingZones.set(zoneId, zoneType);
             }
           });
-        });
-
-        if (missingZones.size) {
-          missingZones.forEach((zoneType, zoneId) => {
-            addZone({ id: zoneId, ownerId: playerId, type: zoneType, cardIds: [] });
-          });
         }
 
-        planned.chunks.forEach((chunk) => {
+        if (missingZones.size) {
+          for (const [zoneId, zoneType] of missingZones) {
+            await waitForIntentAcknowledgement(
+              addZone({ id: zoneId, ownerId: playerId, type: zoneType, cardIds: [] })
+            );
+          }
+        }
+
+        for (const chunk of planned.chunks) {
           const batch = chunk.map(({ cardData, zoneId }) =>
             createCardFromImport(cardData, playerId, zoneId)
           );
-          addCards(batch);
-        });
+          await waitForIntentAcknowledgement(addCards(batch));
+        }
 
         updatePlayer(playerId, { life: planned.startingLife }, playerId);
-        setDeckLoaded(playerId, true);
         shuffleLibrary(playerId, playerId);
+        await waitForIntentAcknowledgement(setDeckLoaded(playerId, true));
 
         toast.success("Deck successfully loaded");
         if (options?.saveAsLastImport !== false) {
@@ -171,6 +186,21 @@ export const useLoadDeckController = ({
       zones,
     ]
   );
+
+  React.useEffect(() => {
+    if (!isOpen || !matchingPreload || matchingPreload.started || isImporting || viewerRole === "spectator") return;
+    const attempt = () => {
+      if (!players[playerId] || !getIntentConnectionMeta().isOpen) return;
+      if (!isMultiplayerProviderReady({ handles: getYDocHandles(), provider: getYProvider() })) return;
+      if (!usePreloadDeckStore.getState().start(matchingPreload.assignmentId)) return;
+      if (players[playerId].deckLoaded) return;
+      setImportText(matchingPreload.decklist);
+      void importDeckText(matchingPreload.decklist);
+    };
+    attempt();
+    const timer = setInterval(attempt, 250);
+    return () => clearInterval(timer);
+  }, [isOpen, matchingPreload, isImporting, viewerRole, players, playerId, importDeckText]);
 
   const handleImport = React.useCallback(async () => {
     const selectedCuratedDeck = selectedCuratedDeckId

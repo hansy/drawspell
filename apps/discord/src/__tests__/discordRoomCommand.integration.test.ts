@@ -17,8 +17,8 @@ type TestEnv = {
   NODE_ENV: string;
   DISCORD_PUBLIC_KEY: string;
   DISCORD_BOT_TOKEN: string;
-  DISCORD_SERVICE_AUTH_SECRET: string;
-  SERVER: ServiceBinding;
+  DRAWSPELL_API_KEY: string;
+  API: ServiceBinding;
 };
 
 const createInteractionHeaders = (overrides?: Record<string, string>) => ({
@@ -75,8 +75,8 @@ describe("discord /drawspell create", () => {
       NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
-      DISCORD_SERVICE_AUTH_SECRET: "service-secret",
-      SERVER: { fetch: serverFetch },
+      DRAWSPELL_API_KEY: "service-secret",
+      API: { fetch: serverFetch },
     };
 
     const response = await worker.fetch(
@@ -106,8 +106,8 @@ describe("discord /drawspell create", () => {
       NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
-      DISCORD_SERVICE_AUTH_SECRET: "service-secret",
-      SERVER: { fetch: serverFetch },
+      DRAWSPELL_API_KEY: "service-secret",
+      API: { fetch: serverFetch },
     };
 
     const response = await worker.fetch(
@@ -133,8 +133,8 @@ describe("discord /drawspell create", () => {
       NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
-      DISCORD_SERVICE_AUTH_SECRET: "service-secret",
-      SERVER: { fetch: serverFetch },
+      DRAWSPELL_API_KEY: "service-secret",
+      API: { fetch: serverFetch },
     };
 
     const response = await worker.fetch(
@@ -159,18 +159,19 @@ describe("discord /drawspell create", () => {
       async (_input: Request | URL | string, _init?: RequestInit) =>
       Response.json({
         roomId: "room-abc",
-        playerToken: "player-token-abc",
         playerInviteUrl: "https://drawspell.space/rooms/room-abc?gt=player-token-abc",
-        expiresAt: Date.now() + 600_000,
-        alreadyProvisioned: false,
+        activationExpiresAt: new Date(Date.now() + 600_000).toISOString(),
+        spectatorsEnabled: true,
+        players: [],
+
       }),
     );
     const env: TestEnv = {
       NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
-      DISCORD_SERVICE_AUTH_SECRET: "service-secret",
-      SERVER: { fetch: serverFetch },
+      DRAWSPELL_API_KEY: "service-secret",
+      API: { fetch: serverFetch },
     };
 
     const discordFetch = vi.fn(async (input: Request | URL | string, init?: RequestInit) => {
@@ -206,20 +207,10 @@ describe("discord /drawspell create", () => {
 
     expect(serverFetch).toHaveBeenCalledTimes(1);
     const provisionInit = serverFetch.mock.calls[0]![1] as RequestInit;
-    const provisionBody = JSON.parse(String(provisionInit.body)) as {
-      interactionId: string;
-      participantDiscordUserIds: string[];
-      invokerDiscordUserId: string;
-      guildId: string;
-      channelId: string;
-    };
-    expect(provisionBody).toEqual({
-      interactionId: "interaction-1",
-      guildId: "guild-1",
-      channelId: "channel-1",
-      invokerDiscordUserId: "user-1",
-      participantDiscordUserIds: ["user-1"],
-    });
+    expect(JSON.parse(String(provisionInit.body))).toEqual({});
+    expect(serverFetch.mock.calls[0]![0]).toBe("https://drawspell-api/api/v1/rooms");
+    expect(new Headers(provisionInit.headers).get("Authorization")).toBe("Bearer service-secret");
+    expect(new Headers(provisionInit.headers).get("Idempotency-Key")).toBe("discord:interaction-1");
 
     expect(discordFetch).toHaveBeenCalledTimes(2);
     const dmMessageInit = discordFetch.mock.calls[1][1] as RequestInit;
@@ -242,18 +233,19 @@ describe("discord /drawspell create", () => {
       async (_input: Request | URL | string, _init?: RequestInit) =>
       Response.json({
         roomId: "room-xyz",
-        playerToken: "player-token-xyz",
         playerInviteUrl: "https://drawspell.space/rooms/room-xyz?gt=player-token-xyz",
-        expiresAt: Date.now() + 600_000,
-        alreadyProvisioned: false,
+        activationExpiresAt: new Date(Date.now() + 600_000).toISOString(),
+        spectatorsEnabled: true,
+        players: [],
+
       }),
     );
     const env: TestEnv = {
       NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
-      DISCORD_SERVICE_AUTH_SECRET: "service-secret",
-      SERVER: { fetch: serverFetch },
+      DRAWSPELL_API_KEY: "service-secret",
+      API: { fetch: serverFetch },
     };
 
     const dmMessageBodies: string[] = [];
@@ -313,14 +305,7 @@ describe("discord /drawspell create", () => {
     expect(response.status).toBe(200);
     expect(serverFetch).toHaveBeenCalledTimes(1);
     const provisionInit = serverFetch.mock.calls[0]![1] as RequestInit;
-    const provisionBody = JSON.parse(String(provisionInit.body)) as {
-      participantDiscordUserIds: string[];
-    };
-    expect(provisionBody.participantDiscordUserIds).toEqual([
-      "user-1",
-      "user-2",
-      "user-3",
-    ]);
+    expect(JSON.parse(String(provisionInit.body))).toEqual({});
 
     expect(dmMessageBodies).toHaveLength(3);
     expect(new Set(dmMessageBodies).size).toBe(1);
@@ -341,18 +326,19 @@ describe("discord /drawspell create", () => {
       async (_input: Request | URL | string, _init?: RequestInit) =>
       Response.json({
         roomId: "room-prune",
-        playerToken: "player-token-prune",
         playerInviteUrl: "https://drawspell.space/rooms/room-prune?gt=player-token-prune",
-        expiresAt: Date.now() + 600_000,
-        alreadyProvisioned: false,
+        activationExpiresAt: new Date(Date.now() + 600_000).toISOString(),
+        spectatorsEnabled: true,
+        players: [],
+
       }),
     );
     const env: TestEnv = {
       NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
-      DISCORD_SERVICE_AUTH_SECRET: "service-secret",
-      SERVER: { fetch: serverFetch },
+      DRAWSPELL_API_KEY: "service-secret",
+      API: { fetch: serverFetch },
     };
 
     const dmRecipientIds: string[] = [];
@@ -412,15 +398,7 @@ describe("discord /drawspell create", () => {
     expect(response.status).toBe(200);
     expect(serverFetch).toHaveBeenCalledTimes(1);
     const provisionInit = serverFetch.mock.calls[0]![1] as RequestInit;
-    const provisionBody = JSON.parse(String(provisionInit.body)) as {
-      participantDiscordUserIds: string[];
-    };
-    expect(provisionBody.participantDiscordUserIds).toEqual([
-      "user-1",
-      "user-2",
-      "user-3",
-      "user-4",
-    ]);
+    expect(JSON.parse(String(provisionInit.body))).toEqual({});
     expect(dmRecipientIds).toEqual(["user-1", "user-2", "user-3", "user-4"]);
 
     const payload = (await response.json()) as {
@@ -440,18 +418,19 @@ describe("discord /drawspell create", () => {
       async (_input: Request | URL | string, _init?: RequestInit) =>
       Response.json({
         roomId: "room-fail",
-        playerToken: "player-token-fail",
         playerInviteUrl: "https://drawspell.space/rooms/room-fail?gt=player-token-fail",
-        expiresAt: Date.now() + 600_000,
-        alreadyProvisioned: false,
+        activationExpiresAt: new Date(Date.now() + 600_000).toISOString(),
+        spectatorsEnabled: true,
+        players: [],
+
       }),
     );
     const env: TestEnv = {
       NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
-      DISCORD_SERVICE_AUTH_SECRET: "service-secret",
-      SERVER: { fetch: serverFetch },
+      DRAWSPELL_API_KEY: "service-secret",
+      API: { fetch: serverFetch },
     };
 
     const successfulMessageTargets: string[] = [];
@@ -521,18 +500,18 @@ describe("discord /drawspell create", () => {
       async (_input: Request | URL | string, _init?: RequestInit) =>
         Response.json({
           roomId: "room-repeat",
-          playerToken: "player-token-repeat",
           playerInviteUrl: "https://drawspell.space/rooms/room-repeat?gt=player-token-repeat",
-          expiresAt: Date.now() + 600_000,
-          alreadyProvisioned: true,
-        }),
+          activationExpiresAt: new Date(Date.now() + 600_000).toISOString(),
+        spectatorsEnabled: true,
+        players: [],
+          }, { headers: { "Idempotency-Replayed": "true" } }),
     );
     const env: TestEnv = {
       NODE_ENV: "production",
       DISCORD_PUBLIC_KEY: "public-key",
       DISCORD_BOT_TOKEN: "bot-token",
-      DISCORD_SERVICE_AUTH_SECRET: "service-secret",
-      SERVER: { fetch: serverFetch },
+      DRAWSPELL_API_KEY: "service-secret",
+      API: { fetch: serverFetch },
     };
 
     const discordFetch = vi.fn(async () => Response.json({ id: "unused" }));

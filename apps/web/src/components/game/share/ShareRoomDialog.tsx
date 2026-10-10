@@ -18,7 +18,7 @@ type ShareRoomDialogProps = {
   open: boolean;
   onClose: () => void;
   playerLink: string;
-  spectatorLink: string;
+  spectatorLink?: string;
   resumeLink?: string;
   linksReady?: boolean;
   errorMessage?: string;
@@ -114,7 +114,7 @@ export const ShareRoomDialog: React.FC<ShareRoomDialogProps> = ({
     ? playerLink || (typeof window !== "undefined" ? window.location.href : "")
     : "";
   const resolvedSpectatorLink = linksReady
-    ? spectatorLink || resolvedPlayerLink
+    ? spectatorLink || ""
     : "";
 
   const handleCopy = React.useCallback(async (label: string, value: string) => {
@@ -181,13 +181,13 @@ export const ShareRoomDialog: React.FC<ShareRoomDialogProps> = ({
                   onCopy={handleCopy}
                   icon={<Users size={16} />}
                 />
-                <ShareLinkField
+                {resolvedSpectatorLink ? <ShareLinkField
                   label="Invite spectator"
                   copyLabel="Spectator invite link"
                   value={resolvedSpectatorLink}
                   onCopy={handleCopy}
                   icon={<Eye size={16} />}
-                />
+                /> : null}
                 {resumeLink ? (
                   <div className="border-t border-zinc-800 pt-4">
                     <ShareLinkField
