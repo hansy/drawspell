@@ -2,13 +2,27 @@ import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
+import { SiteLayout } from "@/components/landing/SiteLayout";
+
+function NotFoundPage() {
+  return (
+    <SiteLayout>
+      <main className="mx-auto max-w-2xl px-6 py-20 text-center">
+        <h1 className="text-3xl font-semibold">Page not found</h1>
+        <p className="mt-4 text-zinc-400">
+          The page you’re looking for doesn’t exist.
+        </p>
+        <a href="/" className="mt-8 inline-block text-indigo-300 underline">
+          Back to Drawspell
+        </a>
+      </main>
+    </SiteLayout>
+  );
+}
 
 export const RootDocument = ({ children }: { children: React.ReactNode }) => {
   return (
-    <html
-      lang="en"
-      style={{ backgroundColor: "#09090b", colorScheme: "dark" }}
-    >
+    <html lang="en" style={{ backgroundColor: "#09090b", colorScheme: "dark" }}>
       <head>
         <HeadContent />
       </head>
@@ -22,6 +36,7 @@ export const RootDocument = ({ children }: { children: React.ReactNode }) => {
 };
 
 export const Route = createRootRoute({
+  notFoundComponent: NotFoundPage,
   head: () => ({
     meta: [
       {

@@ -60,7 +60,7 @@ Vite command is `bun run dev:app` and uses Vite mode `localhost`, which loads
 
 ## Developer API
 
-`/developer/login` signs developers in by magic link. `/developer` creates and
+`/auth/login` signs developers in by magic link. `/developers` creates and
 revokes named API keys; `/docs` describes `POST /api/v1/rooms`. Personal room
 invitations use `?invite=...` to reference private, server-stored starting decks.
 The [API contract](../../docs/features/public-room-api-contract.md) records limits,

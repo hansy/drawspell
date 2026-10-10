@@ -12,6 +12,7 @@ import {
   writeRoomTokensToStorage,
 } from "@/lib/partyKitToken";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
+import { SiteHeader } from "@/components/landing/SiteHeader";
 import { FooterLinks } from "@/components/landing/FooterLinks";
 import { LandingBackground } from "@/components/landing/LandingBackground";
 import { LandingHero } from "@/components/landing/LandingHero";
@@ -209,14 +210,7 @@ export const LandingPage = () => {
     <div className="relative min-h-dvh overflow-hidden bg-[#0b0a0f] text-zinc-100">
       <LandingBackground />
       <div className="relative z-10 flex min-h-dvh flex-col">
-        <header className="flex items-center justify-between px-6 pt-6 sm:px-10">
-          <a
-            href="/"
-            className="text-md font-semibold uppercase tracking-[0.3em] text-zinc-200/80 transition hover:text-zinc-50"
-          >
-            Drawspell
-          </a>
-        </header>
+        <SiteHeader />
         <LandingHero
           badge="No downloads - No login"
           title="Just Magic"

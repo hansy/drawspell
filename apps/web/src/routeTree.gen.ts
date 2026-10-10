@@ -12,11 +12,13 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TosRouteImport } from './routes/tos'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as DocsRouteImport } from './routes/docs'
+import { Route as DevelopersRouteImport } from './routes/developers'
 import { Route as DeveloperRouteImport } from './routes/developer'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RoomsSessionIdRouteImport } from './routes/rooms.$sessionId'
 import { Route as DiscordInstallRouteImport } from './routes/discord.install'
 import { Route as DeveloperLoginRouteImport } from './routes/developer.login'
+import { Route as AuthLoginRouteImport } from './routes/auth.login'
 import { Route as ApiV1RoomsRouteImport } from './routes/api.v1.rooms'
 import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
 
@@ -33,6 +35,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const DocsRoute = DocsRouteImport.update({
   id: '/docs',
   path: '/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevelopersRoute = DevelopersRouteImport.update({
+  id: '/developers',
+  path: '/developers',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DeveloperRoute = DeveloperRouteImport.update({
@@ -60,6 +67,11 @@ const DeveloperLoginRoute = DeveloperLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => DeveloperRoute,
 } as any)
+const AuthLoginRoute = AuthLoginRouteImport.update({
+  id: '/auth/login',
+  path: '/auth/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiV1RoomsRoute = ApiV1RoomsRouteImport.update({
   id: '/api/v1/rooms',
   path: '/api/v1/rooms',
@@ -74,9 +86,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/developer': typeof DeveloperRouteWithChildren
+  '/developers': typeof DevelopersRoute
   '/docs': typeof DocsRoute
   '/privacy': typeof PrivacyRoute
   '/tos': typeof TosRoute
+  '/auth/login': typeof AuthLoginRoute
   '/developer/login': typeof DeveloperLoginRoute
   '/discord/install': typeof DiscordInstallRoute
   '/rooms/$sessionId': typeof RoomsSessionIdRoute
@@ -86,9 +100,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/developer': typeof DeveloperRouteWithChildren
+  '/developers': typeof DevelopersRoute
   '/docs': typeof DocsRoute
   '/privacy': typeof PrivacyRoute
   '/tos': typeof TosRoute
+  '/auth/login': typeof AuthLoginRoute
   '/developer/login': typeof DeveloperLoginRoute
   '/discord/install': typeof DiscordInstallRoute
   '/rooms/$sessionId': typeof RoomsSessionIdRoute
@@ -99,9 +115,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/developer': typeof DeveloperRouteWithChildren
+  '/developers': typeof DevelopersRoute
   '/docs': typeof DocsRoute
   '/privacy': typeof PrivacyRoute
   '/tos': typeof TosRoute
+  '/auth/login': typeof AuthLoginRoute
   '/developer/login': typeof DeveloperLoginRoute
   '/discord/install': typeof DiscordInstallRoute
   '/rooms/$sessionId': typeof RoomsSessionIdRoute
@@ -113,9 +131,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/developer'
+    | '/developers'
     | '/docs'
     | '/privacy'
     | '/tos'
+    | '/auth/login'
     | '/developer/login'
     | '/discord/install'
     | '/rooms/$sessionId'
@@ -125,9 +145,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/developer'
+    | '/developers'
     | '/docs'
     | '/privacy'
     | '/tos'
+    | '/auth/login'
     | '/developer/login'
     | '/discord/install'
     | '/rooms/$sessionId'
@@ -137,9 +159,11 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/developer'
+    | '/developers'
     | '/docs'
     | '/privacy'
     | '/tos'
+    | '/auth/login'
     | '/developer/login'
     | '/discord/install'
     | '/rooms/$sessionId'
@@ -150,9 +174,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DeveloperRoute: typeof DeveloperRouteWithChildren
+  DevelopersRoute: typeof DevelopersRoute
   DocsRoute: typeof DocsRoute
   PrivacyRoute: typeof PrivacyRoute
   TosRoute: typeof TosRoute
+  AuthLoginRoute: typeof AuthLoginRoute
   DiscordInstallRoute: typeof DiscordInstallRoute
   RoomsSessionIdRoute: typeof RoomsSessionIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -180,6 +206,13 @@ declare module '@tanstack/react-router' {
       path: '/docs'
       fullPath: '/docs'
       preLoaderRoute: typeof DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/developers': {
+      id: '/developers'
+      path: '/developers'
+      fullPath: '/developers'
+      preLoaderRoute: typeof DevelopersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/developer': {
@@ -217,6 +250,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeveloperLoginRouteImport
       parentRoute: typeof DeveloperRoute
     }
+    '/auth/login': {
+      id: '/auth/login'
+      path: '/auth/login'
+      fullPath: '/auth/login'
+      preLoaderRoute: typeof AuthLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/v1/rooms': {
       id: '/api/v1/rooms'
       path: '/api/v1/rooms'
@@ -249,9 +289,11 @@ const DeveloperRouteWithChildren = DeveloperRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DeveloperRoute: DeveloperRouteWithChildren,
+  DevelopersRoute: DevelopersRoute,
   DocsRoute: DocsRoute,
   PrivacyRoute: PrivacyRoute,
   TosRoute: TosRoute,
+  AuthLoginRoute: AuthLoginRoute,
   DiscordInstallRoute: DiscordInstallRoute,
   RoomsSessionIdRoute: RoomsSessionIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

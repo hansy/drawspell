@@ -33,3 +33,9 @@ All 1,350 automated tests, workspace typechecks, and the production build passed
 A production browser joined a personal invitation, received its deck, observed the server deck-load event, and confirmed no spectator credential in room-token storage. Public docs and the developer sign-in redirect rendered successfully. The dedicated Discord API key created a default room; unsigned Discord requests were rejected. No Discord messages were sent by deployment checks.
 
 Magic-link inbox delivery remains unverified pending a user-provided test recipient.
+
+## SSR and site layout update — October 10, 2026
+
+Web version `afaf20d8-2260-4182-ad22-cdfcf868af7c` moves sign-in to `/auth/login` and the dashboard to `/developers`, with permanent redirects from the original URLs. Authentication and key lists are loaded during SSR. Signed-out page requests return a 303 redirect before any dashboard HTML; key API requests still return 401. Suspended users receive 403. Unknown pages return 404 with the shared site layout.
+
+The homepage header and footer are shared by login, developer, docs, legal, and 404 pages, and the footer includes an API link. Sign-out now sends the JSON request required by Better Auth. All 1,005 web tests and 21 local end-to-end checks passed, including no-JavaScript navigation, authenticated SSR, key revocation, suspended accounts, and sign-out. Typecheck and production build passed. Both local dev servers were stopped after verification.

@@ -58,6 +58,12 @@ export function FooterLinks({ links = defaultLinks }: FooterLinksProps) {
           <a href="/privacy" className="transition hover:text-zinc-100">
             Privacy
           </a>
+          <span aria-hidden="true" className="text-zinc-600">
+            /
+          </span>
+          <a href="/docs" className="transition hover:text-zinc-100">
+            API
+          </a>
         </div>
       </div>
       <a

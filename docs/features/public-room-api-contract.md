@@ -6,8 +6,9 @@ This contract develops the decisions in [the planning notes](public-room-api-pla
 
 ## Developer access
 
-- `/developer/login`: Better Auth magic-link sign-in.
-- `/developer`: session-protected create/list/revoke of named API keys. Show the full secret only on creation; allow up to five active keys per developer.
+- `/auth/login`: Better Auth magic-link sign-in.
+- `/developers`: session-protected create/list/revoke of named API keys. Show the full secret only on creation; allow up to five active keys per developer.
+- Authentication and key-list loading run on the server before rendering. Signed-out page requests redirect to `/auth/login` with HTTP 303; unauthenticated key API requests return 401. Suspended accounts receive 403. Private responses are not cached. Legacy `/developer` and `/developer/login` URLs redirect to their new locations.
 - `/docs`: public authentication, room-creation, examples, limits, errors, and invitation documentation.
 - API requests use `Authorization: Bearer <api-key>` with permission to create rooms. Developer browser sessions and room-player credentials remain separate.
 - Room creation allows ten requests per minute per developer across their keys; rate-limited responses include `Retry-After`.

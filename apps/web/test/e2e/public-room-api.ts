@@ -31,6 +31,19 @@ function localMagicLink(): string | null {
   }
   return null;
 }
+function setAccountSuspended(suspended: boolean) {
+  const state = join(process.cwd(), '.wrangler/state');
+  for (const entry of readdirSync(state, { recursive: true })) {
+    if (typeof entry !== 'string' || !entry.endsWith('.sqlite')) continue;
+    const db = new DatabaseSync(join(state, entry));
+    try {
+      const result = db.prepare('UPDATE developer_accounts SET suspended = ? WHERE developer_id IN (SELECT id FROM developer_user WHERE email = ?)').run(Number(suspended), email);
+      if (result.changes) return;
+    } catch { /* Other Worker databases do not contain this account. */ }
+    finally { db.close(); }
+  }
+  throw new Error('Local test account not found');
+}
 async function joinPlayer(target: Page, url: string, name: string) {
   await target.goto(url);
   await target.getByRole('textbox', { name: 'Username', exact: true }).fill(name);
@@ -42,8 +55,34 @@ async function joinPlayer(target: Page, url: string, name: string) {
   }, undefined, { timeout: 30_000 });
 }
 try {
-  await page.goto(`${origin}/developer`);
-  await page.waitForURL('**/developer/login');
+  const protectedPage = await context.request.get(`${origin}/developers`, { maxRedirects: 0 });
+  assert.equal(protectedPage.status(), 303);
+  assert.equal(new URL(protectedPage.headers().location, origin).pathname, '/auth/login');
+  assert(!/Developer API keys|Create key/.test(await protectedPage.text()));
+  assert.equal((await context.request.get(`${origin}/api/auth/developer/keys`)).status(), 401);
+  for (const [oldPath, nextPath] of [['/developer', '/developers'], ['/developer/login', '/auth/login']]) {
+    const alias = await context.request.get(`${origin}${oldPath}`, { maxRedirects: 0 });
+    assert.equal(alias.status(), 308);
+    assert.equal(new URL(alias.headers().location, origin).pathname, nextPath);
+  }
+  checked('server redirects protected and legacy pages before rendering; unauthenticated key API returns 401');
+  const noJsContext = await browser.newContext({ ignoreHTTPSErrors: true, javaScriptEnabled: false });
+  const noJs = await noJsContext.newPage();
+  await noJs.goto(`${origin}/developers`);
+  assert.equal(new URL(noJs.url()).pathname, '/auth/login');
+  await noJs.getByRole('heading', { name: 'Sign in to Drawspell', exact: true }).waitFor();
+  assert(!/We’ll email|No password|Developer API keys/.test(await noJs.locator('main').innerText()));
+  for (const path of ['/', '/docs', '/auth/login', '/privacy', '/tos', '/page-that-does-not-exist', '/developers/missing']) {
+    const response = await noJs.goto(`${origin}${path}`);
+    assert.equal(response?.status(), ['/page-that-does-not-exist', '/developers/missing'].includes(path) ? 404 : 200);
+    assert.equal(await noJs.getByRole('banner').getByRole('link', { name: 'Drawspell', exact: true }).count(), 1);
+    await noJs.getByRole('contentinfo').getByRole('link', { name: 'API', exact: true }).waitFor();
+  }
+  await noJs.getByRole('heading', { name: 'Page not found', exact: true }).waitFor();
+  await noJsContext.close();
+  checked('shared navigation, login, redirect and real 404 render without JavaScript');
+  await page.goto(`${origin}/developers`);
+  await page.waitForURL('**/auth/login');
   await page.getByLabel('Email', { exact: true }).fill(email);
   const sendResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/sign-in/magic-link');
   await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
@@ -55,7 +94,7 @@ try {
   assert(magicLink, 'Local magic link was not captured');
   checked('magic-link email captured locally');
   await page.goto(magicLink);
-  await page.waitForURL('**/developer');
+  await page.waitForURL('**/developers');
   checked('magic-link consumed and developer session established');
   await page.getByLabel('Key name', { exact: true }).fill('Browser E2E');
   const keyResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/developer/keys' && response.request().method() === 'POST');
@@ -65,6 +104,11 @@ try {
   const apiKey = (await page.locator('section code').innerText()).trim();
   assert(apiKey.length > 20);
   checked('magic-link login and API-key issuance through developer UI');
+  const authenticatedHtml = await context.request.get(`${origin}/developers`);
+  assert.equal(authenticatedHtml.status(), 200);
+  assert.match(authenticatedHtml.headers()['cache-control'], /no-store/);
+  assert.match(await authenticatedHtml.text(), /Browser E2E/);
+  checked('authenticated dashboard and key list rendered on server with no-store headers');
   await page.getByRole('button', { name: 'I saved this key' }).click();
   assert.equal(await page.locator('section code').count(), 0);
   checked('API secret shown only on creation');
@@ -167,11 +211,27 @@ try {
   await page.goto(`${origin}/docs`);
   await page.getByRole('heading', { name: 'Drawspell API', exact: true }).waitFor();
   checked('public API docs render');
-  await page.goto(`${origin}/developer`);
+  await page.goto(`${origin}/developers`);
   await page.getByRole('button', { name: 'Revoke', exact: true }).click();
   await page.getByText('revoked', { exact: false }).waitFor();
   assert.equal((await create(crypto.randomUUID(), {})).status(), 401);
   checked('revoked API key immediately loses room-creation access');
+  setAccountSuspended(true);
+  try {
+    const suspended = await context.request.get(`${origin}/developers`);
+    assert.equal(suspended.status(), 403);
+    assert.match(await suspended.text(), /Developer access is disabled/);
+    assert(!/Create key/.test(await suspended.text()));
+    assert.equal((await context.request.get(`${origin}/api/auth/developer/keys`)).status(), 403);
+  } finally { setAccountSuspended(false); }
+  checked('suspended accounts receive server-rendered 403 without dashboard data');
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await page.waitForURL('**/auth/login');
+  const afterLogout = await context.request.get(`${origin}/developers`, { maxRedirects: 0 });
+  assert.equal(afterLogout.status(), 303);
+  assert(!/Developer API keys|Create key/.test(await afterLogout.text()));
+  assert.equal((await context.request.get(`${origin}/api/auth/developer/keys`)).status(), 401);
+  checked('sign-out invalidates server access before protected page rendering');
   console.log(`${assertions.length} end-to-end checks passed`);
 } finally {
   await browser.close();

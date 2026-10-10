@@ -15,7 +15,7 @@ Interview convention: the user accepts recommendations for questions they do not
 - Drawspell stores submitted deck lists and ratings. Browser-edited parameters cannot change the trusted initial assignment.
 - The integrity guarantee covers the stored API-submitted list and Bracket Tier only. The ordinary browser-driven importer remains in use; the server does not prove that imported card objects match the stored list. Do not describe the actual imported deck as tamper-proof.
 - Players may swap decks. A successful Deck Import emits “<player> loaded a deck” in all Rooms; no deck locking, mismatch detection, or automatic bracket invalidation is required.
-- Developer access is self-service through a basic `/developer` page using Better Auth and magic links only, with API-key issuance and basic public documentation. Follow Poof's developer flow; OAuth is explicitly out of scope.
+- Developer access is self-service through a basic `/developers` page using Better Auth and magic links only, with API-key issuance and basic public documentation. Follow Poof's developer flow; OAuth is explicitly out of scope.
 - Developer accounts can create named keys, see a secret once, list keys, and revoke them. Start with at most five active keys and ten room-creation requests per minute per developer, shared across their keys. Room players remain anonymous; developer login is only for API access management.
 - Require an `Idempotency-Key` scoped to the developer account and retain retry records for 24 hours: identical retries return the original room and invitations, while different content with the same key returns a conflict. If the original Room expired or was deleted, return an expired-room error without recreating it; a new creation requires a new key. Retry retention does not extend Room lifetime.
 - Supplying personal player invitations does not make the player list exclusive. Players can share a normal player invitation so additional people can join, subject to the existing four-player capacity.
@@ -55,7 +55,7 @@ Interview convention: the user accepts recommendations for questions they do not
   - Retain the current ten-minute activation window and normal Room cleanup.
   - Preload data follows Room cleanup; retry records have their own 24-hour lifetime.
 - Migration
-  - Web already runs on a Worker; place `/api/v1/rooms` alongside `/developer` and `/docs`, with a new service binding to the existing Room server.
+  - Web already runs on a Worker; place `/api/v1/rooms` alongside `/developers` and `/docs`, with a new service binding to the existing Room server.
   - Discord can migrate to that contract through a service binding; retain private web-to-Room transport and preserve already-issued invitations.
   - Room teardown clears all provisioning state, so 24-hour replay records must live outside Room storage and must not revive expired Rooms.
 

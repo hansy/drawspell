@@ -1,4 +1,4 @@
-.api-docs { max-width: 1440px; margin: 0 auto; padding: 0 32px; color: #e4e4e7; }
+.api-docs { max-width: 1440px; margin: 0 auto; padding: 0 32px 48px; color: #e4e4e7; }
 .api-layout { display: grid; grid-template-columns: 172px minmax(0, 1fr); gap: 40px; }
 .api-content { min-width: 0; }
 .api-sidebar { position: sticky; top: 24px; align-self: start; padding-top: 52px; display: grid; gap: 28px; }
@@ -16,10 +16,6 @@
 .api-docs p a, .api-field a { color: #c7d2fe; text-decoration: underline; text-underline-offset: 3px; }
 .api-endpoint-description { margin-bottom: 16px; }
 .api-docs h3.api-subheading { font-size: 17px; margin: 0 0 16px; }
-.api-nav { display: flex; align-items: center; gap: 20px; height: 80px; border-bottom: 1px solid #27272a; font-size: 13px; }
-.api-brand { font-size: 18px; font-weight: 650; letter-spacing: -.5px; color: #fafafa; }
-.api-nav > span { padding-left: 20px; border-left: 1px solid #3f3f46; color: #a1a1aa; }
-.api-nav > a:last-child { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .api-heading { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 52px 0 36px; }
 .api-heading h1 { margin: 0; font-size: clamp(32px, 4vw, 44px); font-weight: 650; letter-spacing: -1.5px; line-height: 1.1; }
 .api-heading p { margin-top: 14px; color: #a1a1aa; font-size: 16px; }
@@ -67,8 +63,7 @@
 .api-error-table td, .api-error-table th { padding: 10px 12px 10px 0; border-bottom: 1px solid #27272a; vertical-align: top; }
 .api-error-table code { overflow-wrap: anywhere; }
 .api-error-table p { margin-top: 4px; font-size: 12px; }
-.api-docs footer { padding: 28px 0; display: flex; justify-content: space-between; font-size: 12px; color: #a1a1aa; }
 .api-docs a:focus-visible, .api-docs button:focus-visible, .api-docs summary:focus-visible, .api-code-body:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 4px; }
 @media (max-width: 1100px) { .api-layout { grid-template-columns: minmax(0, 1fr); gap: 0; } .api-sidebar { position: static; display: flex; flex-wrap: wrap; gap: 24px 48px; padding: 24px 0; border-bottom: 1px solid #27272a; } }
 @media (max-width: 900px) { .api-pair { grid-template-columns: minmax(0, 1fr); gap: 24px; } .api-code pre { font-size: 12px; } }
-@media (max-width: 540px) { .api-docs { padding: 0 20px; } .api-nav { height: 64px; gap: 12px; } .api-nav > span { padding-left: 12px; font-size: 11px; } .api-heading { align-items: flex-start; flex-direction: column; padding: 32px 0; } .api-section { padding: 28px 0; } .api-errors summary span { display: block; margin: 8px 0 0 16px; } }
+@media (max-width: 540px) { .api-docs { padding: 0 20px 32px; } .api-heading { align-items: flex-start; flex-direction: column; padding: 32px 0; } .api-section { padding: 28px 0; } .api-errors summary span { display: block; margin: 8px 0 0 16px; } }
