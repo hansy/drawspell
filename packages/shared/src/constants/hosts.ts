@@ -3,9 +3,6 @@ export type AppOrigins = {
   server: string;
 };
 
-/** @deprecated Use AppOrigins instead. */
-export type APPS = AppOrigins;
-
 export const ORIGINS: Record<"development" | "staging" | "production", AppOrigins> = {
   development: {
     web: "https://ds.localhost",
