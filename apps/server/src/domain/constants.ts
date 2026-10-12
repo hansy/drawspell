@@ -1,8 +1,4 @@
 import {
-  BASE_CARD_HEIGHT,
-  CARD_ASPECT_RATIO,
-  GRID_STEP_X,
-  GRID_STEP_Y,
   LEGACY_BATTLEFIELD_HEIGHT,
   LEGACY_BATTLEFIELD_WIDTH,
 } from "@mtg/shared/constants/geometry";
@@ -16,10 +12,6 @@ import {
 import { MAX_COMMANDER_ZONE_CARDS } from "@mtg/shared/constants/limits";
 
 export {
-  BASE_CARD_HEIGHT,
-  CARD_ASPECT_RATIO,
-  GRID_STEP_X,
-  GRID_STEP_Y,
   LEGACY_BATTLEFIELD_HEIGHT,
   LEGACY_BATTLEFIELD_WIDTH,
   LEGACY_COMMAND_ZONE,
