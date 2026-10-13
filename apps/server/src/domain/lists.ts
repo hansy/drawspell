@@ -1,9 +1,12 @@
-const uniqueMemberSetOrNull = (list: string[]) => {
+const uniqueMemberSetOrNull = (list: readonly string[]) => {
   const members = new Set(list);
   return members.size === list.length ? members : null;
 };
 
-export const hasSameMembers = (left: string[], right: string[]): boolean => {
+export const hasSameMembers = (
+  left: readonly string[],
+  right: readonly string[]
+): boolean => {
   if (left.length !== right.length) return false;
   const leftMembers = uniqueMemberSetOrNull(left);
   const rightMembers = uniqueMemberSetOrNull(right);
@@ -14,11 +17,11 @@ export const hasSameMembers = (left: string[], right: string[]): boolean => {
   return true;
 };
 
-export const removeFromArray = (list: string[], id: string) =>
+export const removeFromArray = (list: readonly string[], id: string) =>
   list.filter((value) => value !== id);
 
 export const placeCardId = (
-  list: string[],
+  list: readonly string[],
   cardId: string,
   placement: "top" | "bottom"
 ) => {
@@ -28,7 +31,7 @@ export const placeCardId = (
 };
 
 export const placeCardIdFromTop = (
-  list: string[],
+  list: readonly string[],
   cardId: string,
   requestedPosition: number,
 ) => {
