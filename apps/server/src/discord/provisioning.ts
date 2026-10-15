@@ -3,8 +3,13 @@ import type {
   DiscordRoomInternalProvisionResponse,
   DiscordRoomProvisionRequest,
 } from "@mtg/shared/discord/provisioning";
-import { ORIGINS } from "@mtg/shared/constants/hosts";
 import { normalizeNonEmptyString } from "../strings";
+
+export {
+  parseBearerToken,
+  resolveDrawspellWebOrigin,
+  resolveErrorMessage,
+} from "../provisioning/helpers";
 
 const ROOM_ID_ALPHABET =
   "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -54,26 +59,6 @@ export const createRoomIdFromSeed = async (
     result += ROOM_ID_ALPHABET[bytes[i % bytes.length] % alphabetLength];
   }
   return result;
-};
-
-export const parseBearerToken = (headerValue: string | null) => {
-  if (!headerValue) return null;
-  const [scheme, ...rest] = headerValue.trim().split(/\s+/);
-  if (!scheme || scheme.toLowerCase() !== "bearer") return null;
-  const token = rest.join(" ").trim();
-  return token || null;
-};
-
-export const resolveDrawspellWebOrigin = (
-  env: Pick<Env, "NODE_ENV">,
-): string | null => ORIGINS[env.NODE_ENV as keyof typeof ORIGINS]?.web ?? null;
-
-export const resolveErrorMessage = (error: unknown): string => {
-  if (typeof error === "string") return error;
-  if (typeof error === "object" && error && "message" in error) {
-    return String((error as { message?: unknown }).message);
-  }
-  return "unknown";
 };
 
 export const resolveDiscordRequestId = (request: Request): string =>
