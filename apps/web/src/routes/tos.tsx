@@ -1,3 +1,4 @@
+import { agentDiscoveryLinks } from "@/content/publicPages";
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalLayout } from "@/components/legal/LegalLayout";
 
@@ -77,6 +78,7 @@ function TermsOfServicePage() {
 export const Route = createFileRoute("/tos")({
   component: TermsOfServicePage,
   head: () => ({
+    links: agentDiscoveryLinks("/tos"),
     meta: [
       { title: "Terms of Service | Drawspell" },
       {

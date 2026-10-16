@@ -68,6 +68,7 @@ describe("search discovery", () => {
     );
     expect(locations).toEqual([
       "https://drawspell.space/",
+      "https://drawspell.space/docs",
       "https://drawspell.space/privacy",
       "https://drawspell.space/tos",
     ]);

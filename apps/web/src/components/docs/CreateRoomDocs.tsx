@@ -18,7 +18,7 @@ const errors = [
 
 export function CreateRoomDocs() {
   return (
-    <article id="create-room" aria-labelledby="request-title">
+    <article id="create-room" tabIndex={-1} aria-labelledby="request-title">
         <section className="api-section api-pair" aria-labelledby="request-title">
           <div className="api-reference">
             <h2 id="request-title">Create a room</h2>

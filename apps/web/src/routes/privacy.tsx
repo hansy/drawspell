@@ -1,3 +1,4 @@
+import { agentDiscoveryLinks } from "@/content/publicPages";
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalLayout } from "@/components/legal/LegalLayout";
 
@@ -60,6 +61,7 @@ function PrivacyPolicyPage() {
 export const Route = createFileRoute("/privacy")({
   component: PrivacyPolicyPage,
   head: () => ({
+    links: agentDiscoveryLinks("/privacy"),
     meta: [
       { title: "Privacy Policy | Drawspell" },
       {

@@ -1,3 +1,4 @@
+import { agentDiscoveryLinks, landingContent } from "@/content/publicPages";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -212,9 +213,7 @@ export const LandingPage = () => {
       <div className="relative z-10 flex min-h-dvh flex-col">
         <SiteHeader />
         <LandingHero
-          badge="No downloads - No login"
-          title="Just Magic"
-          description="Drawspell is a web-based virtual tabletop simulator for playing Magic: The Gathering. Create a room, share with friends, and play together."
+          {...landingContent}
           animation={
             <OrbitAnimation className="h-[340px] w-[340px] sm:h-[320px] sm:w-[320px] lg:h-[680px] lg:w-[680px]" />
           }
@@ -267,10 +266,12 @@ export const LandingPage = () => {
 export const Route = createFileRoute("/")({
   component: LandingPage,
   head: () => ({
-    links:
-      import.meta.env.VITE_ENV === "production"
+    links: [
+      ...agentDiscoveryLinks("/"),
+      ...(import.meta.env.VITE_ENV === "production"
         ? [{ rel: "canonical", href: new URL("/", origins.web).href }]
-        : [],
+        : []),
+    ],
     meta: [
       { title: "Magic: The Gathering Virtual Tabletop | Drawspell" },
       {

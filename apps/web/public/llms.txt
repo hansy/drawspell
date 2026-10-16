@@ -1,0 +1,16 @@
+# Drawspell
+
+> A browser-based virtual tabletop for playing Magic: The Gathering with friends.
+
+Public information is available as Markdown. Creating rooms through the API requires an API key from the authenticated developer dashboard at https://drawspell.space/developers. Live game state and private dashboard data require browser interaction and are not included here.
+
+## Pages
+
+- [Drawspell](https://drawspell.space/index.md): Virtual tabletop for Magic: The Gathering.
+- [Drawspell API](https://drawspell.space/docs.md): Authentication, room creation, request examples, responses, retries, and errors.
+- [Privacy Policy](https://drawspell.space/privacy.md): Data collection, usage, sharing, retention, and contact information.
+- [Terms of Service](https://drawspell.space/tos.md): Terms for using the hosted Drawspell service.
+
+## Combined content
+
+- [Full public content](https://drawspell.space/llms-full.txt): All the Markdown pages above in one response.
