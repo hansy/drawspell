@@ -207,8 +207,8 @@ export function canMoveCard(
 
   const { actorId, card: movingCard, fromZone: startZone, toZone: destZone } = ctx;
   const actorIsOwner = actorId === movingCard.ownerId;
-  const actorIsFromHost = actorId === startZone.ownerId;
-  const actorIsToHost = actorId === destZone.ownerId;
+  const actorOwnsSourceZone = actorId === startZone.ownerId;
+  const actorOwnsDestinationZone = actorId === destZone.ownerId;
   const isToken = isTokenCard(movingCard);
 
   const fromHidden = isHiddenZoneType(startZone.type);
@@ -223,16 +223,16 @@ export function canMoveCard(
   }
 
   // Hidden -> anything: only owner of the hidden zone can initiate.
-  if (fromHidden && !actorIsFromHost) {
+  if (fromHidden && !actorOwnsSourceZone) {
     return deny("Cannot move from a hidden zone you do not own");
   }
 
   // Anything -> hidden: only owner of destination hidden zone can receive.
   if (toHidden) {
-    if (!actorIsToHost) {
+    if (!actorOwnsDestinationZone) {
       return deny("Cannot place into a hidden zone you do not own");
     }
-    // Destination host is allowed to receive.
+    // Destination zone owner is allowed to receive.
     return allow();
   }
 
@@ -272,8 +272,8 @@ export function canMoveCard(
   // Non-battlefield destinations (seat zones): only the card owner may move their card here.
   if (actorIsOwner) return allow();
 
-  // Host may move cards within their own non-hidden zones (e.g., public piles).
-  if (actorIsFromHost && !fromHidden && !toHidden) return allow();
+  // Source zone owner may move cards within their own non-hidden zones (e.g., public piles).
+  if (actorOwnsSourceZone && !fromHidden && !toHidden) return allow();
 
   return deny("Not permitted to move this card");
 }
