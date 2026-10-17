@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 
 import type { Counter } from '@/types';
-import type { ScryfallCardFaceLite, ScryfallCardLite } from '@/types/scryfallLite';
+import type { ScryfallCardFaceLite, ScryfallCardLite, ScryfallImageUrisLite } from '@/types/scryfallLite';
 import { isFullScryfallCard, toScryfallCardLite } from '@/types/scryfallLite';
 import {
   MAX_COUNTERS,
@@ -51,6 +51,13 @@ export const sanitizeImageUrl = (value: unknown): string | undefined => {
   return value.length > MAX_IMAGE_URL_LENGTH ? value.slice(0, MAX_IMAGE_URL_LENGTH) : value;
 };
 
+const normalizeScryfallImageUris = (value: unknown): ScryfallImageUrisLite | undefined => {
+  if (!isRecord(value)) return undefined;
+  const normal = sanitizeImageUrl(value.normal);
+  const art_crop = sanitizeImageUrl(value.art_crop);
+  return normal || art_crop ? { normal, art_crop } : undefined;
+};
+
 export const sanitizeCountersForSync = (value: unknown): Counter[] => {
   if (!Array.isArray(value)) return [];
   const result: Counter[] = [];
@@ -88,11 +95,8 @@ export const normalizeScryfallLiteForSync = (value: unknown): ScryfallCardLite |
     lite.cmc = card.cmc;
   }
 
-  if (isRecord(card.image_uris)) {
-    const normal = sanitizeImageUrl(card.image_uris.normal);
-    const art_crop = sanitizeImageUrl(card.image_uris.art_crop);
-    if (normal || art_crop) lite.image_uris = { normal, art_crop };
-  }
+  const imageUris = normalizeScryfallImageUris(card.image_uris);
+  if (imageUris) lite.image_uris = imageUris;
 
   if (Array.isArray(card.card_faces)) {
     const faces = card.card_faces
@@ -100,11 +104,8 @@ export const normalizeScryfallLiteForSync = (value: unknown): ScryfallCardLite |
       .slice(0, 8)
       .map((face): ScryfallCardFaceLite => {
         const liteFace: ScryfallCardFaceLite = { name: face.name.slice(0, MAX_NAME_LENGTH) };
-        if (isRecord(face.image_uris)) {
-          const normal = sanitizeImageUrl(face.image_uris.normal);
-          const art_crop = sanitizeImageUrl(face.image_uris.art_crop);
-          if (normal || art_crop) liteFace.image_uris = { normal, art_crop };
-        }
+        const imageUris = normalizeScryfallImageUris(face.image_uris);
+        if (imageUris) liteFace.image_uris = imageUris;
         if (typeof face.power === 'string') liteFace.power = face.power.slice(0, 16);
         if (typeof face.toughness === 'string') liteFace.toughness = face.toughness.slice(0, 16);
         return liteFace;
