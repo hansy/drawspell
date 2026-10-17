@@ -15,7 +15,7 @@ export type ProvisionMetadata = {
   activationExpiresAt: number;
   activatedAt?: number;
   request: CreateRoomRequest;
-  tokens: RoomTokens;
+  tokens: RoomTokens & { spectatorToken: string };
   assignments: Array<{ assignmentId: string; token: string; externalId: string; deck?: { decklist: string; bracket?: number } }>;
 };
 export const provisionResponse = (roomId: string, origin: string, metadata: ProvisionMetadata): CreateRoomResponse => {
@@ -26,10 +26,10 @@ export const provisionResponse = (roomId: string, origin: string, metadata: Prov
   };
   return {
     roomId,
-    spectatorsEnabled: metadata.request.spectatorsEnabled,
+    displaySpectatorLink: metadata.request.displaySpectatorLink,
     activationExpiresAt: new Date(metadata.activationExpiresAt).toISOString(),
     playerInviteUrl: url('gt', metadata.tokens.playerToken),
-    ...(metadata.tokens.spectatorToken ? { spectatorInviteUrl: url('st', metadata.tokens.spectatorToken) } : {}),
+    spectatorLink: url('st', metadata.tokens.spectatorToken),
     players: metadata.assignments.map(assignment => ({ externalId: assignment.externalId, joinUrl: url('invite', assignment.token) })),
   };
 };

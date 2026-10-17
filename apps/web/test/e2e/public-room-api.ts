@@ -85,7 +85,7 @@ try {
   await page.waitForURL('**/auth/login');
   await page.getByLabel('Email', { exact: true }).fill(email);
   const sendResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/sign-in/magic-link');
-  await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
+  await page.getByRole('button', { name: 'Send sign-in link' }).click();
   const sent = await sendResponse;
   assert.equal(sent.status(), 200, 'Magic-link submission must succeed');
   await page.waitForFunction(() => !!document.querySelector('[role=status]')?.textContent?.trim());
@@ -96,12 +96,13 @@ try {
   await page.goto(magicLink);
   await page.waitForURL('**/developers');
   checked('magic-link consumed and developer session established');
+  await page.getByRole('button', { name: 'Create key', exact: true }).click();
   await page.getByLabel('Key name', { exact: true }).fill('Browser E2E');
   const keyResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/developer/keys' && response.request().method() === 'POST');
-  await page.getByRole('button', { name: 'Create key', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Create key', exact: true }).click();
   assert.equal((await keyResponse).status(), 201, 'Named key creation failed');
-  await page.getByRole('heading', { name: 'Copy your new API key' }).waitFor();
-  const apiKey = (await page.locator('section code').innerText()).trim();
+  await page.getByRole('dialog', { name: 'Your API key' }).waitFor();
+  const apiKey = await page.getByRole('textbox', { name: 'API key', exact: true }).inputValue();
   assert(apiKey.length > 20);
   checked('magic-link login and API-key issuance through developer UI');
   const authenticatedHtml = await context.request.get(`${origin}/developers`);
@@ -109,8 +110,8 @@ try {
   assert.match(authenticatedHtml.headers()['cache-control'], /no-store/);
   assert.match(await authenticatedHtml.text(), /Browser E2E/);
   checked('authenticated dashboard and key list rendered on server with no-store headers');
-  await page.getByRole('button', { name: 'I saved this key' }).click();
-  assert.equal(await page.locator('section code').count(), 0);
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  assert.equal(await page.getByRole('dialog', { name: 'Your API key' }).count(), 0);
   checked('API secret shown only on creation');
   const create = (key: string, body: unknown, credential = apiKey) => context.request.post(`${origin}/api/v1/rooms`, {
     headers: { Authorization: `Bearer ${credential}`, 'Idempotency-Key': key }, data: body,
@@ -118,15 +119,15 @@ try {
   assert.equal((await create(crypto.randomUUID(), {}, 'invalid')).status(), 401);
   checked('invalid API credential rejected');
   const key = crypto.randomUUID();
-  const request = { spectatorsEnabled: false, players: [
+  const request = { displaySpectatorLink: false, players: [
     { externalId: 'alice', deck: { decklist: '1 Sol Ring\n1 Command Tower', bracket: 3 } },
     { externalId: 'bob' },
   ] };
   const response = await create(key, request);
   assert.equal(response.status(), 201, `Create status ${response.status()}: ${await response.text()}`);
   const room = await response.json();
-  assert.equal(room.spectatorsEnabled, false);
-  assert(!('spectatorInviteUrl' in room));
+  assert.equal(room.displaySpectatorLink, false);
+  assert(room.spectatorLink);
   assert.equal(room.players.length, 2);
   const replay = await create(key, request);
   assert.equal(replay.status(), 200);
@@ -148,10 +149,27 @@ try {
     const path = '/src/partykit/shareLinksClient.ts';
     return (await import(path)).requestShareLinks();
   });
-  assert(!('spectatorInviteUrl' in share));
+  assert(!('spectatorLink' in share));
   const tokens = await owner.evaluate((id) => JSON.parse(localStorage.getItem(`drawspell:roomTokens:${id}`) ?? '{}'), room.roomId);
   assert(!tokens.spectatorToken);
-  checked('disabled spectator credentials absent from player token and share responses');
+  checked('hidden spectator credentials absent from player token and share responses');
+  await owner.getByRole('button', { name: 'Share room', exact: true }).click();
+  await owner.getByRole('dialog').waitFor();
+  assert(!/Invite spectator/.test(await owner.getByRole('dialog').innerText()));
+  await owner.getByRole('button', { name: 'Close', exact: true }).click();
+  checked('hidden spectator link omitted from the player sharing dialog');
+  // Use the player's browser context to exercise cached player credentials too.
+  const spectator = await ownerContext.newPage();
+  await spectator.goto(room.spectatorLink);
+  await spectator.getByText('Preloaded Alice', { exact: true }).first().waitFor();
+  assert.equal(await spectator.getByRole('button', { name: 'Create Token', exact: true }).count(), 0);
+  assert.equal(await spectator.getByRole('button', { name: 'Share room', exact: true }).count(), 0);
+  assert.equal(new URL(spectator.url()).search, '?viewerRole=spectator');
+  await spectator.reload();
+  await spectator.getByText('Preloaded Alice', { exact: true }).first().waitFor();
+  assert.equal(await spectator.getByRole('button', { name: 'Create Token', exact: true }).count(), 0);
+  checked('hidden spectator link works with cached player credentials and stays read-only after reload');
+  await spectator.close();
   const spectatorDenials = await owner.evaluate(async (room) => {
     const tokenPath = '/src/server/joinToken.ts';
     const { token } = await (await import(tokenPath)).getJoinToken({ data: { roomId: room.roomId } });
@@ -168,7 +186,7 @@ try {
     })));
   }, room);
   assert(spectatorDenials.every(result => result.code !== 1000 && !result.received));
-  checked('player credential cannot bypass disabled spectators on either WebSocket channel');
+  checked('player credential cannot derive hidden spectator access on either WebSocket channel');
   await owner.waitForFunction(async () => {
     const path = '/src/logging/logStore.ts';
     return (await import(path)).useLogStore.getState().entries.filter((entry: {eventId: string}) => entry.eventId === 'deck.load').length === 1;
@@ -196,9 +214,9 @@ try {
   const normal = await create(crypto.randomUUID(), {});
   assert.equal(normal.status(), 201);
   const normalRoom = await normal.json();
-  assert.equal(normalRoom.spectatorsEnabled, true);
-  assert(normalRoom.spectatorInviteUrl);
-  checked('spectators remain enabled by default');
+  assert.equal(normalRoom.displaySpectatorLink, true);
+  assert(normalRoom.spectatorLink);
+  checked('spectator links remain displayed by default');
   const badResponse = await create(crypto.randomUUID(), { players: [{ externalId: 'bad', deck: { decklist: '1 zzzNoSuchDrawspellCardXYZ987654' } }] });
   assert.equal(badResponse.status(), 201);
   const badRoom = await badResponse.json();
@@ -212,10 +230,10 @@ try {
   await page.getByRole('heading', { name: 'Drawspell API', exact: true }).waitFor();
   checked('public API docs render');
   await page.goto(`${origin}/developers`);
-  await page.getByRole('button', { name: 'Revoke', exact: true }).click();
-  await page.getByText('revoked', { exact: false }).waitFor();
+  await page.getByRole('button', { name: 'Delete Browser E2E', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete Browser E2E', exact: true }).waitFor({ state: 'detached' });
   assert.equal((await create(crypto.randomUUID(), {})).status(), 401);
-  checked('revoked API key immediately loses room-creation access');
+  checked('deleted API key immediately loses room-creation access');
   setAccountSuspended(true);
   try {
     const suspended = await context.request.get(`${origin}/developers`);

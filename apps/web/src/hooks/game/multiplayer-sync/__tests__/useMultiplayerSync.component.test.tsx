@@ -458,6 +458,26 @@ describe("useMultiplayerSync", () => {
     expect(clearInviteTokenFromUrl).toHaveBeenCalled();
   });
 
+  it("reconnects the spectator view without cached player invitations or resume credentials", async () => {
+    vi.mocked(isRoomHostPending).mockReturnValue(false);
+    vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({ role: "spectator" });
+    vi.mocked(readRoomTokensFromStorage).mockReturnValue({
+      personalInvite: "cached-assignment", playerToken: "cached-player",
+      spectatorToken: "spectator-token", resumeToken: "cached-resume",
+    });
+    renderHook(() => useMultiplayerSync("session-spectator-reload"));
+    await waitFor(() => expect(intentTransportMocks.createIntentTransport).toHaveBeenCalledTimes(1));
+    expect(intentTransportMocks.createIntentTransport).toHaveBeenCalledWith(expect.objectContaining({
+      viewerRole: "spectator", token: "spectator-token", tokenRole: "spectator",
+      personalInvite: undefined, resumeToken: undefined,
+    }));
+    const sync = await providerInstances[0].opts.params();
+    expect(sync).toMatchObject({ viewerRole: "spectator", st: "spectator-token" });
+    expect(sync).not.toHaveProperty("invite");
+    expect(sync).not.toHaveProperty("rt");
+    expect(sync).not.toHaveProperty("gt");
+  });
+
   it("defers clearing resume invite params until room tokens arrive", async () => {
     vi.mocked(resolveInviteTokenFromUrl).mockReturnValue({
       playerId: "player-1",

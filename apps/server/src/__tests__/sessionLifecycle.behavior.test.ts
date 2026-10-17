@@ -1660,7 +1660,7 @@ describe("server lifecycle guards", () => {
     expect(String(shareLinksMessage?.payload?.playerInviteUrl)).toContain(
       "https://ds.localhost/rooms/room-test?gt="
     );
-    expect(String(shareLinksMessage?.payload?.spectatorInviteUrl)).toContain(
+    expect(String(shareLinksMessage?.payload?.spectatorLink)).toContain(
       "https://ds.localhost/rooms/room-test?st="
     );
     expect(String(shareLinksMessage?.payload?.resumeInviteUrl)).toContain(
@@ -2749,16 +2749,55 @@ describe("landing-page Leave Room", () => {
 });
 
 describe('provisioned room connection channels', () => {
-  const provision = async (server: Room, spectatorsEnabled = false) => {
+  const provision = async (server: Room, displaySpectatorLink = false) => {
     const response = await server.onRequest(new Request('https://internal/internal/rooms', {
       method: 'POST', headers: { authorization: 'Bearer provision-secret', 'content-type': 'application/json' },
       body: JSON.stringify({ roomId: 'room-test', creationId: 'creation-1', activationExpiresAt: Date.now() + 600000,
-        request: { spectatorsEnabled, players: [{ externalId: 'one', deck: { decklist: '1 Sol Ring', bracket: 3 } }] } }),
+        request: { displaySpectatorLink, players: [{ externalId: 'one', deck: { decklist: '1 Sol Ring', bracket: 3 } }] } }),
     }));
     expect(response.status).toBe(200);
-    return await response.json() as { playerInviteUrl: string; players: Array<{ joinUrl: string }> };
+    return await response.json() as { playerInviteUrl: string; spectatorLink: string; players: Array<{ joinUrl: string }> };
   };
   const room = () => new Room(createState(), { ...createEnv(), ROOM_PROVISION_SECRET: 'provision-secret' } as Env);
+
+  it.each([false, true])('always permits spectator-token access and filters player disclosure when displaySpectatorLink=%s', async (displaySpectatorLink) => {
+    const server = room();
+    const result = await provision(server, displaySpectatorLink);
+    const spectatorToken = new URL(result.spectatorLink).searchParams.get('st');
+    const playerToken = new URL(result.playerInviteUrl).searchParams.get('gt');
+    expect(spectatorToken).toBeTruthy();
+    expect(spectatorToken).not.toBe(playerToken);
+
+    const player = new TestConnection(); player.id = 'player';
+    await Reflect.apply(server['bindIntentConnection'], server, [player, new URL(`https://test?playerId=p1&gt=${playerToken}`)]);
+    expect(player.closed).toEqual([]);
+    const tokenMessage = player.sent.map(raw => JSON.parse(raw)).find(message => message.type === 'roomTokens');
+    expect(tokenMessage.payload.spectatorToken).toBe(displaySpectatorLink ? spectatorToken : undefined);
+    await Reflect.apply(server['onMessage'], server, [player, JSON.stringify({ type: 'shareLinksRequest', requestId: 'share-hidden' })]);
+    await vi.waitFor(() => expect(player.sent.some(raw => raw.includes('shareLinksResponse'))).toBe(true));
+    const share = player.sent.map(raw => JSON.parse(raw)).find(message => message.type === 'shareLinksResponse');
+    expect(share.ok).toBe(true);
+    expect(share.payload.spectatorLink).toBe(displaySpectatorLink ? result.spectatorLink : undefined);
+    if (!displaySpectatorLink) {
+      expect(player.sent.join('')).not.toContain(spectatorToken);
+      expect(player.sent.join('')).not.toContain(result.spectatorLink);
+      expect(JSON.stringify(server.document.toJSON())).not.toContain(spectatorToken);
+    }
+
+    for (const channel of ['sync', 'intent']) {
+      const spectator = new TestConnection(); spectator.id = `spectator-${channel}`;
+      const url = new URL(`https://test?st=${spectatorToken}&viewerRole=spectator&invite=${new URL(result.players[0].joinUrl).searchParams.get("invite")}&rt=cached-player-resume&playerId=p1`);
+      if (channel === 'sync') await Reflect.apply(server['bindSyncConnection'], server, [spectator, url, {}]);
+      else await Reflect.apply(server['bindIntentConnection'], server, [spectator, url]);
+      expect(spectator.closed).toEqual([]);
+      const forged = new TestConnection(); forged.id = `forged-${channel}`;
+      const forgedUrl = new URL(`https://test?st=${playerToken}&playerId=forged&viewerRole=spectator`);
+      if (channel === 'sync') await Reflect.apply(server['bindSyncConnection'], server, [forged, forgedUrl, {}]);
+      else await Reflect.apply(server['bindIntentConnection'], server, [forged, forgedUrl]);
+      expect(forged.closed).toContainEqual({ code: 1008, reason: 'invalid token' });
+      expect(forged.sent).toEqual([]);
+    }
+  });
 
   it('rejects player-token spectators through sync and intent connections', async () => {
     const server = room();

@@ -2,7 +2,7 @@ import { codeToHtml } from 'shiki';
 import { mkdir, writeFile } from 'node:fs/promises';
 
 const body = JSON.stringify({
-  spectatorsEnabled: false,
+  displaySpectatorLink: false,
   players: [{ externalId: 'player-1', deck: { decklist: '1 Sol Ring\n1 Command Tower', bracket: 3 } }],
 }, null, 2);
 const examples = [
@@ -35,7 +35,8 @@ if (!response.ok) throw new Error(room.error.message);
   {
     label: 'Response', lang: 'json',
     code: JSON.stringify({
-      roomId: 'abc123', spectatorsEnabled: false,
+      roomId: 'abc123', displaySpectatorLink: false,
+      spectatorLink: 'https://drawspell.space/rooms/abc123?st=…',
       activationExpiresAt: '2026-10-09T18:10:00.000Z',
       playerInviteUrl: 'https://drawspell.space/rooms/abc123?gt=…',
       players: [{externalId: 'player-1',joinUrl: 'https://drawspell.space/rooms/abc123?invite=…'}],

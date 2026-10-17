@@ -341,7 +341,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
         if (abortController.signal.aborted) return;
         const nextLinks = {
           players: payload.playerInviteUrl,
-          spectators: payload.spectatorInviteUrl ?? "",
+          spectators: payload.spectatorLink ?? "",
           resume: payload.resumeInviteUrl ?? "",
         };
         setShareLinks(nextLinks);

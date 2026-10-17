@@ -8,15 +8,15 @@ Base URL `https://drawspell.space/api/v1`
 
 ## Authentication
 
-[Sign in with an email link](https://drawspell.space/developers) and create an API key in your dashboard. Copy the key when it’s created; it’s shown only once.
+[Sign into the developer portal](https://drawspell.space/developers) and create an API key in your dashboard.
 
-Send it in the `Authorization` header with every API request. Keep the key in a server environment variable, outside browser code and shared URLs.
+Send it in the `Authorization` header with every API request.
 
 ```
 Authorization: Bearer YOUR_API_KEY
 ```
 
-Manage up to five active keys in [your dashboard](https://drawspell.space/developers). To rotate a key, create a replacement, update your app, then revoke the old key.
+Manage up to five active keys in [your dashboard](https://drawspell.space/developers).
 
 Missing, invalid, or revoked keys return `401 unauthorized`. Disabled accounts or insufficient permissions return `403 forbidden`.
 
@@ -44,9 +44,9 @@ Unique per creation; 1–128 visible ASCII characters.
 
 Send `{}` for a default room. Maximum 160 KiB; no unknown fields.
 
-**`spectatorsEnabled` boolean · optional**
+**`displaySpectatorLink` boolean · optional**
 
-Defaults to true. Set false to block spectators for the room’s lifetime.
+Defaults to true. Set false to hide the spectator link from players. The API still returns the link.
 
 **`players` object\[\] · optional**
 
@@ -78,15 +78,13 @@ Anyone with the link can join an available seat.
 
 Send to the matching `externalId`. Loads their assigned deck; no seat reservation or identity check.
 
-**`spectatorInviteUrl` conditional**
+**`spectatorLink` string**
 
-Only returned when spectators are enabled.
+Always returned to the API caller. Anyone with this link can watch. When displaySpectatorLink is false, players cannot retrieve the link from the app.
 
 **`activationExpiresAt` ISO date**
 
 First player must join within ten minutes. Active games continue past this deadline.
-
-Card lookup happens on join. Players can correct or swap decks; each successful load appears in the game log. Personal links protect the original assignment, not subsequent deck changes.
 
 ### Safe retries
 
@@ -121,7 +119,7 @@ curl https://drawspell.space/api/v1/rooms \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: match-123" \
   --data '{
-  "spectatorsEnabled": false,
+  "displaySpectatorLink": false,
   "players": [
     {
       "externalId": "player-1",
@@ -146,7 +144,7 @@ const response = await fetch(
       'Idempotency-Key': 'match-123',
     },
     body: JSON.stringify({
-      "spectatorsEnabled": false,
+      "displaySpectatorLink": false,
       "players": [
         {
           "externalId": "player-1",
@@ -170,7 +168,8 @@ if (!response.ok) throw new Error(room.error.message);
 ```json
 {
   "roomId": "abc123",
-  "spectatorsEnabled": false,
+  "displaySpectatorLink": false,
+  "spectatorLink": "https://drawspell.space/rooms/abc123?st=…",
   "activationExpiresAt": "2026-10-09T18:10:00.000Z",
   "playerInviteUrl": "https://drawspell.space/rooms/abc123?gt=…",
   "players": [

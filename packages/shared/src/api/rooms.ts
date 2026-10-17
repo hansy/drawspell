@@ -11,15 +11,15 @@ export const ROOM_IDEMPOTENCY_TTL_MS = 24 * 60 * 60_000;
 export type PreloadedDeck = { decklist: string; bracket?: number };
 export type RoomPlayerAssignment = { externalId: string; deck?: PreloadedDeck };
 export type CreateRoomRequest = {
-  spectatorsEnabled: boolean;
+  displaySpectatorLink: boolean;
   players: RoomPlayerAssignment[];
 };
 export type CreateRoomResponse = {
   roomId: string;
-  spectatorsEnabled: boolean;
+  displaySpectatorLink: boolean;
   activationExpiresAt: string;
   playerInviteUrl: string;
-  spectatorInviteUrl?: string;
+  spectatorLink: string;
   players: Array<{ externalId: string; joinUrl: string }>;
 };
 export type ProvisionRoomRequest = {
@@ -37,8 +37,8 @@ const encoder = new TextEncoder();
 
 /** Normalizes request defaults without interpreting card names or deck legality. */
 export const parseCreateRoomRequest = (value: unknown): CreateRoomRequest | null => {
-  if (!isRecord(value) || !hasOnlyKeys(value, ["spectatorsEnabled", "players"])) return null;
-  if (value.spectatorsEnabled !== undefined && typeof value.spectatorsEnabled !== "boolean") return null;
+  if (!isRecord(value) || !hasOnlyKeys(value, ["displaySpectatorLink", "players"])) return null;
+  if (value.displaySpectatorLink !== undefined && typeof value.displaySpectatorLink !== "boolean") return null;
   const rawPlayers = value.players ?? [];
   if (!Array.isArray(rawPlayers) || rawPlayers.length > MAX_ROOM_PLAYERS || value.players === null) return null;
   const externalIds = new Set<string>();
@@ -59,5 +59,13 @@ export const parseCreateRoomRequest = (value: unknown): CreateRoomRequest | null
     if (deck.bracket !== undefined && (typeof deck.bracket !== "number" || !Number.isInteger(deck.bracket) || deck.bracket < 1 || deck.bracket > 5)) return null;
     players.push({ externalId, deck: { decklist: deck.decklist, ...(deck.bracket !== undefined ? { bracket: deck.bracket } : {}) } });
   }
-  return { spectatorsEnabled: value.spectatorsEnabled ?? true, players };
+  return { displaySpectatorLink: value.displaySpectatorLink ?? true, players };
+};
+
+/** Read the previous persisted request shape without accepting it in new API requests. */
+export const parseStoredCreateRoomRequest = (value: unknown): CreateRoomRequest | null => {
+  if (isRecord(value) && hasOnlyKeys(value, ["spectatorsEnabled", "players"]) && "spectatorsEnabled" in value) {
+    return parseCreateRoomRequest({ displaySpectatorLink: value.spectatorsEnabled, players: value.players });
+  }
+  return parseCreateRoomRequest(value);
 };

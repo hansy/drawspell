@@ -161,7 +161,7 @@ describe("developer authentication", () => {
         .get(),
     ).toMatchObject({ count: expect.any(Number) });
   });
-  test("key cap, safe list, isolation, revocation audit and suspension", async () => {
+  test("key cap, safe list, isolation, deletion and suspension", async () => {
     const cookie = await login();
     const responses = await Promise.all(
       Array.from({ length: 8 }, (_, n) =>
@@ -218,6 +218,13 @@ describe("developer authentication", () => {
       ).status,
     ).toBe(200);
     expect((await verifyDeveloperApiKey(auth, created.key)).valid).toBe(false);
+    const afterDeletion = await handleAuthRequest(
+      auth,
+      request("/developer/keys", "GET", undefined, cookie),
+    );
+    expect(await afterDeletion.text()).not.toContain(created.id);
+    expect(sqlite.query("SELECT id FROM developer_api_key WHERE id = ?").get(created.id)).toBeNull();
+    expect((await handleAuthRequest(auth, request("/developer/keys/" + created.id, "DELETE", undefined, cookie))).status).toBe(200);
     expect(
       sqlite
         .query("SELECT revoked_at FROM developer_key_audit WHERE key_id = ?")

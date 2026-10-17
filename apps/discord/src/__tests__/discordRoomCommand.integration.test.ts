@@ -161,7 +161,8 @@ describe("discord /drawspell create", () => {
         roomId: "room-abc",
         playerInviteUrl: "https://drawspell.space/rooms/room-abc?gt=player-token-abc",
         activationExpiresAt: new Date(Date.now() + 600_000).toISOString(),
-        spectatorsEnabled: true,
+        displaySpectatorLink: true,
+        spectatorLink: "https://drawspell.space/rooms/test-room?st=spectator-token",
         players: [],
 
       }),
@@ -235,7 +236,8 @@ describe("discord /drawspell create", () => {
         roomId: "room-xyz",
         playerInviteUrl: "https://drawspell.space/rooms/room-xyz?gt=player-token-xyz",
         activationExpiresAt: new Date(Date.now() + 600_000).toISOString(),
-        spectatorsEnabled: true,
+        displaySpectatorLink: true,
+        spectatorLink: "https://drawspell.space/rooms/test-room?st=spectator-token",
         players: [],
 
       }),
@@ -328,7 +330,8 @@ describe("discord /drawspell create", () => {
         roomId: "room-prune",
         playerInviteUrl: "https://drawspell.space/rooms/room-prune?gt=player-token-prune",
         activationExpiresAt: new Date(Date.now() + 600_000).toISOString(),
-        spectatorsEnabled: true,
+        displaySpectatorLink: true,
+        spectatorLink: "https://drawspell.space/rooms/test-room?st=spectator-token",
         players: [],
 
       }),
@@ -420,7 +423,8 @@ describe("discord /drawspell create", () => {
         roomId: "room-fail",
         playerInviteUrl: "https://drawspell.space/rooms/room-fail?gt=player-token-fail",
         activationExpiresAt: new Date(Date.now() + 600_000).toISOString(),
-        spectatorsEnabled: true,
+        displaySpectatorLink: true,
+        spectatorLink: "https://drawspell.space/rooms/test-room?st=spectator-token",
         players: [],
 
       }),
@@ -502,7 +506,8 @@ describe("discord /drawspell create", () => {
           roomId: "room-repeat",
           playerInviteUrl: "https://drawspell.space/rooms/room-repeat?gt=player-token-repeat",
           activationExpiresAt: new Date(Date.now() + 600_000).toISOString(),
-        spectatorsEnabled: true,
+        displaySpectatorLink: true,
+        spectatorLink: "https://drawspell.space/rooms/test-room?st=spectator-token",
         players: [],
           }, { headers: { "Idempotency-Replayed": "true" } }),
     );

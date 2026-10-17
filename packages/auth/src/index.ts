@@ -98,8 +98,7 @@ export type DeveloperKey = {
   name: string;
   prefix: string;
   createdAt: string;
-  revokedAt: string | null;
-  status: "active" | "revoked" | "expired";
+  status: "active" | "expired";
 };
 export async function listDeveloperKeys(
   auth: DeveloperAuth,
@@ -108,9 +107,9 @@ export async function listDeveloperKeys(
   const session = await getDeveloperSession(auth, headers);
   const rows = await auth.db
     .prepare(
-      `SELECT a.key_id, a.name, a.prefix, a.created_at, a.revoked_at, k.enabled, k.expires_at
-    FROM developer_key_audit a LEFT JOIN developer_api_key k ON k.id = a.key_id
-    WHERE a.developer_id = ? ORDER BY a.created_at DESC`,
+      `SELECT a.key_id, a.name, a.prefix, a.created_at, k.expires_at
+    FROM developer_key_audit a JOIN developer_api_key k ON k.id = a.key_id
+    WHERE a.developer_id = ? AND a.revoked_at IS NULL AND k.enabled = 1 ORDER BY a.created_at DESC`,
     )
     .bind(session.user.id)
     .all<{
@@ -118,8 +117,6 @@ export async function listDeveloperKeys(
       name: string | null;
       prefix: string | null;
       created_at: number;
-      revoked_at: number | null;
-      enabled: number | null;
       expires_at: number | null;
     }>();
   return rows.results.map((r) => ({
@@ -127,11 +124,8 @@ export async function listDeveloperKeys(
     name: r.name ?? "API key",
     prefix: r.prefix ?? "drawspell_",
     createdAt: new Date(r.created_at).toISOString(),
-    revokedAt: r.revoked_at ? new Date(r.revoked_at).toISOString() : null,
     status:
-      r.revoked_at || !r.enabled
-        ? "revoked"
-        : r.expires_at && r.expires_at <= Date.now()
+      r.expires_at && r.expires_at <= Date.now()
           ? "expired"
           : "active",
   }));
@@ -182,13 +176,13 @@ export async function createDeveloperKey(
         throw new DeveloperAuthError(
           409,
           "key_limit",
-          "Revoke a key before creating more than five active keys.",
+          "Delete a key before creating more than five active keys.",
         );
     }
     throw error;
   }
 }
-export async function revokeDeveloperKey(
+export async function deleteDeveloperKey(
   auth: DeveloperAuth,
   headers: Headers,
   keyId: string,
@@ -325,7 +319,7 @@ export async function handleAuthRequest(
         request.method === "DELETE"
       )
         return json(
-          await revokeDeveloperKey(
+          await deleteDeveloperKey(
             auth,
             request.headers,
             decodeURIComponent(path.split("/").at(-1)!),

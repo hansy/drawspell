@@ -1,5 +1,5 @@
 import type { DiscordRoomInternalProvisionPayload, DiscordRoomInternalProvisionResponse } from "@mtg/shared/discord/provisioning";
-import type { ProvisionRoomRequest } from "@mtg/shared/api/rooms";
+import { parseStoredCreateRoomRequest, type ProvisionRoomRequest } from "@mtg/shared/api/rooms";
 import { ROOM_PROVISION_METADATA_KEY, ROOM_SETTINGS_KEY, PRELOAD_ATTEMPTS_KEY, ProvisionError, type ProvisionMetadata } from "../rooms/provisioning";
 import type {
   DiscordRoomInviteMetadata,
@@ -117,19 +117,40 @@ export class RoomAdmission {
   }
 
   async loadRoomTokens(): Promise<RoomTokens | null> {
+    return this.serializeInitialization(() => this.readRoomTokens());
+  }
+
+  // Runs under serializeInitialization, including lazy upgrades of persisted rooms.
+  private async readRoomTokens(): Promise<RoomTokens | null> {
     if (this.roomTokens) return this.roomTokens;
-    const provision = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
+    const provision = await this.storage.get<Omit<ProvisionMetadata, "request" | "tokens"> & {
+      request: unknown; tokens: RoomTokens;
+    }>(ROOM_PROVISION_METADATA_KEY);
     const legacy = await this.storage.get<DiscordRoomInviteMetadata & { tokens?: RoomTokens }>(DISCORD_INVITE_METADATA_KEY);
     const stored = provision?.tokens ?? legacy?.tokens ?? await this.storage.get<RoomTokens>(ROOM_TOKENS_KEY);
-    if (
-      stored &&
-      typeof stored.playerToken === "string" &&
-      (stored.spectatorToken === undefined || typeof stored.spectatorToken === "string")
-    ) {
-      this.roomTokens = stored;
-      return stored;
+    if (!stored || typeof stored.playerToken !== "string" ||
+      (stored.spectatorToken !== undefined && typeof stored.spectatorToken !== "string")) return null;
+
+    const tokens = { ...stored, spectatorToken: stored.spectatorToken ?? this.generateToken() };
+    if (provision) {
+      const request = parseStoredCreateRoomRequest(provision.request);
+      if (!request) throw new Error("Invalid stored room creation request");
+      if (JSON.stringify(request) !== JSON.stringify(provision.request) || !stored.spectatorToken) {
+        // The primary record owns the new token even if the compatibility write fails.
+        await this.storage.put(ROOM_PROVISION_METADATA_KEY, { ...provision, request, tokens });
+      }
+    } else {
+      const settings = await this.storage.get<{ displaySpectatorLink?: boolean; spectatorsEnabled?: boolean }>(ROOM_SETTINGS_KEY);
+      if (settings && settings.displaySpectatorLink === undefined) {
+        await this.storage.put(ROOM_SETTINGS_KEY, { displaySpectatorLink: settings.spectatorsEnabled !== false });
+      }
+      if (legacy && !stored.spectatorToken) {
+        await this.storage.put(DISCORD_INVITE_METADATA_KEY, { ...legacy, tokens });
+      }
     }
-    return null;
+    if (!stored.spectatorToken) await this.storage.put(ROOM_TOKENS_KEY, tokens);
+    this.roomTokens = tokens;
+    return tokens;
   }
 
   private serializeInitialization<T>(operation: () => Promise<T>): Promise<T> {
@@ -138,28 +159,24 @@ export class RoomAdmission {
     return pending;
   }
 
-  async spectatorsEnabled(): Promise<boolean> {
-    const provision = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
-    if (provision) return provision.request.spectatorsEnabled;
-    const settings = await this.storage.get<{ spectatorsEnabled: boolean }>(ROOM_SETTINGS_KEY);
-    return settings?.spectatorsEnabled !== false;
+  async displaySpectatorLink(): Promise<boolean> {
+    return this.serializeInitialization(async () => {
+      await this.readRoomTokens();
+      const provision = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
+      if (provision) return provision.request.displaySpectatorLink;
+      const settings = await this.storage.get<{ displaySpectatorLink?: boolean; spectatorsEnabled?: boolean }>(ROOM_SETTINGS_KEY);
+      return (settings?.displaySpectatorLink ?? settings?.spectatorsEnabled) !== false;
+    });
   }
 
   async ensureRoomTokens(): Promise<RoomTokens> {
     return this.serializeInitialization(async () => {
-      const provision = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
-      if (provision) {
-        this.roomTokens = provision.tokens;
-        return provision.tokens;
-      }
-      const existing = await this.loadRoomTokens();
+      const existing = await this.readRoomTokens();
       if (existing) return existing;
-      const spectatorsEnabled = await this.spectatorsEnabled();
-      const generated = {
-        playerToken: this.generateToken(),
-        ...(spectatorsEnabled ? { spectatorToken: this.generateToken() } : {}),
-      };
-      await this.storage.put(ROOM_SETTINGS_KEY, { spectatorsEnabled });
+      const settings = await this.storage.get<{ displaySpectatorLink?: boolean; spectatorsEnabled?: boolean }>(ROOM_SETTINGS_KEY);
+      const displaySpectatorLink = (settings?.displaySpectatorLink ?? settings?.spectatorsEnabled) !== false;
+      const generated = { playerToken: this.generateToken(), spectatorToken: this.generateToken() };
+      await this.storage.put(ROOM_SETTINGS_KEY, { displaySpectatorLink });
       await this.storage.put(ROOM_TOKENS_KEY, generated);
       this.roomTokens = generated;
       return generated;
@@ -179,13 +196,13 @@ export class RoomAdmission {
       if (existing && existing.interactionId !== payload.interactionId) {
         throw new ProvisionError(409, "Room creation conflicts with existing room");
       }
-      if (!existing && (await this.loadRoomTokens() || await this.storage.get(ROOM_SETTINGS_KEY))) {
+      if (!existing && (await this.readRoomTokens() || await this.storage.get(ROOM_SETTINGS_KEY))) {
         throw new ProvisionError(409, "Room already exists");
       }
       if (!existing && this.now() >= payload.inviteExpiresAt) {
         throw new ProvisionError(410, "Room invitation expired");
       }
-      const tokens = await this.loadRoomTokens() ?? {
+      const tokens = await this.readRoomTokens() ?? {
         playerToken: this.generateToken(),
         spectatorToken: this.generateToken(),
       };
@@ -213,6 +230,7 @@ export class RoomAdmission {
 
   async provision(payload: ProvisionRoomRequest): Promise<ProvisionMetadata> {
     return this.serializeInitialization(async () => {
+      await this.readRoomTokens();
       const existing = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
       if (existing) {
         if (existing.creationId !== payload.creationId || existing.activationExpiresAt !== payload.activationExpiresAt || JSON.stringify(existing.request) !== JSON.stringify(payload.request)) {
@@ -222,7 +240,7 @@ export class RoomAdmission {
         return existing;
       }
       if (this.now() >= payload.activationExpiresAt) throw new ProvisionError(410, "Room invitation expired");
-      if (await this.loadRoomTokens() || await this.storage.get(ROOM_SETTINGS_KEY) || await this.storage.get(DISCORD_INVITE_METADATA_KEY)) {
+      if (await this.readRoomTokens() || await this.storage.get(ROOM_SETTINGS_KEY) || await this.storage.get(DISCORD_INVITE_METADATA_KEY)) {
         throw new ProvisionError(409, "Room already exists");
       }
       const metadata: ProvisionMetadata = {
@@ -231,7 +249,7 @@ export class RoomAdmission {
         request: payload.request,
         tokens: {
           playerToken: this.generateToken(),
-          ...(payload.request.spectatorsEnabled ? { spectatorToken: this.generateToken() } : {}),
+          spectatorToken: this.generateToken(),
         },
         assignments: payload.request.players.map(player => ({ ...player, assignmentId: this.generateToken(), token: this.generateToken() })),
       };
@@ -564,17 +582,16 @@ export class RoomAdmission {
     options: { allowTokenCreation: boolean },
   ): Promise<ConnectionAuthWithResumeResult> {
     const provision = await this.serializeInitialization(async () => {
+      await this.readRoomTokens();
       const current = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
       if (!current && !storedTokens && !state.token && !state.invite && state.playerId && state.viewerRole !== "spectator") {
-        await this.storage.put(ROOM_SETTINGS_KEY, { spectatorsEnabled: true });
+        if (!await this.storage.get(ROOM_SETTINGS_KEY)) {
+          await this.storage.put(ROOM_SETTINGS_KEY, { displaySpectatorLink: true });
+        }
       }
       return current;
     });
     if (provision) storedTokens = provision.tokens;
-    const spectatorsEnabled = await this.spectatorsEnabled();
-    if (!spectatorsEnabled && (state.viewerRole === "spectator" || (storedTokens?.spectatorToken && state.token === storedTokens.spectatorToken))) {
-      return { ok: false, reason: "invalid token" };
-    }
     if (provision && !provision.activatedAt && this.now() >= provision.activationExpiresAt) {
       return { ok: false, reason: "invalid token" };
     }
@@ -594,7 +611,9 @@ export class RoomAdmission {
     ): Promise<ConnectionAuthWithResumeResult> => {
       const result = await resultOrPromise;
       if (!result.ok) return result;
-      if (result.resolvedRole === "spectator" && !spectatorsEnabled) return { ok: false, reason: "invalid token" };
+      if (result.resolvedRole === "spectator" && result.token !== result.tokens?.spectatorToken) {
+        return { ok: false, reason: "invalid token" };
+      }
       if (result.resolvedRole === "player" && provision && !provision.activatedAt) {
         const activated = await this.serializeInitialization(async () => {
           const current = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);

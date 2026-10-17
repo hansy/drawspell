@@ -86,7 +86,7 @@ export type RoomTokensMessage = {
 
 export type ShareLinksPayload = {
   playerInviteUrl: string;
-  spectatorInviteUrl?: string;
+  spectatorLink?: string;
   resumeInviteUrl?: string;
 };
 

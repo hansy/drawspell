@@ -1,6 +1,7 @@
 import { verifyDeveloperApiKey, type DeveloperAuth } from "@mtg/auth";
 import {
   parseCreateRoomRequest,
+  parseStoredCreateRoomRequest,
   MAX_CREATE_ROOM_BYTES,
   ROOM_ACTIVATION_TTL_MS,
   ROOM_IDEMPOTENCY_TTL_MS,
@@ -180,7 +181,7 @@ export async function handlePublicRoomRequest(
         "service_unavailable",
         "Retry this operation using the same Idempotency-Key.",
       );
-    if (operation.request_json !== canonical)
+    if (JSON.stringify(parseStoredCreateRoomRequest(JSON.parse(operation.request_json))) !== canonical)
       throw new ApiError(
         409,
         "idempotency_conflict",
@@ -207,10 +208,15 @@ export async function handlePublicRoomRequest(
           "room_gone",
           "The original room expired or is gone. Use a new Idempotency-Key for a new room.",
         );
-      if (state.exists && operation.response_json)
-        return json(JSON.parse(operation.response_json), 200, {
-          "Idempotency-Replayed": "true",
-        });
+      if (state.exists && operation.response_json) {
+        const cached: unknown = JSON.parse(operation.response_json);
+        if (cached !== null && typeof cached === "object" &&
+          "spectatorLink" in cached && typeof cached.spectatorLink === "string" &&
+          "displaySpectatorLink" in cached && typeof cached.displaySpectatorLink === "boolean") {
+          return json(cached, 200, { "Idempotency-Replayed": "true" });
+        }
+        // Refresh old cached responses from the room's durable credentials.
+      }
     }
     const provision = await provisionFetch(env, ROOM_PROVISION_PATH, {
       roomId: operation.room_id,
@@ -232,13 +238,14 @@ export async function handlePublicRoomRequest(
       );
     const response = (await provision.json()) as CreateRoomResponse;
     await env.DB.prepare(
-      "UPDATE developer_room_operations SET response_json = ? WHERE developer_id = ? AND retry_key = ? AND creation_id = ? AND response_json IS NULL",
+      "UPDATE developer_room_operations SET response_json = ? WHERE developer_id = ? AND retry_key = ? AND creation_id = ? AND (response_json IS NULL OR response_json = ?)",
     )
       .bind(
         JSON.stringify(response),
         developerId,
         retryKey,
         operation.creation_id,
+        operation.response_json,
       )
       .run();
     return json(

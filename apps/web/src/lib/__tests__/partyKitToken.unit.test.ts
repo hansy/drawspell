@@ -33,6 +33,15 @@ describe("partyKitToken storage", () => {
     expect(readRoomTokensFromStorage("room1")).toEqual({ personalInvite: "private-assignment" });
   });
 
+  it("keeps only the non-secret spectator view marker across URL cleanup and reload", () => {
+    window.history.replaceState({}, "", "/rooms/spectator-reload?st=private-spectator&rt=old-resume&playerId=p1");
+    clearInviteTokenFromUrl();
+    expect(window.location.search).toBe("?viewerRole=spectator");
+    expect(resolveInviteTokenFromUrl(window.location.href)).toEqual({ role: "spectator" });
+    clearInviteTokenFromUrl();
+    expect(window.location.search).toBe("?viewerRole=spectator");
+  });
+
   it("does not persist resume tokens to storage", () => {
     writeRoomTokensToStorage("session-1", {
       playerToken: "player-token",

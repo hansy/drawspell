@@ -110,9 +110,6 @@ const resolveRoomTokenForRole = (
     if (tokens.spectatorToken) {
       return { token: tokens.spectatorToken, tokenRole: "spectator" };
     }
-    if (tokens.playerToken) {
-      return { token: tokens.playerToken, tokenRole: "player" };
-    }
     return {};
   }
   if (tokens.playerToken) {
@@ -328,13 +325,13 @@ export function setupSessionResources({
               : {};
         return {
           role: "sync",
-          ...(state.roomTokens?.personalInvite ? { invite: state.roomTokens.personalInvite } : {}),
+          ...(role !== "spectator" && state.roomTokens?.personalInvite ? { invite: state.roomTokens.personalInvite } : {}),
           ...tokenParam,
           ...(resolvedJoinToken ? { jt: resolvedJoinToken } : {}),
           ...(ensuredPlayerId ? { playerId: ensuredPlayerId } : {}),
           ...(userId ? { uid: userId } : {}),
           ...(role ? { viewerRole: role } : {}),
-          ...(syncResumeToken ? { rt: syncResumeToken } : {}),
+          ...(role !== "spectator" && syncResumeToken ? { rt: syncResumeToken } : {}),
           ...(connectionGroupId ? { cid: connectionGroupId } : {}),
         };
       },
@@ -384,13 +381,13 @@ export function setupSessionResources({
   const intentTransport = createIntentTransport({
     host: partyHost,
     room: sessionId,
-    personalInvite: useGameStore.getState().roomTokens?.personalInvite,
+    personalInvite: intentViewerRole === "spectator" ? undefined : useGameStore.getState().roomTokens?.personalInvite,
     token,
     tokenRole,
     playerId: ensuredPlayerId,
     userId,
     viewerRole: intentViewerRole,
-    resumeToken: intentResumeToken,
+    resumeToken: intentViewerRole === "spectator" ? undefined : intentResumeToken,
     connectionGroupId,
     ...(joinToken
       ? { joinToken }

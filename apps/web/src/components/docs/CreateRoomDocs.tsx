@@ -33,7 +33,7 @@ export function CreateRoomDocs() {
             <h3>Body</h3>
             <p>Send <code>{"{}"}</code> for a default room. Maximum 160 KiB; no unknown fields.</p>
             <dl>
-              <Field name="spectatorsEnabled" type="boolean · optional">Defaults to true. Set false to block spectators for the room’s lifetime.</Field>
+              <Field name="displaySpectatorLink" type="boolean · optional">Defaults to true. Set false to hide the spectator link from players. The API still returns the link.</Field>
               <Field name="players" type="object[] · optional" fields={<>
                 <Field name="externalId" type="string · required">Your player identifier. 1–128 characters; unique within this request.</Field>
                 <Field name="deck" type="object · optional" fields={<>
@@ -51,10 +51,9 @@ export function CreateRoomDocs() {
             <dl>
               <Field name="playerInviteUrl" type="shared">Anyone with the link can join an available seat.</Field>
               <Field name="players[].joinUrl" type="personal">Send to the matching <code>externalId</code>. Loads their assigned deck; no seat reservation or identity check.</Field>
-              <Field name="spectatorInviteUrl" type="conditional">Only returned when spectators are enabled.</Field>
+              <Field name="spectatorLink" type="string">Always returned to the API caller. Anyone with this link can watch. When displaySpectatorLink is false, players cannot retrieve the link from the app.</Field>
               <Field name="activationExpiresAt" type="ISO date">First player must join within ten minutes. Active games continue past this deadline.</Field>
             </dl>
-            <p className="api-note">Card lookup happens on join. Players can correct or swap decks; each successful load appears in the game log. Personal links protect the original assignment, not subsequent deck changes.</p>
           </div>
           <CodeExample kind="Response" />
         </section>

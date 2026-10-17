@@ -134,7 +134,7 @@ type ConnectionLibraryView = {
 
 type ShareLinksPayload = {
   playerInviteUrl: string;
-  spectatorInviteUrl?: string;
+  spectatorLink?: string;
   resumeInviteUrl?: string;
 };
 
@@ -1932,17 +1932,19 @@ export class Room extends YServer<Env> {
     return this.admission.validatePlayerResumeToken(playerId, resumeToken);
   }
 
-  private sendRoomTokens(
+  private async sendRoomTokens(
     conn: Connection,
     tokens: RoomTokens,
     viewerRole: "player" | "spectator",
     resumeToken?: string,
     leaveToken?: string,
-  ): boolean {
+  ): Promise<boolean> {
+    const displaySpectatorLink = await this.admission.displaySpectatorLink();
     const payload =
       viewerRole === "player"
         ? {
-            ...tokens,
+            playerToken: tokens.playerToken,
+            ...(displaySpectatorLink ? { spectatorToken: tokens.spectatorToken } : {}),
             ...(resumeToken ? { resumeToken } : {}),
             ...(leaveToken ? { leaveToken } : {}),
           }
@@ -2036,6 +2038,7 @@ export class Room extends YServer<Env> {
     try {
       const tokens = await this.ensureRoomTokens();
       const resumeToken = await this.ensurePlayerResumeToken(playerId);
+      const displaySpectatorLink = await this.admission.displaySpectatorLink();
       this.sendShareLinksResponse(conn, {
         requestId,
         ok: true,
@@ -2043,7 +2046,7 @@ export class Room extends YServer<Env> {
           playerInviteUrl: this.buildRoomInviteUrl(webOrigin, {
             tokenParam: { name: "gt", value: tokens.playerToken },
           }),
-          ...(tokens.spectatorToken ? { spectatorInviteUrl: this.buildRoomInviteUrl(webOrigin, {
+          ...(displaySpectatorLink && tokens.spectatorToken ? { spectatorLink: this.buildRoomInviteUrl(webOrigin, {
             tokenParam: { name: "st", value: tokens.spectatorToken },
           }) } : {}),
           resumeInviteUrl: this.buildRoomInviteUrl(webOrigin, {
@@ -3313,7 +3316,7 @@ export class Room extends YServer<Env> {
     }));
 
     if (activeTokens) {
-      const sent = this.sendRoomTokens(
+      const sent = await this.sendRoomTokens(
         conn,
         activeTokens,
         resolvedRole,

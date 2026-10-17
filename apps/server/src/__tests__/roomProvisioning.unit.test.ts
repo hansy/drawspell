@@ -16,24 +16,71 @@ const setup = () => {
   const admission = new RoomAdmission({ storage, resumeTokenTtlMs: 10000, now: () => now, generateToken: () => `token-${++nextToken}` });
   const payload: ProvisionRoomRequest = {
     roomId: 'test-room', creationId: 'creation-1', activationExpiresAt: 2000,
-    request: { spectatorsEnabled: false, players: [{ externalId: 'external-1', deck: { decklist: '1 Sol Ring', bracket: 3 } }, { externalId: 'external-2' }] },
+    request: { displaySpectatorLink: false, players: [{ externalId: 'external-1', deck: { decklist: '1 Sol Ring', bracket: 3 } }, { externalId: 'external-2' }] },
   };
   return { data, admission, payload, storage, setNow: (value: number) => { now = value; } };
 };
 
 describe('generic room provisioning and admission', () => {
-  it('replays concurrent creations with immutable tokens and no disabled spectator credential', async () => {
+  it('replays concurrent creations with immutable tokens and a private spectator link', async () => {
     const { admission, payload } = setup();
     const [first, second] = await Promise.all([admission.provision(payload), admission.provision(payload)]);
     expect(second).toEqual(first);
-    expect(first.tokens.spectatorToken).toBeUndefined();
+    expect(first.tokens.spectatorToken).toBeTypeOf("string");
     const response = provisionResponse(payload.roomId, 'https://drawspell.space', first);
-    expect(response).toMatchObject({ roomId: payload.roomId, spectatorsEnabled: false, activationExpiresAt: new Date(2000).toISOString() });
-    expect(response).not.toHaveProperty('spectatorInviteUrl');
+    expect(response).toMatchObject({ roomId: payload.roomId, displaySpectatorLink: false, activationExpiresAt: new Date(2000).toISOString() });
+    expect(response.spectatorLink).toContain(`?st=${first.tokens.spectatorToken}`);
     expect(response.players[0].joinUrl).toContain('?invite=');
     expect(JSON.stringify(response)).not.toContain('Sol Ring');
-    await expect(admission.provision({ ...payload, request: { ...payload.request, spectatorsEnabled: true } })).rejects.toMatchObject({ status: 409 });
+    await expect(admission.provision({ ...payload, request: { ...payload.request, displaySpectatorLink: true } })).rejects.toMatchObject({ status: 409 });
     await expect(admission.provision({ ...payload, creationId: 'other' })).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('upgrades legacy hidden rooms once under concurrent reads and preserves player invitations', async () => {
+    const { admission, payload, data, storage } = setup();
+    const first = await admission.provision(payload);
+    const { spectatorToken: _removed, ...oldTokens } = first.tokens;
+    data.set(ROOM_PROVISION_METADATA_KEY, { ...first, tokens: oldTokens,
+      request: { spectatorsEnabled: false, players: payload.request.players } });
+    data.set(ROOM_TOKENS_KEY, oldTokens);
+    admission.clearCache();
+    const [one, two] = await Promise.all([admission.ensureRoomTokens(), admission.loadRoomTokens()]);
+    expect(one).toEqual(two);
+    expect(one.playerToken).toBe(first.tokens.playerToken);
+    expect(one.spectatorToken).toBeTypeOf('string');
+    expect(await admission.displaySpectatorLink()).toBe(false);
+    const replay = await admission.provision(payload);
+    expect(replay.assignments).toEqual(first.assignments);
+    expect(replay.tokens).toEqual(one);
+    const restored = new RoomAdmission({ storage, resumeTokenTtlMs: 10000, now: () => 1000 });
+    expect(await restored.ensureRoomTokens()).toEqual(one);
+    expect(await restored.displaySpectatorLink()).toBe(false);
+  });
+
+  it('upgrades old ordinary-room settings without exposing the new token', async () => {
+    const { admission, data } = setup();
+    data.set(ROOM_TOKENS_KEY, { playerToken: 'old-player' });
+    data.set('roomSettings:v1', { spectatorsEnabled: false });
+    expect(await admission.displaySpectatorLink()).toBe(false);
+    expect(await admission.ensureRoomTokens()).toEqual({ playerToken: 'old-player', spectatorToken: expect.any(String) });
+    expect(data.get('roomSettings:v1')).toEqual({ displaySpectatorLink: false });
+  });
+
+  it('preserves hidden settings when recovering an interrupted token initialization', async () => {
+    const { admission, data } = setup();
+    data.set('roomSettings:v1', { displaySpectatorLink: false });
+    await admission.resolveConnectionAuthWithResume({ playerId: 'p1' }, null, { allowTokenCreation: false });
+    expect((await admission.ensureRoomTokens()).spectatorToken).toBeTypeOf('string');
+    expect(await admission.displaySpectatorLink()).toBe(false);
+  });
+
+  it('accepts the hidden spectator credential on both channels without activating the room', async () => {
+    const { admission, payload, data } = setup();
+    const metadata = await admission.provision(payload);
+    for (const channel of ['sync', 'intent'] as const) {
+      expect(await admission.resolveConnectionAuthWithResume({ channel, viewerRole: 'spectator', token: metadata.tokens.spectatorToken }, metadata.tokens, { allowTokenCreation: channel === 'intent' })).toMatchObject({ ok: true, resolvedRole: 'spectator' });
+    }
+    expect(data.get(ROOM_PROVISION_METADATA_KEY)).not.toHaveProperty('activatedAt');
   });
 
   it('rejects expired creation and never resurrects deleted metadata on retry', async () => {
@@ -49,7 +96,7 @@ describe('generic room provisioning and admission', () => {
 
   it('activates only for a player and retains an activated room beyond its invitation deadline', async () => {
     const { admission, payload, setNow } = setup();
-    payload.request.spectatorsEnabled = true;
+    payload.request.displaySpectatorLink = true;
     const metadata = await admission.provision(payload);
     await admission.resolveConnectionAuthWithResume({ viewerRole: 'spectator', token: metadata.tokens.spectatorToken }, metadata.tokens, { allowTokenCreation: false });
     setNow(2000);

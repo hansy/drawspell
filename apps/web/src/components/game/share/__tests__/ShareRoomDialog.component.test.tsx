@@ -42,7 +42,7 @@ const renderDialog = (overrides: Partial<ShareRoomDialogProps> = {}) => {
 };
 
 describe("ShareRoomDialog", () => {
-  it("omits spectator sharing entirely when the Room has no spectator invitation", () => {
+  it("omits spectator sharing when the server withholds the spectator link", () => {
     renderDialog({ spectatorLink: undefined });
     expect(screen.queryByLabelText("Invite spectator")).toBeNull();
     expect(screen.queryByRole("button", { name: "Copy Spectator invite link" })).toBeNull();

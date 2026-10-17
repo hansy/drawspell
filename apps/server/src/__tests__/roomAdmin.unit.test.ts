@@ -230,7 +230,7 @@ describe("room admin endpoints", () => {
 
 describe("private room provisioning transport", () => {
   it("requires the provision bearer secret and forwards a stable payload to the selected object", async () => {
-    const payload = { roomId: "room-1", creationId: "creation-1", activationExpiresAt: Date.now() + 600000, request: { spectatorsEnabled: false, players: [] } };
+    const payload = { roomId: "room-1", creationId: "creation-1", activationExpiresAt: Date.now() + 600000, request: { displaySpectatorLink: false, players: [] } };
     const fetch = vi.fn(async (request: Request) => {
       expect(new URL(request.url).pathname).toBe("/internal/rooms");
       expect(request.headers.get("authorization")).toBe("Bearer private-secret");

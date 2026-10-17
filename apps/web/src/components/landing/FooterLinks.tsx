@@ -14,68 +14,51 @@ type FooterLinksProps = {
 const defaultLinks: FooterLink[] = [
   {
     href: "https://github.com/hansy/drawspell",
-    label: "Drawspell on GitHub",
+    label: "GitHub",
     Icon: Github,
   },
   {
     href: "mailto:feedback@drawspell.space",
-    label: "Send Feedback!",
+    label: "Feedback",
     Icon: Mail,
   },
 ];
 
 export function FooterLinks({ links = defaultLinks }: FooterLinksProps) {
   return (
-    <footer
-      className="flex flex-col gap-4 px-6 pb-6 text-xs text-zinc-400 sm:flex-row sm:items-center sm:justify-between sm:px-10"
-      style={{
-        fontFamily:
-          '"Space Mono", "IBM Plex Mono", "Menlo", "Monaco", "Consolas", "Liberation Mono", monospace',
-      }}
-    >
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-4">
-          {links.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="group inline-flex items-center transition hover:text-zinc-100"
-              aria-label={link.label}
-            >
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-400/40 transition group-hover:border-zinc-200">
-                <link.Icon className="h-4 w-4" />
-              </span>
-            </a>
-          ))}
-        </div>
-        <div className="flex items-center gap-3 uppercase tracking-[0.18em] text-zinc-400/90">
-          <a href="/tos" className="transition hover:text-zinc-100">
-            Terms
+    <footer className="mx-6 border-t border-white/10 pb-5 pt-3 text-xs text-zinc-400 sm:mx-10">
+      <nav aria-label="Site links" className="flex items-center gap-5">
+        {[
+          { href: "/docs", label: "API" },
+          { href: "/tos", label: "Terms" },
+          { href: "/privacy", label: "Privacy" },
+        ].map(({ href, label }) => (
+          <a key={href} href={href} className="inline-flex min-h-11 items-center rounded-sm transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300">
+            {label}
           </a>
-          <span aria-hidden="true" className="text-zinc-600">
-            /
-          </span>
-          <a href="/privacy" className="transition hover:text-zinc-100">
-            Privacy
+        ))}
+      </nav>
+      <div className="flex items-center justify-between gap-3 text-zinc-500">
+        <nav aria-label="Community and contact" className="-ml-3.5 flex items-center gap-1">
+        {links.map(({ href, label, Icon }) => (
+          <a
+            key={href}
+            href={href}
+            aria-label={label}
+            title={label}
+            className="inline-flex size-11 items-center justify-center rounded-sm transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300"
+          >
+            <Icon className="size-4" aria-hidden="true" />
           </a>
-          <span aria-hidden="true" className="text-zinc-600">
-            /
-          </span>
-          <a href="/docs" className="transition hover:text-zinc-100">
-            API
-          </a>
-        </div>
+        ))}
+        </nav>
+        <a
+          href="https://scryfall.com"
+          className="inline-flex min-h-9 items-center whitespace-nowrap rounded-sm transition-colors hover:text-zinc-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300"
+        >
+          Powered by Scryfall
+        </a>
       </div>
-      <a
-        href="https://scryfall.com"
-        className="uppercase tracking-[0.3em] transition hover:text-zinc-100"
-        style={{
-          fontFamily:
-            '"Source Serif Pro", "Iowan Old Style", "Palatino", "Georgia", serif',
-        }}
-      >
-        Powered by Scryfall
-      </a>
     </footer>
   );
 }

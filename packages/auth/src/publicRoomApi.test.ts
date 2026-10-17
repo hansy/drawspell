@@ -81,7 +81,7 @@ beforeEach(async () => {
           creationId: string;
           activationExpiresAt: number;
           request: {
-            spectatorsEnabled: boolean;
+            displaySpectatorLink: boolean;
             players: { externalId: string }[];
           };
         };
@@ -92,11 +92,12 @@ beforeEach(async () => {
         if (!result) {
           result = {
             roomId: body.roomId,
-            spectatorsEnabled: body.request.spectatorsEnabled,
+            displaySpectatorLink: body.request.displaySpectatorLink,
             activationExpiresAt: new Date(
               body.activationExpiresAt,
             ).toISOString(),
             playerInviteUrl: `https://drawspell.space/rooms/${body.roomId}?gt=secret`,
+            spectatorLink: `https://drawspell.space/rooms/${body.roomId}?st=independent-secret`,
             players: body.request.players.map((player) => ({
               externalId: player.externalId,
               joinUrl: `https://drawspell.space/rooms/${body.roomId}?invite=personal`,
@@ -175,7 +176,7 @@ describe("public room API", () => {
     expect(first.headers.get("Cache-Control")).toBe("no-store");
     const created = await first.json();
     const replay = await handlePublicRoomRequest(
-      request({ ...body, spectatorsEnabled: true }, "retry", key2),
+      request({ ...body, displaySpectatorLink: true }, "retry", key2),
       env,
       auth,
       now + 1,
@@ -187,7 +188,7 @@ describe("public room API", () => {
     expect(
       (
         await handlePublicRoomRequest(
-          request({ spectatorsEnabled: false }, "retry"),
+          request({ displaySpectatorLink: false }, "retry"),
           env,
           auth,
           now + 2,
@@ -364,4 +365,30 @@ describe("public room API", () => {
       (await handlePublicRoomRequest(oversized, env, auth, now)).status,
     ).toBe(413);
   });
+});
+
+test("returns a spectator link even when hidden and refreshes legacy cached responses", async () => {
+  const created = await handlePublicRoomRequest(request({ displaySpectatorLink: false }, "migrate"), env, auth, now);
+  expect(created.status).toBe(201);
+  const body = await created.json();
+  expect(body.displaySpectatorLink).toBe(false);
+  expect(body.spectatorLink).toContain("?st=");
+  sqlite.query("UPDATE developer_room_operations SET request_json = ?, response_json = ? WHERE retry_key = ?").run(
+    JSON.stringify({ spectatorsEnabled: false, players: [] }),
+    JSON.stringify({ roomId: body.roomId, spectatorsEnabled: false, playerInviteUrl: body.playerInviteUrl }),
+    "migrate",
+  );
+  const replay = await handlePublicRoomRequest(request({ displaySpectatorLink: false }, "migrate"), env, auth, now);
+  expect(replay.status).toBe(200);
+  expect(replay.headers.get("Idempotency-Replayed")).toBe("true");
+  expect(await replay.json()).toEqual(body);
+  expect(provisionCalls).toHaveLength(2);
+  const again = await handlePublicRoomRequest(request({ displaySpectatorLink: false }, "migrate"), env, auth, now);
+  expect(await again.json()).toEqual(body);
+  expect(provisionCalls).toHaveLength(2);
+});
+
+test("rejects the removed spectatorsEnabled field in new requests", async () => {
+  const result = await handlePublicRoomRequest(request({ spectatorsEnabled: false }), env, auth, now);
+  expect(result.status).toBe(400);
 });

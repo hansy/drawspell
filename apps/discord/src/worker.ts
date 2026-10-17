@@ -58,9 +58,9 @@ const interactionTypeSchema = z.object({
 const provisionResponseSchema = z.object({
   roomId: z.string().trim().min(1),
   playerInviteUrl: z.string().trim().min(1),
-  spectatorsEnabled: z.boolean(),
+  displaySpectatorLink: z.boolean(),
   activationExpiresAt: z.string(),
-  spectatorInviteUrl: z.string().optional(),
+  spectatorLink: z.string().trim().min(1),
   players: z.array(z.object({ externalId: z.string(), joinUrl: z.string() })),
 });
 

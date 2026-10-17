@@ -61,7 +61,7 @@ export const resolveInviteTokenFromUrl = (href?: string): ResolvedInviteToken =>
     if (resumeToken || playerId) {
       return { playerId, resumeToken };
     }
-    return {};
+    return url.searchParams.get("viewerRole") === "spectator" ? { role: "spectator" } : {};
   } catch (_err) {
     return {};
   }
@@ -72,9 +72,12 @@ export const clearInviteTokenFromUrl = (href?: string) => {
   const currentHref = href ?? window.location.href;
   try {
     const url = new URL(currentHref);
+    const spectatorView = resolveInviteTokenFromUrl(currentHref).role === "spectator";
     INVITE_TOKEN_QUERY_PARAMS.forEach((param) => {
       url.searchParams.delete(param);
     });
+    // Keep the tab's view across reloads, while removing all bearer credentials.
+    if (spectatorView) url.searchParams.set("viewerRole", "spectator");
     window.history.replaceState({}, "", url.toString());
   } catch (_err) {}
 };

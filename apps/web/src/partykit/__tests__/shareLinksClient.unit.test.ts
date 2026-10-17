@@ -45,14 +45,14 @@ describe("shareLinksClient", () => {
       ok: true,
       payload: {
         playerInviteUrl: "https://example.com/rooms/room-1?gt=player",
-        spectatorInviteUrl: "https://example.com/rooms/room-1?st=spectator",
+        spectatorLink: "https://example.com/rooms/room-1?st=spectator",
         resumeInviteUrl: "https://example.com/rooms/room-1?rt=resume&playerId=p1",
       },
     });
 
     await expect(promise).resolves.toEqual({
       playerInviteUrl: "https://example.com/rooms/room-1?gt=player",
-      spectatorInviteUrl: "https://example.com/rooms/room-1?st=spectator",
+      spectatorLink: "https://example.com/rooms/room-1?st=spectator",
       resumeInviteUrl: "https://example.com/rooms/room-1?rt=resume&playerId=p1",
     });
   });
@@ -82,13 +82,13 @@ describe("shareLinksClient", () => {
       ok: true,
       payload: {
         playerInviteUrl: "player",
-        spectatorInviteUrl: "spectator",
+        spectatorLink: "spectator",
       },
     });
 
     await expect(promise).resolves.toEqual({
       playerInviteUrl: "player",
-      spectatorInviteUrl: "spectator",
+      spectatorLink: "spectator",
     });
   });
 

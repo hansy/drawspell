@@ -146,7 +146,7 @@ describe("connection auth helpers", () => {
     });
   });
 
-  it("honors spectator request with player token", async () => {
+  it("rejects spectator request with player token", async () => {
     const ensureTokens = vi.fn(async () => tokens);
     const result = await resolveConnectionAuth(
       { playerId: "p1", viewerRole: "spectator", token: "player-token" },
@@ -155,13 +155,7 @@ describe("connection auth helpers", () => {
       { allowTokenCreation: false }
     );
 
-    expect(result).toEqual({
-      ok: true,
-      resolvedRole: "spectator",
-      playerId: undefined,
-      token: "player-token",
-      tokens,
-    });
+    expect(result).toEqual({ ok: false, reason: "invalid token" });
   });
 
   it("rejects missing player when resolving a player role", async () => {

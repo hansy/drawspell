@@ -156,12 +156,12 @@ export function ApiDocs() {
           <section id="authentication" tabIndex={-1} className="api-section api-pair" aria-labelledby="authentication-title">
             <div>
               <h2 id="authentication-title">Authentication</h2>
-              <p><a href="/developers">Sign in with an email link</a> and create an API key in your dashboard. Copy the key when it’s created; it’s shown only once.</p>
-              <p>Send it in the <code>Authorization</code> header with every API request. Keep the key in a server environment variable, outside browser code and shared URLs.</p>
+              <p><a href="/developers">Sign into the developer portal</a> and create an API key in your dashboard.</p>
+              <p>Send it in the <code>Authorization</code> header with every API request.</p>
             </div>
             <div className="api-auth-details">
               <pre aria-label="Authorization header"><code><span>Authorization:</span> Bearer YOUR_API_KEY</code></pre>
-              <p>Manage up to five active keys in <a href="/developers">your dashboard</a>. To rotate a key, create a replacement, update your app, then revoke the old key.</p>
+              <p>Manage up to five active keys in <a href="/developers">your dashboard</a>.</p>
               <p>Missing, invalid, or revoked keys return <code>401 unauthorized</code>. Disabled accounts or insufficient permissions return <code>403 forbidden</code>.</p>
             </div>
           </section>

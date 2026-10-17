@@ -16,13 +16,13 @@ type IdleTimeoutOptions = {
 type DeferredShareLinksRequest = {
   promise: Promise<{
     playerInviteUrl: string;
-    spectatorInviteUrl: string;
+    spectatorLink: string;
     resumeInviteUrl?: string | null;
   }>;
   resolve: (
     value: {
       playerInviteUrl: string;
-      spectatorInviteUrl: string;
+      spectatorLink: string;
       resumeInviteUrl?: string | null;
     },
   ) => void;
@@ -34,7 +34,7 @@ const createDeferredShareLinksRequest = (): DeferredShareLinksRequest => {
   let reject!: DeferredShareLinksRequest["reject"];
   const promise = new Promise<{
     playerInviteUrl: string;
-    spectatorInviteUrl: string;
+    spectatorLink: string;
     resumeInviteUrl?: string | null;
   }>((nextResolve, nextReject) => {
     resolve = nextResolve;
@@ -404,7 +404,7 @@ describe("useMultiplayerBoardController", () => {
   it("requests share links from the server when the dialog opens", async () => {
     mockRequestShareLinks.mockResolvedValue({
       playerInviteUrl: "https://example.com/rooms/room-1?gt=token-123",
-      spectatorInviteUrl: "https://example.com/rooms/room-1?st=spectator-123",
+      spectatorLink: "https://example.com/rooms/room-1?st=spectator-123",
       resumeInviteUrl:
         "https://example.com/rooms/room-1?rt=resume-123&playerId=player-1",
     });
@@ -475,7 +475,7 @@ describe("useMultiplayerBoardController", () => {
     act(() => {
       deferredRequest.resolve({
         playerInviteUrl: "https://example.com/rooms/room-1?gt=token-123",
-        spectatorInviteUrl: "https://example.com/rooms/room-1?st=spectator-123",
+        spectatorLink: "https://example.com/rooms/room-1?st=spectator-123",
         resumeInviteUrl:
           "https://example.com/rooms/room-1?rt=resume-live-456&playerId=player-1",
       });
@@ -525,7 +525,7 @@ describe("useMultiplayerBoardController", () => {
     mockRequestShareLinks
       .mockResolvedValueOnce({
         playerInviteUrl: "https://example.com/rooms/room-1?gt=token-123",
-        spectatorInviteUrl: "https://example.com/rooms/room-1?st=spectator-123",
+        spectatorLink: "https://example.com/rooms/room-1?st=spectator-123",
         resumeInviteUrl:
           "https://example.com/rooms/room-1?rt=resume-123&playerId=player-1",
       })
@@ -577,7 +577,7 @@ describe("useMultiplayerBoardController", () => {
     act(() => {
       refreshedRequest.resolve({
         playerInviteUrl: "https://example.com/rooms/room-1?gt=token-456",
-        spectatorInviteUrl: "https://example.com/rooms/room-1?st=spectator-456",
+        spectatorLink: "https://example.com/rooms/room-1?st=spectator-456",
         resumeInviteUrl:
           "https://example.com/rooms/room-1?rt=resume-456&playerId=player-1",
       });
@@ -595,7 +595,7 @@ describe("useMultiplayerBoardController", () => {
     mockRequestShareLinks
       .mockResolvedValueOnce({
         playerInviteUrl: "https://example.com/rooms/room-1?gt=token-123",
-        spectatorInviteUrl: "https://example.com/rooms/room-1?st=spectator-123",
+        spectatorLink: "https://example.com/rooms/room-1?st=spectator-123",
         resumeInviteUrl:
           "https://example.com/rooms/room-1?rt=resume-123&playerId=player-1",
       })

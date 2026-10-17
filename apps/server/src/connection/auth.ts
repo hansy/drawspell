@@ -78,9 +78,10 @@ export const parseConnectionParams = (url: URL): IntentConnectionState => {
     playerId,
     viewerRole,
     token,
-    invite: getFirstSearchParam(searchParams, ["invite"]),
+    // An explicit spectator credential must not inherit cached player invitations.
+    invite: spectatorToken ? undefined : getFirstSearchParam(searchParams, ["invite"]),
     userId,
-    resumeToken,
+    resumeToken: spectatorToken ? undefined : resumeToken,
     connectionGroupId,
   };
 };
@@ -168,6 +169,9 @@ export const resolveConnectionAuth = async (
 
   const tokenRole =
     activeTokens.spectatorToken === providedToken ? "spectator" : "player";
+  if (state.viewerRole === "spectator" && tokenRole !== "spectator") {
+    return { ok: false, reason: "invalid token" };
+  }
   const resolvedRole = resolveRequestedRole(state.viewerRole, tokenRole);
   return createConnectionAuthResult(
     state,
