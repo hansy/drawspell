@@ -167,7 +167,7 @@ export const buildRevealPatch = (
         (id) => typeof id === "string" && (excludeId === null || id !== excludeId),
       )
     : [];
-  const unique = Array.from(new Set(to));
+  const unique = uniqueStrings(to);
 
   return { revealedToAll: false, revealedTo: unique.slice(0, MAX_REVEALED_TO) };
 };
