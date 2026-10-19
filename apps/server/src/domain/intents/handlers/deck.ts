@@ -15,11 +15,8 @@ import type { MoveOpts } from "../../types";
 const normalizeNonNegativeCount = (count: number) =>
   Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
 
-const getTopLibraryCardId = (cardIds: string[]) =>
-  cardIds.length ? cardIds[cardIds.length - 1] : null;
-
-const getBottomLibraryCardId = (cardIds: string[]) =>
-  cardIds.length ? cardIds[0] : null;
+const getLibraryCardId = (cardIds: string[], position: "top" | "bottom") =>
+  cardIds.length ? cardIds[position === "top" ? cardIds.length - 1 : 0] : null;
 
 const resolveLibraryContext = (
   actorId: string,
@@ -67,7 +64,7 @@ const handleLibraryDraw: IntentHandler = ({ actorId, maps, hidden, payload, push
   const drawCount = normalizeNonNegativeCount(count);
   for (let i = 0; i < drawCount; i += 1) {
     const order = hidden.libraryOrder[playerId] ?? [];
-    const cardId = getTopLibraryCardId(order);
+    const cardId = getLibraryCardId(order, "top");
     if (!cardId) break;
     const result = applyCardMove(
       maps,
@@ -95,7 +92,7 @@ const handleLibraryDiscard: IntentHandler = ({ actorId, maps, hidden, payload, p
   const discardCount = normalizeNonNegativeCount(count);
   for (let i = 0; i < discardCount; i += 1) {
     const order = hidden.libraryOrder[playerId] ?? [];
-    const cardId = getTopLibraryCardId(order);
+    const cardId = getLibraryCardId(order, "top");
     if (!cardId) break;
     const result = applyCardMove(
       maps,
@@ -123,7 +120,7 @@ const moveCurrentTopLibraryCard = (
   opts?: MoveOpts,
 ) => {
   const order = context.hidden.libraryOrder[playerId] ?? [];
-  const cardId = getTopLibraryCardId(order);
+  const cardId = getLibraryCardId(order, "top");
   if (!cardId) return { ok: true as const };
 
   const card = context.hidden.cards[cardId];
@@ -237,7 +234,7 @@ const handleLibraryMoveBottomToHand: IntentHandler = ({
   const handZone = findZoneByTypeInMaps(maps, playerId, ZONE.HAND);
   if (!handZone) return { ok: false, error: "zone not found" };
 
-  const cardId = getBottomLibraryCardId(hidden.libraryOrder[playerId] ?? []);
+  const cardId = getLibraryCardId(hidden.libraryOrder[playerId] ?? [], "bottom");
   if (!cardId) return { ok: true };
 
   const result = applyCardMove(
