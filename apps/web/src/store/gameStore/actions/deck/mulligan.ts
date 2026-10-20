@@ -1,13 +1,11 @@
-import type { GameState } from "@/types";
+import { normalizeNonNegativeInteger } from "@mtg/shared/numbers";
 
+import type { GameState } from "@/types";
 import { getZoneByType } from "@/lib/gameSelectors";
 import { ZONE } from "@/constants/zones";
 import { canViewZone } from "@/rules/permissions";
 import { logPermission } from "@/rules/logger";
 import type { Deps, GetState, SetState } from "./types";
-
-const normalizeCount = (value: number) =>
-  Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 
 export const createMulligan =
   (
@@ -36,7 +34,7 @@ export const createMulligan =
       return;
     }
 
-    const drawCount = normalizeCount(count);
+    const drawCount = normalizeNonNegativeInteger(count);
     dispatchIntent({
       type: "deck.mulligan",
       payload: { playerId, count: drawCount, actorId: actor },

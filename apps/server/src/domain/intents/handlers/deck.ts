@@ -1,3 +1,5 @@
+import { normalizeNonNegativeInteger } from "@mtg/shared/numbers";
+
 import { isCommanderZoneType, ZONE } from "../../constants";
 import { syncLibraryRevealsToAllForPlayer, updatePlayerCounts } from "../../hiddenState";
 import { buildLibraryTopRevealScope } from "../../libraryTopReveal";
@@ -11,9 +13,6 @@ import { applyCardMove } from "../../movement";
 import { ensurePermission, readNumber, requireNonEmptyStringProp } from "../validation";
 import type { IntentHandler, IntentHandlerContext } from "./types";
 import type { MoveOpts } from "../../types";
-
-const normalizeNonNegativeCount = (count: number) =>
-  Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
 
 const getLibraryCardId = (cardIds: string[], position: "top" | "bottom") =>
   cardIds.length ? cardIds[position === "top" ? cardIds.length - 1 : 0] : null;
@@ -61,7 +60,7 @@ const handleLibraryDraw: IntentHandler = ({ actorId, maps, hidden, payload, push
   const { playerId, libraryZone } = libraryContext;
   const handZone = findZoneByTypeInMaps(maps, playerId, ZONE.HAND);
   if (!handZone) return { ok: false, error: "zone not found" };
-  const drawCount = normalizeNonNegativeCount(count);
+  const drawCount = normalizeNonNegativeInteger(count);
   for (let i = 0; i < drawCount; i += 1) {
     const order = hidden.libraryOrder[playerId] ?? [];
     const cardId = getLibraryCardId(order, "top");
@@ -89,7 +88,7 @@ const handleLibraryDiscard: IntentHandler = ({ actorId, maps, hidden, payload, p
   const { playerId, libraryZone } = libraryContext;
   const graveyardZone = findZoneByTypeInMaps(maps, playerId, ZONE.GRAVEYARD);
   if (!graveyardZone) return { ok: false, error: "zone not found" };
-  const discardCount = normalizeNonNegativeCount(count);
+  const discardCount = normalizeNonNegativeInteger(count);
   for (let i = 0; i < discardCount; i += 1) {
     const order = hidden.libraryOrder[playerId] ?? [];
     const cardId = getLibraryCardId(order, "top");
@@ -178,7 +177,7 @@ const handleLibraryExile: IntentHandler = ({
   const exileZone = findZoneByTypeInMaps(maps, playerId, ZONE.EXILE);
   if (!exileZone) return { ok: false, error: "zone not found" };
 
-  const count = normalizeNonNegativeCount(readNumber(payload.count) ?? 1);
+  const count = normalizeNonNegativeInteger(readNumber(payload.count) ?? 1);
   const faceDown = payload.faceDown === true;
   for (let i = 0; i < count; i += 1) {
     const result = moveCurrentTopLibraryCard(
@@ -269,7 +268,7 @@ const handleHandDiscardRandom: IntentHandler = ({ actorId, maps, hidden, payload
   if (!allowed.ok) return allowed;
 
   const rawCount = readNumber(payload.count) ?? 1;
-  const requestedCount = normalizeNonNegativeCount(rawCount);
+  const requestedCount = normalizeNonNegativeInteger(rawCount);
   if (requestedCount <= 0) return { ok: true };
 
   const startingHandIds = (hidden.handOrder[playerId] ?? handZone.cardIds)

@@ -17,6 +17,7 @@
     "./constants/zones": "./src/constants/zones.ts",
     "./cards": "./src/cards.ts",
     "./movement": "./src/movement.ts",
+    "./numbers": "./src/numbers.ts",
     "./zones": "./src/zones.ts",
     "./battlefieldAnchor": "./src/battlefieldAnchor.ts",
     "./positions": "./src/positions.ts",
