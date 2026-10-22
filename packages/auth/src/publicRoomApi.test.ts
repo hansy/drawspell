@@ -175,6 +175,9 @@ describe("public room API", () => {
     expect(first.status).toBe(201);
     expect(first.headers.get("Cache-Control")).toBe("no-store");
     const created = await first.json();
+    expect(created.activationExpiresAt).toBe(
+      new Date(now + 24 * 60 * 60_000).toISOString(),
+    );
     const replay = await handlePublicRoomRequest(
       request({ ...body, displaySpectatorLink: true }, "retry", key2),
       env,
@@ -222,7 +225,7 @@ describe("public room API", () => {
     expect(responses.filter((r) => r.status === 200)).toHaveLength(4);
     expect(rooms.size).toBe(2);
   });
-  test("gone and expired pending rooms never provision again; active room replays past activation", async () => {
+  test("gone rooms and pending rooms with older deadlines never provision again; existing rooms replay", async () => {
     await handlePublicRoomRequest(request({}, "active"), env, auth, now);
     expect(
       (
@@ -253,6 +256,10 @@ describe("public room API", () => {
       auth,
       now + 700_000,
     );
+    // Rooms created before the window increased keep their original deadlines.
+    sqlite.query(
+      "UPDATE developer_room_operations SET activation_expires_at = ? WHERE retry_key = ?",
+    ).run(now + 1_300_000, "pending");
     rooms.clear();
     expect(
       (

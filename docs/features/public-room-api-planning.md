@@ -25,7 +25,7 @@ Interview convention: the user accepts recommendations for questions they do not
 - Store an optional Bracket Tier integer from 1 through 5 with a supplied deck, without adding bracket UI. Arbitrary metadata and preset display names are outside the first version.
 - Spectator access is fixed at room creation for the Room's lifetime.
 - Spectators default to enabled, matching normal app-created Rooms. API callers explicitly send `spectatorsEnabled: false` when spectators must be prevented.
-- Retain the existing ten-minute activation window for an unused provisioned Room and the normal activated Room lifecycle (about 32 minutes without connected players before cleanup).
+- Allow a 24-hour activation window for an unused provisioned Room and retain the normal activated Room lifecycle (about 32 minutes without connected players before cleanup).
 
 ## Invitation contract
 
@@ -52,7 +52,7 @@ Interview convention: the user accepts recommendations for questions they do not
 - Room configuration and lifecycle
   - Spectator access is immutable for the Room's lifetime.
   - Spectators are enabled by default; callers explicitly disable them.
-  - Retain the current ten-minute activation window and normal Room cleanup.
+  - Allow a 24-hour activation window and retain normal Room cleanup.
   - Preload data follows Room cleanup; retry records have their own 24-hour lifetime.
 - Migration
   - Web already runs on a Worker; place `/api/v1/rooms` alongside `/developers` and `/docs`, with a new service binding to the existing Room server.

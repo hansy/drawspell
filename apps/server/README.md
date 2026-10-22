@@ -31,7 +31,7 @@ Provision requests include a stable `roomId`, `creationId`, activation deadline,
 and normalized room request. The Room stores tokens, immutable spectator policy,
 and personal deck assignments together before returning invitations. Status
 checks only inspect the matching creation and never initialize a room. Pending
-rooms expire after ten minutes; activated rooms use the usual empty-room cleanup.
+rooms expire after 24 hours; activated rooms use the usual empty-room cleanup.
 Personal invitation deck lists are sent only to the joining player's intent
 connection and are attempted at most once per player identity.
 

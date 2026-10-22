@@ -37,7 +37,7 @@ if (!response.ok) throw new Error(room.error.message);
     code: JSON.stringify({
       roomId: 'abc123', displaySpectatorLink: false,
       spectatorLink: 'https://drawspell.space/rooms/abc123?st=…',
-      activationExpiresAt: '2026-10-09T18:10:00.000Z',
+      activationExpiresAt: '2026-10-10T18:00:00.000Z',
       playerInviteUrl: 'https://drawspell.space/rooms/abc123?gt=…',
       players: [{externalId: 'player-1',joinUrl: 'https://drawspell.space/rooms/abc123?invite=…'}],
     }, null, 2),

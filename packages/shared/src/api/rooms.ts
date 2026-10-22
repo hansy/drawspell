@@ -5,7 +5,7 @@ export const ROOM_PROVISION_PATH = "/internal/rooms";
 export const ROOM_PROVISION_STATUS_PATH = "/internal/rooms/status";
 export const MAX_CREATE_ROOM_BYTES = 160 * 1024;
 export const MAX_DECKLIST_BYTES = 32 * 1024;
-export const ROOM_ACTIVATION_TTL_MS = 10 * 60_000;
+export const ROOM_ACTIVATION_TTL_MS = 24 * 60 * 60_000;
 export const ROOM_IDEMPOTENCY_TTL_MS = 24 * 60 * 60_000;
 
 export type PreloadedDeck = { decklist: string; bracket?: number };

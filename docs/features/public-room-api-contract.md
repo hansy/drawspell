@@ -72,7 +72,7 @@ First creation returns `201 Created` with `Cache-Control: no-store`:
 {
   "roomId": "abc123",
   "spectatorsEnabled": false,
-  "activationExpiresAt": "2026-10-09T18:10:00.000Z",
+  "activationExpiresAt": "2026-10-10T18:00:00.000Z",
   "playerInviteUrl": "https://drawspell.space/rooms/abc123?gt=...",
   "players": [
     {
@@ -90,7 +90,7 @@ First creation returns `201 Created` with `Cache-Control: no-store`:
 - Always return the shared `playerInviteUrl`, including when personal invitations exist.
 - Return `players: []` when no assignments were supplied.
 - Include `spectatorInviteUrl` only when spectators are enabled. No disabled spectator credential is minted or sent through any other room response.
-- `activationExpiresAt` is the deadline for the first player to activate the Room, not a fixed end time for an active Room. Retain the ten-minute activation window and normal activated Room lifecycle.
+- `activationExpiresAt` is the deadline for the first player to activate the Room, not a fixed end time for an active Room. Allow a 24-hour activation window and retain the normal activated Room lifecycle.
 - Return invitation URLs rather than redundant raw credentials. Do not return stored deck lists in the creation response or broadcast all assignments to Room participants.
 - Personal invitation tokens reference stored assignments; changing browser parameters cannot modify those stored assignments. They do not prove who the recipient is, guarantee a seat, or establish that imported cards match the assignment.
 

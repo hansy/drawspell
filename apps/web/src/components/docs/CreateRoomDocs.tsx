@@ -52,7 +52,7 @@ export function CreateRoomDocs() {
               <Field name="playerInviteUrl" type="shared">Anyone with the link can join an available seat.</Field>
               <Field name="players[].joinUrl" type="personal">Send to the matching <code>externalId</code>. Loads their assigned deck; no seat reservation or identity check.</Field>
               <Field name="spectatorLink" type="string">Always returned to the API caller. Anyone with this link can watch. When displaySpectatorLink is false, players cannot retrieve the link from the app.</Field>
-              <Field name="activationExpiresAt" type="ISO date">First player must join within ten minutes. Active games continue past this deadline.</Field>
+              <Field name="activationExpiresAt" type="ISO date">First player must join within 24 hours. Active games continue past this deadline.</Field>
             </dl>
           </div>
           <CodeExample kind="Response" />
