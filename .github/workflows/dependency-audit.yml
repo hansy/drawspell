@@ -17,8 +17,6 @@ jobs:
     name: Dependency audit
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      AUDIT_REPORT_PATH: ${{ runner.temp }}/dependency-audit.json
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -33,6 +31,8 @@ jobs:
       - name: Verify the audit gate
         run: bun test scripts/audit-dependencies.test.mjs
       - name: Audit all dependencies, including build and test tooling
+        env:
+          AUDIT_REPORT_PATH: ${{ runner.temp }}/dependency-audit.json
         run: bun run audit:dependencies
       - name: Save the full advisory report
         if: always()
