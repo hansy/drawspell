@@ -28,5 +28,8 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "overrides": {
+    "seroval": "1.6.9"
+  }
 }
