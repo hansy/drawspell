@@ -27,23 +27,26 @@ type PersistedGameStoreState = Pick<
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const readStringRecord = (value: unknown): Record<string, string> => {
+const readTypedRecord = <Value>(
+    value: unknown,
+    isValidValue: (value: unknown) => value is Value
+): Record<string, Value> => {
     if (!isRecord(value)) return {};
-    const result: Record<string, string> = {};
+    const result: Record<string, Value> = {};
     Object.entries(value).forEach(([key, val]) => {
-        if (typeof val === 'string') result[key] = val;
+        if (isValidValue(val)) result[key] = val;
     });
     return result;
 };
 
-const readNumberRecord = (value: unknown): Record<string, number> => {
-    if (!isRecord(value)) return {};
-    const result: Record<string, number> = {};
-    Object.entries(value).forEach(([key, val]) => {
-        if (typeof val === 'number' && Number.isFinite(val)) result[key] = val;
-    });
-    return result;
-};
+const readStringRecord = (value: unknown) =>
+    readTypedRecord(value, (entry): entry is string => typeof entry === 'string');
+
+const readNumberRecord = (value: unknown) =>
+    readTypedRecord(
+        value,
+        (entry): entry is number => typeof entry === 'number' && Number.isFinite(entry)
+    );
 
 export const useGameStore = create<GameStore>()(
     persist<GameStore, [], [], PersistedGameStoreState>(
