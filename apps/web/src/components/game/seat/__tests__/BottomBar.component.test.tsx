@@ -19,10 +19,10 @@ vi.mock("@dnd-kit/core", () => ({
 }));
 
 describe("BottomBar", () => {
-  let onHeightChange: ReturnType<typeof vi.fn>;
+  let onHeightChange: ReturnType<typeof vi.fn<(height: number) => void>>;
 
   beforeEach(() => {
-    onHeightChange = vi.fn();
+    onHeightChange = vi.fn<(height: number) => void>();
   });
 
   afterEach(() => {

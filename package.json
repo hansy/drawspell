@@ -20,7 +20,8 @@
     "deploy:discord": "bun run --cwd apps/discord deploy",
     "register:discord:commands": "bun run --cwd apps/discord register:commands",
     "register:discord:commands:global": "bun run --cwd apps/discord register:commands:global",
-    "test:discord:smoke": "bun run --cwd apps/discord test:smoke"
+    "test:discord:smoke": "bun run --cwd apps/discord test:smoke",
+    "audit:dependencies": "bun scripts/audit-dependencies.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
@@ -32,6 +33,12 @@
   ],
   "overrides": {
     "seroval": "1.6.9",
-    "@modelcontextprotocol/sdk": "1.32.0"
+    "@modelcontextprotocol/sdk": "1.32.0",
+    "sharp": "0.35.5",
+    "source-map-js": "1.2.2",
+    "undici": "7.29.1",
+    "ws": "8.21.0",
+    "shell-quote": "1.12.0",
+    "tinypool": "2.1.2"
   }
 }
