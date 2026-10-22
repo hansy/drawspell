@@ -29,5 +29,9 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "overrides": {
+    "seroval": "1.6.9",
+    "@modelcontextprotocol/sdk": "1.32.0"
+  }
 }
