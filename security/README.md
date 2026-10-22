@@ -1,9 +1,7 @@
 # Dependency audit
 
-Every branch push, pull request, and manual workflow run audits the complete Bun lockfile, including build and test dependencies. Run `bun run audit:dependencies` locally. CI blocks unpatched high and critical advisories and uploads the complete report, including lower severities. Registry failures and malformed reports fail the check.
+Every branch push, pull request, and manual workflow run audits the complete Bun lockfile, including build and test dependencies. Run `bun run audit:dependencies` locally. This uses Bun's built-in `bun audit --audit-level=high` command. High and critical findings fail the check; lower severities remain in the full native JSON report uploaded by CI. Registry failures fail the check.
 
-CI installs the frozen lockfile with lifecycle scripts disabled. Workflow actions are pinned to immutable commit IDs. The audit gate has its own failure-behavior tests.
+CI installs the frozen lockfile with lifecycle scripts disabled. Workflow actions are pinned to immutable commit IDs. `bun audit` reports findings; it does not update dependencies. After changing dependencies, regenerate `bun.lock`, rerun the audit and affected application checks, and review the lockfile diff.
 
-When an upstream package has no published fix, a local Bun patch may provide the repair. `dependency-patches.json`, when present, records the exact package version, upstream advisory, patch path, and SHA-256. The gate verifies that every resolved copy has that exact patched version, checks the patch checksum and installation declaration, and runs a behavioral security regression against the installed package. Only then does it classify that specific advisory as locally repaired. Other advisories on the same package still block. A plain advisory ignore list is not supported.
-
-After changing dependencies, regenerate `bun.lock`, run the audit and affected application checks, and review the lockfile diff. Remove a local patch and its policy entry when a published dependency update repairs the issue, then rerun the security regression before deleting it.
+The audit workflow pins Bun 1.4.4. Use that version locally too; Bun 1.3.14 can return success for a registry error object instead of failing the audit.
