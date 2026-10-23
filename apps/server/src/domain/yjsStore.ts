@@ -39,6 +39,9 @@ const readEntity = <T extends { id: string }>(value: unknown, id: string): T | n
   return { ...(raw as T), id };
 };
 
+const readMapEntity = <T extends { id: string }>(map: Y.Map<unknown>, id: string): T | null =>
+  readEntity<T>(map.get(id), id);
+
 export const uniqueStrings = (values: readonly unknown[]): string[] =>
   Array.from(new Set(values.filter((value): value is string => typeof value === "string")));
 
@@ -99,7 +102,7 @@ export const readZone = (maps: Maps, zoneId: string): Zone | null =>
   readZoneRecord(maps, maps.zones.get(zoneId), zoneId);
 
 export const readCard = (maps: Maps, cardId: string): Card | null =>
-  readEntity<Card>(maps.cards.get(cardId), cardId);
+  readMapEntity<Card>(maps.cards, cardId);
 
 export const readLiveZoneCardIds = (maps: Maps, zoneId: string, cardIds: string[]): string[] =>
   cardIds.filter((cardId) => {
@@ -108,7 +111,7 @@ export const readLiveZoneCardIds = (maps: Maps, zoneId: string, cardIds: string[
   });
 
 export const readPlayer = (maps: Maps, playerId: string): Player | null =>
-  readEntity<Player>(maps.players.get(playerId), playerId);
+  readMapEntity<Player>(maps.players, playerId);
 
 const setSnapshotZone = (
   target: Record<string, Zone>,
