@@ -28,6 +28,7 @@ import { buildLibraryTopRevealScope } from "../../libraryTopReveal";
 import { canUpdatePlayer } from "../../permissions";
 import { readTurnOrder, readTurnPlayers, repairActiveTurn } from "../../turnState";
 import {
+  ensureActorMatches,
   ensurePermission,
   readString,
   requireNonEmptyStringProp,
@@ -59,9 +60,8 @@ const handlePlayerJoin: IntentHandler = ({ actorId, maps, hidden, payload, markH
   if (typeof player.id !== "string") {
     return { ok: false, error: "invalid player" };
   }
-  if (player.id !== actorId) {
-    return { ok: false, error: "actor mismatch" };
-  }
+  const allowed = ensureActorMatches(actorId, player.id);
+  if (!allowed.ok) return allowed;
   const allPlayerIds = Array.from(
     new Set([...Array.from(maps.players.keys()).map(String), player.id]),
   );
@@ -123,7 +123,8 @@ const handlePlayerManaAdjust: IntentHandler = ({
   );
   if (!playerIdResult.ok) return playerIdResult;
   const playerId = playerIdResult.value;
-  if (actorId !== playerId) return { ok: false, error: "actor mismatch" };
+  const allowed = ensureActorMatches(actorId, playerId);
+  if (!allowed.ok) return allowed;
 
   const manaType = payload.manaType;
   const delta = payload.delta;
@@ -169,7 +170,8 @@ const handlePlayerManaClear: IntentHandler = ({
   );
   if (!playerIdResult.ok) return playerIdResult;
   const playerId = playerIdResult.value;
-  if (actorId !== playerId) return { ok: false, error: "actor mismatch" };
+  const allowed = ensureActorMatches(actorId, playerId);
+  if (!allowed.ok) return allowed;
 
   const current = readPlayer(maps, playerId);
   if (!current) return { ok: false, error: "player not found" };

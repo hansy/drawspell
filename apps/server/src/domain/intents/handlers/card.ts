@@ -41,6 +41,7 @@ import {
 } from "../../yjsStore";
 import type { HiddenReveal, HiddenState, InnerApplyResult, Maps } from "../../types";
 import {
+  ensureActorMatches,
   ensurePermission,
   readBoolean,
   readNumber,
@@ -320,9 +321,8 @@ const handleCardUntapAll: IntentHandler = ({ actorId, maps, payload, pushLogEven
   const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid player");
   if (!playerIdResult.ok) return playerIdResult;
   const playerId = playerIdResult.value;
-  if (playerId !== actorId) {
-    return { ok: false, error: "actor mismatch" };
-  }
+  const allowed = ensureActorMatches(actorId, playerId);
+  if (!allowed.ok) return allowed;
   pushLogEvent("card.untapAll", {
     actorId,
     playerId,

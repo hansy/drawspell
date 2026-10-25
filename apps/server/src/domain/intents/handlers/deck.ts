@@ -10,7 +10,12 @@ import { findZoneByTypeInMaps } from "../../zones";
 import { canMoveCard, canViewHiddenZone } from "../../permissions";
 import { readLiveZoneCardIds, readPlayer, readZone, writePlayer } from "../../yjsStore";
 import { applyCardMove } from "../../movement";
-import { ensurePermission, readNumber, requireNonEmptyStringProp } from "../validation";
+import {
+  ensureActorMatches,
+  ensurePermission,
+  readNumber,
+  requireNonEmptyStringProp,
+} from "../validation";
 import type { IntentHandler, IntentHandlerContext } from "./types";
 import type { MoveOpts } from "../../types";
 
@@ -373,9 +378,8 @@ const handleDeckLoad: IntentHandler = ({ actorId, maps, payload, pushLogEvent })
   const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid player");
   if (!playerIdResult.ok) return playerIdResult;
   const playerId = playerIdResult.value;
-  if (playerId !== actorId) {
-    return { ok: false, error: "actor mismatch" };
-  }
+  const allowed = ensureActorMatches(actorId, playerId);
+  if (!allowed.ok) return allowed;
   const player = readPlayer(maps, playerId);
   if (!player) return { ok: false, error: "player not found" };
   if (player.deckLoaded) return { ok: true };
