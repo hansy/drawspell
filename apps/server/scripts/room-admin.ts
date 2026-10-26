@@ -1,6 +1,6 @@
 type Mode = "probe" | "repair";
 
-export {};
+import { hasArg, readArg } from "./cliArgs";
 
 type CloudflareListResponse<T> = {
   success: boolean;
@@ -65,16 +65,6 @@ type RoomAdminEntry = {
   repair?: RoomAdminRepairResult | { dryRun: true; reason: string };
   error?: string;
 };
-
-const readArg = (name: string) => {
-  const idx = process.argv.findIndex((arg) => arg === `--${name}`);
-  if (idx === -1) return null;
-  const raw = process.argv[idx + 1];
-  if (!raw || raw.startsWith("--")) return null;
-  return raw;
-};
-
-const hasArg = (name: string) => process.argv.includes(`--${name}`);
 
 const readNumber = (name: string, fallback: number) => {
   const raw = readArg(name);
