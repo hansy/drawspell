@@ -1,0 +1,4 @@
+#!/bin/sh
+# Pushes to main run the dependency checks first (scripts/pre-push.ts).
+# Installed by `bun install`; bypass only in an emergency with --no-verify.
+exec bun "$(git rev-parse --show-toplevel)/scripts/pre-push.ts" "$@"

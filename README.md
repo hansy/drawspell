@@ -53,6 +53,7 @@ bun install
 | Preview | `bun run preview` | Builds + previews the web app. |
 | Test | `bun run test` | Runs tests for all workspaces. |
 | Typecheck | `bun run typecheck` | Runs typechecks for all workspaces. |
+| Dependency checks | `bun run check:dependencies` | High-severity `bun audit` on the pinned Bun; runs before every deploy and push to `main`. |
 | Deploy: staging (server + web) | `bun run deploy:staging` | Deploys dedicated staging workers. |
 | Deploy: staging server | `bun run deploy:server:staging` | Deploys `drawspell-server-staging`. |
 | Deploy: staging web | `bun run deploy:web:staging` | Builds with `CLOUDFLARE_ENV=staging` and deploys `drawspell-staging`. |
@@ -122,7 +123,7 @@ its local certificate authority on first run.
 - Slash-command registration workflow: see [apps/discord/README.md](apps/discord/README.md) for guild-first rollout and global rollout commands.
 - Durable Object migrations are defined in `apps/server/wrangler.jsonc`.
 - Durable Object duration checks after server deploys are documented in [apps/server/README.md](apps/server/README.md#durable-object-duration-checks).
-- CI: **TBD** (no CI config found in the repo; add one under `.github/` or similar).
+- Dependency checks: no CI. Every root `deploy:*` command and the `.githooks/pre-push` hook (pushes to `main`) run `bun run check:dependencies` first; see [security/README.md](security/README.md).
 
 ## Performance
 
