@@ -1,92 +1,71 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { chromium } from "playwright-core";
 
 const width = 1200;
 const height = 630;
 const root = new URL("../", import.meta.url);
-const orbitSource = await readFile(
-  new URL("src/components/landing/OrbitAnimation.tsx", root),
-  "utf8",
-);
 
-const symbols = [...orbitSource.matchAll(
-  /name: "([^"]+)",[\s\S]*?color: "([^"]+)",[\s\S]*?glow: "([^"]+)",[\s\S]*?path: "([^"]+)"/g,
-)].map(([, name, color, glow, path]) => ({ name, color, glow, path }));
+// The app's body font stack (src/styles.css), used by the SiteHeader wordmark.
+const fontFamily =
+  "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif";
+// SiteHeader wordmark: semibold, uppercase, tracking-[0.3em].
+const wordmarkSize = 80;
+const wordmarkTracking = wordmarkSize * 0.3;
 
-if (symbols.length !== 5) {
-  throw new Error(`Expected 5 mana symbols, found ${symbols.length}`);
-}
-
-const positions = [
-  [914, 108],
-  [1083, 232],
-  [1018, 432],
-  [806, 432],
-  [741, 232],
+// Corner brackets from the Drawspell mark, framing the card.
+const brackets = [
+  { id: "tl", d: "M60 148V82a22 22 0 0 1 22-22h66", stops: ["#7c3aed", "#c4b5fd"], axis: 'x1="0" y1="1" x2="1" y2="0"' },
+  { id: "tr", d: "M1052 60h66a22 22 0 0 1 22 22v66", stops: ["#67e8f9", "#2563eb"], axis: 'x1="0" y1="0" x2="1" y2="1"' },
+  { id: "bl", d: "M60 482v66a22 22 0 0 0 22 22h66", stops: ["#db2777", "#fda4af"], axis: 'x1="0" y1="0" x2="1" y2="1"' },
+  { id: "br", d: "M1052 570h66a22 22 0 0 0 22-22v-66", stops: ["#fcd34d", "#ea580c"], axis: 'x1="0" y1="0" x2="1" y2="1"' },
 ];
 
-const symbolMarkup = symbols.map((symbol, index) => {
-  const [x, y] = positions[index];
-  return `
-    <g transform="translate(${x - 42} ${y - 42}) scale(2.625)" aria-label="${symbol.name}">
-      <path d="${symbol.path}" fill="${symbol.color}" fill-opacity=".18"
-        stroke="${symbol.color}" stroke-width=".72" stroke-linejoin="round"
-        filter="url(#glow-${index})" />
-    </g>`;
-}).join("");
+const gradients = brackets.map(({ id, stops: [from, to], axis }) => `
+    <linearGradient id="${id}" ${axis}>
+      <stop stop-color="${from}"/><stop offset="1" stop-color="${to}"/>
+    </linearGradient>`).join("");
 
-const filters = symbols.map((symbol, index) => `
-  <filter id="glow-${index}" x="-100%" y="-100%" width="300%" height="300%">
-    <feDropShadow dx="0" dy="0" stdDeviation="3.5" flood-color="${symbol.color}" flood-opacity=".9"/>
-    <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="${symbol.color}" flood-opacity=".38"/>
-  </filter>`).join("");
+const bracketMarkup = brackets.map(({ id, d }) => `
+    <path d="${d}" stroke="url(#${id})"/>`).join("");
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="title desc">
   <title id="title">Drawspell</title>
-  <desc id="desc">Online Magic: The Gathering tabletop simulator. No downloads, no logins, 100% free.</desc>
+  <desc id="desc">Play Magic: The Gathering in your browser. Free, no downloads, no logins.</desc>
   <defs>
-    <radialGradient id="blue-haze" cx="50%" cy="50%" r="50%">
-      <stop offset="0" stop-color="#111b36" stop-opacity=".84"/>
-      <stop offset="1" stop-color="#111b36" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="red-haze" cx="50%" cy="50%" r="50%">
-      <stop offset="0" stop-color="#39131b" stop-opacity=".64"/>
-      <stop offset="1" stop-color="#39131b" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#ffffff" stop-opacity=".12"/>
-      <stop offset=".48" stop-color="#ffffff" stop-opacity=".025"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity=".1"/>
-    </linearGradient>
-    <filter id="soft"><feGaussianBlur stdDeviation="28"/></filter>
-    ${filters}
+    <radialGradient id="lift" cx="50%" cy="44%" r="55%">
+      <stop offset="0" stop-color="#1a1824" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#1a1824" stop-opacity="0"/>
+    </radialGradient>${gradients}
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b"/>
+      <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 .55 0" result="g"/>
+      <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="spark-glow" x="-200%" y="-200%" width="500%" height="500%">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#ffffff" flood-opacity=".55"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="22" flood-color="#a78bfa" flood-opacity=".5"/>
+    </filter>
   </defs>
 
-  <rect width="1200" height="630" fill="#09090d"/>
-  <ellipse cx="840" cy="190" rx="470" ry="390" fill="url(#blue-haze)" filter="url(#soft)"/>
-  <ellipse cx="75" cy="555" rx="330" ry="230" fill="url(#red-haze)" filter="url(#soft)"/>
-  <path d="M0 0H1200V630H0Z" fill="none" stroke="url(#edge)" stroke-width="2"/>
+  <rect width="${width}" height="${height}" fill="#09090c"/>
+  <rect width="${width}" height="${height}" fill="url(#lift)"/>
 
-  ${symbolMarkup}
-
-  <g transform="translate(72 0)">
-    <text x="0" y="236" fill="#e4e4e7" fill-opacity=".9"
-      font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-      font-size="40" font-weight="600" letter-spacing="12">DRAWSPELL</text>
-    <rect x="0" y="260" width="62" height="3" rx="1.5" fill="#8b91ba"/>
-    <text x="0" y="318" fill="#d8d8df" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-      font-size="25" font-weight="500" letter-spacing="-.2">Online Magic: The Gathering</text>
-    <text x="0" y="353" fill="#d8d8df" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-      font-size="25" font-weight="500" letter-spacing="-.2">tabletop sim</text>
-    <g transform="translate(0 414)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="17" font-weight="600">
-      <text x="0" y="0" fill="#a4a4ae">No downloads</text>
-      <circle cx="127" cy="-6" r="2.5" fill="#666b8c"/>
-      <text x="143" y="0" fill="#a4a4ae">No logins</text>
-      <circle cx="237" cy="-6" r="2.5" fill="#666b8c"/>
-      <text x="253" y="0" fill="#f0f0f4">100% free</text>
-    </g>
+  <g fill="none" stroke-width="5" stroke-linecap="round" filter="url(#glow)">${bracketMarkup}
   </g>
-</svg>`.replace(/[ \t]+$/gm, "");
+
+  <g transform="translate(600 192)" filter="url(#spark-glow)" fill="#ffffff">
+    <path d="M0-40C3-6 6-3 40 0C6 3 3 6 0 40C-3 6-6 3-40 0C-6-3-3-6 0-40Z"/>
+    <path d="M-50 22c.6-7 1.2-7.6 8-8c-6.8-.4-7.4-1-8-8c-.6 7-1.2 7.6-8 8c6.8.4 7.4 1 8 8Z" fill-opacity=".8"/>
+  </g>
+
+  <g text-anchor="middle" font-family="${fontFamily}">
+    <!-- Tracking trails the last letter, so shift right by half of it to stay centered. -->
+    <text x="${600 + wordmarkTracking / 2}" y="350" fill="#f4f4f5" font-size="${wordmarkSize}" font-weight="600" letter-spacing="${wordmarkTracking}">DRAWSPELL</text>
+    <text x="600" y="420" fill="#a1a1aa" font-size="30" letter-spacing="-.2">Play Magic: The Gathering in your browser.</text>
+    <text x="601.5" y="560" fill="#6b6b76" font-size="17" font-weight="600" letter-spacing="3">FREE · NO DOWNLOADS · NO LOGINS</text>
+  </g>
+</svg>
+`;
 
 const svgPath = new URL("public/og_image.svg", root);
 const pngPath = new URL("public/og_image.png", root);
