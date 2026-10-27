@@ -8,6 +8,12 @@ const invalid = <T>(error: string): ValidationResult<T> => ({ ok: false, error }
 const innerOk = (): InnerApplyResult => ({ ok: true });
 const innerError = (error: string): InnerApplyResult => ({ ok: false, error });
 
+const requireValue = <T>(
+  value: unknown,
+  error: string,
+  predicate: (value: unknown) => value is T
+): ValidationResult<T> => (predicate(value) ? valid(value) : invalid(error));
+
 export const readPayload = (payload: unknown): Record<string, unknown> =>
   isRecord(payload) ? payload : {};
 
@@ -29,26 +35,18 @@ export const readRecordValue = (value: unknown): Record<string, unknown> | undef
 export const readActorId = (payload: Record<string, unknown>): string | undefined =>
   readNonEmptyString(payload.actorId);
 
-export const requireString = (value: unknown, error: string): ValidationResult<string> => {
-  if (!isString(value)) return invalid(error);
-  return valid(value);
-};
+export const requireString = (value: unknown, error: string): ValidationResult<string> =>
+  requireValue(value, error, isString);
 
 export const requireNonEmptyString = (
   value: unknown,
   error: string
-): ValidationResult<string> => {
-  if (!isNonEmptyString(value)) return invalid(error);
-  return valid(value);
-};
+): ValidationResult<string> => requireValue(value, error, isNonEmptyString);
 
 export const requireRecord = (
   value: unknown,
   error: string
-): ValidationResult<Record<string, unknown>> => {
-  if (!isRecord(value)) return invalid(error);
-  return valid(value);
-};
+): ValidationResult<Record<string, unknown>> => requireValue(value, error, isRecord);
 
 export const requireArray = <T = unknown>(
   value: unknown,
