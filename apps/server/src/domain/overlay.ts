@@ -31,6 +31,15 @@ type OverlayParams = {
   zoneLookup?: OverlayZoneLookup;
 } & ({ maps: Maps } | { snapshot: Snapshot; maps?: Maps });
 
+const isRevealVisibleToViewer = (
+  reveal: HiddenState["handReveals"][string] | undefined,
+  viewerId: string | undefined,
+) =>
+  reveal?.toAll === true ||
+  (viewerId &&
+    Array.isArray(reveal?.toPlayers) &&
+    reveal.toPlayers.includes(viewerId));
+
 export const buildOverlayForViewer = (params: OverlayParams): OverlaySnapshotData => {
   const snapshot = "snapshot" in params ? params.snapshot : buildSnapshot(params.maps);
   const zoneLookup = params.zoneLookup ?? buildOverlayZoneLookup(snapshot);
@@ -57,8 +66,7 @@ export const buildOverlayForViewer = (params: OverlayParams): OverlaySnapshotDat
       const reveal = params.hidden.handReveals[cardId];
       const allowed =
         canSeeHand(ownerId) ||
-        reveal?.toAll === true ||
-        (viewerId && Array.isArray(reveal?.toPlayers) && reveal?.toPlayers.includes(viewerId));
+        isRevealVisibleToViewer(reveal, viewerId);
       if (!allowed) return;
       const nextCard = applyRevealToCard(card, reveal);
       addOverlayCard({
@@ -174,8 +182,7 @@ export const buildOverlayForViewer = (params: OverlayParams): OverlaySnapshotDat
     const canSee =
       viewerRole === "spectator" ||
       (zone?.type === ZONE.BATTLEFIELD && viewerId && card.controllerId === viewerId) ||
-      reveal?.toAll === true ||
-      (viewerId && Array.isArray(reveal?.toPlayers) && reveal?.toPlayers.includes(viewerId));
+      isRevealVisibleToViewer(reveal, viewerId);
     if (!canSee) return;
     const identity = params.hidden.faceDownBattlefield[card.id];
     if (!identity) return;
