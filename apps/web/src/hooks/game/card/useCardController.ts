@@ -10,12 +10,7 @@ import {
   canViewerSeeLibraryCardByReveal,
   canViewerSeeLibraryTopCard,
 } from "@/lib/reveal";
-import {
-  getFlipRotation,
-  getNextTransformFace,
-  getTransformVerb,
-  isTransformableCard,
-} from "@/lib/cardDisplay";
+import { getFlipRotation } from "@/lib/cardDisplay";
 import { preloadCardPreviewImage } from "@/lib/cardImagePreload";
 import {
   useSelectionStore,
@@ -329,22 +324,6 @@ export const useCardController = (props: CardProps): CardController => {
       resolvePreviewPolicy,
       showPreview,
     ]
-  );
-
-  const transformCard = useGameStore((state) => state.transformCard);
-  const nextTransformFace =
-    canEditOnCard && !faceDown && isTransformableCard(card)
-      ? getNextTransformFace(card)
-      : null;
-  const transformAction = React.useMemo(
-    () =>
-      nextTransformFace
-        ? {
-            label: `${getTransformVerb(card)}: ${nextTransformFace.face.name}`,
-            onTransform: () => transformCard(card.id, nextTransformFace.nextIndex),
-          }
-        : undefined,
-    [card, nextTransformFace, transformCard]
   );
 
   // Pointing at the card's counters or its P/T badge opens controls for just that part.
@@ -930,7 +909,6 @@ export const useCardController = (props: CardProps): CardController => {
       isSelected: propIsSelected,
       disableHoverAnimation,
       showCommanderBadge: card.isCommander && zoneType === ZONE.BATTLEFIELD,
-      transformAction,
       isTopSeat,
     },
     draggableProps: {

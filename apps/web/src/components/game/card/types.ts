@@ -41,8 +41,6 @@ export interface CardViewProps {
   disableHoverAnimation?: boolean;
   isSelected?: boolean;
   showCommanderBadge?: boolean;
-  // Double-faced and flip cards you control: turn the card to its other face.
-  transformAction?: { label: string; onTransform: () => void };
   isTopSeat?: boolean;
   "data-dnd-ghost-card-id"?: string;
   "data-dnd-ghost-kind"?: string;
