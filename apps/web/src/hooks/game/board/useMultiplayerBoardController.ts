@@ -48,6 +48,7 @@ const getGridClass = (layoutMode: LayoutMode) => {
       return "grid-cols-1 grid-rows-1";
     case "split":
       return "grid-cols-1 grid-rows-2";
+    case "trio":
     case "quadrant":
       return "grid-cols-2 grid-rows-2";
     default:
@@ -268,7 +269,18 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const [isTokenModalOpen, setIsTokenModalOpen] = React.useState(false);
   const [isCoinFlipperOpen, setIsCoinFlipperOpen] = React.useState(false);
   const [isDiceRollerOpen, setIsDiceRollerOpen] = React.useState(false);
-  const [isLogOpen, setIsLogOpen] = React.useState(getDefaultLogOpen);
+  const [isLogOpen, setIsLogOpenState] = React.useState(getDefaultLogOpen);
+  const logToggledRef = React.useRef(false);
+  const setIsLogOpen = React.useCallback((open: boolean) => {
+    logToggledRef.current = true;
+    setIsLogOpenState(open);
+  }, []);
+  // With 3+ players every seat needs the width, so the log starts closed unless
+  // the player has already chosen to open or close it.
+  React.useEffect(() => {
+    if (logToggledRef.current) return;
+    if (layoutMode === "trio" || layoutMode === "quadrant") setIsLogOpenState(false);
+  }, [layoutMode]);
   const [isShortcutsOpen, setIsShortcutsOpen] = React.useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = React.useState(false);
   const [isEditUsernameOpen, setIsEditUsernameOpen] = React.useState(false);

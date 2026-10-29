@@ -10,12 +10,14 @@ import {
 
 export type SeatPosition = "bottom-left" | "bottom-right" | "top-left" | "top-right";
 
-export type LayoutMode = "single" | "split" | "quadrant";
+export type LayoutMode = "single" | "split" | "trio" | "quadrant";
 
 export type PlayerLayoutSlot = {
   player: Player | undefined;
   position: SeatPosition;
   color: PlayerColor;
+  // Seats that take the whole row (your seat in a 3-player game).
+  spanColumns?: 2;
 };
 
 export const usePlayerLayout = () => {
@@ -38,7 +40,8 @@ export const usePlayerLayout = () => {
   // Determine Layout Mode
   const playerCount = layoutPlayers.length;
   let layoutMode: LayoutMode = "single";
-  if (playerCount >= 3) layoutMode = "quadrant";
+  if (playerCount >= 4) layoutMode = "quadrant";
+  else if (playerCount === 3) layoutMode = "trio";
   else if (playerCount === 2) layoutMode = "split";
 
   // Generate Slots based on Mode
@@ -81,8 +84,32 @@ export const usePlayerLayout = () => {
         color: player0 ? resolveColor(player0.id, 0) : PLAYER_COLOR_PALETTE[0],
       },
     ];
+  } else if (layoutMode === "trio") {
+    // 3 Players: two opponents share the top row and you get the whole bottom
+    // row, instead of leaving a quarter of the screen as an empty seat.
+    const player0 = getPlayerAt(0);
+    const player1 = getPlayerAt(1);
+    const player2 = getPlayerAt(2);
+    slots = [
+      {
+        player: player1,
+        position: "top-left",
+        color: player1 ? resolveColor(player1.id, 1) : PLAYER_COLOR_PALETTE[1],
+      },
+      {
+        player: player2,
+        position: "top-right",
+        color: player2 ? resolveColor(player2.id, 2) : PLAYER_COLOR_PALETTE[2],
+      },
+      {
+        player: player0,
+        position: "bottom-left",
+        color: player0 ? resolveColor(player0.id, 0) : PLAYER_COLOR_PALETTE[0],
+        spanColumns: 2,
+      },
+    ];
   } else {
-    // 3+ Players: Quadrants
+    // 4 Players: Quadrants
     // Row 1: TL, TR
     // Row 2: BL, BR
     // Slots follow the shared order so all clients see the same seating.

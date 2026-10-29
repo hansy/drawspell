@@ -472,6 +472,25 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
 
   const isPortraitViewport = usePortraitViewport();
   const occupiedSlots = React.useMemo(() => slots.filter(isOccupiedSeat), [slots]);
+  const [spotlightPlayerId, setSpotlightPlayerId] = React.useState<string | null>(null);
+  const spotlightSlot = spotlightPlayerId
+    ? occupiedSlots.find((slot) => slot.player.id === spotlightPlayerId)
+    : undefined;
+  // An enlarged seat gets the larger share of its row and column; the others shrink but stay readable.
+  const spotlightGridStyle = React.useMemo<React.CSSProperties | undefined>(() => {
+    if (!spotlightSlot || slots.length < 2) return undefined;
+    const big = "minmax(0,1.75fr)";
+    const small = "minmax(0,1fr)";
+    const isTopSeat = spotlightSlot.position.startsWith("top");
+    const isRightSeat = spotlightSlot.position.endsWith("right");
+    const hasColumns = slots.length > 2;
+    return {
+      gridTemplateRows: isTopSeat ? `${big} ${small}` : `${small} ${big}`,
+      ...(hasColumns && !spotlightSlot.spanColumns
+        ? { gridTemplateColumns: isRightSeat ? `${small} ${big}` : `${big} ${small}` }
+        : null),
+    };
+  }, [slots.length, spotlightSlot]);
   const orderedTurnPlayers = React.useMemo(
     () =>
       playerOrder
@@ -732,7 +751,13 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
     }
 
     return (
-      <div key={key} className="relative h-full w-full border-zinc-800/50">
+      <div
+        key={key}
+        className={cn(
+          "relative h-full w-full border-zinc-800/50",
+          slot.spanColumns === 2 && "col-span-2",
+        )}
+      >
         <Seat
           player={seatPlayer}
           position={slot.position}
@@ -772,6 +797,17 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           layoutVariant={layoutVariant}
           portraitSeatSwitcher={
             layoutVariant === "portrait-viewport" ? portraitSeatSwitcher : undefined
+          }
+          isSpotlit={spotlightPlayerId === seatPlayer.id}
+          onToggleSpotlight={
+            layoutVariant === "default" &&
+            seatPlayer.id !== myPlayerId &&
+            slots.length > 1
+              ? () =>
+                  setSpotlightPlayerId((current) =>
+                    current === seatPlayer.id ? null : seatPlayer.id,
+                  )
+              : undefined
           }
         />
       </div>
@@ -965,7 +1001,11 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                 isSpectator={viewerRole === "spectator"}
                 canShareRoom={canShareRoom}
               />
-              <div className={`min-w-0 h-full grid ${gridClass}`}>
+              <div
+                data-board-grid
+                className={`min-w-0 h-full grid ${gridClass} transition-[grid-template-columns,grid-template-rows] duration-200 ease-out motion-reduce:transition-none`}
+                style={spotlightGridStyle}
+              >
                 {slots.map((slot, index) => renderSeat(slot, index))}
               </div>
               <LogDrawer

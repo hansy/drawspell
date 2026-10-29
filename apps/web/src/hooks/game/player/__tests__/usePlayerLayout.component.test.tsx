@@ -133,6 +133,35 @@ describe('usePlayerLayout', () => {
     });
   });
 
+  it('gives you the full bottom row with three players instead of an empty seat', async () => {
+    const p1 = createPlayer('p1');
+    const p2 = createPlayer('p2');
+    const p3 = createPlayer('p3');
+
+    act(() => {
+      useGameStore.setState((state) => ({
+        ...state,
+        players: { p1, p2, p3 },
+        playerOrder: ['p1', 'p2', 'p3'],
+        myPlayerId: 'p2',
+      }));
+    });
+
+    let result: ProbeValue | null = null;
+    render(<Probe onValue={(v) => { result = v; }} />);
+
+    await waitFor(() => {
+      expect(result).not.toBeNull();
+      expect(result?.layoutMode).toBe('trio');
+      expect(result?.slots).toHaveLength(3);
+      const bottom = result?.slots.find((s) => s.position === 'bottom-left');
+      expect(bottom?.player?.id).toBe('p2');
+      expect(bottom?.spanColumns).toBe(2);
+      expect(result?.slots.find((s) => s.position === 'top-left')?.player?.id).toBe('p3');
+      expect(result?.slots.find((s) => s.position === 'top-right')?.player?.id).toBe('p1');
+    });
+  });
+
   it('uses player-assigned colors (not seat colors) after rotation', async () => {
     const p1 = createPlayer('p1', 'rose');
     const p2 = createPlayer('p2', 'sky');

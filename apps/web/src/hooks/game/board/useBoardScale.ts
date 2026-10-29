@@ -17,7 +17,7 @@ export const useBoardScale = (layoutMode: LayoutMode) => {
 
       if (layoutMode === "split") {
         slotHeight = height / 2;
-      } else if (layoutMode === "quadrant") {
+      } else if (layoutMode === "quadrant" || layoutMode === "trio") {
         slotWidth = width / 2;
         slotHeight = height / 2;
       }

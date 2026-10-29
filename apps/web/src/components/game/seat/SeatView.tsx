@@ -73,6 +73,9 @@ interface SeatViewProps {
   onLifeContextMenu?: (e: React.MouseEvent, player: Player) => void;
   layoutVariant?: "default" | "portrait-viewport";
   portraitSeatSwitcher?: React.ReactNode;
+  // Desktop only: clicking an opponent's name enlarges their seat.
+  isSpotlit?: boolean;
+  onToggleSpotlight?: () => void;
 }
 
 export const SeatView: React.FC<SeatViewProps> = ({
@@ -99,6 +102,8 @@ export const SeatView: React.FC<SeatViewProps> = ({
   onLifeContextMenu,
   layoutVariant = "default",
   portraitSeatSwitcher,
+  isSpotlit = false,
+  onToggleSpotlight,
 }) => {
   const { showPreview, hidePreview } = useCardPreview();
   const adjustMana = useGameStore((state) => state.adjustMana);
@@ -775,6 +780,30 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 )}
               >
                 {player.name || "Me"}
+              </button>
+            ) : onToggleSpotlight ? (
+              <button
+                type="button"
+                data-desktop-side-player-name
+                aria-pressed={isSpotlit}
+                aria-label={
+                  isSpotlit
+                    ? `Return ${player.name || "player"}'s seat to normal size`
+                    : `Enlarge ${player.name || "player"}'s seat`
+                }
+                title={isSpotlit ? "Click to shrink" : "Click to enlarge"}
+                onClick={onToggleSpotlight}
+                className={cn(
+                  "max-h-full cursor-zoom-in overflow-hidden text-ellipsis whitespace-nowrap rounded text-[10px] font-bold uppercase tracking-[0.16em] transition-colors [writing-mode:vertical-rl] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70",
+                  "ds-seat-upright ds-seat-vertical-label",
+                  isSpotlit && "cursor-zoom-out bg-white/10 py-1",
+                  color === "rose" && "text-rose-400",
+                  color === "violet" && "text-violet-400",
+                  color === "sky" && "text-sky-400",
+                  color === "amber" && "text-amber-400",
+                )}
+              >
+                {player.name || "Player"}
               </button>
             ) : (
               <span
