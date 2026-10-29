@@ -1,5 +1,5 @@
 import React from "react";
-import { Eye, Plus } from "lucide-react";
+import { ChevronDown, Eye, Plus } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 
 import { Button } from "../../ui/button";
@@ -55,6 +55,7 @@ interface SeatViewProps {
   isMe: boolean;
   isActiveTurn?: boolean;
   onActiveTurnClick?: () => void;
+  onEndTurnClick?: () => void;
   viewerPlayerId: string;
   viewerRole?: ViewerRole;
   scale?: number;
@@ -83,6 +84,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
   isMe,
   isActiveTurn = false,
   onActiveTurnClick,
+  onEndTurnClick,
   viewerPlayerId,
   viewerRole,
   scale = 1,
@@ -246,6 +248,41 @@ export const SeatView: React.FC<SeatViewProps> = ({
         ? "cursor-pointer transition-colors hover:border-amber-100 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
         : "pointer-events-none",
     );
+
+    // On your turn the pill is the End turn control; its arrow picks someone else to go next.
+    if (onEndTurnClick && onActiveTurnClick) {
+      return (
+        <div
+          data-testid="active-turn-badge"
+          data-no-seat-swipe="true"
+          className={cn(
+            activeTurnBadgeClassName,
+            positionClassName,
+            "flex items-center gap-0 p-0 motion-safe:animate-none",
+          )}
+        >
+          <button
+            type="button"
+            aria-label="End your turn"
+            title="End turn (Shift+Space)"
+            onClick={onEndTurnClick}
+            className="rounded-l-full py-1 pl-3 pr-2 uppercase transition-colors hover:bg-amber-200/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+          >
+            End turn
+          </button>
+          <span aria-hidden="true" className="h-3 w-px bg-amber-200/40" />
+          <button
+            type="button"
+            aria-label={`${activeTurnLabel}. Choose next player`}
+            title="Choose who goes next"
+            onClick={onActiveTurnClick}
+            className="flex items-center rounded-r-full py-1 pl-1.5 pr-2 transition-colors hover:bg-amber-200/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+          >
+            <ChevronDown size={12} />
+          </button>
+        </div>
+      );
+    }
 
     if (onActiveTurnClick) {
       return (

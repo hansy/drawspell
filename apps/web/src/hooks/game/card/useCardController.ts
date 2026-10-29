@@ -42,6 +42,7 @@ import {
   useExclusiveActivation,
 } from "@/hooks/shared/useExclusiveActivation";
 import { isLockedPreviewDismissal } from "@/lib/cardPreviewLock";
+import { useCardEditHudStore } from "@/store/cardEditHudStore";
 
 const DESKTOP_PREVIEW_LOCK_MOVE_TOLERANCE_PX = 8;
 const TOUCH_PREVIEW_TAP_TOLERANCE_PX = 6;
@@ -291,9 +292,15 @@ export const useCardController = (props: CardProps): CardController => {
     ]
   );
 
+  const canEditOnCard =
+    zoneType === ZONE.BATTLEFIELD &&
+    card.controllerId === myPlayerId &&
+    viewerRole !== "spectator";
+
   const handleMouseEnter = React.useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (interactionsDisabled) return;
+      if (canEditOnCard) useCardEditHudStore.getState().open(card.id, e.currentTarget);
       if (Date.now() < suppressMouseHoverPreviewUntilRef.current) return;
       const policy = resolvePreviewPolicy();
       if (policy.kind === "none") return;
@@ -313,6 +320,7 @@ export const useCardController = (props: CardProps): CardController => {
     },
     [
       interactionsDisabled,
+      canEditOnCard,
       card,
       clearHoverTimeout,
       resolvePreviewPolicy,
@@ -324,6 +332,7 @@ export const useCardController = (props: CardProps): CardController => {
     () => {
       clearHoverTimeout();
       hidePreview(card.id);
+      useCardEditHudStore.getState().requestClose(card.id);
     },
     [card.id, clearHoverTimeout, hidePreview]
   );

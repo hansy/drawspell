@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { useGameStore } from "@/store/gameStore";
 import { useSelectionStore } from "@/store/selectionStore";
+import { useCardEditHudStore } from "@/store/cardEditHudStore";
 import type {
   Card,
   LibraryTopRevealMode,
@@ -142,6 +143,12 @@ export const useGameContextMenu = (
                 previewAnchorEl,
                 lockPreview: (targetCard, anchorEl) =>
                     requestCardPreviewLock({ cardId: targetCard.id, anchorEl }),
+                openCardEditor: (cardId) => {
+                    const anchor = document.querySelector<HTMLElement>(
+                        `[data-card-id="${CSS.escape(cardId)}"]`,
+                    );
+                    if (anchor) useCardEditHudStore.getState().open(cardId, anchor, { pinned: true });
+                },
                 ...adapters,
                 addCounter: (cardId, counter) => {
                     adapters.addCounter(cardId, counter);

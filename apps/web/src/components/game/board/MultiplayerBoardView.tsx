@@ -25,6 +25,7 @@ import { ZONE_DRAG_OVERLAY_POINTER_OFFSET_PX } from "@/lib/dndDragCue";
 import { bottomBarAwarePointerWithin } from "@/lib/bottomBarCollision";
 import { Seat } from "../seat/Seat";
 import { PortraitSeatStrip } from "./PortraitSeatStrip";
+import { CardEditHud } from "../card/CardEditHud";
 import { LogDrawer } from "../log-drawer/LogDrawer";
 import { Sidenav } from "../sidenav/Sidenav";
 import {
@@ -772,6 +773,15 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
               ? () => setIsTurnPickerOpen(true)
               : undefined
           }
+          onEndTurnClick={
+            hasMultipleTurnPlayers &&
+            seatPlayer.id === myPlayerId &&
+            seatPlayer.id === activePlayerId
+              ? () => {
+                  handleEndTurn();
+                }
+              : undefined
+          }
           viewerPlayerId={myPlayerId}
           viewerRole={viewerRole}
           onCardContextMenu={handleCardContextMenu}
@@ -924,8 +934,6 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                   <Sidenav
                     orientation="horizontal"
                     onCreateToken={() => setIsTokenModalOpen(true)}
-                    onEndTurn={handleEndTurn}
-                    canEndTurn={hasMultipleTurnPlayers && activePlayerId === myPlayerId}
                     onOpenCoinFlipper={handleOpenCoinFlipper}
                     onOpenDiceRoller={handleOpenDiceRoller}
                     onToggleLog={() => setIsLogOpen(!isLogOpen)}
@@ -951,8 +959,6 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
             <div className="grid h-full w-full grid-cols-[var(--sidenav-w)_minmax(0,1fr)_auto]">
               <Sidenav
                 onCreateToken={() => setIsTokenModalOpen(true)}
-                onEndTurn={handleEndTurn}
-                canEndTurn={hasMultipleTurnPlayers && activePlayerId === myPlayerId}
                 onOpenCoinFlipper={handleOpenCoinFlipper}
                 onOpenDiceRoller={handleOpenDiceRoller}
                 onToggleLog={() => setIsLogOpen(!isLogOpen)}
@@ -980,6 +986,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
             </div>
           )}
         </div>
+        <CardEditHud />
         <React.Suspense fallback={null}>
           {confirmationRequest && (
             <ConfirmationDialog

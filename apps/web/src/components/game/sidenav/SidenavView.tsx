@@ -3,6 +3,7 @@ import "mana-font/css/mana.css";
 import {
   Coins,
   Dice5,
+  Dices,
   Keyboard,
   Smartphone,
   Loader2,
@@ -11,7 +12,6 @@ import {
   Plus,
   ScrollText,
   Share2,
-  SkipForward,
   Undo2,
   Wifi,
 } from "lucide-react";
@@ -123,10 +123,96 @@ const NavIcon: React.FC<NavIconProps> = ({
   );
 };
 
+// Coin flips and dice rolls share one button so the phone toolbar stays short.
+const RandomizeButton: React.FC<{
+  onOpenCoinFlipper?: () => void;
+  onOpenDiceRoller?: () => void;
+  disabled: boolean;
+  isHorizontal: boolean;
+}> = ({ onOpenCoinFlipper, onOpenDiceRoller, disabled, isHorizontal }) => {
+  const [open, setOpen] = React.useState(false);
+  const { refs, floatingStyles } = useFloating({
+    open,
+    placement: isHorizontal ? "top" : "right-start",
+    strategy: "fixed",
+    middleware: [offset(8), flip({ padding: 8 }), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+  const rootRef = React.useRef<HTMLSpanElement | null>(null);
+  const menuRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const choose = (action?: () => void) => {
+    setOpen(false);
+    action?.();
+  };
+
+  return (
+    <span ref={(node) => { rootRef.current = node; refs.setReference(node); }} className="inline-flex">
+      <NavIcon
+        icon={<Dices size={20} />}
+        label="Coin or dice"
+        onClick={() => setOpen((value) => !value)}
+        className={cn(
+          "hover:text-yellow-400 active:text-yellow-400",
+          open && "text-yellow-400 bg-zinc-800/50",
+        )}
+        disabled={disabled}
+        hideTooltip={isHorizontal || open}
+        compact={isHorizontal}
+      />
+      {open && (
+        <div
+          ref={(node) => { menuRef.current = node; refs.setFloating(node); }}
+          style={floatingStyles}
+          role="menu"
+          className="z-50 flex w-44 flex-col gap-0.5 rounded-lg border border-zinc-800 bg-zinc-900 p-1 shadow-xl"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => choose(onOpenCoinFlipper)}
+            className="flex items-center gap-3 rounded p-2 text-left text-sm text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+          >
+            <Coins size={16} />
+            Flip a coin
+            <span className="ml-auto hidden text-[10px] text-zinc-500 lg:inline">C</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => choose(onOpenDiceRoller)}
+            className="flex items-center gap-3 rounded p-2 text-left text-sm text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+          >
+            <Dice5 size={16} />
+            Roll dice
+            <span className="ml-auto hidden text-[10px] text-zinc-500 lg:inline">R</span>
+          </button>
+        </div>
+      )}
+    </span>
+  );
+};
+
 export const SidenavView: React.FC<SidenavController> = ({
   onCreateToken,
-  onEndTurn,
-  canEndTurn,
   onOpenCoinFlipper,
   onOpenDiceRoller,
   onToggleLog,
@@ -402,16 +488,6 @@ export const SidenavView: React.FC<SidenavController> = ({
         ) : (
           <>
             <NavIcon
-              icon={<SkipForward size={20} />}
-              label="End turn"
-              onClick={onEndTurn}
-              className="hover:text-red-400 active:text-red-400"
-              disabled={isSpectator || !canEndTurn}
-              hideTooltip={isHorizontal}
-              compact={isHorizontal}
-            />
-
-            <NavIcon
               icon={
                 <i
                   aria-hidden="true"
@@ -436,24 +512,11 @@ export const SidenavView: React.FC<SidenavController> = ({
               compact={isHorizontal}
             />
 
-            <NavIcon
-              icon={<Coins size={20} />}
-              label="Flip Coin"
-              onClick={onOpenCoinFlipper}
-              className="hover:text-yellow-400 active:text-yellow-400"
+            <RandomizeButton
+              onOpenCoinFlipper={onOpenCoinFlipper}
+              onOpenDiceRoller={onOpenDiceRoller}
               disabled={isSpectator}
-              hideTooltip={isHorizontal}
-              compact={isHorizontal}
-            />
-
-            <NavIcon
-              icon={<Dice5 size={20} />}
-              label="Roll Dice"
-              onClick={onOpenDiceRoller}
-              className="hover:text-indigo-400 active:text-indigo-400"
-              disabled={isSpectator}
-              hideTooltip={isHorizontal}
-              compact={isHorizontal}
+              isHorizontal={isHorizontal}
             />
 
             <NavIcon

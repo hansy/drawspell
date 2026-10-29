@@ -35,32 +35,28 @@ describe("Sidenav", () => {
     expect(untapAll).toHaveBeenCalledWith("me");
   });
 
-  it("shows end turn as the first player action and calls its handler", () => {
-    const onEndTurn = vi.fn();
+  it("leaves End turn to the turn pill instead of the sidebar", () => {
+    render(<Sidenav onOpenCoinFlipper={vi.fn()} onOpenDiceRoller={vi.fn()} />);
 
-    render(
-      <Sidenav
-        onEndTurn={onEndTurn}
-        onOpenCoinFlipper={vi.fn()}
-        onOpenDiceRoller={vi.fn()}
-      />,
-    );
-
-    const buttons = screen.getAllByRole("button");
-    expect(buttons[0].getAttribute("aria-label")).toBe("End turn");
-
-    fireEvent.click(screen.getByRole("button", { name: "End turn" }));
-    expect(onEndTurn).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "End turn" })).toBeNull();
+    expect(screen.getAllByRole("button")[0].getAttribute("aria-label")).toBe("Untap All");
   });
 
-  it("disables end turn when the player is not eligible to act", () => {
-    const onEndTurn = vi.fn();
-    render(<Sidenav onEndTurn={onEndTurn} canEndTurn={false} />);
+  it("opens the coin flipper and dice roller from one button", () => {
+    const onOpenCoinFlipper = vi.fn();
+    const onOpenDiceRoller = vi.fn();
+    render(
+      <Sidenav onOpenCoinFlipper={onOpenCoinFlipper} onOpenDiceRoller={onOpenDiceRoller} />,
+    );
 
-    const button = screen.getByRole("button", { name: "End turn" });
-    expect((button as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(button);
-    expect(onEndTurn).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Coin or dice" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Flip a coin/ }));
+    expect(onOpenCoinFlipper).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("menu")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Coin or dice" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Roll dice/ }));
+    expect(onOpenDiceRoller).toHaveBeenCalledTimes(1);
   });
 
   it("does not show the menu label or Pass Turn option", () => {
@@ -74,30 +70,30 @@ describe("Sidenav", () => {
   it("uses active tap feedback classes on nav icon buttons", () => {
     render(<Sidenav onOpenCoinFlipper={vi.fn()} onOpenDiceRoller={vi.fn()} />);
 
-    const endTurnButton = screen.getByRole("button", { name: "End turn" });
-    expect(endTurnButton.className).toContain("active:bg-zinc-800/50");
-    expect(endTurnButton.className).toContain("active:scale-95");
-    expect(endTurnButton.className).toContain("active:text-red-400");
+    const untapButton = screen.getByRole("button", { name: "Untap All" });
+    expect(untapButton.className).toContain("active:bg-zinc-800/50");
+    expect(untapButton.className).toContain("active:scale-95");
+    expect(untapButton.className).toContain("active:text-blue-400");
 
-    const rollDiceButton = screen.getByRole("button", { name: "Roll Dice" });
-    expect(rollDiceButton.className).toContain("active:text-indigo-400");
+    const randomButton = screen.getByRole("button", { name: "Coin or dice" });
+    expect(randomButton.className).toContain("active:text-yellow-400");
   });
 
   it("shows a temporary label on touch press", () => {
     vi.useFakeTimers();
     render(<Sidenav onOpenCoinFlipper={vi.fn()} onOpenDiceRoller={vi.fn()} />);
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: "End turn" }), {
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Untap All" }), {
       pointerType: "touch",
     });
 
-    expect(screen.getByText("End turn")).not.toBeNull();
+    expect(screen.getByText("Untap All")).not.toBeNull();
 
     act(() => {
       vi.advanceTimersByTime(500);
     });
 
-    expect(screen.queryByText("End turn")).toBeNull();
+    expect(screen.queryByText("Untap All")).toBeNull();
   });
 
   it("opens the share dialog from the share button", () => {

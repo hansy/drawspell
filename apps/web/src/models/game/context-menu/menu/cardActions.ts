@@ -52,6 +52,8 @@ interface CardActionBuilderParams {
   removeCounter: (cardId: CardId, counterType: string) => void;
   removeCard?: (card: Card) => void;
   openAddCounterModal: (cardIds: CardId[]) => void;
+  // Opens the on-card counter and P/T controls; the touch route to them, since phones can't hover.
+  openCardEditor?: (cardId: CardId) => void;
   globalCounters: Record<string, string>;
   updateCard?: (cardId: CardId, updates: Partial<Card>) => void;
   turnExiledCardFaceUp?: (cardId: CardId) => void;
@@ -89,6 +91,7 @@ export const buildCardActions = ({
   removeCounter,
   removeCard,
   openAddCounterModal,
+  openCardEditor,
   globalCounters,
   updateCard,
   turnExiledCardFaceUp,
@@ -297,6 +300,13 @@ export const buildCardActions = ({
   }
 
   if (countersAllowed && canModify.allowed) {
+    if (openCardEditor && card.controllerId === myPlayerId) {
+      items.push({
+        type: "action",
+        label: "Edit counters and P/T",
+        onSelect: () => openCardEditor(card.id),
+      });
+    }
     items.push(buildCounterMenu({
       countersByTarget: [card.counters],
       globalCounters,

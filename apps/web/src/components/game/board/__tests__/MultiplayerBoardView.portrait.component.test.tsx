@@ -181,6 +181,7 @@ const buildBoardProps = (
         handleFlipCoin: vi.fn(),
         handleRollDice: vi.fn(),
         handleSetTurn: vi.fn(),
+        handleEndTurn: vi.fn(() => true),
         handleLeave: vi.fn(),
         shareLinks: { players: "", spectators: "", resume: "" },
         shareLinksReady: false,
@@ -257,7 +258,19 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
     expect(props.handleSetTurn).toHaveBeenCalledWith("p3");
   });
 
-  it("disables End turn when only one player remains eligible", () => {
+  it("ends your turn from the turn pill", () => {
+    const props = buildBoardProps([
+      { id: "p1", name: "Alice", color: "sky", position: "bottom-left" },
+      { id: "p2", name: "Bob", color: "rose", position: "top-left" },
+    ]);
+
+    render(<MultiplayerBoardView {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "End your turn" }));
+
+    expect(props.handleEndTurn).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no End turn when only one player remains eligible", () => {
     const props = buildBoardProps([
       { id: "p1", name: "Alice", color: "sky", position: "bottom-left" },
       { id: "p2", name: "Bob", color: "rose", position: "top-left" },
@@ -266,8 +279,7 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
 
     render(<MultiplayerBoardView {...props} />);
 
-    expect((screen.getByRole("button", { name: "End turn" }) as HTMLButtonElement).disabled)
-      .toBe(true);
+    expect(screen.queryByRole("button", { name: "End your turn" })).toBeNull();
   });
 
   it("hides turn UI in a one-player room", () => {
