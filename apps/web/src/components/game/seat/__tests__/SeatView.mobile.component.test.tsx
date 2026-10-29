@@ -405,4 +405,42 @@ describe("SeatView mobile toolbar", () => {
       expect(parseFloat(slot.style.getPropertyValue("--hand-card-slot-width"))).toBeCloseTo(192 * 63 / 88);
     });
   });
+
+  it("draws an opponent's board upright on a phone, even for a far-side seat", () => {
+    const battlefieldZone = makeZone("bf-p1", "battlefield", ["c-bf"]);
+    const battlefieldCard = {
+      ...libraryCard,
+      id: "c-bf",
+      zoneId: battlefieldZone.id,
+      position: { x: 0.2, y: 0.2 },
+    };
+    const { container } = render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer({ id: "p1" })}
+            color="sky"
+            isMe={false}
+            viewerPlayerId="me"
+            opponentColors={{ me: "rose", p1: "sky" }}
+            model={
+              {
+                ...baseModel,
+                isTop: true,
+                zones: { ...baseModel.zones, battlefield: battlefieldZone },
+                cards: { ...baseModel.cards, battlefield: [battlefieldCard] },
+              } as any
+            }
+            layoutVariant="portrait-viewport"
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    const rotated = Array.from(container.querySelectorAll<HTMLElement>("*")).filter(
+      (element) => element.style.transform.includes("rotate(180deg)"),
+    );
+    expect(container.querySelector('[data-card-id="c-bf"]')).not.toBeNull();
+    expect(rotated).toHaveLength(0);
+  });
 });

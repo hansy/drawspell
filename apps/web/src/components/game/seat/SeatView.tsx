@@ -558,7 +558,9 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 zone={battlefield}
                 cards={battlefieldCards}
                 player={player}
-                isTop={isTop}
+                // The phone shows one seat at a time, so there's no far side of the
+                // table: every board is drawn upright, as its owner sees it.
+                isTop={false}
                 isMe={isMe}
                 viewerPlayerId={viewerPlayerId}
                 viewerRole={viewerRole}
@@ -651,7 +653,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 <Hand
                   zone={hand}
                   cards={handCards}
-                  isTop={isTop}
+                  isTop={false}
                   isRight={isRight}
                   isMe={isMe}
                   viewerPlayerId={viewerPlayerId}
