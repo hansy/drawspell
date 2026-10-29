@@ -144,7 +144,7 @@ export const ShortcutsDrawer: React.FC<ShortcutsDrawerProps> = ({ isOpen, onClos
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-                    <div className="hidden lg:flex lg:flex-col lg:gap-4">
+                    <div className="hidden pointer-fine:flex pointer-fine:flex-col pointer-fine:gap-4">
                         <section aria-labelledby="mouse-controls-heading">
                             <h3
                                 id="mouse-controls-heading"
@@ -226,7 +226,7 @@ export const ShortcutsDrawer: React.FC<ShortcutsDrawerProps> = ({ isOpen, onClos
                         </section>
                     </div>
 
-                    <div className="space-y-1 lg:hidden">
+                    <div className="space-y-1 pointer-fine:hidden">
                         {TOUCH_CONTROLS.map((control) => (
                             <div
                                 key={control.id}

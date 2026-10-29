@@ -226,6 +226,13 @@ describe("useSeatSizing", () => {
     expect(result.current.cssVars).toBeUndefined();
   });
 
+  it("sizes desktop-layout seats below lg, and never phone-layout seats", () => {
+    setMatchMedia(false);
+    expect(renderHook(() => useSeatSizing({ desktopLayout: true })).result.current.sizing).not.toBeNull();
+    setMatchMedia(true);
+    expect(renderHook(() => useSeatSizing({ desktopLayout: false })).result.current.sizing).toBeNull();
+  });
+
   it("returns sizing and css vars for lg", () => {
     const { result } = renderHook(() => useSeatSizing());
     expect(result.current.sizing).not.toBeNull();

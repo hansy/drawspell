@@ -259,7 +259,7 @@ const RandomizeButton: React.FC<{
           >
             <Coins size={16} />
             Flip a coin
-            <span className="ml-auto hidden text-[10px] text-zinc-500 lg:inline">C</span>
+            <span className="ml-auto hidden text-[10px] text-zinc-500 pointer-fine:inline">C</span>
           </button>
           <button
             type="button"
@@ -269,7 +269,7 @@ const RandomizeButton: React.FC<{
           >
             <Dice5 size={16} />
             Roll dice
-            <span className="ml-auto hidden text-[10px] text-zinc-500 lg:inline">R</span>
+            <span className="ml-auto hidden text-[10px] text-zinc-500 pointer-fine:inline">R</span>
           </button>
         </div>
       )}
@@ -483,21 +483,21 @@ export const SidenavView: React.FC<SidenavController> = ({
                   >
                     <Undo2 size={16} />
                     Undo last action
-                    <span className="ml-auto hidden text-[10px] text-zinc-500 lg:inline">
+                    <span className="ml-auto hidden text-[10px] text-zinc-500 pointer-fine:inline">
                       Ctrl/⌘ Z
                     </span>
                   </button>
 
                   <button
                     onClick={handleOpenShortcuts}
-                    className="hidden lg:flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
+                    className="hidden pointer-fine:flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
                   >
                     <Keyboard size={16} />
                     Controls
                   </button>
                   <button
                     onClick={handleOpenShortcuts}
-                    className="flex lg:hidden items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
+                    className="flex pointer-fine:hidden items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
                   >
                     <Smartphone size={16} />
                     Controls

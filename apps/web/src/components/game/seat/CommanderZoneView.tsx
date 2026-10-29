@@ -377,7 +377,7 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
                     card={card}
                     style={isTop ? { transform: "rotate(180deg)" } : undefined}
                     disableHoverAnimation
-                    className="h-full w-full cursor-grab active:cursor-grabbing lg:!h-full lg:!w-full"
+                    className="h-full w-full cursor-grab active:cursor-grabbing desktop:!h-full desktop:!w-full"
                   />
                   <div className="pointer-events-auto absolute right-1 top-1 z-40">
                     <div

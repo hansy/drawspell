@@ -48,6 +48,9 @@ export const BATTLEFIELD_MAX_WIDTH_SHARE = 0.9;
 export const MODAL_PAD_PX = 24;
 
 export interface SeatSizingOptions {
+  // Whether the seat is drawn with the desktop layout. The board decides this
+  // (see viewportModel); without it, fall back to the lg breakpoint.
+  desktopLayout?: boolean;
   handHeightOverridePx?: number;
   bottomBarPct?: number;
   handMinPct?: number;
@@ -400,6 +403,7 @@ export const useIsLg = () => {
 
 export const useSeatSizing = (options: SeatSizingOptions = {}) => {
   const {
+    desktopLayout,
     handHeightOverridePx,
     bottomBarPct = SEAT_BOTTOM_BAR_PCT,
     handMinPct = SEAT_HAND_MIN_PCT,
@@ -417,7 +421,8 @@ export const useSeatSizing = (options: SeatSizingOptions = {}) => {
     thresholdPx: 1,
   });
   const lgQuery = React.useMemo(getLgMediaQuery, []);
-  const isLg = useMediaQuery(lgQuery);
+  const matchesLg = useMediaQuery(lgQuery);
+  const isLg = desktopLayout ?? matchesLg;
 
   const sizing = React.useMemo(() => {
     if (!isLg || size.width <= 0 || size.height <= 0) {

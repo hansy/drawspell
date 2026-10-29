@@ -105,7 +105,7 @@ export const TurnMenu: React.FC<TurnMenuProps> = ({
         >
           <Forward size={16} />
           End turn
-          <span className="ml-auto hidden text-[10px] text-zinc-500 lg:inline">⇧ Space</span>
+          <span className="ml-auto hidden text-[10px] text-zinc-500 pointer-fine:inline">⇧ Space</span>
         </button>
 
         {isMyTurn && onPassTurnTo && others.length > 1 && (

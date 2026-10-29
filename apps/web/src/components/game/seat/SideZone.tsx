@@ -505,7 +505,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
         <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900 px-2 text-xs text-zinc-400 uppercase tracking-wider font-medium whitespace-nowrap border border-zinc-800 rounded-full z-10 top-0 pointer-events-none select-none">
           {label}
         </div>
-        <div className="absolute left-1/2 -translate-x-1/2 translate-y-1/2 bg-zinc-900 px-2 lg:text-xs text-zinc-300 font-mono border border-zinc-800 rounded-full z-10 bottom-0 pointer-events-none select-none">
+        <div className="absolute left-1/2 -translate-x-1/2 translate-y-1/2 bg-zinc-900 px-2 desktop:text-xs text-zinc-300 font-mono border border-zinc-800 rounded-full z-10 bottom-0 pointer-events-none select-none">
           {count}
         </div>
       </Zone>

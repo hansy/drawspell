@@ -284,16 +284,16 @@ describe("Hand visual ownership", () => {
 
     expect(strip).not.toBeNull();
     expect(strip?.classList.contains("items-center")).toBe(true);
-    expect(strip?.classList.contains("lg:items-start")).toBe(true);
+    expect(strip?.classList.contains("desktop:items-start")).toBe(true);
     expect(strip?.classList.contains("pt-0")).toBe(true);
-    expect(strip?.classList.contains("lg:pt-[var(--hand-card-top-gap)]")).toBe(true);
+    expect(strip?.classList.contains("desktop:pt-[var(--hand-card-top-gap)]")).toBe(true);
     expect(strip?.classList.contains("justify-center")).toBe(true);
     expect(strip?.classList.contains("w-max")).toBe(true);
     expect(strip?.classList.contains("shrink-0")).toBe(true);
     expect(strip?.classList.contains("box-content")).toBe(false);
     expect(sourceCard).not.toBeNull();
     expect(sourceCard?.classList.contains("items-center")).toBe(true);
-    expect(sourceCard?.classList.contains("lg:items-start")).toBe(true);
+    expect(sourceCard?.classList.contains("desktop:items-start")).toBe(true);
     expect(
       container
         .querySelector('[data-card-id="c1"]')
@@ -302,7 +302,7 @@ describe("Hand visual ownership", () => {
     expect(
       container
         .querySelector('[data-card-id="c1"]')
-        ?.classList.contains("lg:origin-top")
+        ?.classList.contains("desktop:origin-top")
     ).toBe(true);
     expect((strip as HTMLElement).style.getPropertyValue("--hand-card-top-gap")).toBe(
       `${HAND_CARD_TOP_GAP_PX}px`

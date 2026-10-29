@@ -217,7 +217,7 @@ const SortableCard = React.memo(
         data-hand-card-previewed={isPreviewed ? "true" : undefined}
         data-hand-card-selected={isSelected ? "true" : undefined}
         className={cn(
-          "relative flex shrink-0 h-full w-[var(--hand-card-slot-width)] items-center lg:items-start transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group",
+          "relative flex shrink-0 h-full w-[var(--hand-card-slot-width)] items-center desktop:items-start transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group",
           "touch-pan-x",
           isMe && "hover:-translate-y-3",
           isMe && isSelected && "-translate-y-3 z-20",
@@ -249,7 +249,7 @@ const SortableCard = React.memo(
             card={card}
             className={cn(
               "origin-top shadow-xl transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-              "origin-center lg:origin-top",
+              "origin-center desktop:origin-top",
               isMe && !isSelected &&
                 "group-hover:ring-2 group-hover:ring-cyan-200/90 group-hover:ring-offset-2 group-hover:ring-offset-zinc-950",
               isMe && !isSelected &&
@@ -626,7 +626,7 @@ const HandInner: React.FC<HandProps> = ({
           <div
             data-dnd-hand-card-strip
             className={cn(
-              "flex h-full gap-0 items-center lg:items-start pt-0 lg:pt-[var(--hand-card-top-gap)] motion-reduce:transition-none",
+              "flex h-full gap-0 items-center desktop:items-start pt-0 desktop:pt-[var(--hand-card-top-gap)] motion-reduce:transition-none",
               scrollAlignment === "start"
                 ? "w-max min-w-full shrink-0 justify-start"
                 : isSingleCardHand

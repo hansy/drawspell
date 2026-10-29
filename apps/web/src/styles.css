@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+/* Layout follows the board (phone vs desktop, see viewportModel); input hints follow pointer-fine/pointer-coarse. */
+@custom-variant desktop (&:where([data-board-layout="desktop"] *));
 
 html,
 body {

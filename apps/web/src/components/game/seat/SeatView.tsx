@@ -123,7 +123,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
     cssVars,
     sizing,
     isLg,
-  } = useSeatSizing();
+  } = useSeatSizing({ desktopLayout: layoutVariant !== "portrait-viewport" });
   const clamp = React.useCallback(
     (value: number, min: number, max: number) =>
       Math.min(max, Math.max(min, value)),
