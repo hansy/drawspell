@@ -248,7 +248,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
     ? "Your turn"
     : `${player.name || "Player"}'s turn`;
   const activeTurnBadgeClassName =
-    "absolute left-1/2 z-30 -translate-x-1/2 rounded-full border border-amber-200/70 bg-zinc-950/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.35)] backdrop-blur-md motion-safe:animate-pulse";
+    "absolute left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full border border-amber-200/70 bg-zinc-950/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.35)] backdrop-blur-md motion-safe:animate-pulse";
   const renderActiveTurnBadge = (positionClassName: string) => {
     if (!isActiveTurn) return null;
     const className = cn(
@@ -332,7 +332,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
             </>
           ) : (
             <>
-              <span className="py-1 pl-3 pr-2">{activeTurnLabel}</span>
+              <span className="whitespace-nowrap py-1 pl-3 pr-2">{activeTurnLabel}</span>
               <span aria-hidden="true" className="h-3 w-px bg-amber-200/40" />
               <button
                 type="button"
@@ -377,7 +377,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
   const renderOutBadge = (positionClassName: string) => {
     if (!player.out || isActiveTurn) return null;
     const className = cn(
-      "absolute left-1/2 z-30 -translate-x-1/2 rounded-full border border-zinc-600 bg-zinc-950/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-zinc-300 backdrop-blur-md",
+      "absolute left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full border border-zinc-600 bg-zinc-950/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-zinc-300 backdrop-blur-md",
       positionClassName,
     );
     if (onBackInClick) {
