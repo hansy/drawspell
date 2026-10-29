@@ -100,7 +100,7 @@ export const CardFaceCountersOverlay: React.FC<{
         <span
           aria-hidden="true"
           data-card-empty-counter-slot
-          className="flex items-center justify-center rounded-full border border-dashed border-white/60 bg-zinc-950/70 font-bold text-white/80 opacity-0 transition-opacity group-hover/card:opacity-100"
+          className="flex items-center justify-center rounded-full border border-dashed border-white/60 bg-zinc-950/70 font-bold text-white/80 opacity-0 transition-opacity group-hover/card:opacity-100 group-data-[editing]/card:opacity-100"
           style={{
             fontSize: "var(--battlefield-counter-font, 10px)",
             width: "var(--battlefield-counter-size, 24px)",

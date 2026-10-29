@@ -1,6 +1,7 @@
 import React from "react";
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCardEditHudStore } from "@/store/cardEditHudStore";
 import { CARD_BASE_CLASS, CARD_CORNER_CLASS } from "@/lib/constants";
 
 import type { CardViewProps } from "./types";
@@ -42,11 +43,16 @@ export const CardView = React.memo(
         [card.customText]
       );
 
+      // Its edit controls live in a portal, so pointing at them ends the card's
+      // :hover. Keep the card raised while they are open.
+      const isEditing = useCardEditHudStore((state) => state.cardId === card.id);
+
       return (
         <div
           ref={ref}
           style={style}
           data-card-id={card.id}
+          data-editing={isEditing && !isDragging ? "" : undefined}
           {...props}
           draggable={false}
           className={cn(
@@ -56,6 +62,10 @@ export const CardView = React.memo(
             !isDragging &&
               !disableHoverAnimation &&
               "hover:scale-105 hover:shadow-xl hover:z-10 hover:border-indigo-500/50 cursor-grab active:cursor-grabbing",
+            isEditing &&
+              !isDragging &&
+              !disableHoverAnimation &&
+              "scale-105 shadow-xl z-10 border-indigo-500/50",
             card.tapped && "border-zinc-600 bg-zinc-900",
             isDragging &&
               "shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-2 ring-indigo-500 cursor-grabbing",

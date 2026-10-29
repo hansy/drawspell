@@ -31,8 +31,14 @@ const Stepper: React.FC<{
   onDecrement: () => void;
   onIncrement: () => void;
   children: React.ReactNode;
-}> = ({ label, onDecrement, onIncrement, children }) => (
-  <div className="flex items-center gap-0.5 rounded-full border border-zinc-700 bg-zinc-900 p-0.5">
+  className?: string;
+}> = ({ label, onDecrement, onIncrement, children, className }) => (
+  <div
+    className={cn(
+      "flex items-center gap-0.5 rounded-full border border-zinc-700 bg-zinc-900 p-0.5",
+      className,
+    )}
+  >
     <button
       type="button"
       aria-label={`Remove one ${label}`}
@@ -194,6 +200,7 @@ export const CardEditHud: React.FC = () => {
               label={`${counter.type} counter`}
               onDecrement={() => removeCounterFromCard(card.id, counter.type)}
               onIncrement={() => addCounter(counter.type, counter.color)}
+              className="w-full justify-between"
             >
               <span
                 title={counter.type}

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCardEditHudStore } from "@/store/cardEditHudStore";
 import { useGameStore } from "@/store/gameStore";
 import { CardEditHud } from "../CardEditHud";
+import { CardView } from "../CardView";
 
 const baseCard = {
   id: "c1",
@@ -148,5 +149,19 @@ describe("useCardEditHudStore", () => {
     store.open("b", document.createElement("div"));
     vi.advanceTimersByTime(300);
     expect(useCardEditHudStore.getState().cardId).toBe("b");
+  });
+});
+
+describe("CardView while its controls are open", () => {
+  afterEach(() => act(() => useCardEditHudStore.getState().close()));
+
+  it("stays raised when the pointer moves onto the controls", () => {
+    const { container } = render(<CardView card={baseCard as any} />);
+    const node = container.querySelector("[data-card-id]") as HTMLElement;
+    expect(node.hasAttribute("data-editing")).toBe(false);
+
+    act(() => useCardEditHudStore.getState().open("c1", node, { section: "counters" }));
+    expect(node.hasAttribute("data-editing")).toBe(true);
+    expect(node.className).toContain("scale-105");
   });
 });
