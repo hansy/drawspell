@@ -1,4 +1,5 @@
 import React from "react";
+import "mana-font/css/mana.css";
 import {
   Coins,
   Dice5,
@@ -8,7 +9,6 @@ import {
   Mail,
   LogOut,
   Plus,
-  RotateCcwSquare,
   ScrollText,
   Share2,
   SkipForward,
@@ -318,6 +318,21 @@ export const SidenavView: React.FC<SidenavController> = ({
                   <div className="border-t border-zinc-800 my-1" />
 
                   <button
+                    onClick={() => {
+                      handleUndo();
+                      closeMenu();
+                    }}
+                    disabled={!canUndo}
+                    className="flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                  >
+                    <Undo2 size={16} />
+                    Undo last action
+                    <span className="ml-auto hidden text-[10px] text-zinc-500 lg:inline">
+                      Ctrl/⌘ Z
+                    </span>
+                  </button>
+
+                  <button
                     onClick={handleOpenShortcuts}
                     className="hidden lg:flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
                   >
@@ -397,22 +412,16 @@ export const SidenavView: React.FC<SidenavController> = ({
             />
 
             <NavIcon
-              icon={<RotateCcwSquare size={20} />}
+              icon={
+                <i
+                  aria-hidden="true"
+                  className="ms ms-untap block h-5 w-5 text-[20px] leading-5"
+                />
+              }
               label="Untap All"
               onClick={handleUntapAll}
               className="hover:text-blue-400 active:text-blue-400"
               disabled={isSpectator}
-              hideTooltip={isHorizontal}
-              compact={isHorizontal}
-            />
-
-            <NavIcon
-              icon={<Undo2 size={20} />}
-              label="Undo"
-              tooltip="Undo (Ctrl/Cmd+Z)"
-              onClick={handleUndo}
-              className="hover:text-zinc-100 active:text-zinc-100"
-              disabled={!canUndo}
               hideTooltip={isHorizontal}
               compact={isHorizontal}
             />
