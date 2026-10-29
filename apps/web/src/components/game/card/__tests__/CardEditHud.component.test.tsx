@@ -22,11 +22,12 @@ const baseCard = {
   counters: [{ type: "+1/+1", count: 1, color: "#16a34a" }],
 };
 
-const setup = (overrides: Partial<typeof baseCard> = {}) => {
+const setup = (overrides: Record<string, unknown> = {}) => {
   const addCounterToCard = vi.fn();
   const removeCounterFromCard = vi.fn();
   const addGlobalCounter = vi.fn();
   const updateCard = vi.fn();
+  const transformCard = vi.fn();
   useGameStore.setState({
     myPlayerId: "me",
     viewerRole: "player",
@@ -37,12 +38,13 @@ const setup = (overrides: Partial<typeof baseCard> = {}) => {
     removeCounterFromCard,
     addGlobalCounter,
     updateCard,
+    transformCard,
   } as any);
   const anchor = document.createElement("div");
   document.body.appendChild(anchor);
   render(<CardEditHud />);
   act(() => useCardEditHudStore.getState().open("c1", anchor));
-  return { addCounterToCard, removeCounterFromCard, addGlobalCounter, updateCard, anchor };
+  return { addCounterToCard, removeCounterFromCard, addGlobalCounter, updateCard, transformCard, anchor };
 };
 
 describe("CardEditHud", () => {
@@ -93,5 +95,57 @@ describe("CardEditHud", () => {
   it("shows nothing for a card you don't control", () => {
     setup({ controllerId: "someone-else" });
     expect(document.querySelector("[data-card-edit-hud]")).toBeNull();
+  });
+
+  it("keeps power and toughness in their own labelled section", () => {
+    setup();
+    const pt = document.querySelector("[data-card-edit-hud-pt]");
+    expect(pt?.textContent).toContain("Power / Toughness");
+    expect(document.querySelector("[data-card-edit-hud-counters]")?.contains(pt)).toBe(false);
+  });
+
+  it("transforms a double-faced card to its other face", () => {
+    const { transformCard } = setup({
+      scryfall: {
+        layout: "transform",
+        card_faces: [{ name: "Front Face" }, { name: "Back Face" }],
+      },
+      currentFaceIndex: 0,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Transform: Back Face/ }));
+    expect(transformCard).toHaveBeenCalledWith("c1", 1);
+  });
+});
+
+describe("useCardEditHudStore", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    useCardEditHudStore.getState().close();
+  });
+
+  it("keeps the current card's controls while the pointer crosses another card", () => {
+    vi.useFakeTimers();
+    const store = useCardEditHudStore.getState();
+    const a = document.createElement("div");
+    const b = document.createElement("div");
+    store.open("a", a);
+    store.requestClose("a");
+    store.open("b", b);
+    vi.advanceTimersByTime(100);
+    // The pointer reaches the controls before the switch happens.
+    useCardEditHudStore.getState().cancelClose();
+    vi.advanceTimersByTime(1000);
+    expect(useCardEditHudStore.getState().cardId).toBe("a");
+  });
+
+  it("switches to another card when the pointer rests on it", () => {
+    vi.useFakeTimers();
+    const store = useCardEditHudStore.getState();
+    store.open("a", document.createElement("div"));
+    store.requestClose("a");
+    store.open("b", document.createElement("div"));
+    vi.advanceTimersByTime(300);
+    expect(useCardEditHudStore.getState().cardId).toBe("b");
   });
 });

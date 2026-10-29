@@ -1,15 +1,20 @@
 import { create } from "zustand";
 
 // Which battlefield card shows its on-card edit controls (counters, P/T).
-// Hover opens it; leaving the card or the controls closes it after a short grace
-// period so the pointer can travel from one to the other.
-const CLOSE_DELAY_MS = 160;
+// Hover opens it. Leaving the card, or brushing past a neighbouring card on the
+// way to the controls, only takes effect after a grace period, so the pointer
+// can always travel from the card to its controls.
+const CLOSE_DELAY_MS = 300;
+const SWITCH_DELAY_MS = 250;
 
 let closeTimer: ReturnType<typeof setTimeout> | null = null;
+let switchTimer: ReturnType<typeof setTimeout> | null = null;
 
-const clearCloseTimer = () => {
+const clearTimers = () => {
   if (closeTimer) clearTimeout(closeTimer);
+  if (switchTimer) clearTimeout(switchTimer);
   closeTimer = null;
+  switchTimer = null;
 };
 
 export const useCardEditHudStore = create<{
@@ -26,15 +31,36 @@ export const useCardEditHudStore = create<{
   anchor: null,
   pinned: false,
   open: (cardId, anchor, options) => {
-    clearCloseTimer();
     const current = get();
-    if (current.pinned && current.cardId !== cardId && !options?.pinned) return;
-    set({ cardId, anchor, pinned: Boolean(options?.pinned) });
+    if (options?.pinned) {
+      clearTimers();
+      set({ cardId, anchor, pinned: true });
+      return;
+    }
+    if (current.pinned && current.cardId !== cardId) return;
+    if (current.cardId && current.cardId !== cardId) {
+      // Another card's controls are showing: wait, in case the pointer is only crossing.
+      if (switchTimer) clearTimeout(switchTimer);
+      switchTimer = setTimeout(() => {
+        switchTimer = null;
+        if (closeTimer) clearTimeout(closeTimer);
+        closeTimer = null;
+        set({ cardId, anchor, pinned: false });
+      }, SWITCH_DELAY_MS);
+      return;
+    }
+    clearTimers();
+    set({ cardId, anchor, pinned: false });
   },
   requestClose: (cardId) => {
+    if (switchTimer && get().cardId !== cardId) {
+      // Left a card we were about to switch to before the switch happened.
+      clearTimeout(switchTimer);
+      switchTimer = null;
+    }
     const current = get();
     if (current.cardId !== cardId || current.pinned) return;
-    clearCloseTimer();
+    if (closeTimer) clearTimeout(closeTimer);
     closeTimer = setTimeout(() => {
       closeTimer = null;
       if (get().cardId === cardId && !get().pinned) {
@@ -42,9 +68,10 @@ export const useCardEditHudStore = create<{
       }
     }, CLOSE_DELAY_MS);
   },
-  cancelClose: clearCloseTimer,
+  // The pointer reached the controls: keep them and drop any pending switch or close.
+  cancelClose: clearTimers,
   close: () => {
-    clearCloseTimer();
+    clearTimers();
     set({ cardId: null, anchor: null, pinned: false });
   },
 }));

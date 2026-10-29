@@ -7,13 +7,16 @@ import {
   shift,
   useFloating,
 } from "@floating-ui/react";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, RefreshCw } from "lucide-react";
 import { normalizeCounterType } from "@mtg/shared/counters";
 
 import { ZONE } from "@/constants/zones";
 import {
   getDisplayPower,
   getDisplayToughness,
+  getNextTransformFace,
+  getTransformVerb,
+  isTransformableCard,
   shouldShowZonePowerToughness,
 } from "@/lib/cardDisplay";
 import { getNextCardStatUpdate, type CardStatKey } from "@/lib/cardPT";
@@ -69,6 +72,7 @@ export const CardEditHud: React.FC = () => {
   const removeCounterFromCard = useGameStore((state) => state.removeCounterFromCard);
   const addGlobalCounter = useGameStore((state) => state.addGlobalCounter);
   const updateCard = useGameStore((state) => state.updateCard);
+  const transformCard = useGameStore((state) => state.transformCard);
   const isDragging = useDragStore((state) => Boolean(state.activeCardId));
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -79,7 +83,8 @@ export const CardEditHud: React.FC = () => {
     placement: "right-start",
     strategy: "fixed",
     elements: { reference: anchor },
-    middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8 })],
+    // Overlap the card edge so the pointer never crosses a gap or a neighbouring card.
+    middleware: [offset(-6), flip({ padding: 8 }), shift({ padding: 8 })],
     whileElementsMounted: autoUpdate,
   });
 
@@ -128,6 +133,9 @@ export const CardEditHud: React.FC = () => {
     if (!findGlobalCounterKey(globalCounters, type)) addGlobalCounter(type, resolvedColor);
   };
 
+  const nextFace = isTransformableCard(card) ? getNextTransformFace(card) : null;
+  const transformVerb = getTransformVerb(card);
+
   const showPT = shouldShowZonePowerToughness(card, zoneType, { faceDown: card.faceDown });
   const changeStat = (stat: CardStatKey, delta: number) => {
     const update = getNextCardStatUpdate(card, stat, delta);
@@ -165,47 +173,43 @@ export const CardEditHud: React.FC = () => {
         onPointerDown={(event) => event.stopPropagation()}
         onContextMenu={(event) => event.preventDefault()}
       >
-        {counters.map((counter) => (
-          <Stepper
-            key={counter.type}
-            label={`${counter.type} counter`}
-            onDecrement={() => removeCounterFromCard(card.id, counter.type)}
-            onIncrement={() => addCounter(counter.type, counter.color)}
-          >
-            <span
-              title={counter.type}
-              data-card-edit-hud-counter={counter.type}
-              className="flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[11px] font-bold text-white"
-              style={{ backgroundColor: counterColor(counter.type, counter.color) }}
-            >
-              {counter.count}
+        <div className="flex w-full flex-col gap-1" data-card-edit-hud-counters>
+          <div className="flex items-center justify-between gap-3 pl-1">
+            <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+              Counters
             </span>
-          </Stepper>
-        ))}
-
-        {showPT && (
-          <div className="flex items-center gap-1" data-card-edit-hud-pt>
-            <Stepper
-              label="power"
-              onDecrement={() => changeStat("power", -1)}
-              onIncrement={() => changeStat("power", 1)}
-            >
-              <span title="Power" className="min-w-5 text-center font-mono text-[11px] font-semibold">
-                {getDisplayPower(card) ?? "–"}
-              </span>
-            </Stepper>
-            <Stepper
-              label="toughness"
-              onDecrement={() => changeStat("toughness", -1)}
-              onIncrement={() => changeStat("toughness", 1)}
-            >
-              <span title="Toughness" className="min-w-5 text-center font-mono text-[11px] font-semibold">
-                {getDisplayToughness(card) ?? "–"}
-              </span>
-            </Stepper>
+            {!pickerOpen && (
+              <button
+                type="button"
+                aria-label="Add a counter"
+                title="Add a counter"
+                onClick={() => setPickerOpen(true)}
+                className={cn(
+                  "flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-zinc-500 text-zinc-300 transition-colors hover:border-zinc-300 hover:text-white",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70",
+                )}
+              >
+                <Plus size={12} />
+              </button>
+            )}
           </div>
-        )}
-
+          {counters.map((counter) => (
+            <Stepper
+              key={counter.type}
+              label={`${counter.type} counter`}
+              onDecrement={() => removeCounterFromCard(card.id, counter.type)}
+              onIncrement={() => addCounter(counter.type, counter.color)}
+            >
+              <span
+                title={counter.type}
+                data-card-edit-hud-counter={counter.type}
+                className="flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[11px] font-bold text-white"
+                style={{ backgroundColor: counterColor(counter.type, counter.color) }}
+              >
+                {counter.count}
+              </span>
+            </Stepper>
+          ))}
         {pickerOpen ? (
           <div className="flex w-40 flex-col gap-0.5" data-card-edit-hud-picker>
             <input
@@ -268,18 +272,58 @@ export const CardEditHud: React.FC = () => {
               ))}
             </div>
           </div>
-        ) : (
+        ) : null}
+        </div>
+
+        {showPT && (
+          <div
+            className="flex w-full flex-col gap-1 border-t border-zinc-800 pt-1.5"
+            data-card-edit-hud-pt
+          >
+            <span className="pl-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+              Power / Toughness
+            </span>
+            <div className="flex items-center gap-1">
+              <Stepper
+                label="power"
+                onDecrement={() => changeStat("power", -1)}
+                onIncrement={() => changeStat("power", 1)}
+              >
+                <span
+                  title="Power"
+                  className="flex h-6 min-w-6 items-center justify-center rounded-md border border-zinc-600 bg-zinc-800 px-1 font-mono text-[11px] font-semibold"
+                >
+                  {getDisplayPower(card) ?? "–"}
+                </span>
+              </Stepper>
+              <span aria-hidden="true" className="text-zinc-500">/</span>
+              <Stepper
+                label="toughness"
+                onDecrement={() => changeStat("toughness", -1)}
+                onIncrement={() => changeStat("toughness", 1)}
+              >
+                <span
+                  title="Toughness"
+                  className="flex h-6 min-w-6 items-center justify-center rounded-md border border-zinc-600 bg-zinc-800 px-1 font-mono text-[11px] font-semibold"
+                >
+                  {getDisplayToughness(card) ?? "–"}
+                </span>
+              </Stepper>
+            </div>
+          </div>
+        )}
+
+        {nextFace && (
           <button
             type="button"
-            aria-label="Add a counter"
-            title="Add a counter"
-            onClick={() => setPickerOpen(true)}
-            className={cn(
-              "flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-zinc-500 text-zinc-300 transition-colors hover:border-zinc-300 hover:text-white",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70",
-            )}
+            onClick={() => transformCard(card.id, nextFace.nextIndex)}
+            title={`${transformVerb} to ${nextFace.face.name}`}
+            className="flex w-full items-center gap-2 border-t border-zinc-800 px-1 pt-1.5 text-left text-[11px] text-zinc-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
           >
-            <Plus size={13} />
+            <RefreshCw size={12} className="shrink-0" />
+            <span className="max-w-36 truncate">
+              {transformVerb}: {nextFace.face.name}
+            </span>
           </button>
         )}
       </div>
