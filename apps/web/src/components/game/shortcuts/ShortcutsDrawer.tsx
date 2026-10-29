@@ -42,8 +42,8 @@ const MOUSE_CONTROLS = [
     {
         id: "mouse.adjustMana",
         title: "Adjust Floating Mana",
-        description: "Hover a mana orb to reveal its controls. Clear removes all floating mana.",
-        gesture: "Hover",
+        description: "Left-click a mana orb to add one; right-click removes one. Hover for -/+ controls. Clear removes all floating mana.",
+        gesture: "Click",
     },
 ] as const;
 

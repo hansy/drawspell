@@ -7,6 +7,7 @@ import {
   receiveGameLogEvents,
   replaceGameLog,
 } from "@/logging/logStore";
+import { announceRandomResult } from "@/logging/randomResultToast";
 import { resolvePartyKitHost } from "@/lib/partyKitHost";
 import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
 import {
@@ -520,6 +521,11 @@ export function setupSessionResources({
           eventId: message.eventId,
           payload: message.payload,
         }], {
+          players,
+          cards,
+          zones,
+        });
+        announceRandomResult(message.eventId, message.payload, {
           players,
           cards,
           zones,

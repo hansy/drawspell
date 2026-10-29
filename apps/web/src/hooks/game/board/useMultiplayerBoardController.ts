@@ -422,15 +422,11 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const handleFlipCoin = React.useCallback(
     (params: { count: number }) => {
       if (isSpectator) return;
+      // The server generates the results.
       const safeCount = Math.max(1, Math.floor(params.count));
-      const results = Array.from(
-        { length: safeCount },
-        () => (Math.random() < 0.5 ? "heads" : "tails") as "heads" | "tails",
-      );
       sendLogIntent("coin.flip", {
         actorId: myPlayerId,
         count: safeCount,
-        results,
       });
     },
     [isSpectator, myPlayerId, sendLogIntent],
@@ -441,15 +437,10 @@ export const useMultiplayerBoardController = (sessionId: string) => {
       if (isSpectator) return;
       const safeSides = Math.max(1, Math.floor(params.sides));
       const safeCount = Math.max(1, Math.floor(params.count));
-      const results = Array.from(
-        { length: safeCount },
-        () => 1 + Math.floor(Math.random() * safeSides),
-      );
       sendLogIntent("dice.roll", {
         actorId: myPlayerId,
         sides: safeSides,
         count: safeCount,
-        results,
       });
     },
     [isSpectator, myPlayerId, sendLogIntent],

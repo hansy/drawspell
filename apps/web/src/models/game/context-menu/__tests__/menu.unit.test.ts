@@ -475,7 +475,7 @@ describe("buildZoneViewActions", () => {
     exileTopX?.onSelect();
     expect(openCountPrompt).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: "Exile Top Cards",
+        title: "Exile cards",
         minValue: 1,
         maxValue: 7,
         showMaxButton: true,
@@ -529,11 +529,11 @@ describe("buildZoneViewActions", () => {
 
     const discardMenu = items.find(
       (i): i is Extract<typeof i, { type: "action" }> =>
-        i.type === "action" && i.label.includes("Discard ...")
+        i.type === "action" && i.label.includes("Mill ...")
     );
     const discardX = discardMenu?.submenu?.find(
       (i): i is Extract<typeof i, { type: "action" }> =>
-        i.type === "action" && i.label.includes("Discard X")
+        i.type === "action" && i.label.includes("Mill X")
     );
     expect(discardX?.disabledReason).toBeTruthy();
   });
@@ -568,11 +568,11 @@ describe("buildZoneViewActions", () => {
 
     const discardMenu = items.find(
       (i): i is Extract<typeof i, { type: "action" }> =>
-        i.type === "action" && i.label.includes("Discard ...")
+        i.type === "action" && i.label.includes("Mill ...")
     );
     const discardX = discardMenu?.submenu?.find(
       (i): i is Extract<typeof i, { type: "action" }> =>
-        i.type === "action" && i.label.includes("Discard X")
+        i.type === "action" && i.label.includes("Mill X")
     );
     expect(discardX?.disabledReason).toBeUndefined();
   });

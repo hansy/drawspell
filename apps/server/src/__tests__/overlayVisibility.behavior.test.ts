@@ -2012,6 +2012,9 @@ describe("server migration behavior", () => {
       expect(validFlip.logEvents.map((event) => event.eventId)).toEqual([
         "coin.flip",
       ]);
+      const flipResults = (validFlip.logEvents[0]?.payload as { results: string[] }).results;
+      expect(flipResults).toHaveLength(2);
+      expect(flipResults.every((r) => r === "heads" || r === "tails")).toBe(true);
     }
 
     const invalidFlip = applyIntentToDoc(
@@ -2021,7 +2024,7 @@ describe("server migration behavior", () => {
         type: "coin.flip",
         payload: {
           actorId: "p1",
-          count: 2,
+          count: 0,
         },
       },
       hidden
@@ -2050,6 +2053,9 @@ describe("server migration behavior", () => {
       expect(validRoll.logEvents.map((event) => event.eventId)).toEqual([
         "dice.roll",
       ]);
+      const rollResults = (validRoll.logEvents[0]?.payload as { results: number[] }).results;
+      expect(rollResults).toHaveLength(2);
+      expect(rollResults.every((r) => Number.isInteger(r) && r >= 1 && r <= 6)).toBe(true);
     }
 
     const invalidRoll = applyIntentToDoc(
@@ -2059,7 +2065,7 @@ describe("server migration behavior", () => {
         type: "dice.roll",
         payload: {
           actorId: "p1",
-          sides: 6,
+          sides: 1,
           count: 2,
         },
       },

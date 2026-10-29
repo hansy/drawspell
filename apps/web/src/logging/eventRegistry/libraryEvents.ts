@@ -34,7 +34,7 @@ const formatDraw: LogEventDefinition<DrawPayload>["format"] = (payload, ctx) => 
 const formatDiscard: LogEventDefinition<DiscardPayload>["format"] = (payload, ctx) => {
   const player = buildPlayerPart(ctx, payload.playerId);
   const count = getLoggedCardCount(payload);
-  const cardText = `discarded ${count} card${count === 1 ? "" : "s"} from Library`;
+  const cardText = `milled ${count} card${count === 1 ? "" : "s"}`;
   return [player, { kind: "text", text: ` ${cardText}` }];
 };
 

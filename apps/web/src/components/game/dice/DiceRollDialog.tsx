@@ -2,6 +2,7 @@ import React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Input } from "../../ui/input";
 import { GameDialogActionButton } from "@/components/game/dialog/GameDialogActionButton";
+import { MAX_DICE_SIDES, MAX_RANDOM_COUNT } from "@mtg/shared/constants/limits";
 
 export type DiceRollDialogProps = {
   open: boolean;
@@ -36,9 +37,11 @@ export const DiceRollDialog: React.FC<DiceRollDialogProps> = ({ open, onClose, o
   const parsedCount = Number.parseInt(count, 10);
   const isValid =
     Number.isFinite(parsedSides) &&
-    parsedSides > 0 &&
+    parsedSides >= 2 &&
+    parsedSides <= MAX_DICE_SIDES &&
     Number.isFinite(parsedCount) &&
-    parsedCount > 0;
+    parsedCount > 0 &&
+    parsedCount <= MAX_RANDOM_COUNT;
 
   const handleSubmit = () => {
     if (!isValid) return;

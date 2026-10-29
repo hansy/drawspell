@@ -216,6 +216,8 @@ code {
 
   .ds-app-shell {
     @apply relative h-[100dvh] w-full overflow-hidden overscroll-none;
+    /* Hand cards hang past the bottom edge; clip also blocks focus and drag auto-scroll. */
+    overflow: clip;
   }
 
   .ds-dialog-size-xs {

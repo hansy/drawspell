@@ -14,6 +14,7 @@ export type CountPromptOptions = {
   onSubmit: (count: number) => void;
   initialValue?: number;
   minValue?: number;
+  inputLabel?: string;
   confirmLabel?: string;
 };
 
@@ -198,9 +199,11 @@ export const runGameShortcut = (params: {
       return true;
     case "game.drawX":
       params.openCountPrompt({
-        title: "Draw X",
+        title: "Draw cards",
         message: "How many cards to draw?",
         initialValue: 1,
+        inputLabel: "Cards to draw",
+        confirmLabel: "Draw",
         onSubmit: (count) => {
           for (let i = 0; i < count; i++) params.actions.drawOne();
         },
@@ -211,10 +214,12 @@ export const runGameShortcut = (params: {
       return true;
     case "game.discardX":
       params.openCountPrompt({
-        title: "Discard X",
-        message: "How many cards to discard?",
+        title: "Mill cards",
+        message: "How many cards to mill from the top of your library?",
         initialValue: 1,
         minValue: 1,
+        inputLabel: "Cards to mill",
+        confirmLabel: "Mill",
         onSubmit: (count) => params.actions.discard(count),
       });
       return true;
@@ -223,10 +228,11 @@ export const runGameShortcut = (params: {
       return true;
     case "game.exileX":
       params.openCountPrompt({
-        title: "Exile Top X",
+        title: "Exile cards",
         message: "How many cards to exile from the top of your library?",
         initialValue: 1,
         minValue: 1,
+        inputLabel: "Cards to exile",
         confirmLabel: "Exile",
         onSubmit: (count) => params.actions.exile(count),
       });

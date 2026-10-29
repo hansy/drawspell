@@ -4,6 +4,8 @@ import {
   MIN_BATTLEFIELD_VIEW_SCALE,
 } from "@mtg/shared/constants/geometry";
 import { clampNumber } from "../../positions";
+import { randomInt } from "../../random";
+import { MAX_DICE_SIDES, MAX_RANDOM_COUNT } from "@mtg/shared/constants/limits";
 import { ensureActorMatches, readNumber, requireNonEmptyStringProp } from "../validation";
 import type { IntentHandler } from "./types";
 
@@ -41,30 +43,37 @@ const handleGlobalCounterAdd: IntentHandler = ({ maps, payload }) => {
   return { ok: true };
 };
 
+const readRandomCount = (value: unknown) => {
+  const count = readNumber(value);
+  if (typeof count !== "number" || !Number.isFinite(count)) return null;
+  const safe = Math.floor(count);
+  return safe >= 1 && safe <= MAX_RANDOM_COUNT ? safe : null;
+};
+
+// Results are generated here; any results a client sends are ignored so they can't be faked.
 const handleCoinFlip: IntentHandler = ({ actorId, payload, pushLogEvent }) => {
-  const count = readNumber(payload.count);
-  const results = Array.isArray(payload.results)
-    ? payload.results.filter((value) => value === "heads" || value === "tails")
-    : null;
-  const safeCount = typeof count === "number" && Number.isFinite(count) ? Math.floor(count) : 0;
-  if (!safeCount || !results || results.length === 0) {
-    return { ok: false, error: "invalid coin flip" };
-  }
+  const count = readRandomCount(payload.count);
+  if (!count) return { ok: false, error: "invalid coin flip" };
+  const results = Array.from({ length: count }, () =>
+    randomInt(2) === 1 ? ("heads" as const) : ("tails" as const)
+  );
   pushLogEvent("coin.flip", {
     actorId,
-    count: safeCount,
+    count,
     results,
   });
   return { ok: true };
 };
 
 const handleDiceRoll: IntentHandler = ({ actorId, payload, pushLogEvent }) => {
-  const sides = readNumber(payload.sides);
-  const count = readNumber(payload.count);
-  const results = Array.isArray(payload.results)
-    ? payload.results.filter((value) => typeof value === "number")
-    : null;
-  if (!sides || !count || !results) return { ok: false, error: "invalid dice roll" };
+  const rawSides = readNumber(payload.sides);
+  const sides =
+    typeof rawSides === "number" && Number.isFinite(rawSides) ? Math.floor(rawSides) : 0;
+  const count = readRandomCount(payload.count);
+  if (sides < 2 || sides > MAX_DICE_SIDES || !count) {
+    return { ok: false, error: "invalid dice roll" };
+  }
+  const results = Array.from({ length: count }, () => randomInt(sides));
   pushLogEvent("dice.roll", {
     actorId,
     sides,

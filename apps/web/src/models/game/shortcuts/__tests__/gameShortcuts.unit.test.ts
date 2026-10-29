@@ -12,9 +12,9 @@ describe("GAME_SHORTCUTS", () => {
     expect(new Set(bindings).size).toBe(bindings.length);
   });
 
-  it("lists Pass Turn on Space", () => {
+  it("lists Pass Turn on Shift + Space", () => {
     const passTurn = GAME_SHORTCUTS.find((shortcut) => shortcut.id === "game.passTurn");
     expect(passTurn?.title).toBe("Pass Turn");
-    expect(passTurn && formatShortcutBinding(passTurn.binding)).toBe("Space");
+    expect(passTurn && formatShortcutBinding(passTurn.binding)).toBe("Shift + Space");
   });
 });

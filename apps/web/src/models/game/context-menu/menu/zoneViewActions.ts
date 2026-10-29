@@ -95,8 +95,10 @@ const buildLibraryDrawMenu = ({
       label: "Draw X...",
       openCountPrompt,
       buildPromptOptions: () => ({
-        title: "Draw",
+        title: "Draw cards",
         message: "How many cards to draw?",
+        inputLabel: "Cards to draw",
+        confirmLabel: "Draw",
         onSubmit: (count) => {
           for (let i = 0; i < count; i++) {
             drawCard(myPlayerId);
@@ -127,16 +129,18 @@ const buildLibraryDiscardMenu = ({
   const submenu: ContextMenuItem[] = [
     {
       type: "action",
-      label: "Discard 1",
+      label: "Mill 1",
       onSelect: () => discardFromLibrary(myPlayerId, 1),
       shortcut: getShortcutLabel("game.discardOne"),
     },
     buildCountPromptAction({
-      label: "Discard X...",
+      label: "Mill X...",
       openCountPrompt,
       buildPromptOptions: () => ({
-        title: "Discard",
-        message: "How many cards to discard?",
+        title: "Mill cards",
+        message: "How many cards to mill?",
+        inputLabel: "Cards to mill",
+        confirmLabel: "Mill",
         onSubmit: (count) => discardFromLibrary(myPlayerId, count),
         minValue: 1,
       }),
@@ -146,7 +150,7 @@ const buildLibraryDiscardMenu = ({
 
   return {
     type: "action",
-    label: "Discard ...",
+    label: "Mill ...",
     onSelect: () => {},
     submenu,
   };
@@ -179,8 +183,9 @@ const buildLibraryExileMenu = ({
       shortcut: faceDown ? undefined : getShortcutLabel("game.exileX"),
       openCountPrompt,
       buildPromptOptions: () => ({
-        title: "Exile Top Cards",
+        title: "Exile cards",
         message: "How many cards from the top of your library?",
+        inputLabel: "Cards to exile",
         onSubmit: (count) => exileFromLibrary(myPlayerId, count, { faceDown }),
         minValue: 1,
         ...(typeof libraryCount === "number" && libraryCount > 0

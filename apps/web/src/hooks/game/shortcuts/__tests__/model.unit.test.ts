@@ -406,7 +406,7 @@ describe("gameShortcuts/model", () => {
     expect(handled).toBe(true);
     expect(openCountPrompt).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: "Exile Top X",
+        title: "Exile cards",
         initialValue: 1,
         minValue: 1,
         confirmLabel: "Exile",

@@ -86,11 +86,20 @@ describe("useGameShortcuts", () => {
     resetStore();
   });
 
-  it("passes the turn on Space and consumes the key only when it succeeds", () => {
+  it("ignores a plain Space so a stray press cannot pass the turn", () => {
+    const onPassTurn = vi.fn(() => true);
+    render(<Probe args={passTurnArgs(onPassTurn)} />);
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true, cancelable: true }),
+    );
+    expect(onPassTurn).not.toHaveBeenCalled();
+  });
+
+  it("passes the turn on Shift+Space and consumes the key only when it succeeds", () => {
     const onPassTurn = vi.fn(() => true);
     const { rerender } = render(<Probe args={passTurnArgs(onPassTurn)} />);
     const first = new KeyboardEvent("keydown", {
-      key: " ", code: "Space", bubbles: true, cancelable: true,
+      key: " ", code: "Space", shiftKey: true, bubbles: true, cancelable: true,
     });
     window.dispatchEvent(first);
     expect(onPassTurn).toHaveBeenCalledTimes(1);
@@ -99,7 +108,7 @@ describe("useGameShortcuts", () => {
     const cannotPass = vi.fn(() => false);
     rerender(<Probe args={passTurnArgs(cannotPass)} />);
     const second = new KeyboardEvent("keydown", {
-      key: " ", code: "Space", bubbles: true, cancelable: true,
+      key: " ", code: "Space", shiftKey: true, bubbles: true, cancelable: true,
     });
     window.dispatchEvent(second);
     expect(cannotPass).toHaveBeenCalledTimes(1);
@@ -112,7 +121,7 @@ describe("useGameShortcuts", () => {
     const button = document.createElement("button");
     document.body.appendChild(button);
     const focusedButtonSpace = new KeyboardEvent("keydown", {
-      key: " ", code: "Space", bubbles: true, cancelable: true,
+      key: " ", code: "Space", shiftKey: true, bubbles: true, cancelable: true,
     });
     button.dispatchEvent(focusedButtonSpace);
     expect(onPassTurn).toHaveBeenCalledTimes(1);
@@ -121,13 +130,13 @@ describe("useGameShortcuts", () => {
 
     rerender(<Probe args={passTurnArgs(onPassTurn, { logOpen: true })} />);
     window.dispatchEvent(new KeyboardEvent("keydown", {
-      key: " ", code: "Space", bubbles: true, cancelable: true,
+      key: " ", code: "Space", shiftKey: true, bubbles: true, cancelable: true,
     }));
     expect(onPassTurn).toHaveBeenCalledTimes(2);
 
     rerender(<Probe args={passTurnArgs(onPassTurn, { shortcutsOpen: true })} />);
     window.dispatchEvent(new KeyboardEvent("keydown", {
-      key: " ", code: "Space", bubbles: true, cancelable: true,
+      key: " ", code: "Space", shiftKey: true, bubbles: true, cancelable: true,
     }));
     expect(onPassTurn).toHaveBeenCalledTimes(3);
   });
@@ -138,7 +147,7 @@ describe("useGameShortcuts", () => {
 
     rerender(<Probe args={passTurnArgs(onPassTurn, { contextMenuOpen: true })} />);
     window.dispatchEvent(new KeyboardEvent("keydown", {
-      key: " ", code: "Space", bubbles: true, cancelable: true,
+      key: " ", code: "Space", shiftKey: true, bubbles: true, cancelable: true,
     }));
     expect(onPassTurn).not.toHaveBeenCalled();
 
@@ -146,13 +155,13 @@ describe("useGameShortcuts", () => {
       players: { me: createPlayer("me", false) },
     })} />);
     window.dispatchEvent(new KeyboardEvent("keydown", {
-      key: " ", code: "Space", bubbles: true, cancelable: true,
+      key: " ", code: "Space", shiftKey: true, bubbles: true, cancelable: true,
     }));
     expect(onPassTurn).not.toHaveBeenCalled();
 
     rerender(<Probe args={passTurnArgs(onPassTurn, { viewerRole: "spectator" })} />);
     window.dispatchEvent(new KeyboardEvent("keydown", {
-      key: " ", code: "Space", bubbles: true, cancelable: true,
+      key: " ", code: "Space", shiftKey: true, bubbles: true, cancelable: true,
     }));
     expect(onPassTurn).not.toHaveBeenCalled();
   });
@@ -351,7 +360,7 @@ describe("useGameShortcuts", () => {
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "d", shiftKey: true, bubbles: true }));
     expect(openCountPrompt).toHaveBeenCalledTimes(1);
-    expect(openCountPrompt.mock.calls[0][0].title).toBe("Draw X");
+    expect(openCountPrompt.mock.calls[0][0].title).toBe("Draw cards");
     expect(openCountPrompt.mock.calls[0][0].initialValue).toBe(1);
   });
 
@@ -418,7 +427,7 @@ describe("useGameShortcuts", () => {
     );
     expect(openCountPrompt).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: "Exile Top X",
+        title: "Exile cards",
         initialValue: 1,
         minValue: 1,
         confirmLabel: "Exile",

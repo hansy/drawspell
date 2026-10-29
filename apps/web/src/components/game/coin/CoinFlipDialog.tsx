@@ -2,6 +2,7 @@ import React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Input } from "../../ui/input";
 import { GameDialogActionButton } from "@/components/game/dialog/GameDialogActionButton";
+import { MAX_RANDOM_COUNT } from "@mtg/shared/constants/limits";
 
 export type CoinFlipDialogProps = {
   open: boolean;
@@ -29,7 +30,8 @@ export const CoinFlipDialog: React.FC<CoinFlipDialogProps> = ({ open, onClose, o
   }, [open]);
 
   const parsedCount = Number.parseInt(count, 10);
-  const isValid = Number.isFinite(parsedCount) && parsedCount > 0;
+  const isValid =
+    Number.isFinite(parsedCount) && parsedCount > 0 && parsedCount <= MAX_RANDOM_COUNT;
 
   const handleSubmit = () => {
     if (!isValid) return;

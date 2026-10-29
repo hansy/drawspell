@@ -78,7 +78,7 @@ export const GAME_SHORTCUTS: GameShortcutDefinition[] = [
   },
   {
     id: "ui.openDiceRoller",
-    binding: { key: "l", shift: true },
+    binding: { key: "r" },
     title: "Roll Dice",
     description: "Opens the dice roller dialog.",
     requiresDeckLoaded: false,
@@ -99,7 +99,7 @@ export const GAME_SHORTCUTS: GameShortcutDefinition[] = [
   },
   {
     id: "game.passTurn",
-    binding: { key: " " },
+    binding: { key: " ", shift: true },
     title: "Pass Turn",
     description: "Ends your turn and passes to the next eligible player.",
     requiresDeckLoaded: true,
@@ -121,15 +121,15 @@ export const GAME_SHORTCUTS: GameShortcutDefinition[] = [
   {
     id: "game.discardOne",
     binding: { key: "i" },
-    title: "Discard 1",
-    description: "Discards the top card of your library.",
+    title: "Mill 1",
+    description: "Puts the top card of your library into your graveyard.",
     requiresDeckLoaded: true,
   },
   {
     id: "game.discardX",
     binding: { key: "i", shift: true },
-    title: "Discard X",
-    description: "Prompts for a number (default 1) and discards that many cards from your library.",
+    title: "Mill X",
+    description: "Prompts for a number (default 1) and mills that many cards from your library.",
     requiresDeckLoaded: true,
   },
   {

@@ -8,10 +8,10 @@ import {
   Mail,
   LogOut,
   Plus,
-  CornerUpLeft,
+  RotateCcwSquare,
   ScrollText,
   Share2,
-  UserRoundCheck,
+  SkipForward,
   Wifi,
 } from "lucide-react";
 import {
@@ -243,16 +243,27 @@ export const SidenavView: React.FC<SidenavController> = ({
         <button
           type="button"
           aria-label="Open menu"
+          title={syncStatus === "connected" ? "Connected" : "Connecting"}
           aria-expanded={isMenuOpen}
           onClick={handleMenuToggle}
           ref={menuRefs.setReference}
-          className="w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 active:bg-zinc-800/50 touch-manipulation"
+          className="relative w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 active:bg-zinc-800/50 touch-manipulation"
         >
           <img
             src={drawspellLogo}
             alt=""
             aria-hidden="true"
             className="w-6 h-6"
+          />
+          <span
+            aria-hidden="true"
+            data-connection-dot={syncStatus === "connected" ? "connected" : "connecting"}
+            className={cn(
+              "absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full border-2 border-zinc-950",
+              syncStatus === "connected"
+                ? "bg-emerald-400"
+                : "bg-amber-400 motion-safe:animate-pulse",
+            )}
           />
         </button>
 
@@ -367,7 +378,7 @@ export const SidenavView: React.FC<SidenavController> = ({
         ) : (
           <>
             <NavIcon
-              icon={<UserRoundCheck size={20} />}
+              icon={<SkipForward size={20} />}
               label="End turn"
               onClick={onEndTurn}
               className="hover:text-red-400 active:text-red-400"
@@ -376,7 +387,7 @@ export const SidenavView: React.FC<SidenavController> = ({
             />
 
             <NavIcon
-              icon={<CornerUpLeft size={20} />}
+              icon={<RotateCcwSquare size={20} />}
               label="Untap All"
               onClick={handleUntapAll}
               className="hover:text-blue-400 active:text-blue-400"
