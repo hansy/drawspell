@@ -192,6 +192,10 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     },
     [sizeRef],
   );
+  const cardPositions = React.useMemo(
+    () => cards.map((card) => card.position),
+    [cards],
+  );
   const controls = useBattlefieldCamera({
     playerId: zone.ownerId,
     width: size.width,
@@ -199,6 +203,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
     reversed: isTop,
     node,
     blocked: disableZoomControls || Boolean(activeCardId),
+    cardPositions,
   });
   const { camera } = controls;
   const cardWidth = BASE_CARD_HEIGHT * CARD_ASPECT_RATIO;

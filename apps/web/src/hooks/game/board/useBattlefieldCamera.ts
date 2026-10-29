@@ -1,4 +1,6 @@
 import {
+  BASE_CARD_HEIGHT,
+  CARD_ASPECT_RATIO,
   LEGACY_BATTLEFIELD_WIDTH,
   LEGACY_BATTLEFIELD_HEIGHT,
 } from "@mtg/shared/constants/geometry";
@@ -17,6 +19,7 @@ import {
   getBattlefieldZoomLimits,
   getBattlefieldCameraPan,
   fitBattlefieldCards,
+  battlefieldToLocal,
 } from "@/lib/battlefieldCamera";
 import type { Position } from "@mtg/shared/positions";
 
@@ -27,6 +30,7 @@ export function useBattlefieldCamera({
   reversed,
   node,
   blocked,
+  cardPositions,
 }: {
   playerId: string;
   width: number;
@@ -34,6 +38,8 @@ export function useBattlefieldCamera({
   reversed: boolean;
   node: HTMLDivElement | null;
   blocked?: boolean;
+  // Card centers in battlefield space; an untouched view widens to keep them all visible.
+  cardPositions?: Position[];
 }) {
   const storedZoom = useGameStore((s) => s.battlefieldViewScale[playerId] ?? 1);
   const zoom = clampBattlefieldZoom(storedZoom, width, height);
@@ -52,8 +58,9 @@ export function useBattlefieldCamera({
     (s) => s.pans[cameraKey] ?? DEFAULT_CAMERA_PAN,
   );
   const manual = useBattlefieldCameraStore((s) => Boolean(s.manual[cameraKey]));
+  const fitted = useBattlefieldCameraStore((s) => Boolean(s.fitted[cameraKey]));
   const pan = React.useMemo(() => {
-    if (manual) return storedPan;
+    if (manual || fitted) return storedPan;
     const direction = reversed ? -1 : 1;
     const desiredPan = {
       x: -direction * (sharedAnchor?.x ?? 0) * LEGACY_BATTLEFIELD_WIDTH,
@@ -64,7 +71,7 @@ export function useBattlefieldCamera({
       width,
       height,
     );
-  }, [manual, storedPan, sharedAnchor, reversed, width, height, zoom]);
+  }, [manual, fitted, storedPan, sharedAnchor, reversed, width, height, zoom]);
   const currentPan = React.useRef(pan);
   currentPan.current = pan;
   const markManual = React.useCallback(() => {
@@ -74,10 +81,10 @@ export function useBattlefieldCamera({
   }, [cameraKey]);
   // Remember the effective view before input switches an untouched camera to manual.
   React.useLayoutEffect(() => {
-    if (!manual && (storedPan.x !== pan.x || storedPan.y !== pan.y)) {
+    if (!manual && !fitted && (storedPan.x !== pan.x || storedPan.y !== pan.y)) {
       useBattlefieldCameraStore.getState().setPan(cameraKey, pan);
     }
-  }, [manual, storedPan, pan, cameraKey]);
+  }, [manual, fitted, storedPan, pan, cameraKey]);
   const setPan = React.useCallback(
     (value: Position | ((previous: Position) => Position)) => {
       useBattlefieldCameraStore.getState().setPan(cameraKey, value);
@@ -291,6 +298,39 @@ export function useBattlefieldCamera({
     setPan(next.pan);
     setZoom(playerId, next.zoom);
   };
+  // A view set up elsewhere (another seat size, another layout) can leave cards
+  // outside this seat. Until the viewer moves the view themselves, fit to the cards,
+  // never zooming in past the default.
+  const positionsKey = (cardPositions ?? [])
+    .map((p) => `${p.x.toFixed(4)},${p.y.toFixed(4)}`)
+    .join("|");
+  React.useEffect(() => {
+    if (manual || blocked || !cardPositions?.length || !width || !height) return;
+    const current = latest.current.camera;
+    const halfW = (BASE_CARD_HEIGHT * CARD_ASPECT_RATIO * current.scale) / 2;
+    const halfH = (BASE_CARD_HEIGHT * current.scale) / 2;
+    const allVisible = cardPositions.every((position) => {
+      const local = battlefieldToLocal(position, current);
+      return (
+        local.x - halfW >= -1 &&
+        local.x + halfW <= width + 1 &&
+        local.y - halfH >= -1 &&
+        local.y + halfH <= height + 1
+      );
+    });
+    if (allVisible) return;
+    const next = fitBattlefieldCards(cardPositions, width, height, reversed);
+    const nextZoom = Math.min(next.zoom, 1);
+    const nextPan =
+      nextZoom === next.zoom
+        ? next.pan
+        : fitBattlefieldCards(cardPositions, width, height, reversed, nextZoom).pan;
+    skipAnchor.current = true;
+    useBattlefieldCameraStore.getState().markFitted(cameraKey, nextPan);
+    setZoom(playerId, nextZoom, true);
+    // positionsKey stands in for cardPositions so new arrays with the same cards don't refit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positionsKey, width, height, reversed, manual, blocked, cameraKey, playerId, setZoom]);
   const motion = useSmoothBattlefieldCamera(
     camera,
     `${cameraKey}/${width}/${height}/${reversed}`,

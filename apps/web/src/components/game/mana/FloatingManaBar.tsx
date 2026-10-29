@@ -200,6 +200,8 @@ export type FloatingManaBarProps = {
   onAdjust?: (manaType: ManaType, delta: -1 | 1) => void;
   onClear?: () => void;
   className?: string;
+  // Read-only summaries show only the colors that actually have mana floating.
+  hideEmpty?: boolean;
 };
 
 export const FloatingManaBar: React.FC<FloatingManaBarProps> = ({
@@ -208,6 +210,7 @@ export const FloatingManaBar: React.FC<FloatingManaBarProps> = ({
   onAdjust,
   onClear,
   className,
+  hideEmpty = false,
 }) => {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const [hoveredMana, setHoveredMana] = React.useState<ManaType | null>(null);
@@ -251,7 +254,9 @@ export const FloatingManaBar: React.FC<FloatingManaBarProps> = ({
       data-no-seat-swipe="true"
       aria-label={editable ? "Floating mana controls" : "Floating mana"}
     >
-      {MANA_TYPES.map((manaType) => (
+      {MANA_TYPES.filter(
+        (manaType) => !hideEmpty || (manaPool[manaType] ?? 0) > 0,
+      ).map((manaType) => (
         <ManaOrb
           key={manaType}
           manaType={manaType}
@@ -269,6 +274,7 @@ export const FloatingManaBar: React.FC<FloatingManaBarProps> = ({
           onAdjust={onAdjust}
         />
       ))}
+      {(editable || !hideEmpty) && (
       <div
         data-floating-mana-clear-slot
         className="ml-0.5 flex w-9 shrink-0 items-center justify-center"
@@ -285,6 +291,7 @@ export const FloatingManaBar: React.FC<FloatingManaBarProps> = ({
           </button>
         )}
       </div>
+      )}
     </div>
   );
 };

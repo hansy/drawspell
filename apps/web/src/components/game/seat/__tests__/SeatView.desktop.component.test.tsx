@@ -214,8 +214,9 @@ describe("SeatView desktop side-zone previews", () => {
       </CardPreviewProvider>,
     );
 
+    // Opponents only show the colors they actually have floating.
     const manaOrbs = screen.getAllByRole("button", { name: /mana: \d/ });
-    expect(manaOrbs).toHaveLength(6);
+    expect(manaOrbs).toHaveLength(1);
     expect(manaOrbs.every((orb) => (orb as HTMLButtonElement).disabled)).toBe(
       true,
     );
@@ -589,7 +590,8 @@ describe("SeatView desktop side-zone previews", () => {
     expect(orientationFrame?.getAttribute("data-seat-mirror-x")).toBe("false");
     expect(battlefieldSurface?.style.left).toBe("var(--seat-side-column-w)");
     expect(battlefieldSurface?.style.right).toBe("0px");
-    expect(battlefieldSurface?.style.top).toBe("160px");
+    // Opponent seats use the compact chip bar instead of the full hand bar.
+    expect(battlefieldSurface?.style.top).toBe("44px");
     expect(battlefieldSurface?.style.bottom).toBe("0px");
     expect(sideColumn?.firstElementChild?.contains(life)).toBe(true);
     expect(sideColumn?.firstElementChild?.nextElementSibling).toBe(
@@ -721,5 +723,99 @@ describe("SeatView desktop side-zone previews", () => {
 
     expect(screen.queryByRole("button", { name: /Alice's turn/ })).toBeNull();
     expect(screen.getByLabelText("Alice's turn")).not.toBeNull();
+  });
+
+  it("gives opponents a compact bar of counts that keeps pile interactions and reveals", () => {
+    const handZone = makeZone("hand-p1", "hand", ["h1", "h2", "h3"]);
+    const libraryZone = makeZone("library-p1", "library", []);
+    const graveyardZone = makeZone("graveyard-p1", "graveyard", ["g1", "g2"]);
+    const exileZone = makeZone("exile-p1", "exile", ["x1"]);
+    const hidden = makeCard("h1", handZone.id, "Hidden Card");
+    const revealed = {
+      ...makeCard("h2", handZone.id, "Revealed Card"),
+      revealedTo: ["viewer"],
+    } as Card;
+    const revealedToOther = {
+      ...makeCard("h3", handZone.id, "Other Reveal"),
+      revealedTo: ["someone-else"],
+    } as Card;
+    const graveyardCards = [
+      makeCard("g1", graveyardZone.id, "Old Grave"),
+      makeCard("g2", graveyardZone.id, "Top Grave"),
+    ];
+    const exiled = { ...makeCard("x1", exileZone.id, "Foretold"), faceDown: true } as Card;
+    const onViewZone = vi.fn();
+    const onZoneContextMenu = vi.fn();
+    const onOpponentLibraryReveals = vi.fn();
+
+    const model = {
+      isTop: false,
+      isRight: false,
+      mirrorBattlefieldY: false,
+      inverseScalePercent: 100,
+      zones: {
+        hand: handZone,
+        library: libraryZone,
+        graveyard: graveyardZone,
+        exile: exileZone,
+      },
+      cards: {
+        library: [],
+        graveyard: graveyardCards,
+        exile: [exiled],
+        battlefield: [],
+        commander: [],
+        hand: [hidden, revealed, revealedToOther],
+      },
+      opponentLibraryRevealCount: 2,
+    } as const;
+
+    const { container } = render(
+      <CardPreviewProvider>
+        <DndContext>
+          <SeatView
+            player={makePlayer({ libraryCount: 40 })}
+            color="violet"
+            isMe={false}
+            viewerPlayerId="viewer"
+            opponentColors={{ p1: "violet", viewer: "sky" }}
+            model={model as any}
+            onViewZone={onViewZone}
+            onZoneContextMenu={onZoneContextMenu}
+            onOpponentLibraryReveals={onOpponentLibraryReveals}
+          />
+        </DndContext>
+      </CardPreviewProvider>,
+    );
+
+    expect(container.querySelector("[data-opponent-bar]")).not.toBeNull();
+    expect(
+      container.querySelector("[data-opponent-hand-count]")?.textContent,
+    ).toContain("3");
+    const revealedThumbs = container.querySelectorAll(
+      "[data-opponent-hand-revealed-card]",
+    );
+    expect(Array.from(revealedThumbs).map((el) => el.getAttribute("data-opponent-hand-revealed-card"))).toEqual(["h2"]);
+
+    const counts = Array.from(
+      container.querySelectorAll("[data-chip-zone-count]"),
+    ).map((el) => el.textContent);
+    expect(counts).toEqual(["40", "2", "1"]);
+
+    // Piles stay real drop zones so stolen cards can still go to their owner's graveyard or exile.
+    expect(container.querySelector('[data-zone-id="graveyard-p1"]')).not.toBeNull();
+    expect(container.querySelector('[data-zone-id="exile-p1"]')).not.toBeNull();
+
+    fireEvent.click(container.querySelector('[data-zone-id="graveyard-p1"]')!);
+    expect(onViewZone).toHaveBeenCalledWith("graveyard-p1");
+    fireEvent.contextMenu(container.querySelector('[data-zone-id="exile-p1"]')!);
+    expect(onZoneContextMenu).toHaveBeenCalled();
+    fireEvent.click(container.querySelector('[data-zone-id="library-p1"]')!);
+    expect(onOpponentLibraryReveals).toHaveBeenCalledWith("library-p1");
+
+    // A face-down exiled card never shows its face in the chip.
+    expect(container.querySelector('[alt="Foretold"]')).toBeNull();
+    // An empty mana pool takes no space for opponents.
+    expect(container.querySelector("[data-desktop-mana-row]")).toBeNull();
   });
 });

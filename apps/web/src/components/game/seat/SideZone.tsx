@@ -45,7 +45,7 @@ interface SideZoneProps {
   indicatorSide?: "left" | "right";
   onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>) => void;
-  variant?: "side" | "edge";
+  variant?: "side" | "edge" | "chip";
   cardHeight?: number;
   visibleHeight?: number;
   flipCard?: boolean;
@@ -264,6 +264,76 @@ export const SideZone: React.FC<SideZoneProps> = ({
       clearTouchPress();
     };
   }, [clearTouchPress]);
+
+  if (variant === "chip") {
+    // Compact opponent pile: count always visible, top card shown only when the viewer may see it.
+    return (
+      <div
+        data-side-zone-variant="chip"
+        className="group/chip-zone relative h-full min-w-0 touch-manipulation select-none"
+        onContextMenu={handleContextMenu}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        onPointerDown={handleTouchPressStart}
+        onPointerMove={handleTouchPressMove}
+        onPointerUp={handleTouchPressEnd}
+        onPointerCancel={handleTouchPressCancel}
+        onPointerLeave={handleTouchPressCancel}
+        style={{
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTouchCallout: "none",
+        }}
+      >
+        <Zone
+          zone={zone}
+          className={cn(
+            "flex h-full items-center gap-1.5 rounded-md border border-zinc-700/70 bg-zinc-900/80 py-1 pl-1 pr-2 transition-colors duration-150",
+            "hover:border-zinc-500/80 hover:bg-zinc-800/80",
+            showContextMenuCursor
+              ? "cursor-context-menu"
+              : onClick && "cursor-pointer",
+          )}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+        >
+          <div
+            data-chip-zone-thumb
+            className="relative h-full shrink-0 overflow-hidden rounded-[3px] bg-zinc-800/80"
+            style={{ aspectRatio: `${CARD_ASPECT_RATIO}` }}
+          >
+            {card && (
+              <Card
+                card={card}
+                style={{ width: "100%", height: "100%" }}
+                faceDown={faceDown}
+                disableDrag={cardDragDisabled}
+                disableInteractions
+                disableHoverAnimation
+                className={cn("ds-seat-upright h-full w-full", cardClassName)}
+              />
+            )}
+          </div>
+          <div className="ds-seat-upright flex min-w-0 flex-col leading-none">
+            <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+              {label}
+            </span>
+            <span
+              data-chip-zone-count
+              className="mt-0.5 font-mono text-sm font-bold tabular-nums text-zinc-100"
+            >
+              {count}
+            </span>
+          </div>
+          {rightIndicator && (
+            <div className="ds-seat-upright pointer-events-none ml-0.5 shrink-0">
+              {rightIndicator}
+            </div>
+          )}
+        </Zone>
+      </div>
+    );
+  }
 
   if (variant === "edge") {
     return (

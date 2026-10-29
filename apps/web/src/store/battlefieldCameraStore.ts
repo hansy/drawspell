@@ -7,7 +7,10 @@ export const DEFAULT_CAMERA_PAN: Position = { x: 0, y: 0 };
 export const useBattlefieldCameraStore = create<{
   pans: Record<string, Position>;
   manual: Record<string, boolean>;
+  // Set when the view was moved automatically to show every card; manual input still wins.
+  fitted: Record<string, boolean>;
   markManual: (key: string, pan?: Position) => void;
+  markFitted: (key: string, pan: Position) => void;
   clear: () => void;
   setPan: (
     key: string,
@@ -16,12 +19,18 @@ export const useBattlefieldCameraStore = create<{
 }>((set) => ({
   pans: {},
   manual: {},
+  fitted: {},
   markManual: (key, pan) =>
     set((state) => ({
       manual: { ...state.manual, [key]: true },
       ...(pan ? { pans: { ...state.pans, [key]: pan } } : {}),
     })),
-  clear: () => set({ pans: {}, manual: {} }),
+  markFitted: (key, pan) =>
+    set((state) => ({
+      fitted: { ...state.fitted, [key]: true },
+      pans: { ...state.pans, [key]: pan },
+    })),
+  clear: () => set({ pans: {}, manual: {}, fitted: {} }),
   setPan: (key, value) =>
     set((state) => ({
       pans: {

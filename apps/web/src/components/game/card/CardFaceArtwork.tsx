@@ -73,7 +73,7 @@ const CardFaceImage: React.FC<{
   return (
     <div
       className={cn(
-        "relative w-full h-full overflow-hidden",
+        "relative w-full h-full overflow-hidden [container-type:inline-size]",
         !loaded && "bg-zinc-800 ring-1 ring-inset ring-zinc-700",
         CARD_CORNER_CLASS,
       )}
@@ -82,7 +82,7 @@ const CardFaceImage: React.FC<{
         <div
           aria-hidden="true"
           data-card-face-placeholder
-          className="absolute inset-0 flex items-start justify-center p-[6%] text-center text-[10px] font-medium leading-tight text-zinc-300"
+          className="absolute inset-0 flex items-start justify-center p-[6%] text-center text-[9cqw] font-medium leading-tight text-zinc-300"
         >
           {displayName}
         </div>

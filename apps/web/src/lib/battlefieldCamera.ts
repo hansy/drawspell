@@ -131,6 +131,7 @@ export const fitBattlefieldCards = (
   width: number,
   height: number,
   reversed: boolean,
+  zoomOverride?: number,
 ) => {
   if (!positions.length || !width || !height)
     return { zoom: 1, pan: { x: 0, y: 0 } };
@@ -146,7 +147,7 @@ export const fitBattlefieldCards = (
     height / (maxY - minY + BASE_CARD_HEIGHT * 2),
   );
   const zoom = clampBattlefieldZoom(
-    scale / baseScaleFor(height),
+    zoomOverride ?? scale / baseScaleFor(height),
     width,
     height,
   );

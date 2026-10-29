@@ -254,7 +254,7 @@ describe("SeatView mobile toolbar", () => {
     expect(onViewZone).toHaveBeenCalledWith(libraryZone.id);
   });
 
-  it("shows an opponent's empty mana pool as read-only controls", () => {
+  it("hides an opponent's empty mana pool", () => {
     const { container } = render(
       <CardPreviewProvider>
         <DndContext>
@@ -277,11 +277,8 @@ describe("SeatView mobile toolbar", () => {
         .querySelector("[data-mobile-hand-header]")
         ?.contains(container.querySelector("[data-mobile-mana-bar]")),
     ).toBe(true);
-    const manaOrbs = screen.getAllByRole("button", { name: /mana: 0/ });
-    expect(manaOrbs).toHaveLength(6);
-    expect(manaOrbs.every((orb) => (orb as HTMLButtonElement).disabled)).toBe(
-      true,
-    );
+    // An opponent with no floating mana shows no orbs at all.
+    expect(screen.queryAllByRole("button", { name: /mana: 0/ })).toHaveLength(0);
     expect(screen.queryByRole("button", { name: /Clear all/ })).toBeNull();
     const handPill = container.querySelector("[data-mobile-hand-count-pill]");
     expect(handPill?.textContent).toBe("Hand - 0");
