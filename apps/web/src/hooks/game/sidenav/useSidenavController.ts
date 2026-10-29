@@ -9,6 +9,7 @@ export type SyncStatus = "connecting" | "connected";
 
 export type SidenavControllerInput = {
   onCreateToken?: () => void;
+  onEndTurn?: () => void;
   onOpenCoinFlipper?: () => void;
   onOpenDiceRoller?: () => void;
   onToggleLog?: () => void;
@@ -26,6 +27,7 @@ export type SidenavControllerInput = {
 
 export const useSidenavController = ({
   onCreateToken,
+  onEndTurn,
   onOpenCoinFlipper,
   onOpenDiceRoller,
   onToggleLog,
@@ -45,6 +47,23 @@ export const useSidenavController = ({
   const myPlayerId = useGameStore((state) => state.myPlayerId);
   const untapAll = useGameStore((state) => state.untapAll);
   const canUndo = useUndoStore((state) => state.entries.length > 0);
+  const isMyTurn = useGameStore(
+    (state) => Boolean(state.myPlayerId) && state.activePlayerId === state.myPlayerId,
+  );
+  const isOut = useGameStore((state) => Boolean(state.players[state.myPlayerId]?.out));
+  const canEndTurn = !isSpectator && isMyTurn && Boolean(onEndTurn);
+
+  const handleEndTurn = React.useCallback(() => {
+    if (!canEndTurn) return;
+    onEndTurn?.();
+  }, [canEndTurn, onEndTurn]);
+
+  const handleToggleOut = React.useCallback(() => {
+    if (isSpectator) return;
+    const state = useGameStore.getState();
+    state.setPlayerOut(state.myPlayerId, !isOut);
+    setIsMenuOpen(false);
+  }, [isOut, isSpectator]);
 
   const handleUntapAll = React.useCallback(() => {
     if (isSpectator) return;
@@ -87,6 +106,11 @@ export const useSidenavController = ({
     closeMenu,
     handleUntapAll,
     handleOpenShortcuts,
+    canEndTurn,
+    isMyTurn,
+    handleEndTurn,
+    isOut,
+    handleToggleOut,
     canUndo,
     handleUndo: performUndo,
   };

@@ -325,11 +325,11 @@ describe("sanitizeSharedSnapshot", () => {
     expect(safe.activePlayerId).toBe("p2");
   });
 
-  it("shows no active turn when nobody has a loaded deck or positive life", () => {
+  it("shows no active turn when nobody with a loaded deck is still in", () => {
     const safe = sanitizeSharedSnapshot({
       players: {
         p1: { id: "p1", name: "P1", life: 40, deckLoaded: false },
-        p2: { id: "p2", name: "P2", life: 0, deckLoaded: true },
+        p2: { id: "p2", name: "P2", life: 0, deckLoaded: true, out: true },
       },
       zones: {},
       cards: {},

@@ -29,6 +29,7 @@ import type {
   CommanderTaxPayload,
   EndTurnPayload,
   LifePayload,
+  PlayerOutPayload,
   ManaClearPayload,
   ManaPayload,
 } from "./eventRegistry/playerEvents";
@@ -42,6 +43,7 @@ export type LogEventPayloadMap = {
   "player.life": LifePayload;
   "player.commanderTax": CommanderTaxPayload;
   "player.endTurn": EndTurnPayload;
+  "player.out": PlayerOutPayload;
   "player.mana": ManaPayload;
   "player.mana.clear": ManaClearPayload;
   "coin.flip": CoinFlipPayload;

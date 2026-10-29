@@ -139,13 +139,13 @@ describe("applyIntentToDoc", () => {
     }
   });
 
-  it("skips zero-life, negative-life, and unloaded players in turn order", () => {
+  it("skips players who are out or have no deck in turn order", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
     const hidden = createEmptyHiddenState();
     writePlayer(maps, makePlayer("p1"));
-    writePlayer(maps, makePlayer("p2", { life: 0 }));
-    writePlayer(maps, makePlayer("p3", { life: -1 }));
+    writePlayer(maps, makePlayer("p2", { life: 0, out: true, outByRule: true }));
+    writePlayer(maps, makePlayer("p3", { out: true }));
     writePlayer(maps, makePlayer("p4", { deckLoaded: false }));
     writePlayer(maps, makePlayer("p5"));
     maps.meta.set("activePlayerId", "p1");
@@ -187,7 +187,7 @@ describe("applyIntentToDoc", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
     const hidden = createEmptyHiddenState();
-    writePlayer(maps, makePlayer("p1", { life: 0 }));
+    writePlayer(maps, makePlayer("p1", { life: 0, out: true, outByRule: true }));
     maps.meta.set("activePlayerId", null);
 
     const result = applyIntentToDoc(doc, {
@@ -261,7 +261,7 @@ describe("applyIntentToDoc", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
     const hidden = createEmptyHiddenState();
-    writePlayer(maps, makePlayer("p1", { life: 0 }));
+    writePlayer(maps, makePlayer("p1", { life: 0, out: true, outByRule: true }));
     writePlayer(maps, makePlayer("p2"));
     writeZone(maps, makeZone("lib-p1", ZONE.LIBRARY, "p1"));
     maps.meta.set("activePlayerId", "p2");
@@ -280,7 +280,7 @@ describe("applyIntentToDoc", () => {
     const doc = createDoc();
     const maps = getMaps(doc);
     const hidden = createEmptyHiddenState();
-    writePlayer(maps, makePlayer("p1", { life: 0 }));
+    writePlayer(maps, makePlayer("p1", { life: 0, out: true, outByRule: true }));
     writePlayer(maps, makePlayer("p2"));
     writePlayer(maps, makePlayer("p3"));
     maps.meta.set("activePlayerId", "p1");
@@ -2170,5 +2170,96 @@ describe("applyIntentToDoc", () => {
     }
     expect(hidden.handOrder.p1).toEqual([]);
     expect(hidden.cards.t1).toBeUndefined();
+  });
+});
+
+describe("players going out", () => {
+  const setup = () => {
+    const doc = createDoc();
+    const maps = getMaps(doc);
+    const hidden = createEmptyHiddenState();
+    writePlayer(maps, makePlayer("p1"));
+    writePlayer(maps, makePlayer("p2"));
+    writePlayer(maps, makePlayer("p3"));
+    maps.meta.set("activePlayerId", "p1");
+    let n = 0;
+    const apply = (type: string, payload: Record<string, unknown>) =>
+      applyIntentToDoc(doc, { id: `intent-${n++}`, type, payload }, hidden);
+    return { maps, apply };
+  };
+
+  it("puts a player out at ten poison and passes their turn", () => {
+    const { maps, apply } = setup();
+    const result = apply("player.update", {
+      actorId: "p1",
+      playerId: "p1",
+      updates: { counters: [{ type: "poison", count: 10 }] },
+    });
+    expect(result.ok).toBe(true);
+    expect(readPlayer(maps, "p1")).toMatchObject({ out: true, outByRule: true });
+    expect(maps.meta.get("activePlayerId")).toBe("p2");
+    if (result.ok) {
+      expect(result.logEvents).toContainEqual(
+        expect.objectContaining({
+          eventId: "player.out",
+          payload: expect.objectContaining({ playerId: "p1", out: true, reason: "poison" }),
+        }),
+      );
+    }
+  });
+
+  it("puts a player out at 21 damage from one commander", () => {
+    const { maps, apply } = setup();
+    apply("player.update", {
+      actorId: "p2",
+      playerId: "p2",
+      updates: { commanderDamage: { p1: 21 } },
+    });
+    expect(readPlayer(maps, "p2")?.out).toBe(true);
+  });
+
+  it("brings a player back in when the change that put them out is undone", () => {
+    const { maps, apply } = setup();
+    apply("player.update", { actorId: "p2", playerId: "p2", updates: { life: 0 } });
+    expect(readPlayer(maps, "p2")?.out).toBe(true);
+    apply("player.update", { actorId: "p2", playerId: "p2", updates: { life: 3 } });
+    expect(readPlayer(maps, "p2")).toMatchObject({ out: false, outByRule: false });
+  });
+
+  it("keeps a player who said they were out out when their life changes", () => {
+    const { maps, apply } = setup();
+    expect(apply("player.out.set", { actorId: "p2", playerId: "p2", out: true }).ok).toBe(true);
+    apply("player.update", { actorId: "p2", playerId: "p2", updates: { life: 12 } });
+    expect(readPlayer(maps, "p2")?.out).toBe(true);
+    apply("player.out.set", { actorId: "p2", playerId: "p2", out: false });
+    expect(readPlayer(maps, "p2")?.out).toBe(false);
+  });
+
+  it("lets a player stay in at zero life", () => {
+    const { maps, apply } = setup();
+    apply("player.update", { actorId: "p2", playerId: "p2", updates: { life: 0 } });
+    apply("player.out.set", { actorId: "p2", playerId: "p2", out: false });
+    apply("player.update", { actorId: "p2", playerId: "p2", updates: { life: -2 } });
+    expect(readPlayer(maps, "p2")?.out).toBe(false);
+    apply("player.endTurn", { actorId: "p1" });
+    expect(maps.meta.get("activePlayerId")).toBe("p2");
+  });
+
+  it("lets anyone skip the player whose turn it is, and nobody else", () => {
+    const { maps, apply } = setup();
+    expect(apply("player.out.set", { actorId: "p3", playerId: "p2", out: true })).toEqual({
+      ok: false,
+      error: "can only skip the player whose turn it is",
+    });
+    expect(apply("player.out.set", { actorId: "p3", playerId: "p1", out: true }).ok).toBe(true);
+    expect(readPlayer(maps, "p1")?.out).toBe(true);
+    expect(maps.meta.get("activePlayerId")).toBe("p2");
+  });
+
+  it("only sets out through its own action", () => {
+    const { apply } = setup();
+    expect(
+      apply("player.update", { actorId: "p1", playerId: "p1", updates: { out: true } }),
+    ).toEqual({ ok: false, error: "use player.out.set" });
   });
 });

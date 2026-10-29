@@ -23,7 +23,12 @@ export const createPlayerActions = (
   { dispatchIntent }: Deps
 ): Pick<
   GameState,
-  "addPlayer" | "updatePlayer" | "adjustMana" | "clearMana" | "setDeckLoaded"
+  | "addPlayer"
+  | "updatePlayer"
+  | "adjustMana"
+  | "clearMana"
+  | "setDeckLoaded"
+  | "setPlayerOut"
 > => ({
   addPlayer: (player, _isRemote) => {
     if (get().viewerRole === "spectator") return;
@@ -164,6 +169,22 @@ export const createPlayerActions = (
         },
       }),
       isRemote: _isRemote,
+    });
+  },
+
+  setPlayerOut: (playerId, out) => {
+    if (get().viewerRole === "spectator") return;
+    const actorId = get().myPlayerId;
+    if (!get().players[playerId]) return;
+    dispatchIntent({
+      type: "player.out.set",
+      payload: { playerId, out, actorId },
+      applyLocal: (state) => ({
+        players: {
+          ...state.players,
+          [playerId]: { ...state.players[playerId], out, outByRule: false },
+        },
+      }),
     });
   },
 });

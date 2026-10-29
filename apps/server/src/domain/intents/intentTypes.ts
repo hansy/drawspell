@@ -35,6 +35,7 @@ export const INTENT_TYPES = [
   "player.leave",
   "player.mana.adjust",
   "player.mana.clear",
+  "player.out.set",
   "player.update",
   "ui.battlefieldScale.set",
   "zone.add",

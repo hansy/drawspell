@@ -4,6 +4,8 @@ import {
   Coins,
   Dice5,
   Dices,
+  Flag,
+  Forward,
   Keyboard,
   Smartphone,
   Loader2,
@@ -227,6 +229,11 @@ export const SidenavView: React.FC<SidenavController> = ({
   closeMenu,
   handleUntapAll,
   handleOpenShortcuts,
+  canEndTurn,
+  isMyTurn,
+  handleEndTurn,
+  isOut,
+  handleToggleOut,
   canUndo,
   handleUndo,
   isSpectator,
@@ -419,6 +426,14 @@ export const SidenavView: React.FC<SidenavController> = ({
                   </button>
 
                   <button
+                    onClick={handleToggleOut}
+                    className="flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
+                  >
+                    <Flag size={16} />
+                    {isOut ? "I'm back in" : "I'm out (skip my turns)"}
+                  </button>
+
+                  <button
                     onClick={handleOpenShortcuts}
                     className="hidden lg:flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
                   >
@@ -487,6 +502,20 @@ export const SidenavView: React.FC<SidenavController> = ({
           </>
         ) : (
           <>
+            <NavIcon
+              icon={<Forward size={20} />}
+              label="End turn"
+              tooltip={isMyTurn ? "End turn (Shift+Space)" : "End turn (not your turn)"}
+              onClick={handleEndTurn}
+              className={cn(
+                "hover:text-amber-300 active:text-amber-300",
+                canEndTurn && "text-amber-300 bg-amber-400/10",
+              )}
+              disabled={!canEndTurn}
+              hideTooltip={isHorizontal}
+              compact={isHorizontal}
+            />
+
             <NavIcon
               icon={
                 <i

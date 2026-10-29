@@ -74,6 +74,7 @@ const buildBaseState = (): GameState =>
     resetDeck: (() => {}) as any,
     unloadDeck: (() => {}) as any,
     setDeckLoaded: (() => {}) as any,
+    setPlayerOut: (() => {}) as any,
     addGlobalCounter: (() => {}) as any,
     addCounterToCard: (() => {}) as any,
     removeCounterFromCard: (() => {}) as any,

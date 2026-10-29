@@ -63,6 +63,8 @@ const writePlayer = (maps: SharedMaps, player: Player) => {
   target.set('cursor', player.cursor);
   target.set('commanderTax', player.commanderTax);
   target.set('deckLoaded', player.deckLoaded);
+  target.set('out', player.out === true);
+  target.set('outByRule', player.outByRule === true);
   const battlefieldAnchor = readBattlefieldAnchor(player.battlefieldCameraAnchor);
   if (battlefieldAnchor) target.set('battlefieldCameraAnchor', battlefieldAnchor);
   else target.delete('battlefieldCameraAnchor');
@@ -107,6 +109,8 @@ export const readPlayer = (maps: SharedMaps, playerId: string): Player | null =>
     commanderDamage,
     commanderTax: getVal('commanderTax'),
     deckLoaded: getVal('deckLoaded'),
+    out: getVal('out') === true,
+    outByRule: getVal('outByRule') === true,
     battlefieldCameraAnchor: readBattlefieldAnchor(getVal('battlefieldCameraAnchor')),
     battlefieldCameraEpoch: getVal('battlefieldCameraEpoch'),
     handCount: getVal("handCount"),

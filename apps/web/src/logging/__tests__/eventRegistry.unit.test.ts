@@ -9,6 +9,7 @@ const EVENT_IDS = [
   "player.life",
   "player.commanderTax",
   "player.endTurn",
+  "player.out",
   "player.mana",
   "player.mana.clear",
   "coin.flip",
@@ -653,5 +654,21 @@ describe("logEventRegistry", () => {
     expect(hidden.map((p) => p.text).join("")).toBe(
       "Alice hid top card reveal"
     );
+  });
+
+  it("says why a player is out, and who skipped them", () => {
+    const ctx: LogContext = {
+      players: { p1: makePlayer("p1", "Alice"), p2: makePlayer("p2", "Bob") },
+      cards: {},
+      zones: {},
+    };
+    const text = (payload: Parameters<(typeof logEventRegistry)["player.out"]["format"]>[0]) =>
+      logEventRegistry["player.out"].format(payload, ctx).map((part) => part.text).join("");
+
+    expect(text({ playerId: "p1", out: true, reason: "poison" })).toBe("Alice is out (10 poison)");
+    expect(text({ actorId: "p2", playerId: "p1", out: true, reason: "skipped" })).toBe(
+      "Bob skipped Alice's turn and marked them out",
+    );
+    expect(text({ playerId: "p1", out: false })).toBe("Alice is back in");
   });
 });

@@ -455,6 +455,13 @@ export const useGameContextMenu = (
                         });
                     },
                 },
+                {
+                    type: "action",
+                    label: player.out ? "I'm back in" : "I'm out (skip my turns)",
+                    onSelect: () => {
+                        useGameStore.getState().setPlayerOut(player.id, !player.out);
+                    },
+                },
             ]);
         },
         [isSpectator, myPlayerId, openContextMenu, openCountPrompt]

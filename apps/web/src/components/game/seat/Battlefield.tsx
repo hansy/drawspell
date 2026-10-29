@@ -284,8 +284,10 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
   return (
     <div
       className={cn(
-        "flex-1 relative min-w-0 min-h-0 overflow-hidden",
+        "flex-1 relative min-w-0 min-h-0 overflow-hidden transition-[opacity,filter] duration-300",
         isTop ? "order-last" : "order-first",
+        // An out player's board stays readable but recedes.
+        player.out && "opacity-60 saturate-50",
       )}
       data-battlefield-camera
       data-camera-zoom={controls.zoom}

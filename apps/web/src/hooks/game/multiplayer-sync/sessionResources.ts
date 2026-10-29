@@ -7,6 +7,7 @@ import {
   receiveGameLogEvents,
   replaceGameLog,
 } from "@/logging/logStore";
+import { announcePlayerOut } from "@/logging/playerOutToast";
 import { announceRandomResult } from "@/logging/randomResultToast";
 import { resolvePartyKitHost } from "@/lib/partyKitHost";
 import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
@@ -526,6 +527,11 @@ export function setupSessionResources({
           zones,
         });
         announceRandomResult(message.eventId, message.payload, {
+          players,
+          cards,
+          zones,
+        });
+        announcePlayerOut(message.eventId, message.payload, {
           players,
           cards,
           zones,

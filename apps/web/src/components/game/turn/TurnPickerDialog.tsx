@@ -36,7 +36,7 @@ export const TurnPickerDialog: React.FC<TurnPickerDialogProps> = ({
   onSelect,
 }) => {
   const choosePlayer = (playerId: string) => {
-    if (playerId === activePlayerId) return;
+    if (playerId === activePlayerId || players.find((p) => p.id === playerId)?.out) return;
     onSelect(playerId);
     onClose();
   };
@@ -55,19 +55,22 @@ export const TurnPickerDialog: React.FC<TurnPickerDialogProps> = ({
           {players.map((player) => {
             const isActive = player.id === activePlayerId;
             const isViewer = player.id === viewerPlayerId;
+            const isOut = Boolean(player.out) && !isActive;
             const playerName = player.name.trim() || "Player";
 
             return (
               <button
                 key={player.id}
                 type="button"
-                disabled={isActive}
+                disabled={isActive || isOut}
                 onClick={() => choosePlayer(player.id)}
                 className={cn(
                   "flex min-h-12 w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
                   isActive
                     ? "cursor-default border-amber-300/40 bg-amber-300/10 text-zinc-100"
+                    : isOut
+                    ? "cursor-default border-zinc-800/60 bg-transparent text-zinc-500"
                     : "border-zinc-800 bg-zinc-900/70 text-zinc-200 hover:border-zinc-600 hover:bg-zinc-800",
                 )}
               >
@@ -81,6 +84,11 @@ export const TurnPickerDialog: React.FC<TurnPickerDialogProps> = ({
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold">
                   {isViewer ? "You" : playerName}
                 </span>
+                {isOut && (
+                  <span className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">
+                    Out
+                  </span>
+                )}
                 {isActive && (
                   <span className="flex items-center gap-1.5 text-xs font-medium text-amber-200">
                     <Check className="h-3.5 w-3.5" />

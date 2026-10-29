@@ -357,7 +357,7 @@ describe("useMultiplayerBoardController", () => {
       activePlayerId: "player-1",
       players: {
         "player-1": { id: "player-1", life: 20, deckLoaded: true },
-        "player-2": { id: "player-2", life: 0, deckLoaded: true },
+        "player-2": { id: "player-2", life: 0, deckLoaded: true, out: true },
       },
       playerOrder: ["player-1", "player-2"],
     });
@@ -390,7 +390,7 @@ describe("useMultiplayerBoardController", () => {
       activePlayerId: "player-1",
       players: {
         "player-1": { id: "player-1", life: 20, deckLoaded: true },
-        "player-2": { id: "player-2", life: 0, deckLoaded: true },
+        "player-2": { id: "player-2", life: 0, deckLoaded: true, out: true },
       },
       playerOrder: ["player-1", "player-2"],
     });

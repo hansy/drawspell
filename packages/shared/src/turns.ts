@@ -1,9 +1,35 @@
 import type { Player } from "./types/players";
 
-type TurnPlayer = Pick<Player, "life" | "deckLoaded">;
+type TurnPlayer = Pick<Player, "deckLoaded" | "out">;
 
+export const POISON_LOSS_COUNT = 10;
+export const COMMANDER_DAMAGE_LOSS = 21;
+
+export type LossReason = "life" | "poison" | "commander";
+
+// A player with no deck, or who is out, has their turns skipped.
 export const isTurnEligible = (player: TurnPlayer | null | undefined): boolean =>
-  Boolean(player?.deckLoaded && Number.isFinite(player.life) && player.life > 0);
+  Boolean(player?.deckLoaded && !player.out);
+
+// The game rules that put a player out without anyone having to say so.
+export const resolveLossReason = (
+  player: Pick<Player, "life" | "counters" | "commanderDamage"> | null | undefined,
+): LossReason | null => {
+  if (!player) return null;
+  if (Number.isFinite(player.life) && player.life <= 0) return "life";
+  const poison = (player.counters ?? []).find(
+    (counter) => counter.type.trim().toLowerCase() === "poison",
+  );
+  if ((poison?.count ?? 0) >= POISON_LOSS_COUNT) return "poison";
+  if (
+    Object.values(player.commanderDamage ?? {}).some(
+      (damage) => damage >= COMMANDER_DAMAGE_LOSS,
+    )
+  ) {
+    return "commander";
+  }
+  return null;
+};
 
 export const nextEligibleTurnPlayerId = (
   order: readonly string[],

@@ -2,6 +2,7 @@ import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useGameStore } from "@/store/gameStore";
 import { MultiplayerBoardView } from "../MultiplayerBoardView";
 
 vi.mock("../seat/Seat", () => ({
@@ -241,21 +242,39 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
     expect(props.handleSetTurn).toHaveBeenCalledWith("p2");
   });
 
-  it("omits eliminated players from the turn picker", async () => {
+  it("shows players who are out in the turn picker but can't pick them", async () => {
     const props = buildBoardProps([
       { id: "p1", name: "Alice", color: "sky", position: "bottom-left" },
       { id: "p2", name: "Bob", color: "rose", position: "top-left" },
       { id: "p3", name: "Carol", color: "amber", position: "top-right" },
     ]);
-    props.players.p2.life = 0;
+    props.players.p2.out = true;
 
     render(<MultiplayerBoardView {...props} />);
     fireEvent.click(screen.getByRole("button", { name: "Your turn. Choose next player" }));
 
     expect(await screen.findByRole("heading", { name: "Set turn" })).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Bob" })).toBeNull();
+    expect(screen.getByRole("button", { name: /Bob/ }).hasAttribute("disabled")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Carol" }));
     expect(props.handleSetTurn).toHaveBeenCalledWith("p3");
+  });
+
+  it("skips another player's turn after you confirm", () => {
+    const setPlayerOut = vi.fn();
+    useGameStore.setState({ setPlayerOut } as any);
+    const props = buildBoardProps([
+      { id: "p1", name: "Alice", color: "sky", position: "bottom-left" },
+      { id: "p2", name: "Bob", color: "rose", position: "top-left" },
+      { id: "p3", name: "Carol", color: "amber", position: "top-right" },
+    ]);
+    props.activePlayerId = "p2";
+
+    render(<MultiplayerBoardView {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: /^View Bob/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Skip Bob's turn" }));
+    expect(setPlayerOut).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+    expect(setPlayerOut).toHaveBeenCalledWith("p2", true);
   });
 
   it("ends your turn from the turn pill", () => {
@@ -275,7 +294,7 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
       { id: "p1", name: "Alice", color: "sky", position: "bottom-left" },
       { id: "p2", name: "Bob", color: "rose", position: "top-left" },
     ]);
-    props.players.p2.life = 0;
+    props.players.p2.out = true;
 
     render(<MultiplayerBoardView {...props} />);
 

@@ -26,6 +26,8 @@ export interface SeatProps {
   isActiveTurn?: boolean;
   onActiveTurnClick?: () => void;
   onEndTurnClick?: () => void;
+  onSkipTurnClick?: () => void;
+  onBackInClick?: () => void;
   viewerPlayerId: string;
   viewerRole?: ViewerRole;
   scale?: number;
@@ -57,6 +59,8 @@ const SeatInner: React.FC<SeatProps> = ({
   isActiveTurn = false,
   onActiveTurnClick,
   onEndTurnClick,
+  onSkipTurnClick,
+  onBackInClick,
   viewerPlayerId,
   viewerRole,
   scale = 1,
@@ -112,6 +116,8 @@ const SeatInner: React.FC<SeatProps> = ({
       isActiveTurn={isActiveTurn}
       onActiveTurnClick={onActiveTurnClick}
       onEndTurnClick={onEndTurnClick}
+      onSkipTurnClick={onSkipTurnClick}
+      onBackInClick={onBackInClick}
       viewerPlayerId={viewerPlayerId}
       viewerRole={viewerRole}
       scale={scale}

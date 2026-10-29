@@ -29,6 +29,13 @@ export type EndTurnPayload = {
   nextPlayerId?: string;
 };
 
+export type PlayerOutPayload = {
+  playerId: string;
+  actorId?: string;
+  out: boolean;
+  reason?: "life" | "poison" | "commander" | "self" | "skipped";
+};
+
 export type ManaPayload = {
   playerId: string;
   actorId?: string;
@@ -93,6 +100,28 @@ const formatEndTurn: LogEventDefinition<EndTurnPayload>["format"] = (payload, ct
   return [player, { kind: "text", text: " ended their turn" }];
 };
 
+const OUT_REASON_TEXT: Record<NonNullable<PlayerOutPayload["reason"]>, string> = {
+  life: " is out (no life left)",
+  poison: " is out (10 poison)",
+  commander: " is out (21 commander damage)",
+  self: " is out",
+  skipped: " is out",
+};
+
+const formatPlayerOut: LogEventDefinition<PlayerOutPayload>["format"] = (payload, ctx) => {
+  const player = buildPlayerPart(ctx, payload.playerId);
+  if (!payload.out) return [player, { kind: "text", text: " is back in" }];
+  if (payload.reason === "skipped" && payload.actorId && payload.actorId !== payload.playerId) {
+    return [
+      buildPlayerPart(ctx, payload.actorId),
+      { kind: "text", text: " skipped " },
+      player,
+      { kind: "text", text: "'s turn and marked them out" },
+    ];
+  }
+  return [player, { kind: "text", text: OUT_REASON_TEXT[payload.reason ?? "self"] }];
+};
+
 const formatMana: LogEventDefinition<ManaPayload>["format"] = (payload, ctx) => {
   const player = buildPlayerPart(ctx, payload.playerId);
   const delta = resolveDelta(payload);
@@ -145,6 +174,9 @@ export const playerEvents = {
   },
   "player.endTurn": {
     format: formatEndTurn,
+  },
+  "player.out": {
+    format: formatPlayerOut,
   },
   "player.mana": {
     format: formatMana,

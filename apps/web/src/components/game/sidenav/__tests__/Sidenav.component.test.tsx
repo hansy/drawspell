@@ -35,11 +35,19 @@ describe("Sidenav", () => {
     expect(untapAll).toHaveBeenCalledWith("me");
   });
 
-  it("leaves End turn to the turn pill instead of the sidebar", () => {
-    render(<Sidenav onOpenCoinFlipper={vi.fn()} onOpenDiceRoller={vi.fn()} />);
+  it("ends the turn from the sidebar only on your turn", () => {
+    const onEndTurn = vi.fn();
+    useGameStore.setState({ myPlayerId: "me", activePlayerId: "someone-else" });
+    const { rerender } = render(
+      <Sidenav onEndTurn={onEndTurn} onOpenCoinFlipper={vi.fn()} onOpenDiceRoller={vi.fn()} />,
+    );
+    const button = screen.getByRole("button", { name: "End turn" });
+    expect(button.hasAttribute("disabled")).toBe(true);
 
-    expect(screen.queryByRole("button", { name: "End turn" })).toBeNull();
-    expect(screen.getAllByRole("button")[0].getAttribute("aria-label")).toBe("Untap All");
+    act(() => useGameStore.setState({ activePlayerId: "me" }));
+    rerender(<Sidenav onEndTurn={onEndTurn} onOpenCoinFlipper={vi.fn()} onOpenDiceRoller={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "End turn" }));
+    expect(onEndTurn).toHaveBeenCalledTimes(1);
   });
 
   it("opens the coin flipper and dice roller from one button", () => {

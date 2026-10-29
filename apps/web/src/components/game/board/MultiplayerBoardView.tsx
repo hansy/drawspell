@@ -1,4 +1,5 @@
 import React from "react";
+import { useGameStore } from "@/store/gameStore";
 import { Loader2 } from "lucide-react";
 import {
   DndContext,
@@ -500,6 +501,14 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
     [playerOrder, players],
   );
   const hasMultipleTurnPlayers = orderedTurnPlayers.length > 1;
+  // The picker also lists players who are out, so it's clear why they're skipped.
+  const seatedTurnPlayers = React.useMemo(
+    () =>
+      playerOrder
+        .map((playerId) => players[playerId])
+        .filter((player): player is NonNullable<typeof player> => Boolean(player?.deckLoaded)),
+    [playerOrder, players],
+  );
 
   React.useEffect(() => {
     if (
@@ -782,6 +791,19 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                 }
               : undefined
           }
+          onSkipTurnClick={
+            hasMultipleTurnPlayers &&
+            viewerRole !== "spectator" &&
+            seatPlayer.id !== myPlayerId &&
+            seatPlayer.id === activePlayerId
+              ? () => useGameStore.getState().setPlayerOut(seatPlayer.id, true)
+              : undefined
+          }
+          onBackInClick={
+            viewerRole !== "spectator" && seatPlayer.id === myPlayerId && seatPlayer.out
+              ? () => useGameStore.getState().setPlayerOut(seatPlayer.id, false)
+              : undefined
+          }
           viewerPlayerId={myPlayerId}
           viewerRole={viewerRole}
           onCardContextMenu={handleCardContextMenu}
@@ -934,6 +956,9 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                   <Sidenav
                     orientation="horizontal"
                     onCreateToken={() => setIsTokenModalOpen(true)}
+                    onEndTurn={() => {
+                      handleEndTurn();
+                    }}
                     onOpenCoinFlipper={handleOpenCoinFlipper}
                     onOpenDiceRoller={handleOpenDiceRoller}
                     onToggleLog={() => setIsLogOpen(!isLogOpen)}
@@ -959,6 +984,9 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
             <div className="grid h-full w-full grid-cols-[var(--sidenav-w)_minmax(0,1fr)_auto]">
               <Sidenav
                 onCreateToken={() => setIsTokenModalOpen(true)}
+                    onEndTurn={() => {
+                      handleEndTurn();
+                    }}
                 onOpenCoinFlipper={handleOpenCoinFlipper}
                 onOpenDiceRoller={handleOpenDiceRoller}
                 onToggleLog={() => setIsLogOpen(!isLogOpen)}
@@ -1111,7 +1139,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           {hasMultipleTurnPlayers && isTurnPickerOpen && activePlayerId && (
             <TurnPickerDialog
               open
-              players={orderedTurnPlayers}
+              players={seatedTurnPlayers}
               activePlayerId={activePlayerId}
               viewerPlayerId={myPlayerId}
               onClose={() => setIsTurnPickerOpen(false)}

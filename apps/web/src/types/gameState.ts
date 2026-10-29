@@ -196,6 +196,8 @@ export interface GameState {
     loaded: boolean,
     isRemote?: boolean
   ) => string | null | undefined;
+  // Out players have their turns skipped. Others may only mark the active player out.
+  setPlayerOut: (playerId: PlayerId, out: boolean) => void;
   // Counter Actions
   addGlobalCounter: (name: string, color?: string, isRemote?: boolean) => void;
   addCounterToCard: (

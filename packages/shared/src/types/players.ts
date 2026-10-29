@@ -179,6 +179,11 @@ export interface Player {
   battlefieldCameraAnchor?: { x: number; y: number };
   battlefieldCameraEpoch?: number;
   deckLoaded?: boolean;
+  // Out of the game: their turns are skipped until they come back in.
+  out?: boolean;
+  // Set when a game rule put them out (life, poison, commander damage), so
+  // undoing that change brings them back in on its own.
+  outByRule?: boolean;
   handCount?: number;
   libraryCount?: number;
   sideboardCount?: number;

@@ -12,7 +12,12 @@ import {
 import type { Zone } from "@mtg/shared/types/zones";
 import { MAX_PLAYERS } from "@mtg/shared/constants/room";
 import { ZONE } from "@mtg/shared/constants/zones";
-import { isTurnEligible, nextEligibleTurnPlayerId, resolveActiveTurnPlayerId } from "@mtg/shared/turns";
+import {
+  isTurnEligible,
+  nextEligibleTurnPlayerId,
+  resolveActiveTurnPlayerId,
+  resolveLossReason,
+} from "@mtg/shared/turns";
 
 import {
   applyRecordToMap,
@@ -205,6 +210,9 @@ const handlePlayerUpdate: IntentHandler = ({ actorId, maps, hidden, payload, pus
   if (Object.prototype.hasOwnProperty.call(updates, "manaPool")) {
     return { ok: false, error: "use dedicated mana action" };
   }
+  if ("out" in updates || "outByRule" in updates) {
+    return { ok: false, error: "use player.out.set" };
+  }
   const current = readPlayer(maps, playerId);
   if (!current) return { ok: false, error: "player not found" };
   const permission = canUpdatePlayer(actorId, current, updates);
@@ -265,8 +273,61 @@ const handlePlayerUpdate: IntentHandler = ({ actorId, maps, hidden, payload, pus
     });
     return { ok: true };
   }
-  writePlayer(maps, { ...current, ...updates, id: playerId });
+  writePlayer(
+    maps,
+    applyRuleOut(current, { ...current, ...updates, id: playerId }, actorId, pushLogEvent),
+  );
   repairActiveTurn(maps);
+  return { ok: true };
+};
+
+// Life, poison and commander damage put a player out on their own. Reversing
+// the change that did it (a misclick, a lifegain) brings them back in, but a
+// player who said they were out stays out.
+const applyRuleOut = (
+  previous: Player,
+  next: Player,
+  actorId: string | undefined,
+  pushLogEvent: Parameters<IntentHandler>[0]["pushLogEvent"],
+): Player => {
+  const reason = resolveLossReason(next);
+  if (reason && !next.out && !resolveLossReason(previous)) {
+    pushLogEvent("player.out", { actorId, playerId: next.id, out: true, reason });
+    return { ...next, out: true, outByRule: true };
+  }
+  if (!reason && next.out && next.outByRule) {
+    pushLogEvent("player.out", { actorId, playerId: next.id, out: false });
+    return { ...next, out: false, outByRule: false };
+  }
+  return next;
+};
+
+// Players mark themselves out or back in. Anyone may also mark the player whose
+// turn it is as out, for someone who left without saying so; that passes the turn.
+const handlePlayerOutSet: IntentHandler = ({ actorId, maps, payload, pushLogEvent }) => {
+  const playerIdResult = requireNonEmptyStringProp(payload, "playerId", "invalid player out");
+  if (!playerIdResult.ok) return playerIdResult;
+  const playerId = playerIdResult.value;
+  if (typeof payload.out !== "boolean") return { ok: false, error: "invalid player out" };
+  const out = payload.out;
+  if (!actorId || !readPlayer(maps, actorId)) return { ok: false, error: "invalid player" };
+  const current = readPlayer(maps, playerId);
+  if (!current) return { ok: false, error: "player not found" };
+  if (actorId !== playerId) {
+    const activePlayerId = repairActiveTurn(maps);
+    if (!out || activePlayerId !== playerId) {
+      return { ok: false, error: "can only skip the player whose turn it is" };
+    }
+  }
+  if (Boolean(current.out) === out) return { ok: true };
+  writePlayer(maps, { ...current, out, outByRule: false });
+  repairActiveTurn(maps);
+  pushLogEvent("player.out", {
+    actorId,
+    playerId,
+    out,
+    ...(out ? { reason: actorId === playerId ? "self" : "skipped" } : null),
+  });
   return { ok: true };
 };
 
@@ -390,4 +451,5 @@ export const playerIntentHandlers: Record<string, IntentHandler> = {
   "player.mana.adjust": handlePlayerManaAdjust,
   "player.mana.clear": handlePlayerManaClear,
   "player.endTurn": handlePlayerEndTurn,
+  "player.out.set": handlePlayerOutSet,
 };

@@ -56,6 +56,10 @@ interface SeatViewProps {
   isActiveTurn?: boolean;
   onActiveTurnClick?: () => void;
   onEndTurnClick?: () => void;
+  // Someone else's turn: mark them out and pass it on, for a player who left.
+  onSkipTurnClick?: () => void;
+  // Your own seat while you're out: come back in.
+  onBackInClick?: () => void;
   viewerPlayerId: string;
   viewerRole?: ViewerRole;
   scale?: number;
@@ -85,6 +89,8 @@ export const SeatView: React.FC<SeatViewProps> = ({
   isActiveTurn = false,
   onActiveTurnClick,
   onEndTurnClick,
+  onSkipTurnClick,
+  onBackInClick,
   viewerPlayerId,
   viewerRole,
   scale = 1,
@@ -234,6 +240,10 @@ export const SeatView: React.FC<SeatViewProps> = ({
     handHeight: effectiveHandHeight,
   });
   const commanderZoneLabelSizing = getCommanderZoneLabelSizing(scale);
+  const [confirmSkip, setConfirmSkip] = React.useState(false);
+  React.useEffect(() => {
+    if (!isActiveTurn) setConfirmSkip(false);
+  }, [isActiveTurn]);
   const activeTurnLabel = isMe
     ? "Your turn"
     : `${player.name || "Player"}'s turn`;
@@ -284,6 +294,61 @@ export const SeatView: React.FC<SeatViewProps> = ({
       );
     }
 
+    if (onSkipTurnClick) {
+      const playerName = player.name || "Player";
+      return (
+        <div
+          data-testid="active-turn-badge"
+          data-no-seat-swipe="true"
+          className={cn(
+            activeTurnBadgeClassName,
+            positionClassName,
+            "flex items-center gap-0 p-0 motion-safe:animate-none",
+          )}
+        >
+          {confirmSkip ? (
+            <>
+              <span className="whitespace-nowrap py-1 pl-3 pr-2 normal-case tracking-normal">
+                Skip {playerName} and mark them out?
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmSkip(false);
+                  onSkipTurnClick();
+                }}
+                className="py-1 px-2 uppercase transition-colors hover:bg-amber-200/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+              >
+                Skip
+              </button>
+              <span aria-hidden="true" className="h-3 w-px bg-amber-200/40" />
+              <button
+                type="button"
+                onClick={() => setConfirmSkip(false)}
+                className="rounded-r-full py-1 pl-2 pr-3 uppercase text-amber-100/70 transition-colors hover:bg-amber-200/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="py-1 pl-3 pr-2">{activeTurnLabel}</span>
+              <span aria-hidden="true" className="h-3 w-px bg-amber-200/40" />
+              <button
+                type="button"
+                aria-label={`Skip ${playerName}'s turn`}
+                title={`Skip ${playerName}'s turn if they've left the game`}
+                onClick={() => setConfirmSkip(true)}
+                className="rounded-r-full py-1 pl-2 pr-3 uppercase text-amber-100/70 transition-colors hover:bg-amber-200/15 hover:text-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+              >
+                Skip
+              </button>
+            </>
+          )}
+        </div>
+      );
+    }
+
     if (onActiveTurnClick) {
       return (
         <button
@@ -306,6 +371,33 @@ export const SeatView: React.FC<SeatViewProps> = ({
         className={className}
       >
         {activeTurnLabel}
+      </div>
+    );
+  };
+  const renderOutBadge = (positionClassName: string) => {
+    if (!player.out || isActiveTurn) return null;
+    const className = cn(
+      "absolute left-1/2 z-30 -translate-x-1/2 rounded-full border border-zinc-600 bg-zinc-950/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-zinc-300 backdrop-blur-md",
+      positionClassName,
+    );
+    if (onBackInClick) {
+      return (
+        <div data-player-out-badge data-no-seat-swipe="true" className={cn(className, "flex items-center gap-0 p-0")}>
+          <span className="py-1 pl-3 pr-2">You're out</span>
+          <span aria-hidden="true" className="h-3 w-px bg-zinc-600" />
+          <button
+            type="button"
+            onClick={onBackInClick}
+            className="rounded-r-full py-1 pl-2 pr-3 uppercase text-zinc-100 transition-colors hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+          >
+            Back in
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div data-player-out-badge className={cn(className, "pointer-events-none")}>
+        Out
       </div>
     );
   };
@@ -590,6 +682,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
             )}
           >
             {renderActiveTurnBadge("top-2")}
+            {renderOutBadge("top-2")}
             {battlefield && (
               <Battlefield
                 zone={battlefield}
@@ -769,6 +862,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
           }}
         >
           {renderActiveTurnBadge(isTop ? "bottom-2" : "top-2")}
+          {renderOutBadge(isTop ? "bottom-2" : "top-2")}
           {battlefield && (
             <Battlefield
               zone={battlefield}
