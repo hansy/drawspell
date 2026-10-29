@@ -20,7 +20,6 @@ import { fetchArchidektDeck } from "@/server/archidektDeck";
 import {
   isMultiplayerProviderReady,
   planDeckImport,
-  shouldConfirmCuratedDeckReplacement,
 } from "@/models/game/load-deck/loadDeckModel";
 
 export type LoadDeckControllerInput = {
@@ -223,46 +222,15 @@ export const useLoadDeckController = ({
       return;
     }
 
-    const selectedCuratedDeck = selectedCuratedDeckId
-      ? curatedDecks.find((deck) => deck.id === selectedCuratedDeckId)
-      : null;
-    const isUnchangedCuratedDeck =
-      Boolean(selectedCuratedDeck) &&
-      importText.trim() === selectedCuratedDeck?.decklist.trim();
+    await importDeckText(importText, { saveAsLastImport: true });
+  }, [importDeckText, importText]);
 
-    await importDeckText(importText, { saveAsLastImport: !isUnchangedCuratedDeck });
-  }, [importDeckText, importText, selectedCuratedDeckId]);
-
+  // Clicking a curated deck loads it straight away. The text box is left alone,
+  // so a list the player was typing isn't lost.
   const handleCuratedDeckImport = React.useCallback(
-    (deck: CuratedDeck) => {
-      if (isImporting) return;
-
-      if (
-        shouldConfirmCuratedDeckReplacement(importText) &&
-        !window.confirm(`Replace the current deck list with ${deck.name}?`)
-      ) {
-        return;
-      }
-
-      setPrefilledFromLastImport(false);
-      setError(null);
-      setImportText(deck.decklist);
-      setSelectedCuratedDeckId(deck.id);
-      setTimeout(() => {
-        textareaRef.current?.focus();
-        textareaRef.current?.setSelectionRange(0, 0);
-      }, 0);
-    },
-    [importText, isImporting]
-  );
-
-  // Loads a curated deck straight away; picking the card still fills the box for editing.
-  const handleCuratedDeckLoad = React.useCallback(
     async (deck: CuratedDeck) => {
       if (isImporting) return;
-      setPrefilledFromLastImport(false);
       setError(null);
-      setImportText(deck.decklist);
       setSelectedCuratedDeckId(deck.id);
       await importDeckText(deck.decklist, { saveAsLastImport: false });
     },
@@ -272,7 +240,6 @@ export const useLoadDeckController = ({
   return {
     isOpen,
     handleClose: onClose,
-    handleCuratedDeckLoad,
     textareaRef,
     importText,
     handleImportTextChange,

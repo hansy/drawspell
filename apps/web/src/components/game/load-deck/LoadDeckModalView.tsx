@@ -52,7 +52,6 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
   curatedDecks,
   activeCuratedDeckId,
   handleCuratedDeckImport,
-  handleCuratedDeckLoad,
 }) => {
   const prefilledHintId = React.useId();
   const errorMessageId = React.useId();
@@ -110,7 +109,6 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
                   activeDeckId={activeCuratedDeckId}
                   disabled={isImporting}
                   onSelectDeck={handleCuratedDeckImport}
-                  onLoadDeck={handleCuratedDeckLoad}
                 />
               </React.Suspense>
             )}

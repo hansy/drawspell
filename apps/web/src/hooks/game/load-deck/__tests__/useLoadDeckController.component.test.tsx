@@ -148,64 +148,38 @@ describe("useLoadDeckController", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it("selecting a curated deck populates import text without submitting", () => {
+  it("loads a curated deck as soon as it is clicked", async () => {
     const onClose = vi.fn();
     const { result } = renderHook(() =>
       useLoadDeckController({ isOpen: true, onClose, playerId: "p1" })
     );
-
-    act(() => {
-      result.current.handleCuratedDeckImport(curatedDecks[0]);
-    });
-
-    expect(result.current.importText).toBe(curatedDecks[0].decklist);
-    expect(result.current.activeCuratedDeckId).toBe(curatedDecks[0].id);
-    expect(mocks.planDeckImport).not.toHaveBeenCalled();
-    expect(mocks.getYDocHandles).not.toHaveBeenCalled();
-    expect(mocks.getYProvider).not.toHaveBeenCalled();
-    expect(onClose).not.toHaveBeenCalled();
-  });
-
-  it("does not save an unchanged curated deck as the last imported text", async () => {
-    const onClose = vi.fn();
-    const { result } = renderHook(() =>
-      useLoadDeckController({ isOpen: true, onClose, playerId: "p1" })
-    );
-
-    act(() => {
-      result.current.handleCuratedDeckImport(curatedDecks[0]);
-    });
 
     await act(async () => {
-      await result.current.handleImport();
+      await result.current.handleCuratedDeckImport(curatedDecks[0]);
     });
 
     expect(mocks.planDeckImport).toHaveBeenCalledWith(
       expect.objectContaining({ importText: curatedDecks[0].decklist })
     );
+    expect(result.current.activeCuratedDeckId).toBe(curatedDecks[0].id);
+    // A curated list isn't remembered as the player's own last import.
     expect(mocks.setLastImportedDeckText).not.toHaveBeenCalled();
     expect(mocks.updatePlayer).toHaveBeenCalledWith("p1", { life: 20 }, "p1");
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("saves curated text when the user edits it before importing", async () => {
-    const onClose = vi.fn();
-    const editedDeckText = `${curatedDecks[0].decklist}\n1 Lightning Bolt`;
+  it("keeps a list the player was typing if a curated deck fails to load", async () => {
+    mocks.planDeckImport.mockRejectedValueOnce(new Error("Scryfall is down"));
     const { result } = renderHook(() =>
-      useLoadDeckController({ isOpen: true, onClose, playerId: "p1" })
+      useLoadDeckController({ isOpen: true, onClose: vi.fn(), playerId: "p1" })
     );
 
-    act(() => {
-      result.current.handleCuratedDeckImport(curatedDecks[0]);
-    });
-    act(() => {
-      result.current.handleImportTextChange(editedDeckText);
-    });
-
+    act(() => result.current.handleImportTextChange("1 Lightning Bolt"));
     await act(async () => {
-      await result.current.handleImport();
+      await result.current.handleCuratedDeckImport(curatedDecks[0]);
     });
 
-    expect(mocks.setLastImportedDeckText).toHaveBeenCalledWith(editedDeckText);
+    expect(result.current.error).toBe("Scryfall is down");
+    expect(result.current.importText).toBe("1 Lightning Bolt");
   });
 });

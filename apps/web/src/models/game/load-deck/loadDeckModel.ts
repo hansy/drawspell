@@ -50,9 +50,6 @@ const chunkArray = <T,>(items: T[], chunkSize: number): T[][] => {
   return chunks;
 };
 
-export const shouldConfirmCuratedDeckReplacement = (importText: string): boolean =>
-  importText.trim().length > 0;
-
 export const getStartingLifeForDeck = (parsedDeck: ParsedCard[]): 20 | 40 =>
   getRequestedCounts(parsedDeck).commander > 0 ? 40 : 20;
 

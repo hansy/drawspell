@@ -10,7 +10,6 @@ import {
   isMultiplayerProviderReady,
   planDeckImport,
   resolveDeckZoneIds,
-  shouldConfirmCuratedDeckReplacement,
 } from "../loadDeckModel";
 
 describe("loadDeckModel", () => {
@@ -44,12 +43,6 @@ describe("loadDeckModel", () => {
       commanderZoneId: "cmd",
       sideboardZoneId: "sb",
     });
-  });
-
-  it("shouldConfirmCuratedDeckReplacement only confirms for non-empty import text", () => {
-    expect(shouldConfirmCuratedDeckReplacement("")).toBe(false);
-    expect(shouldConfirmCuratedDeckReplacement("   \n\t")).toBe(false);
-    expect(shouldConfirmCuratedDeckReplacement("1 Lightning Bolt")).toBe(true);
   });
 
   it("uses the commander section, not deck size, to choose starting life", () => {
