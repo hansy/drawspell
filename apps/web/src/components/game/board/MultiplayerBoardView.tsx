@@ -467,6 +467,15 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   ]);
 
   const isPortraitViewport = usePortraitViewport();
+  // The one place the app chooses its phone or desktop layout. It's marked on the
+  // page root so `desktop:` styles apply everywhere, menus and drawers included.
+  React.useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.dataset.boardLayout = isPortraitViewport ? "phone" : "desktop";
+    return () => {
+      delete root.dataset.boardLayout;
+    };
+  }, [isPortraitViewport]);
   const occupiedSlots = React.useMemo(() => slots.filter(isOccupiedSeat), [slots]);
   const [spotlightPlayerId, setSpotlightPlayerId] = React.useState<string | null>(null);
   const spotlightSlot = spotlightPlayerId
@@ -856,8 +865,6 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
         collisionDetection={bottomBarAwarePointerWithin}
       >
         <div
-          // The one place the app chooses its phone or desktop layout; `desktop:` styles key off it.
-          data-board-layout={isPortraitViewport ? "phone" : "desktop"}
           className="ds-app-shell bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500/30"
           onContextMenu={(e) => e.preventDefault()}
         >
