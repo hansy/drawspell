@@ -275,29 +275,46 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
           </div>
         )}
         {cards.length > 0 ? (
-          // Show who the commander is (and its tax) without opening the drawer.
+          // Show each commander (partners included) and its own tax without opening the drawer.
           <span
             data-commander-tab-preview
-            className="ds-seat-upright pointer-events-none flex flex-col items-center gap-1"
+            className="ds-seat-upright pointer-events-none flex flex-col items-center gap-1.5"
           >
-            <span className="relative block h-[30px] w-[30px] overflow-hidden rounded-[3px] bg-zinc-800 ring-1 ring-white/15">
-              {getDisplayImageUrl(cards[0], { preferArtCrop: true }) && (
-                <img
-                  src={getDisplayImageUrl(cards[0], { preferArtCrop: true })}
-                  alt=""
-                  draggable={false}
-                  className="h-full w-full object-cover"
-                />
-              )}
-            </span>
-            {cards.some((card) => (card.commanderTax ?? 0) > 0) && (
-              <span
-                data-commander-tab-tax
-                className="rounded-full bg-zinc-950/90 px-1 font-mono text-[9px] leading-tight text-amber-200"
-              >
-                +{cards.reduce((sum, card) => sum + (card.commanderTax ?? 0), 0)}
-              </span>
-            )}
+            {cards.map((card) => {
+              const artUrl = getDisplayImageUrl(card, { preferArtCrop: true });
+              const tax = card.commanderTax ?? 0;
+              return (
+                <span
+                  key={card.id}
+                  data-commander-tab-card={card.id}
+                  className="relative block"
+                >
+                  <span
+                    className={cn(
+                      "block overflow-hidden rounded-[3px] bg-zinc-800 ring-1 ring-white/15",
+                      cards.length > 1 ? "h-[26px] w-[26px]" : "h-[30px] w-[30px]",
+                    )}
+                  >
+                    {artUrl && (
+                      <img
+                        src={artUrl}
+                        alt=""
+                        draggable={false}
+                        className="h-full w-full object-cover"
+                      />
+                    )}
+                  </span>
+                  {tax > 0 && (
+                    <span
+                      data-commander-tab-tax
+                      className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full bg-zinc-950/95 px-1 font-mono text-[9px] leading-tight text-amber-200"
+                    >
+                      +{tax}
+                    </span>
+                  )}
+                </span>
+              );
+            })}
           </span>
         ) : (
           <span

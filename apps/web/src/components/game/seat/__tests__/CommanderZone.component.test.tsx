@@ -90,8 +90,9 @@ describe("CommanderZone", () => {
     );
     const label = document.querySelector("[data-commander-zone-label]");
     const panel = document.querySelector("[data-commander-zone-panel]");
-    // With a commander present the tab shows its art instead of the word.
+    // Both commanders (partners) get their own preview on the closed tab.
     expect(label?.querySelector("[data-commander-tab-preview]")).not.toBeNull();
+    expect(label?.querySelectorAll("[data-commander-tab-card]")).toHaveLength(2);
     expect(label?.textContent).not.toContain("Commander");
     expect(label?.getAttribute("data-commander-drop-target")).toBe("true");
     expect(label?.getAttribute("data-drag-overlay-scale")).toBe("0.2");
