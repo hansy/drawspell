@@ -74,6 +74,8 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
     card.controllerId === myPlayerId &&
     viewerRole !== "spectator" &&
     (zoneType === ZONE.BATTLEFIELD || Boolean(interactive));
+  const showEmptyCounterSlot =
+    desktopAdjustableCounters && zoneType === ZONE.BATTLEFIELD && !interactive;
   const revealToNames = useGameStore(
     useShallow((state) => {
       const ids = card.revealedTo;
@@ -235,6 +237,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
         showCounterLabels={showCounterLabels}
         revealInteractiveCounterControls={revealInteractiveCounterControls}
         desktopAdjustableCounters={desktopAdjustableCounters}
+        showEmptyCounterSlot={showEmptyCounterSlot}
         customTextNode={customTextNode}
         customTextPosition={customTextPosition}
         onPTDelta={handlePTDelta}
@@ -271,6 +274,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
             showCounterLabels={showCounterLabels}
             revealInteractiveCounterControls={revealInteractiveCounterControls}
             desktopAdjustableCounters={desktopAdjustableCounters}
+        showEmptyCounterSlot={showEmptyCounterSlot}
             customTextNode={customTextNode}
             customTextPosition={customTextPosition}
             onPTDelta={handlePTDelta}
@@ -297,6 +301,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
             showCounterLabels={showCounterLabels}
             revealInteractiveCounterControls={revealInteractiveCounterControls}
             desktopAdjustableCounters={desktopAdjustableCounters}
+        showEmptyCounterSlot={showEmptyCounterSlot}
             customTextNode={customTextNode}
             customTextPosition={customTextPosition}
             onPTDelta={handlePTDelta}

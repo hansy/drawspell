@@ -7,16 +7,13 @@ import {
   shift,
   useFloating,
 } from "@floating-ui/react";
-import { Minus, Plus, RefreshCw } from "lucide-react";
+import { Minus, Plus } from "lucide-react";
 import { normalizeCounterType } from "@mtg/shared/counters";
 
 import { ZONE } from "@/constants/zones";
 import {
   getDisplayPower,
   getDisplayToughness,
-  getNextTransformFace,
-  getTransformVerb,
-  isTransformableCard,
   shouldShowZonePowerToughness,
 } from "@/lib/cardDisplay";
 import { getNextCardStatUpdate, type CardStatKey } from "@/lib/cardPT";
@@ -60,7 +57,8 @@ const Stepper: React.FC<{
 // colour-coded counters with -/+, power and toughness steppers, and a counter
 // picker. It sits on the card's edge at a fixed size, so it stays usable at any zoom.
 export const CardEditHud: React.FC = () => {
-  const { cardId, anchor, pinned, cancelClose, requestClose, close } = useCardEditHudStore();
+  const { cardId, section, anchor, pinned, cancelClose, requestClose, close } =
+    useCardEditHudStore();
   const card = useGameStore((state) => (cardId ? state.cards[cardId] : undefined));
   const zoneType = useGameStore((state) =>
     card ? state.zones[card.zoneId]?.type : undefined,
@@ -72,7 +70,6 @@ export const CardEditHud: React.FC = () => {
   const removeCounterFromCard = useGameStore((state) => state.removeCounterFromCard);
   const addGlobalCounter = useGameStore((state) => state.addGlobalCounter);
   const updateCard = useGameStore((state) => state.updateCard);
-  const transformCard = useGameStore((state) => state.transformCard);
   const isDragging = useDragStore((state) => Boolean(state.activeCardId));
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -80,7 +77,7 @@ export const CardEditHud: React.FC = () => {
 
   const { refs, floatingStyles } = useFloating({
     open: Boolean(cardId && anchor),
-    placement: "right-start",
+    placement: section === "pt" ? "right-end" : "right-start",
     strategy: "fixed",
     elements: { reference: anchor },
     // Overlap the card edge so the pointer never crosses a gap or a neighbouring card.
@@ -133,9 +130,6 @@ export const CardEditHud: React.FC = () => {
     if (!findGlobalCounterKey(globalCounters, type)) addGlobalCounter(type, resolvedColor);
   };
 
-  const nextFace = isTransformableCard(card) ? getNextTransformFace(card) : null;
-  const transformVerb = getTransformVerb(card);
-
   const showPT = shouldShowZonePowerToughness(card, zoneType, { faceDown: card.faceDown });
   const changeStat = (stat: CardStatKey, delta: number) => {
     const update = getNextCardStatUpdate(card, stat, delta);
@@ -173,6 +167,7 @@ export const CardEditHud: React.FC = () => {
         onPointerDown={(event) => event.stopPropagation()}
         onContextMenu={(event) => event.preventDefault()}
       >
+        {section !== "pt" && (
         <div className="flex w-full flex-col gap-1" data-card-edit-hud-counters>
           <div className="flex items-center justify-between gap-3 pl-1">
             <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
@@ -274,10 +269,14 @@ export const CardEditHud: React.FC = () => {
           </div>
         ) : null}
         </div>
+        )}
 
-        {showPT && (
+        {showPT && section !== "counters" && (
           <div
-            className="flex w-full flex-col gap-1 border-t border-zinc-800 pt-1.5"
+            className={cn(
+              "flex w-full flex-col gap-1",
+              section === "all" && "border-t border-zinc-800 pt-1.5",
+            )}
             data-card-edit-hud-pt
           >
             <span className="pl-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
@@ -313,19 +312,6 @@ export const CardEditHud: React.FC = () => {
           </div>
         )}
 
-        {nextFace && (
-          <button
-            type="button"
-            onClick={() => transformCard(card.id, nextFace.nextIndex)}
-            title={`${transformVerb} to ${nextFace.face.name}`}
-            className="flex w-full items-center gap-2 border-t border-zinc-800 px-1 pt-1.5 text-left text-[11px] text-zinc-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
-          >
-            <RefreshCw size={12} className="shrink-0" />
-            <span className="max-w-36 truncate">
-              {transformVerb}: {nextFace.face.name}
-            </span>
-          </button>
-        )}
       </div>
     </FloatingPortal>
   );

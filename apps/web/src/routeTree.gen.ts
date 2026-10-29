@@ -9,37 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TosRouteImport } from './routes/tos'
-import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as DocsRouteImport } from './routes/docs'
-import { Route as DevelopersRouteImport } from './routes/developers'
-import { Route as DeveloperRouteImport } from './routes/developer'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as RoomsSessionIdRouteImport } from './routes/rooms.$sessionId'
-import { Route as DiscordInstallRouteImport } from './routes/discord.install'
-import { Route as DeveloperLoginRouteImport } from './routes/developer.login'
+import { Route as DeveloperRouteImport } from './routes/developer'
+import { Route as DevelopersRouteImport } from './routes/developers'
+import { Route as DocsRouteImport } from './routes/docs'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as TosRouteImport } from './routes/tos'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
-import { Route as ApiV1RoomsRouteImport } from './routes/api.v1.rooms'
+import { Route as DeveloperLoginRouteImport } from './routes/developer.login'
+import { Route as DiscordInstallRouteImport } from './routes/discord.install'
+import { Route as RoomsSessionIdRouteImport } from './routes/rooms.$sessionId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
+import { Route as ApiV1RoomsRouteImport } from './routes/api.v1.rooms'
 
-const TosRoute = TosRouteImport.update({
-  id: '/tos',
-  path: '/tos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyRoute = PrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocsRoute = DocsRouteImport.update({
-  id: '/docs',
-  path: '/docs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DevelopersRoute = DevelopersRouteImport.update({
-  id: '/developers',
-  path: '/developers',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DeveloperRoute = DeveloperRouteImport.update({
@@ -47,19 +32,29 @@ const DeveloperRoute = DeveloperRouteImport.update({
   path: '/developer',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const DevelopersRoute = DevelopersRouteImport.update({
+  id: '/developers',
+  path: '/developers',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RoomsSessionIdRoute = RoomsSessionIdRouteImport.update({
-  id: '/rooms/$sessionId',
-  path: '/rooms/$sessionId',
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DiscordInstallRoute = DiscordInstallRouteImport.update({
-  id: '/discord/install',
-  path: '/discord/install',
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TosRoute = TosRouteImport.update({
+  id: '/tos',
+  path: '/tos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthLoginRoute = AuthLoginRouteImport.update({
+  id: '/auth/login',
+  path: '/auth/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DeveloperLoginRoute = DeveloperLoginRouteImport.update({
@@ -67,19 +62,24 @@ const DeveloperLoginRoute = DeveloperLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => DeveloperRoute,
 } as any)
-const AuthLoginRoute = AuthLoginRouteImport.update({
-  id: '/auth/login',
-  path: '/auth/login',
+const DiscordInstallRoute = DiscordInstallRouteImport.update({
+  id: '/discord/install',
+  path: '/discord/install',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiV1RoomsRoute = ApiV1RoomsRouteImport.update({
-  id: '/api/v1/rooms',
-  path: '/api/v1/rooms',
+const RoomsSessionIdRoute = RoomsSessionIdRouteImport.update({
+  id: '/rooms/$sessionId',
+  path: '/rooms/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1RoomsRoute = ApiV1RoomsRouteImport.update({
+  id: '/api/v1/rooms',
+  path: '/api/v1/rooms',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -187,32 +187,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/tos': {
-      id: '/tos'
-      path: '/tos'
-      fullPath: '/tos'
-      preLoaderRoute: typeof TosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy': {
-      id: '/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
-      preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/docs': {
-      id: '/docs'
-      path: '/docs'
-      fullPath: '/docs'
-      preLoaderRoute: typeof DocsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/developers': {
-      id: '/developers'
-      path: '/developers'
-      fullPath: '/developers'
-      preLoaderRoute: typeof DevelopersRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/developer': {
@@ -222,25 +201,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeveloperRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/developers': {
+      id: '/developers'
+      path: '/developers'
+      fullPath: '/developers'
+      preLoaderRoute: typeof DevelopersRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/rooms/$sessionId': {
-      id: '/rooms/$sessionId'
-      path: '/rooms/$sessionId'
-      fullPath: '/rooms/$sessionId'
-      preLoaderRoute: typeof RoomsSessionIdRouteImport
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/discord/install': {
-      id: '/discord/install'
-      path: '/discord/install'
-      fullPath: '/discord/install'
-      preLoaderRoute: typeof DiscordInstallRouteImport
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tos': {
+      id: '/tos'
+      path: '/tos'
+      fullPath: '/tos'
+      preLoaderRoute: typeof TosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/login': {
+      id: '/auth/login'
+      path: '/auth/login'
+      fullPath: '/auth/login'
+      preLoaderRoute: typeof AuthLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/developer/login': {
@@ -250,18 +243,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeveloperLoginRouteImport
       parentRoute: typeof DeveloperRoute
     }
-    '/auth/login': {
-      id: '/auth/login'
-      path: '/auth/login'
-      fullPath: '/auth/login'
-      preLoaderRoute: typeof AuthLoginRouteImport
+    '/discord/install': {
+      id: '/discord/install'
+      path: '/discord/install'
+      fullPath: '/discord/install'
+      preLoaderRoute: typeof DiscordInstallRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/v1/rooms': {
-      id: '/api/v1/rooms'
-      path: '/api/v1/rooms'
-      fullPath: '/api/v1/rooms'
-      preLoaderRoute: typeof ApiV1RoomsRouteImport
+    '/rooms/$sessionId': {
+      id: '/rooms/$sessionId'
+      path: '/rooms/$sessionId'
+      fullPath: '/rooms/$sessionId'
+      preLoaderRoute: typeof RoomsSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -269,6 +262,13 @@ declare module '@tanstack/react-router' {
       path: '/api/auth/$'
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/rooms': {
+      id: '/api/v1/rooms'
+      path: '/api/v1/rooms'
+      fullPath: '/api/v1/rooms'
+      preLoaderRoute: typeof ApiV1RoomsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

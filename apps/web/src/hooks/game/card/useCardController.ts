@@ -10,7 +10,12 @@ import {
   canViewerSeeLibraryCardByReveal,
   canViewerSeeLibraryTopCard,
 } from "@/lib/reveal";
-import { getFlipRotation } from "@/lib/cardDisplay";
+import {
+  getFlipRotation,
+  getNextTransformFace,
+  getTransformVerb,
+  isTransformableCard,
+} from "@/lib/cardDisplay";
 import { preloadCardPreviewImage } from "@/lib/cardImagePreload";
 import {
   useSelectionStore,
@@ -300,7 +305,6 @@ export const useCardController = (props: CardProps): CardController => {
   const handleMouseEnter = React.useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (interactionsDisabled) return;
-      if (canEditOnCard) useCardEditHudStore.getState().open(card.id, e.currentTarget);
       if (Date.now() < suppressMouseHoverPreviewUntilRef.current) return;
       const policy = resolvePreviewPolicy();
       if (policy.kind === "none") return;
@@ -320,12 +324,48 @@ export const useCardController = (props: CardProps): CardController => {
     },
     [
       interactionsDisabled,
-      canEditOnCard,
       card,
       clearHoverTimeout,
       resolvePreviewPolicy,
       showPreview,
     ]
+  );
+
+  const transformCard = useGameStore((state) => state.transformCard);
+  const nextTransformFace =
+    canEditOnCard && !faceDown && isTransformableCard(card)
+      ? getNextTransformFace(card)
+      : null;
+  const transformAction = React.useMemo(
+    () =>
+      nextTransformFace
+        ? {
+            label: `${getTransformVerb(card)}: ${nextTransformFace.face.name}`,
+            onTransform: () => transformCard(card.id, nextTransformFace.nextIndex),
+          }
+        : undefined,
+    [card, nextTransformFace, transformCard]
+  );
+
+  // Pointing at the card's counters or its P/T badge opens controls for just that part.
+  const handlePointerOver = React.useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!canEditOnCard || interactionsDisabled || e.pointerType === "touch") return;
+      const target = e.target as Element;
+      const hud = useCardEditHudStore.getState();
+      const counters = target.closest<HTMLElement>("[data-card-counters]");
+      if (counters) {
+        hud.open(card.id, counters, { section: "counters" });
+        return;
+      }
+      const pt = target.closest<HTMLElement>("[data-card-pt-badge]");
+      if (pt) {
+        hud.open(card.id, pt, { section: "pt" });
+        return;
+      }
+      hud.requestClose(card.id);
+    },
+    [canEditOnCard, card.id, interactionsDisabled]
   );
 
   const handleMouseLeave = React.useCallback(
@@ -849,6 +889,7 @@ export const useCardController = (props: CardProps): CardController => {
       isDragging,
       onDoubleClick: handleDoubleClick,
       onMouseEnter: handleMouseEnter,
+      onPointerOver: handlePointerOver,
       onMouseLeave: handleMouseLeave,
       onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => {
         handleDesktopPreviewPressMove(event);
@@ -889,6 +930,7 @@ export const useCardController = (props: CardProps): CardController => {
       isSelected: propIsSelected,
       disableHoverAnimation,
       showCommanderBadge: card.isCommander && zoneType === ZONE.BATTLEFIELD,
+      transformAction,
       isTopSeat,
     },
     draggableProps: {

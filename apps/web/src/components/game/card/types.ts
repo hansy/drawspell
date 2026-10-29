@@ -35,11 +35,14 @@ export interface CardViewProps {
   onPointerUp?: (e: React.PointerEvent<HTMLDivElement>) => void;
   onPointerCancel?: (e: React.PointerEvent<HTMLDivElement>) => void;
   onPointerMove?: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerOver?: (e: React.PointerEvent<HTMLDivElement>) => void;
   onPointerLeave?: (e: React.PointerEvent<HTMLDivElement>) => void;
   highlightColor?: string;
   disableHoverAnimation?: boolean;
   isSelected?: boolean;
   showCommanderBadge?: boolean;
+  // Double-faced and flip cards you control: turn the card to its other face.
+  transformAction?: { label: string; onTransform: () => void };
   isTopSeat?: boolean;
   "data-dnd-ghost-card-id"?: string;
   "data-dnd-ghost-kind"?: string;

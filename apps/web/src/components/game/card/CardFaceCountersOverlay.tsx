@@ -59,6 +59,8 @@ export const CardFaceCountersOverlay: React.FC<{
   onDecrementCounter?: (counterType: string) => void;
   customTextNode?: React.ReactNode;
   customTextPosition?: "sidebar" | "bottom-left" | "center";
+  // An empty counter spot that appears on hover, so a card without counters can get its first one.
+  showEmptyCounterSlot?: boolean;
 }> = ({
   counters,
   countersClassName,
@@ -70,11 +72,13 @@ export const CardFaceCountersOverlay: React.FC<{
   onDecrementCounter,
   customTextNode,
   customTextPosition,
+  showEmptyCounterSlot = false,
 }) => {
   const showSidebarCustomText = customTextNode && customTextPosition === "sidebar";
   const shouldAlwaysShowCounterControls =
     Boolean(interactive) && Boolean(revealInteractiveCounterControls);
-  if (counters.length === 0 && !showSidebarCustomText) return null;
+  const showEmptySlot = showEmptyCounterSlot && counters.length === 0;
+  if (counters.length === 0 && !showSidebarCustomText && !showEmptySlot) return null;
 
   const counterButtonClassName = (visible: boolean) =>
     cn(
@@ -92,6 +96,20 @@ export const CardFaceCountersOverlay: React.FC<{
         countersClassName
       )}
     >
+      {showEmptySlot && (
+        <span
+          aria-hidden="true"
+          data-card-empty-counter-slot
+          className="flex items-center justify-center rounded-full border border-dashed border-white/60 bg-zinc-950/70 font-bold text-white/80 opacity-0 transition-opacity group-hover/card:opacity-100"
+          style={{
+            fontSize: "var(--battlefield-counter-font, 10px)",
+            width: "var(--battlefield-counter-size, 24px)",
+            height: "var(--battlefield-counter-size, 24px)",
+          }}
+        >
+          +
+        </span>
+      )}
       {counters.map((counter) => {
         if (showCounterLabels) {
           return (

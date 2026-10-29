@@ -104,17 +104,18 @@ describe("CardEditHud", () => {
     expect(document.querySelector("[data-card-edit-hud-counters]")?.contains(pt)).toBe(false);
   });
 
-  it("transforms a double-faced card to its other face", () => {
-    const { transformCard } = setup({
-      scryfall: {
-        layout: "transform",
-        card_faces: [{ name: "Front Face" }, { name: "Back Face" }],
-      },
-      currentFaceIndex: 0,
-    });
+  it("shows only the hovered part: counters or power/toughness", () => {
+    setup();
+    act(() => useCardEditHudStore.getState().close());
+    const counters = document.createElement("div");
+    document.body.appendChild(counters);
+    act(() => useCardEditHudStore.getState().open("c1", counters, { section: "counters" }));
+    expect(document.querySelector("[data-card-edit-hud-counters]")).not.toBeNull();
+    expect(document.querySelector("[data-card-edit-hud-pt]")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: /Transform: Back Face/ }));
-    expect(transformCard).toHaveBeenCalledWith("c1", 1);
+    act(() => useCardEditHudStore.getState().open("c1", counters, { section: "pt" }));
+    expect(document.querySelector("[data-card-edit-hud-counters]")).toBeNull();
+    expect(document.querySelector("[data-card-edit-hud-pt]")).not.toBeNull();
   });
 });
 

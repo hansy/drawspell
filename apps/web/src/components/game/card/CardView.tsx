@@ -1,5 +1,5 @@
 import React from "react";
-import { Star } from "lucide-react";
+import { RefreshCw, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CARD_BASE_CLASS, CARD_CORNER_CLASS } from "@/lib/constants";
 
@@ -28,6 +28,7 @@ export const CardView = React.memo(
         isSelected,
         showCommanderBadge,
         isTopSeat,
+        transformAction,
         ...props
       },
       ref
@@ -52,7 +53,7 @@ export const CardView = React.memo(
           className={cn(
             CARD_BASE_CLASS,
             CARD_CORNER_CLASS,
-            "origin-center bg-zinc-800 shadow-md shadow-[inset_0_0_24px_rgba(0,0,0,0.35)] flex flex-col items-center justify-center select-none relative z-0 transition-transform duration-200 ease-out",
+            "group/card origin-center bg-zinc-800 shadow-md shadow-[inset_0_0_24px_rgba(0,0,0,0.35)] flex flex-col items-center justify-center select-none relative z-0 transition-transform duration-200 ease-out",
             !isDragging &&
               !disableHoverAnimation &&
               "hover:scale-105 hover:shadow-xl hover:z-10 hover:border-indigo-500/50 cursor-grab active:cursor-grabbing",
@@ -81,6 +82,27 @@ export const CardView = React.memo(
             <div className="absolute left-1 top-1 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-amber-400/70 bg-zinc-950/80 text-amber-300 shadow-sm pointer-events-none">
               <Star className="h-3.5 w-3.5 fill-amber-400" />
             </div>
+          )}
+          {transformAction && (
+            <button
+              type="button"
+              aria-label={transformAction.label}
+              title={transformAction.label}
+              data-card-transform
+              className="absolute bottom-1 left-1 z-30 flex items-center justify-center rounded-full border border-white/40 bg-zinc-950/80 text-white/80 shadow-sm transition-colors hover:border-white hover:bg-zinc-900 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              style={{
+                width: "var(--battlefield-counter-size, 24px)",
+                height: "var(--battlefield-counter-size, 24px)",
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                transformAction.onTransform();
+              }}
+            >
+              <RefreshCw className="h-1/2 w-1/2" />
+            </button>
           )}
           <CardFace
             card={card}
