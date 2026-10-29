@@ -1,3 +1,4 @@
+import { useGameStore } from "@/store/gameStore";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { DndContext } from "@dnd-kit/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -663,8 +664,14 @@ describe("SeatView desktop side-zone previews", () => {
     expect(battlefieldSurface?.style.bottom).toBe("160px");
   });
 
-  it("makes the active-turn pill clickable only for its player", () => {
-    const onActiveTurnClick = vi.fn();
+  it("opens the turn menu from the active-turn pill, only for its player", () => {
+    const onEndTurnClick = vi.fn();
+    useGameStore.setState({
+      myPlayerId: "p1",
+      activePlayerId: "p1",
+      players: { p1: makePlayer() },
+      playerOrder: ["p1"],
+    } as any);
     const battlefieldZone = makeZone("battlefield-p1", "battlefield");
     const model = {
       isTop: false,
@@ -691,7 +698,8 @@ describe("SeatView desktop side-zone previews", () => {
             color="sky"
             isMe
             isActiveTurn
-            onActiveTurnClick={onActiveTurnClick}
+            onEndTurnClick={onEndTurnClick}
+            onPassTurnTo={vi.fn()}
             viewerPlayerId="p1"
             opponentColors={{ p1: "sky" }}
             model={model as any}
@@ -700,10 +708,10 @@ describe("SeatView desktop side-zone previews", () => {
       </CardPreviewProvider>,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Your turn. Choose next player" }),
-    );
-    expect(onActiveTurnClick).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Turn options" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /End turn/ }));
+    expect(onEndTurnClick).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("menu")).toBeNull();
 
     rerender(
       <CardPreviewProvider>

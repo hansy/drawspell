@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useGameStore } from "@/store/gameStore";
@@ -216,46 +216,28 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
     });
   });
 
-  it("opens the turn picker from the active player's pill", async () => {
-    const props = buildBoardProps([
-      {
-        id: "p1",
-        name: "Alice",
-        color: "sky",
-        position: "bottom-left",
-      },
-      {
-        id: "p2",
-        name: "Bob",
-        color: "rose",
-        position: "top-left",
-      },
-    ]);
-
-    render(<MultiplayerBoardView {...props} />);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Your turn. Choose next player" }),
-    );
-
-    expect(await screen.findByRole("heading", { name: "Set turn" })).not.toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Bob" }));
-    expect(props.handleSetTurn).toHaveBeenCalledWith("p2");
-  });
-
-  it("shows players who are out in the turn picker but can't pick them", async () => {
+  it("passes the turn from the pill's turn menu, skipping players who are out", () => {
     const props = buildBoardProps([
       { id: "p1", name: "Alice", color: "sky", position: "bottom-left" },
       { id: "p2", name: "Bob", color: "rose", position: "top-left" },
       { id: "p3", name: "Carol", color: "amber", position: "top-right" },
     ]);
     props.players.p2.out = true;
+    useGameStore.setState({
+      myPlayerId: "p1",
+      activePlayerId: "p1",
+      players: props.players,
+      playerOrder: props.playerOrder,
+    } as any);
 
     render(<MultiplayerBoardView {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Your turn. Choose next player" }));
+    fireEvent.click(
+      within(screen.getByTestId("active-turn-badge")).getByRole("button", { name: "Turn options" }),
+    );
 
-    expect(await screen.findByRole("heading", { name: "Set turn" })).not.toBeNull();
-    expect(screen.getByRole("button", { name: /Bob/ }).hasAttribute("disabled")).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: "Carol" }));
+    const menu = screen.getByRole("menu", { name: "Turn" });
+    expect(within(menu).getByRole("menuitem", { name: /Bob/ }).hasAttribute("disabled")).toBe(true);
+    fireEvent.click(within(menu).getByRole("menuitem", { name: /Carol/ }));
     expect(props.handleSetTurn).toHaveBeenCalledWith("p3");
   });
 

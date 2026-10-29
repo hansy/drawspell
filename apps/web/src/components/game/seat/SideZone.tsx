@@ -270,6 +270,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
     return (
       <div
         data-side-zone-variant="chip"
+        title={`${label}: ${count}`}
         className="group/chip-zone relative h-full min-w-0 touch-manipulation select-none"
         onContextMenu={handleContextMenu}
         onClick={handleClick}
@@ -288,7 +289,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
         <Zone
           zone={zone}
           className={cn(
-            "flex h-full items-center gap-1.5 rounded-md border border-zinc-700/70 bg-zinc-900/80 py-1 pl-1 pr-2 transition-colors duration-150",
+            "flex h-full min-w-0 items-center gap-1.5 overflow-hidden rounded-md border border-zinc-700/70 bg-zinc-900/80 py-1 pl-1 pr-2 transition-colors duration-150",
             "hover:border-zinc-500/80 hover:bg-zinc-800/80",
             showContextMenuCursor
               ? "cursor-context-menu"
@@ -315,7 +316,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
             )}
           </div>
           <div className="ds-seat-upright flex min-w-0 flex-col leading-none">
-            <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+            <span className="truncate text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
               {label}
             </span>
             <span

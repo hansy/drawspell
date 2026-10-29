@@ -10,6 +10,7 @@ export type SyncStatus = "connecting" | "connected";
 export type SidenavControllerInput = {
   onCreateToken?: () => void;
   onEndTurn?: () => void;
+  onPassTurnTo?: (playerId: string) => void;
   onOpenCoinFlipper?: () => void;
   onOpenDiceRoller?: () => void;
   onToggleLog?: () => void;
@@ -28,6 +29,7 @@ export type SidenavControllerInput = {
 export const useSidenavController = ({
   onCreateToken,
   onEndTurn,
+  onPassTurnTo,
   onOpenCoinFlipper,
   onOpenDiceRoller,
   onToggleLog,
@@ -50,20 +52,12 @@ export const useSidenavController = ({
   const isMyTurn = useGameStore(
     (state) => Boolean(state.myPlayerId) && state.activePlayerId === state.myPlayerId,
   );
-  const isOut = useGameStore((state) => Boolean(state.players[state.myPlayerId]?.out));
   const canEndTurn = !isSpectator && isMyTurn && Boolean(onEndTurn);
 
   const handleEndTurn = React.useCallback(() => {
     if (!canEndTurn) return;
     onEndTurn?.();
   }, [canEndTurn, onEndTurn]);
-
-  const handleToggleOut = React.useCallback(() => {
-    if (isSpectator) return;
-    const state = useGameStore.getState();
-    state.setPlayerOut(state.myPlayerId, !isOut);
-    setIsMenuOpen(false);
-  }, [isOut, isSpectator]);
 
   const handleUntapAll = React.useCallback(() => {
     if (isSpectator) return;
@@ -109,8 +103,7 @@ export const useSidenavController = ({
     canEndTurn,
     isMyTurn,
     handleEndTurn,
-    isOut,
-    handleToggleOut,
+    onPassTurnTo,
     canUndo,
     handleUndo: performUndo,
   };

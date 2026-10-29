@@ -35,19 +35,28 @@ describe("Sidenav", () => {
     expect(untapAll).toHaveBeenCalledWith("me");
   });
 
-  it("ends the turn from the sidebar only on your turn", () => {
+  it("ends the turn on your turn, and otherwise opens the turn menu", () => {
     const onEndTurn = vi.fn();
-    useGameStore.setState({ myPlayerId: "me", activePlayerId: "someone-else" });
-    const { rerender } = render(
-      <Sidenav onEndTurn={onEndTurn} onOpenCoinFlipper={vi.fn()} onOpenDiceRoller={vi.fn()} />,
-    );
-    const button = screen.getByRole("button", { name: "End turn" });
-    expect(button.hasAttribute("disabled")).toBe(true);
+    const setPlayerOut = vi.fn();
+    useGameStore.setState({
+      myPlayerId: "me",
+      activePlayerId: "someone-else",
+      players: { me: { id: "me", name: "Me", deckLoaded: true } },
+      playerOrder: ["me"],
+      setPlayerOut,
+    } as any);
+    render(<Sidenav onEndTurn={onEndTurn} onOpenCoinFlipper={vi.fn()} onOpenDiceRoller={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "End turn" }));
+    expect(onEndTurn).not.toHaveBeenCalled();
+    expect(screen.getByRole("menuitem", { name: /End turn/ }).hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("menuitem", { name: /I'm out/ }));
+    expect(setPlayerOut).toHaveBeenCalledWith("me", true);
 
     act(() => useGameStore.setState({ activePlayerId: "me" }));
-    rerender(<Sidenav onEndTurn={onEndTurn} onOpenCoinFlipper={vi.fn()} onOpenDiceRoller={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "End turn" }));
     expect(onEndTurn).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 
   it("opens the coin flipper and dice roller from one button", () => {

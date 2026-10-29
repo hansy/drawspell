@@ -24,7 +24,7 @@ export interface SeatProps {
   libraryRevealsToAll?: LibraryRevealsToAll;
   isMe: boolean;
   isActiveTurn?: boolean;
-  onActiveTurnClick?: () => void;
+  onPassTurnTo?: (playerId: string) => void;
   onEndTurnClick?: () => void;
   onSkipTurnClick?: () => void;
   onBackInClick?: () => void;
@@ -57,7 +57,7 @@ const SeatInner: React.FC<SeatProps> = ({
   libraryRevealsToAll,
   isMe,
   isActiveTurn = false,
-  onActiveTurnClick,
+  onPassTurnTo,
   onEndTurnClick,
   onSkipTurnClick,
   onBackInClick,
@@ -114,7 +114,7 @@ const SeatInner: React.FC<SeatProps> = ({
       color={color}
       isMe={isMe}
       isActiveTurn={isActiveTurn}
-      onActiveTurnClick={onActiveTurnClick}
+      onPassTurnTo={onPassTurnTo}
       onEndTurnClick={onEndTurnClick}
       onSkipTurnClick={onSkipTurnClick}
       onBackInClick={onBackInClick}

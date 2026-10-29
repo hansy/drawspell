@@ -3,8 +3,9 @@ import "mana-font/css/mana.css";
 import {
   Coins,
   Dice5,
+  ChevronRight,
+  ChevronUp,
   Dices,
-  Flag,
   Forward,
   Keyboard,
   Smartphone,
@@ -27,6 +28,7 @@ import {
 
 import drawspellLogo from "@/assets/drawspell-logo.png";
 import { Tooltip } from "@/components/ui/tooltip";
+import { TurnMenu } from "@/components/game/turn/TurnMenu";
 import { cn } from "@/lib/utils";
 
 import type { SidenavController } from "@/hooks/game/sidenav/useSidenavController";
@@ -122,6 +124,68 @@ const NavIcon: React.FC<NavIconProps> = ({
     <Tooltip content={tooltip ?? label} placement="right">
       {button}
     </Tooltip>
+  );
+};
+
+// Click ends your turn. The caret, a right-click or a long press opens the turn
+// menu (choose who's next, sit out); when it isn't your turn a click opens it too.
+const EndTurnButton: React.FC<{
+  canEndTurn: boolean;
+  isMyTurn: boolean;
+  onEndTurn: () => void;
+  onPassTurnTo?: (playerId: string) => void;
+  isHorizontal: boolean;
+}> = ({ canEndTurn, isMyTurn, onEndTurn, onPassTurnTo, isHorizontal }) => {
+  const [open, setOpen] = React.useState(false);
+  const [anchor, setAnchor] = React.useState<HTMLSpanElement | null>(null);
+  const close = React.useCallback(() => setOpen(false), []);
+  const Caret = isHorizontal ? ChevronUp : ChevronRight;
+
+  return (
+    <span
+      ref={setAnchor}
+      className="relative inline-flex"
+      onContextMenu={(event) => {
+        event.preventDefault();
+        setOpen(true);
+      }}
+    >
+      <NavIcon
+        icon={<Forward size={20} />}
+        label="End turn"
+        tooltip={isMyTurn ? "End turn (Shift+Space)" : "Turn options"}
+        onClick={() => (canEndTurn ? onEndTurn() : setOpen((value) => !value))}
+        className={cn(
+          "hover:text-amber-300 active:text-amber-300",
+          canEndTurn ? "text-amber-300 bg-amber-400/10" : "text-zinc-500",
+          open && "bg-zinc-800/50",
+        )}
+        hideTooltip={isHorizontal || open}
+        compact={isHorizontal}
+      />
+      <button
+        type="button"
+        aria-label="Turn options"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className={cn(
+          "absolute flex h-4 w-4 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-100",
+          isHorizontal ? "-top-0.5 right-0" : "-right-1 bottom-0.5",
+        )}
+      >
+        <Caret size={10} />
+      </button>
+      {open && (
+        <TurnMenu
+          anchor={anchor}
+          placement={isHorizontal ? "top" : "right-start"}
+          onClose={close}
+          onEndTurn={onEndTurn}
+          onPassTurnTo={onPassTurnTo}
+        />
+      )}
+    </span>
   );
 };
 
@@ -232,8 +296,7 @@ export const SidenavView: React.FC<SidenavController> = ({
   canEndTurn,
   isMyTurn,
   handleEndTurn,
-  isOut,
-  handleToggleOut,
+  onPassTurnTo,
   canUndo,
   handleUndo,
   isSpectator,
@@ -426,14 +489,6 @@ export const SidenavView: React.FC<SidenavController> = ({
                   </button>
 
                   <button
-                    onClick={handleToggleOut}
-                    className="flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
-                  >
-                    <Flag size={16} />
-                    {isOut ? "I'm back in" : "I'm out (skip my turns)"}
-                  </button>
-
-                  <button
                     onClick={handleOpenShortcuts}
                     className="hidden lg:flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
                   >
@@ -502,18 +557,12 @@ export const SidenavView: React.FC<SidenavController> = ({
           </>
         ) : (
           <>
-            <NavIcon
-              icon={<Forward size={20} />}
-              label="End turn"
-              tooltip={isMyTurn ? "End turn (Shift+Space)" : "End turn (not your turn)"}
-              onClick={handleEndTurn}
-              className={cn(
-                "hover:text-amber-300 active:text-amber-300",
-                canEndTurn && "text-amber-300 bg-amber-400/10",
-              )}
-              disabled={!canEndTurn}
-              hideTooltip={isHorizontal}
-              compact={isHorizontal}
+            <EndTurnButton
+              canEndTurn={canEndTurn}
+              isMyTurn={isMyTurn}
+              onEndTurn={handleEndTurn}
+              onPassTurnTo={onPassTurnTo}
+              isHorizontal={isHorizontal}
             />
 
             <NavIcon

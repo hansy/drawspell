@@ -23,6 +23,7 @@ import { Hand } from "./Hand";
 import { PortraitCommanderDrawer } from "./PortraitCommanderDrawer";
 import { PortraitSeatToolbar } from "./PortraitSeatToolbar";
 import { SideZone } from "./SideZone";
+import { TurnMenu } from "../turn/TurnMenu";
 import { OpponentHandSummary } from "./OpponentHandSummary";
 import { SeatOrientationFrame } from "./SeatOrientationFrame";
 import type { SeatModel } from "@/models/game/seat/seatModel";
@@ -54,7 +55,8 @@ interface SeatViewProps {
   color: string;
   isMe: boolean;
   isActiveTurn?: boolean;
-  onActiveTurnClick?: () => void;
+  // Your turn: the pill's chevron opens the turn menu, which can pass to someone else.
+  onPassTurnTo?: (playerId: string) => void;
   onEndTurnClick?: () => void;
   // Someone else's turn: mark them out and pass it on, for a player who left.
   onSkipTurnClick?: () => void;
@@ -87,7 +89,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
   color,
   isMe,
   isActiveTurn = false,
-  onActiveTurnClick,
+  onPassTurnTo,
   onEndTurnClick,
   onSkipTurnClick,
   onBackInClick,
@@ -241,8 +243,14 @@ export const SeatView: React.FC<SeatViewProps> = ({
   });
   const commanderZoneLabelSizing = getCommanderZoneLabelSizing(scale);
   const [confirmSkip, setConfirmSkip] = React.useState(false);
+  const [turnMenuOpen, setTurnMenuOpen] = React.useState(false);
+  const [turnMenuAnchor, setTurnMenuAnchor] = React.useState<HTMLButtonElement | null>(null);
+  const closeTurnMenu = React.useCallback(() => setTurnMenuOpen(false), []);
   React.useEffect(() => {
-    if (!isActiveTurn) setConfirmSkip(false);
+    if (!isActiveTurn) {
+      setConfirmSkip(false);
+      setTurnMenuOpen(false);
+    }
   }, [isActiveTurn]);
   const activeTurnLabel = isMe
     ? "Your turn"
@@ -254,13 +262,11 @@ export const SeatView: React.FC<SeatViewProps> = ({
     const className = cn(
       activeTurnBadgeClassName,
       positionClassName,
-      onActiveTurnClick
-        ? "cursor-pointer transition-colors hover:border-amber-100 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-        : "pointer-events-none",
+      "pointer-events-none",
     );
 
-    // On your turn the pill is the End turn control; its arrow picks someone else to go next.
-    if (onEndTurnClick && onActiveTurnClick) {
+    // On your turn the pill is the End turn control; its arrow opens the turn menu.
+    if (onEndTurnClick) {
       return (
         <div
           data-testid="active-turn-badge"
@@ -282,14 +288,26 @@ export const SeatView: React.FC<SeatViewProps> = ({
           </button>
           <span aria-hidden="true" className="h-3 w-px bg-amber-200/40" />
           <button
+            ref={setTurnMenuAnchor}
             type="button"
-            aria-label={`${activeTurnLabel}. Choose next player`}
-            title="Choose who goes next"
-            onClick={onActiveTurnClick}
+            aria-label="Turn options"
+            aria-haspopup="menu"
+            aria-expanded={turnMenuOpen}
+            title="Choose who goes next, or sit out"
+            onClick={() => setTurnMenuOpen((value) => !value)}
             className="flex items-center rounded-r-full py-1 pl-1.5 pr-2 transition-colors hover:bg-amber-200/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
           >
             <ChevronDown size={12} />
           </button>
+          {turnMenuOpen && (
+            <TurnMenu
+              anchor={turnMenuAnchor}
+              placement="bottom"
+              onClose={closeTurnMenu}
+              onEndTurn={onEndTurnClick}
+              onPassTurnTo={onPassTurnTo}
+            />
+          )}
         </div>
       );
     }
@@ -346,21 +364,6 @@ export const SeatView: React.FC<SeatViewProps> = ({
             </>
           )}
         </div>
-      );
-    }
-
-    if (onActiveTurnClick) {
-      return (
-        <button
-          type="button"
-          aria-label={`${activeTurnLabel}. Choose next player`}
-          data-testid="active-turn-badge"
-          data-no-seat-swipe="true"
-          className={className}
-          onClick={onActiveTurnClick}
-        >
-          {activeTurnLabel}
-        </button>
       );
     }
 
@@ -998,8 +1001,9 @@ export const SeatView: React.FC<SeatViewProps> = ({
           invertResizeDirection={isTop}
           height={desktopBarHeight}
           defaultHeight={handDefaultHeightPx}
-          minHeight={handMinHeightPx}
-          maxHeight={handMaxHeightPx}
+          // An opponent's bar is a fixed strip of counts; the hand's limits would stretch it.
+          minHeight={isCompactOpponent ? desktopBarHeight : handMinHeightPx}
+          maxHeight={isCompactOpponent ? desktopBarHeight : handMaxHeightPx}
           onHeightChange={isMe ? handleHandHeightChange : undefined}
           dropBlockerId={`bottom-bar-drop-blocker:${player.id}`}
           className={cn(
@@ -1032,7 +1036,8 @@ export const SeatView: React.FC<SeatViewProps> = ({
             )}
             <div
               data-desktop-bottom-zone-cluster
-              className="flex h-full shrink-0 items-stretch gap-1.5"
+              // Narrow seats squeeze the labels before anything overflows; counts stay whole.
+              className="flex h-full min-w-0 shrink items-stretch gap-1.5"
             >
               {library && (
                 <SideZone
