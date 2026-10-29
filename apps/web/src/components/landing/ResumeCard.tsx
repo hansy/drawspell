@@ -17,7 +17,7 @@ export function ResumeCard({ onReconnect, onLeave, isLeaving = false }: ResumeCa
         <button
           onClick={onReconnect}
           disabled={isLeaving}
-          className="flex-1 rounded-lg bg-emerald-400/90 px-4 py-2.5 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-300"
+          className="flex-1 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400"
         >
           Reconnect
         </button>

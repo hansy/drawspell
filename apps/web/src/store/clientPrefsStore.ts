@@ -3,7 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { createSafeStorage } from "@/lib/safeStorage";
 
 const STORAGE_KEY = "drawspell:client-prefs";
-export const USERNAME_MAX_LENGTH = 12;
+export const USERNAME_MAX_LENGTH = 16;
 
 const ADJECTIVES = [
   "Arcane",

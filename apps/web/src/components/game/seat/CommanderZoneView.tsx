@@ -8,6 +8,7 @@ import type { Zone as ZoneType, Card as CardType, ZoneId } from "@/types";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ZONE_DRAG_OVERLAY_SCALE } from "@/lib/dndDragCue";
 import { CARD_ASPECT_CLASS } from "@/lib/constants";
+import { getDisplayImageUrl } from "@/lib/cardDisplay";
 import { Card } from "../card/Card";
 import { Zone } from "../zone/Zone";
 import { COMMANDER_DRAWER_PADDING_PX } from "./handSizing";
@@ -273,13 +274,40 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
             />
           </div>
         )}
-        <span
-          className={cn(
-            "ds-seat-upright ds-seat-vertical-label whitespace-nowrap leading-none [writing-mode:vertical-rl]",
-          )}
-        >
-          Commander
-        </span>
+        {cards.length > 0 ? (
+          // Show who the commander is (and its tax) without opening the drawer.
+          <span
+            data-commander-tab-preview
+            className="ds-seat-upright pointer-events-none flex flex-col items-center gap-1"
+          >
+            <span className="relative block h-[30px] w-[30px] overflow-hidden rounded-[3px] bg-zinc-800 ring-1 ring-white/15">
+              {getDisplayImageUrl(cards[0], { preferArtCrop: true }) && (
+                <img
+                  src={getDisplayImageUrl(cards[0], { preferArtCrop: true })}
+                  alt=""
+                  draggable={false}
+                  className="h-full w-full object-cover"
+                />
+              )}
+            </span>
+            {cards.some((card) => (card.commanderTax ?? 0) > 0) && (
+              <span
+                data-commander-tab-tax
+                className="rounded-full bg-zinc-950/90 px-1 font-mono text-[9px] leading-tight text-amber-200"
+              >
+                +{cards.reduce((sum, card) => sum + (card.commanderTax ?? 0), 0)}
+              </span>
+            )}
+          </span>
+        ) : (
+          <span
+            className={cn(
+              "ds-seat-upright ds-seat-vertical-label whitespace-nowrap leading-none [writing-mode:vertical-rl]",
+            )}
+          >
+            Commander
+          </span>
+        )}
       </button>
 
       <div

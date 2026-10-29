@@ -6,7 +6,7 @@ import type { ScryfallCard } from "@/types/scryfall";
 
 import { ZONE } from "@/constants/zones";
 import { useGameStore } from "@/store/gameStore";
-import { createDebouncedTokenSearch } from "@/services/scryfall/scryfallTokens";
+import { createDebouncedTokenSearch, rankTokenResults } from "@/services/scryfall/scryfallTokens";
 import { cacheCards } from "@/services/scryfall/scryfallCache";
 import { isAbortError } from "@/lib/errors";
 import { planTokenCards } from "@/models/game/token-creation/tokenCreationModel";
@@ -75,7 +75,7 @@ export const useTokenCreationController = ({
       .then((data) => {
         if (!isCurrent) return;
         if (data && data.data) {
-          setResults(data.data);
+          setResults(rankTokenResults(query, data.data));
         } else {
           setResults([]);
         }

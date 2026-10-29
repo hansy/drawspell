@@ -148,6 +148,8 @@ export type GameShortcutActions = {
   mulligan: (count: number) => void;
   unloadDeck: () => void;
   untapAll: () => void;
+  // Returns false when no hand cards are selected so Enter keeps its normal meaning.
+  playSelected: () => boolean;
   zoomIn: () => void;
   zoomOut: () => void;
 };
@@ -188,6 +190,8 @@ export const runGameShortcut = (params: {
       return true;
     case "game.passTurn":
       return params.actions.passTurn();
+    case "game.playSelected":
+      return params.actions.playSelected();
     case "game.zoomIn":
       params.actions.zoomIn();
       return true;

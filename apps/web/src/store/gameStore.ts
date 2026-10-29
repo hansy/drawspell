@@ -14,6 +14,7 @@ import { createPlayerActions } from './gameStore/actions/players';
 import { createSessionActions } from './gameStore/actions/session';
 import { createUiActions } from './gameStore/actions/ui';
 import { createZoneActions } from './gameStore/actions/zones';
+import { withUndo } from './gameStore/undo';
 
 interface GameStore extends GameState {
     // Additional actions or computed properties can go here
@@ -53,6 +54,18 @@ export const useGameStore = create<GameStore>()(
         (set, get) => {
             const dispatchIntent = createIntentDispatcher(set, get);
 
+            const actions = {
+                ...createSessionActions(set, get, { dispatchIntent }),
+                ...createPrivateOverlayActions(set, get),
+                ...createPlayerActions(set, get, { dispatchIntent }),
+                ...createZoneActions(set, get, { dispatchIntent }),
+                ...createCardActions(set, get, { dispatchIntent }),
+                ...createMovementActions(set, get, { dispatchIntent }),
+                ...createDeckActions(set, get, { dispatchIntent }),
+                ...createCounterActions(set, get, { dispatchIntent }),
+                ...createUiActions(set, get, { dispatchIntent }),
+            };
+
             return ({
                 players: {},
                 playerOrder: [],
@@ -70,15 +83,8 @@ export const useGameStore = create<GameStore>()(
                 globalCounters: {},
                 activeModal: null,
 
-                ...createSessionActions(set, get, { dispatchIntent }),
-                ...createPrivateOverlayActions(set, get),
-                ...createPlayerActions(set, get, { dispatchIntent }),
-                ...createZoneActions(set, get, { dispatchIntent }),
-                ...createCardActions(set, get, { dispatchIntent }),
-                ...createMovementActions(set, get, { dispatchIntent }),
-                ...createDeckActions(set, get, { dispatchIntent }),
-                ...createCounterActions(set, get, { dispatchIntent }),
-                ...createUiActions(set, get, { dispatchIntent }),
+                ...actions,
+                ...withUndo(get, actions),
             });
         },
         {

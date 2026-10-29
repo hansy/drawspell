@@ -7,6 +7,7 @@ export type GameShortcutId =
   | "ui.openTokenModal"
   | "game.untapAll"
   | "game.passTurn"
+  | "game.playSelected"
   | "game.drawOne"
   | "game.drawX"
   | "game.discardOne"
@@ -102,6 +103,13 @@ export const GAME_SHORTCUTS: GameShortcutDefinition[] = [
     binding: { key: " ", shift: true },
     title: "Pass Turn",
     description: "Ends your turn and passes to the next eligible player.",
+    requiresDeckLoaded: true,
+  },
+  {
+    id: "game.playSelected",
+    binding: { key: "enter" },
+    title: "Play Selected",
+    description: "Puts the selected cards from your hand onto the battlefield face up.",
     requiresDeckLoaded: true,
   },
   {

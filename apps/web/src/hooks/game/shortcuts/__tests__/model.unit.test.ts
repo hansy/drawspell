@@ -210,6 +210,7 @@ describe("gameShortcuts/model", () => {
   it("requests confirmation before resetting a deck", () => {
     const actions = {
       passTurn: vi.fn(() => false),
+      playSelected: vi.fn(() => false),
       drawOne: vi.fn(),
       discard: vi.fn(),
       exile: vi.fn(),
@@ -274,6 +275,7 @@ describe("gameShortcuts/model", () => {
       requestConfirmation,
       actions: {
         passTurn: vi.fn(() => false),
+        playSelected: vi.fn(() => false),
         drawOne: vi.fn(), discard: vi.fn(), exile: vi.fn(), shuffle,
         resetDeck: vi.fn(), mulligan: vi.fn(), unloadDeck: vi.fn(),
         untapAll: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(),
@@ -316,6 +318,7 @@ describe("gameShortcuts/model", () => {
       handleLeave: vi.fn(),
       actions: {
         passTurn: vi.fn(() => false),
+        playSelected: vi.fn(() => false),
         drawOne: vi.fn(),
         discard: vi.fn(),
         exile: vi.fn(),
@@ -352,6 +355,7 @@ describe("gameShortcuts/model", () => {
       handleLeave: vi.fn(),
       actions: {
         passTurn: vi.fn(() => false),
+        playSelected: vi.fn(() => false),
         drawOne: vi.fn(),
         discard: vi.fn(),
         exile,
@@ -390,6 +394,7 @@ describe("gameShortcuts/model", () => {
       handleLeave: vi.fn(),
       actions: {
         passTurn: vi.fn(() => false),
+        playSelected: vi.fn(() => false),
         drawOne: vi.fn(),
         discard: vi.fn(),
         exile,

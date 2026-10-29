@@ -52,6 +52,7 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
   curatedDecks,
   activeCuratedDeckId,
   handleCuratedDeckImport,
+  handleCuratedDeckLoad,
 }) => {
   const prefilledHintId = React.useId();
   const errorMessageId = React.useId();
@@ -67,7 +68,7 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
         <DialogHeader>
           <DialogTitle>Load Deck</DialogTitle>
           <DialogDescription className="text-zinc-400">
-            Paste your decklist below (e.g., &quot;4 Lightning Bolt&quot;).
+            Paste a decklist (e.g., &quot;4 Lightning Bolt&quot;) or an Archidekt deck link.
           </DialogDescription>
         </DialogHeader>
 
@@ -109,6 +110,7 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
                   activeDeckId={activeCuratedDeckId}
                   disabled={isImporting}
                   onSelectDeck={handleCuratedDeckImport}
+                  onLoadDeck={handleCuratedDeckLoad}
                 />
               </React.Suspense>
             )}

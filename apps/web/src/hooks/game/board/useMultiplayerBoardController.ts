@@ -37,6 +37,7 @@ import {
 import { getPortraitViewportMatch } from "@/models/game/board/viewportModel";
 import { useConfirmationDialog } from "@/hooks/shared/useConfirmationDialog";
 import { DESTRUCTIVE_ACTION_CONFIRMATIONS } from "@/models/game/destructiveActions";
+import { useUndo } from "@/hooks/game/undo/useUndo";
 
 const IDLE_TIMEOUT_MS = 10 * 60_000;
 const IDLE_POLL_MS = 30_000;
@@ -269,6 +270,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
   const [isTokenModalOpen, setIsTokenModalOpen] = React.useState(false);
   const [isCoinFlipperOpen, setIsCoinFlipperOpen] = React.useState(false);
   const [isDiceRollerOpen, setIsDiceRollerOpen] = React.useState(false);
+  useUndo(sessionId, !isSpectator);
   const [isLogOpen, setIsLogOpenState] = React.useState(getDefaultLogOpen);
   const logToggledRef = React.useRef(false);
   const setIsLogOpen = React.useCallback((open: boolean) => {

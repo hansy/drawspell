@@ -15,6 +15,8 @@ import { waitForIntentAcknowledgement } from "@/store/gameStore/dispatchIntent";
 import { getIntentConnectionMeta } from "@/partykit/intentTransport";
 import { getYDocHandles, getYProvider } from "@/yjs/docManager";
 import { useClientPrefsStore } from "@/store/clientPrefsStore";
+import { parseArchidektDeckId } from "@/services/deck-import/archidektImport";
+import { fetchArchidektDeck } from "@/server/archidektDeck";
 import {
   isMultiplayerProviderReady,
   planDeckImport,
@@ -203,6 +205,24 @@ export const useLoadDeckController = ({
   }, [isOpen, matchingPreload, isImporting, viewerRole, players, playerId, importDeckText]);
 
   const handleImport = React.useCallback(async () => {
+    // A pasted Archidekt link is swapped for that deck's list before importing.
+    if (parseArchidektDeckId(importText)) {
+      setIsImporting(true);
+      setError(null);
+      let decklist: string;
+      try {
+        ({ decklist } = await fetchArchidektDeck({ data: { url: importText.trim() } }));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Couldn't load that Archidekt deck.");
+        setIsImporting(false);
+        return;
+      }
+      setIsImporting(false);
+      setImportText(decklist);
+      await importDeckText(decklist, { saveAsLastImport: true });
+      return;
+    }
+
     const selectedCuratedDeck = selectedCuratedDeckId
       ? curatedDecks.find((deck) => deck.id === selectedCuratedDeckId)
       : null;
@@ -236,9 +256,23 @@ export const useLoadDeckController = ({
     [importText, isImporting]
   );
 
+  // Loads a curated deck straight away; picking the card still fills the box for editing.
+  const handleCuratedDeckLoad = React.useCallback(
+    async (deck: CuratedDeck) => {
+      if (isImporting) return;
+      setPrefilledFromLastImport(false);
+      setError(null);
+      setImportText(deck.decklist);
+      setSelectedCuratedDeckId(deck.id);
+      await importDeckText(deck.decklist, { saveAsLastImport: false });
+    },
+    [importDeckText, isImporting]
+  );
+
   return {
     isOpen,
     handleClose: onClose,
+    handleCuratedDeckLoad,
     textareaRef,
     importText,
     handleImportTextChange,

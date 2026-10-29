@@ -1,6 +1,8 @@
 import type { Card, CardId, CardReveal, GameState, PlayerId, ZoneId } from "@/types";
 import type { ScryfallRelatedCard } from "@/types/scryfall";
 import type { ContextMenuMoveCardFn } from "@/models/game/context-menu/menu/actionTypes";
+import { ZONE } from "@/constants/zones";
+import { nextOpenBattlefieldPosition } from "@/lib/battlefieldPlacement";
 
 type OpenTextPromptFn = (opts: {
   title: string;
@@ -24,6 +26,7 @@ type StoreForContextMenu = Pick<
   | "setActiveModal"
   | "removeCard"
   | "cards"
+  | "zones"
   | "drawCard"
   | "shuffleLibrary"
   | "discardFromLibrary"
@@ -76,10 +79,21 @@ export const createCardActionAdapters = (params: {
     opts
   ) => {
     applyToTargetCards(cardId, (card) => {
+      const toZone = params.store.zones?.[toZoneId];
+      // Cards put onto the battlefield from a menu go beside the existing row, not on top of it.
+      const resolvedPosition =
+        position ??
+        (toZone?.type === ZONE.BATTLEFIELD && card.zoneId !== toZoneId
+          ? nextOpenBattlefieldPosition(
+              toZone.cardIds
+                .map((id) => params.store.cards[id]?.position)
+                .filter((value): value is { x: number; y: number } => Boolean(value)),
+            )
+          : undefined);
       params.store.moveCard(
         card.id,
         toZoneId,
-        position,
+        resolvedPosition,
         params.myPlayerId,
         isRemote,
         opts

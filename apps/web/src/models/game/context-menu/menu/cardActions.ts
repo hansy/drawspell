@@ -11,7 +11,9 @@ import type {
 } from "@/types";
 
 import { ZONE } from "@/constants/zones";
-import { canModifyCardState, canTapCard } from "@/rules/permissions";
+import { canModifyCardState, canMoveCard, canTapCard } from "@/rules/permissions";
+import { getPlayerZones } from "@/lib/gameSelectors";
+import { getShortcutLabel } from "@/models/game/shortcuts/gameShortcuts";
 import {
   canManageFaceDownExileReveal,
   canViewerSeeCardIdentity,
@@ -176,6 +178,28 @@ export const buildCardActions = ({
           viewerRole,
         }),
     );
+
+  // The most common hand action gets a top-level item instead of Move to > Battlefield > Face up.
+  if (currentZone?.type === ZONE.HAND && card.ownerId === myPlayerId) {
+    const battlefield = getPlayerZones(zones, myPlayerId).battlefield;
+    if (
+      battlefield &&
+      canMoveCard({
+        actorId: myPlayerId,
+        role: viewerRole,
+        card,
+        fromZone: currentZone,
+        toZone: battlefield,
+      }).allowed
+    ) {
+      items.push({
+        type: "action",
+        label: "Play",
+        onSelect: () => moveCard(card.id, battlefield.id),
+        shortcut: getShortcutLabel("game.playSelected"),
+      });
+    }
+  }
 
   if ((canRevealHiddenZone || canRevealFaceDown || canRevealFaceDownExile) && setCardReveal) {
     items.push(

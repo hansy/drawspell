@@ -12,6 +12,7 @@ import {
   ScrollText,
   Share2,
   SkipForward,
+  Undo2,
   Wifi,
 } from "lucide-react";
 import {
@@ -140,6 +141,8 @@ export const SidenavView: React.FC<SidenavController> = ({
   closeMenu,
   handleUntapAll,
   handleOpenShortcuts,
+  canUndo,
+  handleUndo,
   isSpectator,
   orientation,
 }) => {
@@ -399,6 +402,17 @@ export const SidenavView: React.FC<SidenavController> = ({
               onClick={handleUntapAll}
               className="hover:text-blue-400 active:text-blue-400"
               disabled={isSpectator}
+              hideTooltip={isHorizontal}
+              compact={isHorizontal}
+            />
+
+            <NavIcon
+              icon={<Undo2 size={20} />}
+              label="Undo"
+              tooltip="Undo (Ctrl/Cmd+Z)"
+              onClick={handleUndo}
+              className="hover:text-zinc-100 active:text-zinc-100"
+              disabled={!canUndo}
               hideTooltip={isHorizontal}
               compact={isHorizontal}
             />

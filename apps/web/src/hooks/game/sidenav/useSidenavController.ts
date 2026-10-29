@@ -2,6 +2,8 @@ import * as React from "react";
 
 import { useGameStore } from "@/store/gameStore";
 import type { PeerCounts } from "@/hooks/game/multiplayer-sync/peerCount";
+import { performUndo } from "@/hooks/game/undo/useUndo";
+import { useUndoStore } from "@/store/gameStore/undo";
 
 export type SyncStatus = "connecting" | "connected";
 
@@ -46,6 +48,7 @@ export const useSidenavController = ({
 
   const myPlayerId = useGameStore((state) => state.myPlayerId);
   const untapAll = useGameStore((state) => state.untapAll);
+  const canUndo = useUndoStore((state) => state.entries.length > 0);
 
   const handleUntapAll = React.useCallback(() => {
     if (isSpectator) return;
@@ -90,6 +93,8 @@ export const useSidenavController = ({
     closeMenu,
     handleUntapAll,
     handleOpenShortcuts,
+    canUndo,
+    handleUndo: performUndo,
   };
 };
 

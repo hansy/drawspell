@@ -388,11 +388,14 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
           isTop={isTop}
         />
       </Zone>
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
-        <span className="text-4xl font-bold uppercase tracking-widest">
-          {player.name || (isMe ? "Me" : "")}
-        </span>
-      </div>
+      {/* The name labels an empty board; once cards are down it only sits behind them. */}
+      {cards.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
+          <span className="text-4xl font-bold uppercase tracking-widest">
+            {player.name || (isMe ? "Me" : "")}
+          </span>
+        </div>
+      )}
       <BattlefieldZoomIndicator
         zoom={controls.zoom}
         limits={controls.zoomLimits}

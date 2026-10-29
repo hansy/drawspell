@@ -50,6 +50,7 @@ import {
   clearYMap,
   getMaps,
   isRecord,
+  readPlayer,
   syncPlayerOrder,
 } from "./domain/yjsStore";
 import {
@@ -757,7 +758,16 @@ export class Room extends YServer<Env> {
           (accessToken === tokens.playerToken ||
             accessToken === tokens.spectatorToken),
       );
-      return Response.json({ exists });
+      if (!exists) return Response.json({ exists });
+      // Invite holders see who they're joining before picking a name; they see the same once in the room.
+      const maps = getMaps(this.document);
+      const hostId = maps.meta.get("hostId");
+      const host = typeof hostId === "string" ? readPlayer(maps, hostId) : null;
+      return Response.json({
+        exists,
+        hostName: host?.name || null,
+        playerCount: maps.players.size,
+      });
     }
     if (url.pathname === ROOM_LEAVE_INTERNAL_PATH) {
       if (request.method !== "POST") {

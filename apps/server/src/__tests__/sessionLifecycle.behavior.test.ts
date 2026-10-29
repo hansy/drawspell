@@ -52,6 +52,7 @@ vi.mock("../domain/intents/applyIntentToDoc", () => ({
 }));
 
 import { Room, createEmptyHiddenState } from "../server";
+import { getMaps } from "../domain/yjsStore";
 
 beforeEach(() => {
   superOnConnect.mockClear();
@@ -2655,7 +2656,37 @@ describe("room status", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ exists: true });
+    await expect(response.json()).resolves.toEqual({
+      exists: true,
+      hostName: null,
+      playerCount: 0,
+    });
+  });
+
+  it("tells an invite holder who is hosting and how many players joined", async () => {
+    const state = createState();
+    await state.storage.put(ROOM_TOKENS_KEY, {
+      playerToken: "player-token",
+      spectatorToken: "spectator-token",
+    });
+    const server = new Room(state, createEnv());
+    const maps = getMaps((server as any).document);
+    maps.meta.set("hostId", "p1");
+    maps.players.set("p1", { id: "p1", name: "Alice" });
+    maps.players.set("p2", { id: "p2", name: "Bob" });
+
+    const response = await server.onRequest(
+      new Request("https://internal/__room/status", {
+        method: "POST",
+        headers: { "x-drawspell-room-access-token": "player-token" },
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      exists: true,
+      hostName: "Alice",
+      playerCount: 2,
+    });
   });
 
   it("reports a room as absent after its storage has been destroyed", async () => {

@@ -90,7 +90,9 @@ describe("CommanderZone", () => {
     );
     const label = document.querySelector("[data-commander-zone-label]");
     const panel = document.querySelector("[data-commander-zone-panel]");
-    expect(label?.textContent).toBe("Commander");
+    // With a commander present the tab shows its art instead of the word.
+    expect(label?.querySelector("[data-commander-tab-preview]")).not.toBeNull();
+    expect(label?.textContent).not.toContain("Commander");
     expect(label?.getAttribute("data-commander-drop-target")).toBe("true");
     expect(label?.getAttribute("data-drag-overlay-scale")).toBe("0.2");
     expect(label?.classList.contains("h-28")).toBe(false);
@@ -101,7 +103,7 @@ describe("CommanderZone", () => {
     expect(panel?.classList.contains("h-[var(--commander-drawer-height)]")).toBe(true);
     expect(label?.classList.contains("py-3")).toBe(false);
     expect(
-      label?.querySelector("span")?.classList.contains("ds-seat-vertical-label"),
+      label?.querySelector("[data-commander-tab-preview]")?.classList.contains("ds-seat-upright"),
     ).toBe(true);
     expect(label?.classList.contains("invisible")).toBe(false);
     expect(label?.classList.contains("rotate-180")).toBe(false);

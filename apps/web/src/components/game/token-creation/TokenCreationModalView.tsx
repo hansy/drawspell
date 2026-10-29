@@ -12,6 +12,9 @@ import { useGameStore } from "@/store/gameStore";
 import { CARD_CORNER_CLASS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
+
+const COMMON_TOKENS = ["Treasure", "Clue", "Food", "Soldier", "Zombie", "Spirit", "Goblin", "Blood"];
+
 export const TokenCreationModalView: React.FC<TokenCreationController> = ({
   isOpen,
   handleClose,
@@ -148,10 +151,22 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
                   <Search size={17} />
                 </div>
                 <div className="text-sm font-medium text-zinc-300">
-                  Type at least 3 characters
+                  Search for a token, or pick a common one
                 </div>
-                <div className="max-w-52 text-xs leading-snug text-zinc-500">
-                  Try Treasure, Goblin, or Soldier.
+                <div
+                  data-token-quick-picks
+                  className="flex max-w-sm flex-wrap justify-center gap-1.5"
+                >
+                  {COMMON_TOKENS.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => setQuery(name)}
+                      className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+                    >
+                      {name}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}

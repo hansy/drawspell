@@ -52,8 +52,6 @@ export const LandingPage = () => {
   const [resumeSessionId, setResumeSessionId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
-  // Debug toggle: show the CTA even when the reconnect card is visible.
-  const showCtaWithReconnect = false;
 
   useEffect(() => {
     if (!(window as GameRuntimeWindow).__drawspellGameRuntimeLoaded) return;
@@ -227,24 +225,26 @@ export const LandingPage = () => {
             ) : null
           }
           primaryAction={
-            resumeSessionId && !showCtaWithReconnect ? null : (
-              <button
-                onClick={handleCreateGame}
-                disabled={isCreating}
-                aria-busy={isCreating}
-                className="w-full max-w-[calc(100vw-3rem)] rounded-full border border-white/20 bg-white/25 px-6 py-3 text-base font-semibold text-white shadow-[0_0_30px_rgba(99,102,241,0.25)] transition hover:bg-white/35 disabled:cursor-not-allowed disabled:opacity-70 sm:max-w-sm"
-              >
-                <span className="inline-flex items-center justify-center gap-2">
-                  {isCreating && (
-                    <Loader2
-                      aria-hidden="true"
-                      className="h-4 w-4 motion-safe:animate-spin"
-                    />
-                  )}
-                  {isCreating ? "Starting game" : "Start a game"}
-                </span>
-              </button>
-            )
+            <button
+              onClick={handleCreateGame}
+              disabled={isCreating}
+              aria-busy={isCreating}
+              className="w-full max-w-[calc(100vw-3rem)] rounded-full border border-white/20 bg-white/25 px-6 py-3 text-base font-semibold text-white shadow-[0_0_30px_rgba(99,102,241,0.25)] transition hover:bg-white/35 disabled:cursor-not-allowed disabled:opacity-70 sm:max-w-sm"
+            >
+              <span className="inline-flex items-center justify-center gap-2">
+                {isCreating && (
+                  <Loader2
+                    aria-hidden="true"
+                    className="h-4 w-4 motion-safe:animate-spin"
+                  />
+                )}
+                {isCreating
+                  ? "Starting game"
+                  : resumeSessionId
+                    ? "Start a new game"
+                    : "Start a game"}
+              </span>
+            </button>
           }
         />
         <FooterLinks />

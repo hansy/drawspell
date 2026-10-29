@@ -152,3 +152,27 @@ export function createDebouncedTokenSearch(
 
   return { search, cancel };
 }
+
+// Scryfall returns tokens by name, so "treasure" lists Dinosaur // Treasure
+// before Treasure. Put exact matches first, then prefix matches, then
+// single-faced tokens ahead of double-faced ones.
+export const rankTokenResults = <T extends { name: string }>(
+  query: string,
+  cards: T[],
+): T[] => {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return cards;
+  const score = (card: T) => {
+    const name = card.name.toLowerCase();
+    const faces = name.split(" // ");
+    if (name === needle) return 0;
+    if (faces.length === 1 && name.startsWith(needle)) return 1;
+    if (faces.some((face) => face === needle)) return 2;
+    if (faces.length === 1) return 3;
+    return 4;
+  };
+  return cards
+    .map((card, index) => ({ card, index, rank: score(card) }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map((entry) => entry.card);
+};

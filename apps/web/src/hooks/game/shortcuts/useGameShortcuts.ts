@@ -2,6 +2,9 @@ import React from "react";
 import { stepBattlefieldZoom } from "@/lib/battlefieldZoom";
 import { useLatestRef } from "@/hooks/shared/useLatestRef";
 import { useGameStore } from "@/store/gameStore";
+import { useSelectionStore } from "@/store/selectionStore";
+import { getPlayerZones } from "@/lib/gameSelectors";
+import { nextOpenBattlefieldPosition } from "@/lib/battlefieldPlacement";
 import type { Player, PlayerId, ViewerRole, Zone, ZoneId } from "@/types";
 import { GAME_SHORTCUTS } from "@/models/game/shortcuts/gameShortcuts";
 import {
@@ -193,6 +196,24 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
         useGameStore.getState().mulligan(myPlayerId, count, myPlayerId);
       const unloadDeck = () => useGameStore.getState().unloadDeck(myPlayerId, myPlayerId);
       const untapAll = () => useGameStore.getState().untapAll(myPlayerId);
+      const playSelected = () => {
+        const state = useGameStore.getState();
+        const { selectedCardIds, selectionZoneId } = useSelectionStore.getState();
+        const myZones = getPlayerZones(state.zones, myPlayerId);
+        if (!myZones.hand || !myZones.battlefield) return false;
+        if (selectionZoneId !== myZones.hand.id || selectedCardIds.length === 0) return false;
+        const battlefield = myZones.battlefield;
+        const occupied = battlefield.cardIds
+          .map((id) => state.cards[id]?.position)
+          .filter((position): position is { x: number; y: number } => Boolean(position));
+        selectedCardIds.forEach((cardId) => {
+          const position = nextOpenBattlefieldPosition(occupied);
+          occupied.push(position);
+          state.moveCard(cardId, battlefield.id, position);
+        });
+        useSelectionStore.getState().clearSelection();
+        return true;
+      };
       const adjustBattlefieldZoom = (direction: "in" | "out") => {
         const currentScale =
           useGameStore.getState().battlefieldViewScale[myPlayerId] ?? 1;
@@ -231,6 +252,7 @@ export const useGameShortcuts = (args: UseGameShortcutsArgs) => {
           mulligan,
           unloadDeck,
           untapAll,
+          playSelected,
           zoomIn,
           zoomOut,
         },

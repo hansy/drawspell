@@ -8,6 +8,8 @@ type RoomStatusRequest = {
 
 type RoomStatusResponse = {
   exists: boolean;
+  hostName?: string | null;
+  playerCount?: number;
 };
 
 const origins = resolveOriginsForEnv(import.meta.env.VITE_ENV);
@@ -34,5 +36,9 @@ export const getRoomStatus = createServerFn({ method: "POST" })
     if (typeof result.exists !== "boolean") {
       throw new Error("invalid room status response");
     }
-    return { exists: result.exists };
+    return {
+      exists: result.exists,
+      hostName: typeof result.hostName === "string" ? result.hostName : null,
+      playerCount: typeof result.playerCount === "number" ? result.playerCount : undefined,
+    };
   });

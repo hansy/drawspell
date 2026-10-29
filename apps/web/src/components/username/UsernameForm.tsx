@@ -81,7 +81,7 @@ export function UsernameForm({
           placeholder="Your name"
           className={cn(
             'h-11',
-            highlighted && 'ring-2 ring-amber-500/30 border-amber-500/50'
+            highlighted && 'ring-2 ring-indigo-500/40 border-indigo-500/60'
           )}
         />
       </div>

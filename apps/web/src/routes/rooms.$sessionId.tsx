@@ -45,7 +45,7 @@ export function GameRoute() {
   if (!username) {
     return (
       <Suspense fallback={<RoomRouteLoadingScreen />}>
-        <UsernamePromptScreen />
+        <UsernamePromptScreen sessionId={sessionId} />
       </Suspense>
     );
   }

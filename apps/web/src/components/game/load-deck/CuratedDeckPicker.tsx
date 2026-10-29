@@ -11,6 +11,7 @@ type CuratedDeckPickerProps = {
   activeDeckId: string | null;
   disabled: boolean;
   onSelectDeck: (deck: CuratedDeck) => void;
+  onLoadDeck?: (deck: CuratedDeck) => void;
 };
 
 export const CuratedDeckPicker = ({
@@ -18,6 +19,7 @@ export const CuratedDeckPicker = ({
   activeDeckId,
   disabled,
   onSelectDeck,
+  onLoadDeck,
 }: CuratedDeckPickerProps) => {
   const groups = groupCuratedDecksByPrimaryTag(decks);
   const orderedDecks = groups.flatMap((group) => group.decks);
@@ -37,8 +39,8 @@ export const CuratedDeckPicker = ({
         {orderedDecks.map((deck) => {
           const isActive = activeDeckId === deck.id;
           return (
+            <div key={deck.id} className="group/deck relative">
             <button
-              key={deck.id}
               type="button"
               onClick={() => onSelectDeck(deck)}
               disabled={disabled}
@@ -88,6 +90,18 @@ export const CuratedDeckPicker = ({
                 </div>
               </div>
             </button>
+            {onLoadDeck && (
+              <button
+                type="button"
+                onClick={() => onLoadDeck(deck)}
+                disabled={disabled}
+                aria-label={`Load ${deck.name}`}
+                className="absolute bottom-2 right-2 z-20 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow transition hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Load
+              </button>
+            )}
+            </div>
           );
         })}
       </div>
