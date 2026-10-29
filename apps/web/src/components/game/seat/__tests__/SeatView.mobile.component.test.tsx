@@ -264,7 +264,12 @@ describe("SeatView mobile toolbar", () => {
             isMe={false}
             viewerPlayerId="me"
             opponentColors={{ me: "rose", p1: "sky" }}
-            model={baseModel as any}
+            model={
+              {
+                ...baseModel,
+                zones: { ...baseModel.zones, hand: makeZone("hand-p1", "hand") },
+              } as any
+            }
             layoutVariant="portrait-viewport"
           />
         </DndContext>
@@ -280,13 +285,15 @@ describe("SeatView mobile toolbar", () => {
     // An opponent with no floating mana shows no orbs at all.
     expect(screen.queryAllByRole("button", { name: /mana: 0/ })).toHaveLength(0);
     expect(screen.queryByRole("button", { name: /Clear all/ })).toBeNull();
-    const handPill = container.querySelector("[data-mobile-hand-count-pill]");
-    expect(handPill?.textContent).toBe("Hand - 0");
+    // An opponent's hidden hand is summarised as a count instead of a row of card backs.
+    const handCount = container.querySelector("[data-opponent-hand-count]");
+    expect(handCount?.textContent).toContain("0");
     expect(
       container
         .querySelector("[data-mobile-hand-area]")
-        ?.contains(handPill),
+        ?.contains(handCount),
     ).toBe(true);
+    expect(container.querySelector("[data-mobile-hand-count-pill]")).toBeNull();
   });
 
   it("renders the mobile commander control as a visible pill with a stronger open state", () => {

@@ -41,7 +41,6 @@ export interface SeatProps {
   zoomControlsDisabled?: boolean;
   onLifeContextMenu?: (e: React.MouseEvent, player: Player) => void;
   layoutVariant?: "default" | "portrait-viewport";
-  portraitSeatSwitcher?: React.ReactNode;
   isSpotlit?: boolean;
   onToggleSpotlight?: () => void;
 }
@@ -72,7 +71,6 @@ const SeatInner: React.FC<SeatProps> = ({
   zoomControlsDisabled,
   onLifeContextMenu,
   layoutVariant = "default",
-  portraitSeatSwitcher,
   isSpotlit,
   onToggleSpotlight,
 }) => {
@@ -128,7 +126,6 @@ const SeatInner: React.FC<SeatProps> = ({
       model={model}
       zoomControlsDisabled={zoomControlsDisabled}
       layoutVariant={layoutVariant}
-      portraitSeatSwitcher={portraitSeatSwitcher}
       isSpotlit={isSpotlit}
       onToggleSpotlight={onToggleSpotlight}
     />

@@ -38,6 +38,8 @@ interface NavIconProps {
   className?: string;
   disabled?: boolean;
   hideTooltip?: boolean;
+  // Tighter padding so the phone toolbar fits on a 375px screen.
+  compact?: boolean;
 }
 
 const NavIcon: React.FC<NavIconProps> = ({
@@ -48,6 +50,7 @@ const NavIcon: React.FC<NavIconProps> = ({
   className,
   disabled = false,
   hideTooltip = false,
+  compact = false,
 }) => {
   const [showTapLabel, setShowTapLabel] = React.useState(false);
   const tapLabelTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
@@ -87,7 +90,8 @@ const NavIcon: React.FC<NavIconProps> = ({
         onPointerDown={handlePointerDown}
         disabled={disabled}
         className={cn(
-          "p-3 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 active:bg-zinc-800/50 active:scale-95 rounded-lg transition-all touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400 disabled:active:bg-transparent disabled:active:text-zinc-400 disabled:active:scale-100",
+          "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 active:bg-zinc-800/50 active:scale-95 rounded-lg transition-all touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400 disabled:active:bg-transparent disabled:active:text-zinc-400 disabled:active:scale-100",
+          compact ? "p-2.5" : "p-3",
           className,
         )}
       >
@@ -225,6 +229,7 @@ export const SidenavView: React.FC<SidenavController> = ({
           className="hover:text-indigo-400 active:text-indigo-400"
           disabled={shareDisabled}
           hideTooltip={isHorizontal}
+              compact={isHorizontal}
         />
       )}
 
@@ -354,7 +359,7 @@ export const SidenavView: React.FC<SidenavController> = ({
         className={cn(
           "bg-zinc-950 z-[60]",
           isHorizontal
-            ? "h-[var(--mobile-sidenav-h,3.75rem)] w-full border-t border-zinc-800 px-2 flex flex-row-reverse items-center gap-1"
+            ? "h-[var(--mobile-sidenav-h,3.75rem)] w-full min-w-0 border-t border-zinc-800 px-1 flex flex-row-reverse items-center justify-between"
             : "sticky top-0 h-[100dvh] w-12 lg:w-[var(--sidenav-w)] border-r border-zinc-800 py-4 flex flex-col items-center",
         )}
       >
@@ -369,6 +374,7 @@ export const SidenavView: React.FC<SidenavController> = ({
                 isLogOpen && "text-amber-400 bg-amber-500/10",
               )}
               hideTooltip={isHorizontal}
+              compact={isHorizontal}
             />
 
             <div className="flex-1" />
@@ -384,6 +390,7 @@ export const SidenavView: React.FC<SidenavController> = ({
               className="hover:text-red-400 active:text-red-400"
               disabled={isSpectator || !canEndTurn}
               hideTooltip={isHorizontal}
+              compact={isHorizontal}
             />
 
             <NavIcon
@@ -393,6 +400,7 @@ export const SidenavView: React.FC<SidenavController> = ({
               className="hover:text-blue-400 active:text-blue-400"
               disabled={isSpectator}
               hideTooltip={isHorizontal}
+              compact={isHorizontal}
             />
 
             <NavIcon
@@ -402,6 +410,7 @@ export const SidenavView: React.FC<SidenavController> = ({
               className="hover:text-emerald-400 active:text-emerald-400"
               disabled={isSpectator}
               hideTooltip={isHorizontal}
+              compact={isHorizontal}
             />
 
             <NavIcon
@@ -411,6 +420,7 @@ export const SidenavView: React.FC<SidenavController> = ({
               className="hover:text-yellow-400 active:text-yellow-400"
               disabled={isSpectator}
               hideTooltip={isHorizontal}
+              compact={isHorizontal}
             />
 
             <NavIcon
@@ -420,6 +430,7 @@ export const SidenavView: React.FC<SidenavController> = ({
               className="hover:text-indigo-400 active:text-indigo-400"
               disabled={isSpectator}
               hideTooltip={isHorizontal}
+              compact={isHorizontal}
             />
 
             <NavIcon
@@ -431,6 +442,7 @@ export const SidenavView: React.FC<SidenavController> = ({
                 isLogOpen && "text-amber-400 bg-amber-500/10",
               )}
               hideTooltip={isHorizontal}
+              compact={isHorizontal}
             />
 
             <div className="flex-1" />

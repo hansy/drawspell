@@ -24,7 +24,7 @@ import {
 import { ZONE_DRAG_OVERLAY_POINTER_OFFSET_PX } from "@/lib/dndDragCue";
 import { bottomBarAwarePointerWithin } from "@/lib/bottomBarCollision";
 import { Seat } from "../seat/Seat";
-import { PortraitSeatSwitcher } from "../seat/PortraitSeatSwitcher";
+import { PortraitSeatStrip } from "./PortraitSeatStrip";
 import { LogDrawer } from "../log-drawer/LogDrawer";
 import { Sidenav } from "../sidenav/Sidenav";
 import {
@@ -526,10 +526,6 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
   );
   const hasExplicitSeatSelectionRef = React.useRef(false);
   const previousMyPlayerIdRef = React.useRef(myPlayerId);
-  const [isPortraitSeatPickerExpanded, setIsPortraitSeatPickerExpanded] =
-    React.useState(false);
-  const [isPortraitSidenavMenuOpen, setIsPortraitSidenavMenuOpen] =
-    React.useState(false);
   const [seatSwitchBanner, setSeatSwitchBanner] = React.useState<string | null>(null);
   const seatSwitchBannerTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -755,7 +751,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
         key={key}
         className={cn(
           "relative h-full w-full border-zinc-800/50",
-          slot.spanColumns === 2 && "col-span-2",
+          layoutVariant === "default" && slot.spanColumns === 2 && "col-span-2",
         )}
       >
         <Seat
@@ -795,9 +791,6 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           zoomControlsDisabled={zoomControlsBlocked}
           onLifeContextMenu={(e) => handleLifeContextMenu?.(e, seatPlayer)}
           layoutVariant={layoutVariant}
-          portraitSeatSwitcher={
-            layoutVariant === "portrait-viewport" ? portraitSeatSwitcher : undefined
-          }
           isSpotlit={spotlightPlayerId === seatPlayer.id}
           onToggleSpotlight={
             layoutVariant === "default" &&
@@ -822,60 +815,17 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
       return aPos.x - bPos.x;
     });
   }, [occupiedSlots]);
-  const hasActiveOverlayUi = Boolean(
-    contextMenu ||
-      activeModal ||
-      countPrompt ||
-      textPrompt ||
-      isLoadDeckModalOpen ||
-      isTokenModalOpen ||
-      isCoinFlipperOpen ||
-      isDiceRollerOpen ||
-      isLogOpen ||
-      isShortcutsOpen ||
-      isShareDialogOpen ||
-      isEditUsernameOpen ||
-      zoneViewerState.isOpen ||
-      revealedLibraryZoneId ||
-      isTurnPickerOpen ||
-      isPortraitSidenavMenuOpen,
-  );
   const shouldShowPortraitSeatSwitcher =
     indicatorSeats.length > 1 && peerCounts.players > 1;
 
-  React.useEffect(() => {
-    if (!isPortraitViewport || !shouldShowPortraitSeatSwitcher || hasActiveOverlayUi) {
-      setIsPortraitSeatPickerExpanded(false);
-    }
-  }, [hasActiveOverlayUi, isPortraitViewport, shouldShowPortraitSeatSwitcher]);
-
-  React.useEffect(() => {
-    if (!isPortraitViewport) {
-      setIsPortraitSidenavMenuOpen(false);
-    }
-  }, [isPortraitViewport]);
 
   const handlePortraitSeatSelect = React.useCallback(
     (playerId: string) => {
       activateSeat(playerId, true);
-      setIsPortraitSeatPickerExpanded(false);
     },
     [activateSeat],
   );
 
-  const portraitSeatSwitcher = shouldShowPortraitSeatSwitcher && !hasActiveOverlayUi ? (
-    <PortraitSeatSwitcher
-      seats={indicatorSeats.map((slot) => ({
-        playerId: slot.player.id,
-        label: getSeatDisplayName(slot.player, myPlayerId),
-        color: slot.color,
-      }))}
-      activePlayerId={activeSeat?.player.id ?? null}
-      open={isPortraitSeatPickerExpanded}
-      onOpenChange={setIsPortraitSeatPickerExpanded}
-      onSelectSeat={handlePortraitSeatSelect}
-    />
-  ) : null;
 
   const handleBoardDragMove = React.useCallback(
     (event: DragMoveEvent) => {
@@ -931,14 +881,28 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
           )}
 
           {isPortraitViewport ? (
-            <div className="grid h-full w-full grid-rows-[minmax(0,1fr)_auto]">
+            <div className="grid h-full w-full grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto]">
               <div
                 className="relative min-h-0 overflow-hidden overscroll-none"
                 style={{ ["--mobile-sidenav-h" as string]: "3.75rem" }}
               >
-                <div className="grid h-full w-full grid-rows-[minmax(0,1fr)_var(--mobile-sidenav-h)]">
+                <div className="grid h-full w-full grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)_var(--mobile-sidenav-h)]">
+                <div className="flex min-h-0 flex-col">
+                {shouldShowPortraitSeatSwitcher && (
+                  <PortraitSeatStrip
+                    seats={indicatorSeats.map((slot) => ({
+                      playerId: slot.player.id,
+                      label: getSeatDisplayName(slot.player, myPlayerId),
+                      color: slot.color,
+                    }))}
+                    activePlayerId={activeSeat?.player.id ?? null}
+                    viewerId={myPlayerId}
+                    viewerRole={viewerRole}
+                    onSelectSeat={handlePortraitSeatSelect}
+                  />
+                )}
                 <div
-                  className="relative min-h-0 overflow-hidden overscroll-none touch-none"
+                  className="relative min-h-0 flex-1 overflow-hidden overscroll-none touch-none"
                   onPointerDownCapture={handleViewportPointerDownCapture}
                   onPointerMoveCapture={handleViewportPointerMoveCapture}
                   onPointerUpCapture={handleViewportPointerEndCapture}
@@ -956,6 +920,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                       </div>
                     )}
                   </div>
+                  </div>
                   <Sidenav
                     orientation="horizontal"
                     onCreateToken={() => setIsTokenModalOpen(true)}
@@ -972,7 +937,6 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                     peerCounts={peerCounts}
                     isSpectator={viewerRole === "spectator"}
                     canShareRoom={canShareRoom}
-                    onMenuOpenChange={setIsPortraitSidenavMenuOpen}
                   />
                 </div>
               </div>

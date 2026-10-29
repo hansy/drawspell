@@ -72,7 +72,6 @@ interface SeatViewProps {
   zoomControlsDisabled?: boolean;
   onLifeContextMenu?: (e: React.MouseEvent, player: Player) => void;
   layoutVariant?: "default" | "portrait-viewport";
-  portraitSeatSwitcher?: React.ReactNode;
   // Desktop only: clicking an opponent's name enlarges their seat.
   isSpotlit?: boolean;
   onToggleSpotlight?: () => void;
@@ -101,7 +100,6 @@ export const SeatView: React.FC<SeatViewProps> = ({
   zoomControlsDisabled,
   onLifeContextMenu,
   layoutVariant = "default",
-  portraitSeatSwitcher,
   isSpotlit = false,
   onToggleSpotlight,
 }) => {
@@ -547,7 +545,13 @@ export const SeatView: React.FC<SeatViewProps> = ({
         style={cssVars}
       >
         <div className="flex h-full w-full flex-col">
-          <div className="relative h-1/2 min-h-0 shrink-0 border-b border-white/5 flex">
+          <div
+            className={cn(
+              "relative min-h-0 border-b border-white/5 flex",
+              // An opponent's hidden hand only needs a count, so their board takes that space.
+              isCompactOpponent ? "flex-1" : "h-1/2 shrink-0",
+            )}
+          >
             {renderActiveTurnBadge("top-2")}
             {battlefield && (
               <Battlefield
@@ -573,7 +577,12 @@ export const SeatView: React.FC<SeatViewProps> = ({
             onLoadDeck={onLoadDeck}
             showLoadLibraryAction={showLoadDeckAction}
           />
-          <div className="relative min-h-0 flex-1 flex flex-col bg-zinc-900/55 backdrop-blur-sm border-t border-white/10 overflow-hidden">
+          <div
+            className={cn(
+              "relative min-h-0 flex flex-col bg-zinc-900/55 backdrop-blur-sm border-t border-white/10 overflow-hidden",
+              isCompactOpponent ? "shrink-0" : "flex-1",
+            )}
+          >
             <div
               data-mobile-hand-header
               className="grid h-11 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-zinc-800/70 bg-zinc-900/70 px-2"
@@ -603,9 +612,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               >
                 CMDR
               </button>
-              <div className="flex h-full min-w-0 items-center justify-center">
-                {portraitSeatSwitcher}
-              </div>
+              <div className="min-w-0" />
               <div
                 data-mobile-mana-bar
                 className="flex h-full min-w-0 items-center justify-end"
@@ -613,6 +620,22 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 {manaBar}
               </div>
             </div>
+            {isCompactOpponent ? (
+              <div
+                data-mobile-hand-area
+                className="relative flex h-14 shrink-0 px-2 py-1.5"
+              >
+                {hand && (
+                  <OpponentHandSummary
+                    zone={hand}
+                    cards={handCards}
+                    viewerPlayerId={viewerPlayerId}
+                    viewerRole={viewerRole}
+                    className="w-full"
+                  />
+                )}
+              </div>
+            ) : (
             <div
               ref={portraitHandRef}
               data-mobile-hand-area
@@ -646,6 +669,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 />
               )}
             </div>
+            )}
             <PortraitCommanderDrawer
               open={isCommanderDrawerOpen}
               zone={commander}

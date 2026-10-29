@@ -288,6 +288,22 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
     expect(screen.queryByText("Your turn")).toBeNull();
   });
 
+  const seatChips = () =>
+    Array.from(
+      document.querySelectorAll<HTMLButtonElement>("[data-portrait-seat-chip]"),
+    );
+  const seatChip = (label: string) =>
+    seatChips().find((chip) =>
+      new RegExp(`^(Viewing|View) ${label}:`).test(
+        chip.getAttribute("aria-label") ?? "",
+      ),
+    );
+  const viewedSeatLabel = () =>
+    seatChips()
+      .find((chip) => chip.getAttribute("aria-pressed") === "true")
+      ?.getAttribute("aria-label")
+      ?.match(/^Viewing (.+?):/)?.[1];
+
   it("uses portrait layout for narrow desktop browser viewports", () => {
     Object.defineProperty(window, "matchMedia", {
       writable: true,
@@ -309,7 +325,7 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
       { id: "p1", name: "Player One", color: "sky", position: "bottom-left" },
     ]);
 
-    expect(screen.getByTestId("portrait-seat-switcher-trigger")).toBeTruthy();
+    expect(document.querySelector("[data-portrait-seat-strip]")).toBeTruthy();
   });
 
   it("focuses the joining player's seat when it appears after the inviter", () => {
@@ -329,30 +345,21 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
 
     rerender(<MultiplayerBoardView {...buildBoardProps([inviter, me])} />);
 
-    expect(
-      screen
-        .getByTestId("portrait-seat-switcher-trigger")
-        .getAttribute("aria-label"),
-    ).toBe("Viewing You. Change seat");
+    expect(viewedSeatLabel()).toBe("You");
   });
 
-  it("identifies the current player accessibly and shows both names in the menu", () => {
+  it("shows every player in the strip and marks the seat being viewed", () => {
     renderBoard([
       { id: "p2", name: "Player Two", color: "violet", position: "top-left" },
       { id: "p1", name: "Player One", color: "sky", position: "bottom-left" },
     ]);
 
-    const trigger = screen.getByTestId("portrait-seat-switcher-trigger");
-    expect(trigger.textContent).toBe("");
-    expect(trigger.getAttribute("aria-label")).toBe("Viewing You. Change seat");
-    expect(trigger.getAttribute("aria-expanded")).toBe("false");
-
-    fireEvent.click(trigger);
-
-    expect(trigger.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getAllByRole("menuitemradio")).toHaveLength(2);
-    expect(screen.getByLabelText("Switch to Player Two")).toBeTruthy();
-    expect(screen.getByLabelText("Currently viewing You")).toBeTruthy();
+    expect(seatChips()).toHaveLength(2);
+    expect(seatChip("You")?.getAttribute("aria-pressed")).toBe("true");
+    expect(seatChip("Player Two")?.getAttribute("aria-pressed")).toBe("false");
+    expect(seatChip("Player Two")?.getAttribute("aria-label")).toMatch(
+      /life, \d+ cards in hand/,
+    );
   });
 
   it("preserves an explicitly selected opponent when seats update", () => {
@@ -376,22 +383,17 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
     } as const;
     const { rerender } = renderBoard([playerTwo, me]);
 
-    fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
-    fireEvent.click(screen.getByLabelText("Switch to Player Two"));
+    fireEvent.click(seatChip("Player Two")!);
     rerender(
       <MultiplayerBoardView
         {...buildBoardProps([playerTwo, playerThree, me])}
       />,
     );
 
-    expect(
-      screen
-        .getByTestId("portrait-seat-switcher-trigger")
-        .getAttribute("aria-label"),
-    ).toBe("Viewing Player Two. Change seat");
+    expect(viewedSeatLabel()).toBe("Player Two");
   });
 
-  it("hides the portrait seat indicator when only one player is connected", () => {
+  it("hides the seat strip when only one player is connected", () => {
     renderBoard(
       [
         { id: "p2", name: "Player Two", color: "violet", position: "top-left" },
@@ -400,10 +402,10 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
       { livePlayerCount: 1 },
     );
 
-    expect(screen.queryByTestId("portrait-seat-switcher-trigger")).toBeNull();
+    expect(document.querySelector("[data-portrait-seat-strip]")).toBeNull();
   });
 
-  it("shows the other seats in shared layout order when expanded", () => {
+  it("lists seats in shared layout order", () => {
     renderBoard([
       { id: "p2", name: "Player Two", color: "violet", position: "top-left" },
       { id: "p3", name: "Player Three", color: "amber", position: "top-right" },
@@ -411,70 +413,22 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
       { id: "p4", name: "Player Four", color: "rose", position: "bottom-right" },
     ]);
 
-    fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
-
-    const options = screen.getAllByRole("menuitemradio");
-    expect(options.map((option) => option.textContent)).toEqual([
-      "Player Two",
-      "Player Three",
-      "You",
-      "Player Four",
-    ]);
-    expect(options[2].getAttribute("aria-label")).toBe("Currently viewing You");
+    expect(
+      seatChips().map(
+        (chip) => chip.getAttribute("aria-label")?.match(/^(?:Viewing|View) (.+?):/)?.[1],
+      ),
+    ).toEqual(["Player Two", "Player Three", "You", "Player Four"]);
   });
 
-  it("collapses the expanded picker when you tap outside it", () => {
+  it("keeps the seat strip visible while the mobile menu is open", () => {
     renderBoard([
       { id: "p2", name: "Player Two", color: "violet", position: "top-left" },
-      { id: "p3", name: "Player Three", color: "amber", position: "top-right" },
       { id: "p1", name: "Player One", color: "sky", position: "bottom-left" },
-      { id: "p4", name: "Player Four", color: "rose", position: "bottom-right" },
     ]);
-
-    fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
-    expect(screen.getByTestId("portrait-seat-switcher-menu")).toBeTruthy();
-
-    fireEvent.pointerDown(document.body);
-
-    expect(screen.queryByTestId("portrait-seat-switcher-menu")).toBeNull();
-    expect(screen.queryByLabelText("Switch to Player Two")).toBeNull();
-  });
-
-  it("collapses the expanded picker on outside pointer down from seat content", () => {
-    renderBoard([
-      { id: "p2", name: "Player Two", color: "violet", position: "top-left" },
-      { id: "p3", name: "Player Three", color: "amber", position: "top-right" },
-      { id: "p1", name: "Player One", color: "sky", position: "bottom-left" },
-      { id: "p4", name: "Player Four", color: "rose", position: "bottom-right" },
-    ]);
-
-    fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
-    expect(screen.getByTestId("portrait-seat-switcher-menu")).toBeTruthy();
-
-    fireEvent.pointerDown(screen.getByLabelText("Open life details"));
-
-    expect(screen.queryByTestId("portrait-seat-switcher-menu")).toBeNull();
-  });
-
-  it("hides the portrait seat indicator while the mobile menu is open", () => {
-    renderBoard([
-      { id: "p2", name: "Player Two", color: "violet", position: "top-left" },
-      { id: "p3", name: "Player Three", color: "amber", position: "top-right" },
-      { id: "p1", name: "Player One", color: "sky", position: "bottom-left" },
-      { id: "p4", name: "Player Four", color: "rose", position: "bottom-right" },
-    ]);
-
-    fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
-    expect(screen.getByTestId("portrait-seat-switcher-menu")).toBeTruthy();
 
     fireEvent.click(screen.getByLabelText("Open menu"));
 
-    expect(screen.queryByTestId("portrait-seat-switcher-trigger")).toBeNull();
-
-    fireEvent.click(screen.getByLabelText("Open menu"));
-
-    expect(screen.getByTestId("portrait-seat-switcher-trigger")).toBeTruthy();
-    expect(screen.queryByTestId("portrait-seat-switcher-menu")).toBeNull();
+    expect(document.querySelector("[data-portrait-seat-strip]")).toBeTruthy();
   });
 
   it("shows the switched seat name briefly at the top of the screen", () => {
@@ -487,8 +441,7 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
         { id: "p4", name: "Player Four", color: "rose", position: "bottom-right" },
       ]);
 
-      fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
-      fireEvent.click(screen.getByLabelText("Switch to Player Three"));
+      fireEvent.click(seatChip("Player Three")!);
       expect(
         screen
           .getAllByRole("status")
@@ -518,10 +471,8 @@ describe("MultiplayerBoardView portrait seat switcher", () => {
         { id: "p4", name: "Player Four", color: "rose", position: "bottom-right" },
       ]);
 
-      fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
-      fireEvent.click(screen.getByLabelText("Switch to Player Three"));
-      fireEvent.click(screen.getByTestId("portrait-seat-switcher-trigger"));
-      fireEvent.click(screen.getByLabelText("Switch to You"));
+      fireEvent.click(seatChip("Player Three")!);
+      fireEvent.click(seatChip("You")!);
 
       expect(
         screen
