@@ -53,7 +53,15 @@ type RoomAdmissionOptions = {
   onDiscordInviteActivationError?: (error: unknown) => void;
 };
 
+type RoomSettings = {
+  displaySpectatorLink?: boolean;
+  spectatorsEnabled?: boolean;
+};
+
 const defaultGenerateToken = () => crypto.randomUUID();
+
+const shouldDisplaySpectatorLink = (settings?: RoomSettings): boolean =>
+  (settings?.displaySpectatorLink ?? settings?.spectatorsEnabled) !== false;
 
 const isDiscordRoomInviteMetadata = (
   value: unknown,
@@ -140,7 +148,7 @@ export class RoomAdmission {
         await this.storage.put(ROOM_PROVISION_METADATA_KEY, { ...provision, request, tokens });
       }
     } else {
-      const settings = await this.storage.get<{ displaySpectatorLink?: boolean; spectatorsEnabled?: boolean }>(ROOM_SETTINGS_KEY);
+      const settings = await this.storage.get<RoomSettings>(ROOM_SETTINGS_KEY);
       if (settings && settings.displaySpectatorLink === undefined) {
         await this.storage.put(ROOM_SETTINGS_KEY, { displaySpectatorLink: settings.spectatorsEnabled !== false });
       }
@@ -164,8 +172,8 @@ export class RoomAdmission {
       await this.readRoomTokens();
       const provision = await this.storage.get<ProvisionMetadata>(ROOM_PROVISION_METADATA_KEY);
       if (provision) return provision.request.displaySpectatorLink;
-      const settings = await this.storage.get<{ displaySpectatorLink?: boolean; spectatorsEnabled?: boolean }>(ROOM_SETTINGS_KEY);
-      return (settings?.displaySpectatorLink ?? settings?.spectatorsEnabled) !== false;
+      const settings = await this.storage.get<RoomSettings>(ROOM_SETTINGS_KEY);
+      return shouldDisplaySpectatorLink(settings);
     });
   }
 
@@ -173,8 +181,8 @@ export class RoomAdmission {
     return this.serializeInitialization(async () => {
       const existing = await this.readRoomTokens();
       if (existing) return existing;
-      const settings = await this.storage.get<{ displaySpectatorLink?: boolean; spectatorsEnabled?: boolean }>(ROOM_SETTINGS_KEY);
-      const displaySpectatorLink = (settings?.displaySpectatorLink ?? settings?.spectatorsEnabled) !== false;
+      const settings = await this.storage.get<RoomSettings>(ROOM_SETTINGS_KEY);
+      const displaySpectatorLink = shouldDisplaySpectatorLink(settings);
       const generated = { playerToken: this.generateToken(), spectatorToken: this.generateToken() };
       await this.storage.put(ROOM_SETTINGS_KEY, { displaySpectatorLink });
       await this.storage.put(ROOM_TOKENS_KEY, generated);
