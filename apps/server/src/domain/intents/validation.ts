@@ -51,10 +51,7 @@ export const requireRecord = (
 export const requireArray = <T = unknown>(
   value: unknown,
   error: string
-): ValidationResult<T[]> => {
-  if (!Array.isArray(value)) return invalid(error);
-  return valid(value as T[]);
-};
+): ValidationResult<T[]> => requireValue<T[]>(value, error, Array.isArray);
 
 const requireProp = <T>(
   payload: Record<string, unknown>,
