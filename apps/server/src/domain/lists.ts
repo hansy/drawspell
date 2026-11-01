@@ -1,4 +1,4 @@
-const uniqueMemberSetOrNull = (list: readonly string[]) => {
+const distinctMemberSetOrNull = (list: readonly string[]) => {
   const members = new Set(list);
   return members.size === list.length ? members : null;
 };
@@ -8,8 +8,8 @@ export const hasSameMembers = (
   right: readonly string[]
 ): boolean => {
   if (left.length !== right.length) return false;
-  const leftMembers = uniqueMemberSetOrNull(left);
-  const rightMembers = uniqueMemberSetOrNull(right);
+  const leftMembers = distinctMemberSetOrNull(left);
+  const rightMembers = distinctMemberSetOrNull(right);
   if (!leftMembers || !rightMembers) return false;
   for (const entry of leftMembers) {
     if (!rightMembers.has(entry)) return false;
