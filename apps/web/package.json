@@ -20,7 +20,7 @@
     "typecheck": "bun run i18n:check && tsc -p tsconfig.json --noEmit",
     "test:e2e:public-api": "node --experimental-strip-types test/e2e/public-room-api.ts",
     "docs:generate": "bun scripts/generate-doc-examples.mjs && bun scripts/generate-agent-content.mjs",
-    "i18n:check": "bun scripts/i18n/copy-audit.ts --check",
+    "i18n:check": "bun scripts/i18n/catalog-check.ts && bun scripts/i18n/copy-audit.ts --check",
     "i18n:audit": "bun scripts/i18n/copy-audit.ts --report",
     "i18n:prune": "bun scripts/i18n/copy-audit.ts --prune"
   },

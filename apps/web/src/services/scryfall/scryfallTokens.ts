@@ -1,3 +1,5 @@
+import { toScryfallLanguage, type AppLocale } from "@/i18n/locales";
+import { scryfallRequest, type ScryfallRequest } from "@/services/scryfall/scryfallRequest";
 import { ScryfallCard, ScryfallListResult } from "@/types/scryfall";
 import { isAbortError } from "@/lib/errors";
 
@@ -9,9 +11,10 @@ export const DEFAULT_TOKEN_SEARCH_DEBOUNCE_MS = 300;
 export type TokenSearchResult = ScryfallListResult<ScryfallCard>;
 
 export interface TokenSearchOptions {
+  locale?: AppLocale;
   unique?: "cards" | "art" | "prints";
   signal?: AbortSignal;
-  fetchImpl?: typeof fetch;
+  fetchImpl?: ScryfallRequest;
 }
 
 export interface DebouncedTokenSearchOptions extends TokenSearchOptions {
@@ -41,10 +44,12 @@ export const buildTokenSearchQuery = (query: string) => {
 
 export const buildTokenSearchUrl = (
   query: string,
-  { unique = "cards" }: Pick<TokenSearchOptions, "unique"> = {}
+  { unique = "cards", locale = "en" }: Pick<TokenSearchOptions, "unique" | "locale"> = {}
 ) => {
   const searchQuery = buildTokenSearchQuery(query.trim());
-  const params = new URLSearchParams({ q: searchQuery, unique });
+  const localizedQuery = locale === "en" ? searchQuery : `(${searchQuery}) lang:${toScryfallLanguage(locale)}`;
+  const params = new URLSearchParams({ q: localizedQuery, unique });
+  if (locale !== "en") params.set("include_multilingual", "true");
 
   return `https://api.scryfall.com/cards/search?${params.toString()}`;
 };
@@ -58,11 +63,15 @@ export async function searchScryfallTokens(
     return null;
   }
 
-  const { unique, signal, fetchImpl } = options;
-  const fetcher = fetchImpl ?? fetch;
-  const url = buildTokenSearchUrl(trimmedQuery, { unique });
+  const { unique, signal, fetchImpl, locale = "en" } = options;
+  const fetcher = fetchImpl ?? scryfallRequest;
+  const url = buildTokenSearchUrl(trimmedQuery, { unique, locale });
 
-  const response = await fetcher(url, { signal });
+  let response = await fetcher(url, { signal });
+  // Many tokens have no translated printing. Only a 404 is evidence of no results.
+  if (response.status === 404 && locale !== "en") {
+    response = await fetcher(buildTokenSearchUrl(trimmedQuery, { unique }), { signal });
+  }
   if (!response.ok) {
     throw new Error(
       `Scryfall token search failed (${response.status} ${response.statusText})`
@@ -156,14 +165,14 @@ export function createDebouncedTokenSearch(
 // Scryfall returns tokens by name, so "treasure" lists Dinosaur // Treasure
 // before Treasure. Put exact matches first, then prefix matches, then
 // single-faced tokens ahead of double-faced ones.
-export const rankTokenResults = <T extends { name: string }>(
+export const rankTokenResults = <T extends { name: string; printed_name?: string }>(
   query: string,
   cards: T[],
 ): T[] => {
   const needle = query.trim().toLowerCase();
   if (!needle) return cards;
   const score = (card: T) => {
-    const name = card.name.toLowerCase();
+    const name = (card.printed_name || card.name).toLowerCase();
     const faces = name.split(" // ");
     if (name === needle) return 0;
     if (faces.length === 1 && name.startsWith(needle)) return 1;

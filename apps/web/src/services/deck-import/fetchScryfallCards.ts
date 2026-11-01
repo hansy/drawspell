@@ -1,3 +1,4 @@
+import { scryfallRequest, type ScryfallRequest } from "@/services/scryfall/scryfallRequest";
 import type { Card } from "@/types";
 import type { ScryfallCard, ScryfallIdentifier } from "@/types/scryfall";
 import { toScryfallCardLite } from "@/types/scryfallLite";
@@ -21,7 +22,7 @@ type ScryfallCollectionResponse = {
 type Sleep = (ms: number) => Promise<void>;
 
 type FetchScryfallOptions = {
-  fetchImpl?: typeof fetch;
+  fetchImpl?: ScryfallRequest;
   rateLimitMs?: number;
   maxRetries?: number;
   backoffMs?: number;
@@ -291,7 +292,7 @@ export const fetchScryfallCards = async (
   parsedCards: ParsedCard[],
   opts?: FetchScryfallOptions
 ): Promise<FetchScryfallResult> => {
-  const fetcher = opts?.fetchImpl ?? fetch;
+  const fetcher = opts?.fetchImpl ?? scryfallRequest;
   const rateLimitMs = opts?.rateLimitMs ?? DEFAULT_RATE_LIMIT_MS;
   const maxRetries = opts?.maxRetries ?? DEFAULT_MAX_RETRIES;
   const backoffMs = opts?.backoffMs ?? DEFAULT_BACKOFF_MS;

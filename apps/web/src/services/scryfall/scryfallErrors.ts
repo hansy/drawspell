@@ -1,6 +1,6 @@
 export type ScryfallFetchErrorKind = "network" | "http" | "invalid-response";
 
-export type ScryfallEndpoint = "collection" | "named" | "card";
+export type ScryfallEndpoint = "collection" | "named" | "card" | "translation";
 
 export type ScryfallFetchError = {
   kind: ScryfallFetchErrorKind;
@@ -14,12 +14,13 @@ export type ScryfallFetchError = {
 
 export type ScryfallFetchResult<T> = { ok: true; data: T } | { ok: false; error: ScryfallFetchError };
 
-export const parseRetryAfterMs = (response?: Response | null): number | undefined => {
+export const parseRetryAfterMs = (response?: Response | null, now = Date.now()): number | undefined => {
   const retryAfter = response?.headers?.get("Retry-After");
   if (!retryAfter) return undefined;
   const asSeconds = Number(retryAfter);
-  if (!Number.isFinite(asSeconds)) return undefined;
-  return Math.max(0, asSeconds * 1000);
+  if (Number.isFinite(asSeconds)) return Math.max(0, asSeconds * 1000);
+  const date = Date.parse(retryAfter);
+  return Number.isFinite(date) ? Math.max(0, date - now) : undefined;
 };
 
 const formatStatus = (error: ScryfallFetchError): string | null => {

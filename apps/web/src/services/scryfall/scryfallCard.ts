@@ -1,14 +1,15 @@
+import { scryfallRequest, type ScryfallRequest } from "@/services/scryfall/scryfallRequest";
 import { ScryfallCard } from "@/types";
 
 export interface FetchScryfallCardOptions {
-  fetchImpl?: typeof fetch;
+  fetchImpl?: ScryfallRequest;
 }
 
 export const fetchScryfallCardByUri = async (
   uri: string,
   { fetchImpl }: FetchScryfallCardOptions = {}
 ): Promise<ScryfallCard> => {
-  const fetcher = fetchImpl ?? fetch;
+  const fetcher = fetchImpl ?? scryfallRequest;
   const response = await fetcher(uri);
   if (!response.ok) {
     throw new Error(

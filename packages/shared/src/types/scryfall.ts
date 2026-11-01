@@ -84,6 +84,9 @@ export interface ScryfallImageUris {
 
 export interface ScryfallCardFace {
   name: string;
+  printed_name?: string;
+  printed_type_line?: string;
+  printed_text?: string;
   mana_cost?: string;
   type_line?: string;
   oracle_text?: string;
@@ -126,6 +129,8 @@ export interface ScryfallCard {
   lang: string;
   name: string;
   printed_name?: string;
+  printed_type_line?: string;
+  printed_text?: string;
   layout: ScryfallLayout;
   released_at?: string;
   uri: string;

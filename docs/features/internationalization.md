@@ -1,14 +1,24 @@
 # Drawspell internationalization
 
-Date: November 1, 2026. Status: library recommendation and migration guard implemented; runtime localization and translations pending.
+Date: November 1, 2026. Status: partial implementation on `main`; Paraglide runtime installation, UI migration, and language switching remain blocked/pending.
 
 ## Decision
 
 Use **Paraglide JS**, with version-controlled JSON messages, for the TanStack Start web app. Use BCP 47 language tags in URLs, HTML, and formatting. English remains the default and has no URL prefix. Every accessible page, including authenticated pages and the room UI, follows the same convention.
 
-This is a recommendation based on the repository and upstream documentation, not a claim that runtime compatibility has already been tested. Installing `@inlang/paraglide-js` failed with `DNSResolveFailed` when downloading its package manifest in this environment. No dependency or lockfile change was made. Do not merge speculative runtime imports or hand-written substitutes for generated Paraglide code.
+Paraglide runtime compatibility has **not** been verified. Both Bun and npm fail to resolve `registry.npmjs.org` in this environment, including a fresh installation attempt on November 1, 2026. No Paraglide dependency, generated-code substitute, runtime import, router rewrite, or Worker-entry change has been added. The current app still renders English at its original URLs.
 
-The initial copy audit and build/typecheck guard can run with the dependencies already installed. They preserve an explicit inventory of existing hardcoded copy and reject additional literals in the presentation contexts they cover. They do **not** mean the app is translated or validate translations that do not yet exist.
+## Implemented and locally validated
+
+- `src/i18n/locales.ts` defines all 11 target BCP 47 locales and their Scryfall codes. No locale is advertised as a completed UI translation.
+- `src/i18n/urls.ts` provides pure URL-contract helpers and tests for all existing page routes, unchanged English URLs, locale replacement, query/hash preservation, encoded room IDs, canonical URLs without credentials, and protocol/static exclusions. **These helpers are not yet wired into the router or server.** Localized API alias rejection still needs middleware integration.
+- `project.inlang/settings.json` and `messages/{locale}.json` contain **15 starter messages in each of the 11 languages**, with pinned upstream format/matcher URLs. They are preparation data, not complete app catalogs. They are not consumed by the UI yet; compiler compatibility and translation review remain pending.
+- `scripts/i18n/catalog-check.ts` runs in the existing build/typecheck gate. It rejects missing/empty locale files and messages, extra keys, duplicate JSON keys, malformed or mismatched placeholders, and whole-catalog English copies. It currently accepts flat messages only. Add the real compiler and `inlang check` before adopting plural/select/markup syntax; this local coverage checker does not replace them or determine translation quality.
+- `src/services/scryfall/localizedCards.ts` resolves a visible canonical card to a same-printing translation, then to the same Oracle identity in another printing, then to the original card. It validates identity, language, layout and face order, deduplicates requests, bounds/expires positive and negative caches, and uses a separate short cooldown for transient failures. Successful translations enter the ordinary cache under their **actual** printing IDs. The resolver does not change game state.
+- `localizedPresentation.ts` reads printed name/type/text and translated images with per-face fallback while retaining English Oracle text. `useLocalizedScryfallCard` requires an explicit locale and visibility decision, hides stale responses, and avoids fetching identities whose visibility is false. **Board/preview/zone renderers still need to call these interfaces after Paraglide is available.** The caller remains responsible for deriving permission from the app's existing reveal rules.
+- `scryfallRequest.ts` now spaces request starts globally for the app's default cache, import, token, URI, and translation callers. A 429 delays queued requests using numeric or HTTP-date `Retry-After`; rejected/aborted requests do not poison the queue. Token search accepts an explicit app locale, requests multilingual results, and falls back to the original search only on 404. The UI does not pass an active locale yet.
+
+The existing hardcoded-copy baseline remains **808 occurrences in 101 files** and was not expanded. That migration is still outstanding. Resolver/request/hook behavior has fixture tests; live Scryfall API behavior and localized browser/SSR rendering have **not** been exercised. The web typecheck, full test suite, and Vite/Cloudflare build validate the independent changes; they are not evidence that Paraglide runtime integration is complete.
 
 ## Library assessment
 
@@ -77,7 +87,7 @@ Sources: [Paraglide routing](https://paraglidejs.com/i18n-routing), [Start integ
 
 ## Message source and maintenance
 
-Proposed files:
+Target files (settings, starter catalogs, and registry now exist; generated runtime does not):
 
 ```text
 apps/web/
@@ -146,7 +156,7 @@ bun run i18n:prune   # remove migrated baseline entries; refuses any additions
 
 All three web build variants and web typechecking run `i18n:check`. The existing baseline makes this an incremental migration guard, not a zero-hardcoded-copy claim. New and duplicated occurrences are rejected. Removing copy requires pruning the baseline, so removed allowances cannot silently return. Do not regenerate or increase the baseline to make a check pass; replace existing occurrences with catalog calls and let it shrink to zero.
 
-The guard uses the installed TypeScript parser and covers JSX text and expression alternatives, literal accessibility/text props, known text properties (including log text and metadata), toast messages and common error/message setters. It intentionally excludes tests and generated files, class names, URL attributes and arbitrary protocol literals. It cannot trace arbitrary variables or identify every string returned from a helper. A zero baseline therefore still needs a source review and runtime validation. Examples outside its current reach include `getPlayerLabel`, `getTransformVerb`, relative-time helpers and custom toast aliases. Use the inventory to begin migration, and extend the guard when a new presentation pattern is introduced.
+The copy guard uses the installed TypeScript parser and covers JSX text and expression alternatives, literal accessibility/text props, known text properties (including log text and metadata), toast messages and common error/message setters. It intentionally excludes tests and generated files, class names, URL attributes and arbitrary protocol literals. It cannot trace arbitrary variables or identify every string returned from a helper. A zero baseline therefore still needs a source review and runtime validation. Examples outside its current reach include `getPlayerLabel`, `getTransformVerb`, relative-time helpers and custom toast aliases. Use the inventory to begin migration, and extend the guard when a new presentation pattern is introduced.
 
 After installation, add `@inlang/cli` **3.4.0 or newer** and run `inlang check` in the same build/typecheck gate alongside the copy audit. The old `inlang lint` command is a deprecated no-op and cannot be used as validation. With a compatible message-function matcher, the current checker validates missing/empty translations, variable and markup mismatches, plural/select variants and unused messages. Generated typed calls catch missing IDs and parameter mismatches. Test fixtures must prove those commands fail for deliberately missing translations and broken variables, not just prove that today's files pass.
 

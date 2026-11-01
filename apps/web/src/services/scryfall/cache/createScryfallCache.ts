@@ -1,3 +1,4 @@
+import { scryfallRequest, type ScryfallRequest } from "@/services/scryfall/scryfallRequest";
 import type { ScryfallCard } from "@/types/scryfall";
 import type { ScryfallFetchError } from "@/services/scryfall/scryfallErrors";
 
@@ -22,7 +23,7 @@ export const createScryfallCache = ({
   memory,
   store,
   expiryMs,
-  fetchFn = fetch,
+  fetchFn = scryfallRequest,
   now = () => Date.now(),
   rateLimitMs,
   sleep,
@@ -30,7 +31,7 @@ export const createScryfallCache = ({
   memory: LruCache<ScryfallCard>;
   store: ScryfallCardStore | null;
   expiryMs: number;
-  fetchFn?: typeof fetch;
+  fetchFn?: ScryfallRequest;
   now?: () => number;
   rateLimitMs?: number;
   sleep?: Sleep;

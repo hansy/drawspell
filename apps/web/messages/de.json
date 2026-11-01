@@ -1,0 +1,18 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "language_label": "Sprache",
+  "not_found_title": "Seite nicht gefunden",
+  "not_found_description": "Die gesuchte Seite existiert nicht.",
+  "back_to_drawspell": "Zurück zu Drawspell",
+  "home_link": "Startseite",
+  "docs_link": "Hilfe und Dokumentation",
+  "privacy_link": "Datenschutzerklärung",
+  "terms_link": "Nutzungsbedingungen",
+  "sign_in": "Anmelden",
+  "close": "Schließen",
+  "cancel": "Abbrechen",
+  "save": "Speichern",
+  "loading": "Wird geladen…",
+  "scryfall_language_fallback": "Diese Karte ist in der gewählten Sprache nicht verfügbar. Die ursprüngliche Druckversion wird angezeigt.",
+  "welcome_player": "Willkommen, {name}"
+}

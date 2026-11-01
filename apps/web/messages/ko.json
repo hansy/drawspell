@@ -1,0 +1,18 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "language_label": "언어",
+  "not_found_title": "페이지를 찾을 수 없습니다",
+  "not_found_description": "요청하신 페이지가 존재하지 않습니다.",
+  "back_to_drawspell": "Drawspell로 돌아가기",
+  "home_link": "홈",
+  "docs_link": "도움말 및 문서",
+  "privacy_link": "개인정보 처리방침",
+  "terms_link": "서비스 이용약관",
+  "sign_in": "로그인",
+  "close": "닫기",
+  "cancel": "취소",
+  "save": "저장",
+  "loading": "불러오는 중…",
+  "scryfall_language_fallback": "이 카드는 선택한 언어로 제공되지 않아 원래 인쇄본을 표시합니다.",
+  "welcome_player": "{name}님, 환영합니다"
+}

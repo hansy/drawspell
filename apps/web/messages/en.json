@@ -1,0 +1,18 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "language_label": "Language",
+  "not_found_title": "Page not found",
+  "not_found_description": "The page you’re looking for doesn’t exist.",
+  "back_to_drawspell": "Back to Drawspell",
+  "home_link": "Home",
+  "docs_link": "Help and documentation",
+  "privacy_link": "Privacy policy",
+  "terms_link": "Terms of service",
+  "sign_in": "Sign in",
+  "close": "Close",
+  "cancel": "Cancel",
+  "save": "Save",
+  "loading": "Loading…",
+  "scryfall_language_fallback": "This card is not available in the selected language. Showing the original printing.",
+  "welcome_player": "Welcome, {name}"
+}

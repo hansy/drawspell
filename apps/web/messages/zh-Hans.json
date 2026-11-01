@@ -1,0 +1,18 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "language_label": "语言",
+  "not_found_title": "找不到页面",
+  "not_found_description": "您要查找的页面不存在。",
+  "back_to_drawspell": "返回 Drawspell",
+  "home_link": "首页",
+  "docs_link": "帮助与文档",
+  "privacy_link": "隐私政策",
+  "terms_link": "服务条款",
+  "sign_in": "登录",
+  "close": "关闭",
+  "cancel": "取消",
+  "save": "保存",
+  "loading": "加载中…",
+  "scryfall_language_fallback": "此牌没有所选语言的版本，现显示原始印刷版本。",
+  "welcome_player": "欢迎，{name}"
+}

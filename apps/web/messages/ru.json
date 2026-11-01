@@ -1,0 +1,18 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "language_label": "Язык",
+  "not_found_title": "Страница не найдена",
+  "not_found_description": "Запрашиваемая страница не существует.",
+  "back_to_drawspell": "Вернуться в Drawspell",
+  "home_link": "Главная",
+  "docs_link": "Справка и документация",
+  "privacy_link": "Политика конфиденциальности",
+  "terms_link": "Условия использования",
+  "sign_in": "Войти",
+  "close": "Закрыть",
+  "cancel": "Отмена",
+  "save": "Сохранить",
+  "loading": "Загрузка…",
+  "scryfall_language_fallback": "Эта карта недоступна на выбранном языке. Показано исходное издание.",
+  "welcome_player": "Добро пожаловать, {name}"
+}

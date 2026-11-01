@@ -1,0 +1,18 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "language_label": "Idioma",
+  "not_found_title": "Página no encontrada",
+  "not_found_description": "La página que buscas no existe.",
+  "back_to_drawspell": "Volver a Drawspell",
+  "home_link": "Inicio",
+  "docs_link": "Ayuda y documentación",
+  "privacy_link": "Política de privacidad",
+  "terms_link": "Condiciones del servicio",
+  "sign_in": "Iniciar sesión",
+  "close": "Cerrar",
+  "cancel": "Cancelar",
+  "save": "Guardar",
+  "loading": "Cargando…",
+  "scryfall_language_fallback": "Esta carta no está disponible en el idioma seleccionado. Se muestra la impresión original.",
+  "welcome_player": "Te damos la bienvenida, {name}"
+}

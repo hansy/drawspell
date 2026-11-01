@@ -127,3 +127,29 @@ describe("createDebouncedTokenSearch", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe("localized token search", () => {
+  it("uses BCP 47 app locale mapping and keeps English requests unchanged", () => {
+    const url = new URL(buildTokenSearchUrl("天使", { locale: "zh-Hant" }));
+    expect(url.searchParams.get("q")).toContain("lang:zht");
+    expect(url.searchParams.get("include_multilingual")).toBe("true");
+    expect(new URL(buildTokenSearchUrl("angel", { locale: "en" })).searchParams.has("include_multilingual")).toBe(false);
+  });
+
+  it("falls back to original token search when no translated printing is found", async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 404 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(mockListResponse)));
+    await expect(searchScryfallTokens("soldier", { locale: "fr", fetchImpl })).resolves.toEqual(mockListResponse);
+    expect(new URL(fetchImpl.mock.calls[0][0]).searchParams.get("q")).toContain("lang:fr");
+    expect(new URL(fetchImpl.mock.calls[1][0]).searchParams.get("q")).not.toContain("lang:");
+  });
+
+  it("does not mistake a rate limit or outage for missing token translations", async () => {
+    for (const status of [429, 503]) {
+      const fetchImpl = vi.fn().mockResolvedValue(new Response("{}", { status }));
+      await expect(searchScryfallTokens("soldier", { locale: "de", fetchImpl })).rejects.toThrow(String(status));
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    }
+  });
+});

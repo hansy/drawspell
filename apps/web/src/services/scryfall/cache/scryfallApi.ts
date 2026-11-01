@@ -1,3 +1,4 @@
+import type { ScryfallRequest } from "../scryfallRequest";
 import type { ScryfallCard, ScryfallIdentifier } from "@/types/scryfall";
 import {
   buildScryfallHttpError,
@@ -12,7 +13,7 @@ export type Sleep = (ms: number) => Promise<void>;
 export const defaultSleep: Sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const fetchCardById = async (
-  fetchFn: typeof fetch,
+  fetchFn: ScryfallRequest,
   scryfallId: string
 ): Promise<ScryfallFetchResult<ScryfallCard>> => {
   const url = `https://api.scryfall.com/cards/${scryfallId}`;
@@ -35,7 +36,7 @@ export const fetchCardById = async (
 };
 
 export const fetchCardCollection = async (
-  fetchFn: typeof fetch,
+  fetchFn: ScryfallRequest,
   scryfallIds: string[],
   {
     chunkSize = 75,
