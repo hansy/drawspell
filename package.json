@@ -23,7 +23,10 @@
     "test:discord:smoke": "bun run --cwd apps/discord test:smoke",
     "audit:dependencies": "bun audit --audit-level=high",
     "check:dependencies": "bun scripts/require-audit-bun.mjs && bun test ./scripts/ && bun run audit:dependencies",
-    "prepare": "bun scripts/install-git-hooks.ts"
+    "prepare": "bun scripts/install-git-hooks.ts",
+    "i18n:check": "bun run --cwd apps/web i18n:check",
+    "i18n:audit": "bun run --cwd apps/web i18n:audit",
+    "i18n:prune": "bun run --cwd apps/web i18n:prune"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
