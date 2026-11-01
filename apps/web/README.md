@@ -53,6 +53,17 @@ Vite command is `bun run dev:app` and uses Vite mode `localhost`, which loads
 ## Tests
 `bun run test` (Vitest; config in `vitest.config.ts`).
 
+## Internationalization
+
+[The internationalization plan](../../docs/features/internationalization.md) recommends
+Paraglide JS and defines URL, catalog, validation and Scryfall language behavior.
+Runtime localization is pending dependency installation and translation migration.
+
+`bun run i18n:check` runs during typechecking and all build variants. It rejects
+new hardcoded copy in known presentation contexts against the existing migration
+baseline. Use `bun run i18n:audit` for the inventory and `bun run i18n:prune` after
+migrating existing copy; the prune command refuses baseline additions.
+
 ## Related docs
 - [../../README.md](../../README.md)
 - [../server/README.md](../server/README.md)
