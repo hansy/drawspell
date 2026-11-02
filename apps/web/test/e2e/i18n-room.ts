@@ -51,7 +51,11 @@ try {
   const cardBefore = (await state(page)).cards[cardId];
   // This is the actual room menu's language selector, not a URL-only reload.
   await page.getByRole("button", { name: "Open menu", exact: true }).click();
-  await page.locator("select").selectOption("fr");
+  await page.locator("[data-language-selector]").click();
+  await page.locator('[role="option"][data-locale="fr"]').hover();
+  // A portaled picker must remain usable after the pointer leaves the parent room menu.
+  await page.waitForTimeout(250);
+  await page.locator('[role="option"][data-locale="fr"]').click();
   await page.waitForURL(`**/fr${roomPath}`);
   await waitForPlayer(page);
   const after = await state(page);

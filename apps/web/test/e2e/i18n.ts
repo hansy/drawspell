@@ -24,9 +24,14 @@ try {
       const response = await page.goto(url.href);
       assert.equal(response?.status(), path.startsWith("/missing") ? 404 : 200, url.href);
       assert.equal(await page.locator("html").getAttribute("lang"), locale);
-      const selector = page.locator("header select");
-      assert.equal(await selector.inputValue(), locale);
-      assert.equal(await selector.locator("option").count(), 11);
+      const selector = page.locator("header [data-language-selector]");
+      assert.equal(await selector.getAttribute("data-locale"), locale);
+      await selector.click();
+      assert.equal(await page.getByRole("option").count(), 11);
+      assert.equal(await page.locator('[role="option"] img').count(), 11);
+      await page.waitForFunction(() => Array.from(document.querySelectorAll<HTMLImageElement>('[role="option"] img')).every((image) => image.complete && image.naturalWidth > 0));
+      assert.equal(await page.getByRole("option", { selected: true }).getAttribute("data-locale"), locale);
+      await page.keyboard.press("Escape");
       assert((await page.locator("h1").innerText()).trim().length > 0);
       if (["/", "/docs", "/privacy", "/tos"].includes(path)) {
         assert.equal(await page.locator('link[rel="canonical"]').getAttribute("href"), pageUrlForLocale(new URL(path, "https://drawspell.space"), locale).href);
@@ -39,8 +44,22 @@ try {
     console.log(`PASS ${locale}: direct public/login/404 entry and metadata`);
   }
   await page.goto(`${origin}/docs?invite=example&gt=private&st=watch#authentication`);
+  const trigger = page.locator("header [data-language-selector]");
+  await trigger.press("ArrowDown");
+  await page.getByRole("listbox").waitFor();
+  await page.keyboard.press("End");
+  assert.equal(await page.locator(":focus").getAttribute("data-locale"), "zh-Hant");
+  await page.keyboard.press("Home");
+  assert.equal(await page.locator(":focus").getAttribute("data-locale"), "en");
+  await page.keyboard.press("f");
+  assert.equal(await page.locator(":focus").getAttribute("data-locale"), "fr");
+  await page.keyboard.press("Escape");
+  assert.equal(await trigger.getAttribute("aria-expanded"), "false");
+  assert.equal(await page.locator(":focus").getAttribute("data-language-selector"), "true");
+  console.log("PASS keyboard opening, Home/End, typeahead, Escape and focus return");
   for (const locale of ["es", "zh-Hant", "en"] as const) {
-    await page.locator("header select").selectOption(locale);
+    await page.locator("header [data-language-selector]").click();
+    await page.locator(`[role="option"][data-locale="${locale}"]`).click();
     await page.waitForURL((url) => url.pathname === (locale === "en" ? "/docs" : `/${locale}/docs`));
     const url = new URL(page.url());
     assert.equal(url.search, "?invite=example&gt=private&st=watch");
@@ -66,14 +85,20 @@ try {
     assert.equal((await context.request.get(`${origin}${path}`)).status(), 404);
   }
   await page.goto(`${origin}/es/rooms/i18n-smoke?gt=private&st=watch&invite=personal#cards`);
-  await page.locator("select").first().selectOption("ja");
+  await page.locator("[data-language-selector]").first().click();
+  await page.locator('[role="option"][data-locale="ja"]').click();
   await page.waitForURL("**/ja/rooms/i18n-smoke?gt=private&st=watch&invite=personal#cards");
   assert.equal(await page.locator("html").getAttribute("lang"), "ja");
   assert.equal(await page.locator('meta[name="robots"]').getAttribute("content"), "noindex, nofollow");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${origin}/de`);
-  assert(await page.locator("header select").isVisible());
+  assert(await page.locator("header [data-language-selector]").isVisible());
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  await page.locator("header [data-language-selector]").click();
+  const pickerBounds = await page.getByRole("listbox").boundingBox();
+  assert(pickerBounds && pickerBounds.x >= 0 && pickerBounds.x + pickerBounds.width <= 390);
+  await page.locator("h1").click();
+  assert.equal(await page.getByRole("listbox").count(), 0);
   assert.deepEqual(errors, [], "No hydration or browser errors expected");
   console.log("PASS canonicalization, excluded protocols, room entry switch and mobile selector; no hydration errors");
   await context.close();

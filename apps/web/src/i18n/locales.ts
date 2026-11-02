@@ -1,16 +1,16 @@
 /** BCP 47 app locales. Scryfall's Chinese identifiers are API codes, not locales. */
 export const languageRegistry = [
-  { locale: "en", nativeName: "English", scryfall: "en" },
-  { locale: "es", nativeName: "Español", scryfall: "es" },
-  { locale: "fr", nativeName: "Français", scryfall: "fr" },
-  { locale: "de", nativeName: "Deutsch", scryfall: "de" },
-  { locale: "it", nativeName: "Italiano", scryfall: "it" },
-  { locale: "pt", nativeName: "Português", scryfall: "pt" },
-  { locale: "ja", nativeName: "日本語", scryfall: "ja" },
-  { locale: "ko", nativeName: "한국어", scryfall: "ko" },
-  { locale: "ru", nativeName: "Русский", scryfall: "ru" },
-  { locale: "zh-Hans", nativeName: "简体中文", scryfall: "zhs" },
-  { locale: "zh-Hant", nativeName: "繁體中文", scryfall: "zht" },
+  { locale: "en", flag: "us", nativeName: "English", scryfall: "en" },
+  { locale: "es", flag: "es", nativeName: "Español", scryfall: "es" },
+  { locale: "fr", flag: "fr", nativeName: "Français", scryfall: "fr" },
+  { locale: "de", flag: "de", nativeName: "Deutsch", scryfall: "de" },
+  { locale: "it", flag: "it", nativeName: "Italiano", scryfall: "it" },
+  { locale: "pt", flag: "br", nativeName: "Português", scryfall: "pt" },
+  { locale: "ja", flag: "jp", nativeName: "日本語", scryfall: "ja" },
+  { locale: "ko", flag: "kr", nativeName: "한국어", scryfall: "ko" },
+  { locale: "ru", flag: "ru", nativeName: "Русский", scryfall: "ru" },
+  { locale: "zh-Hans", flag: "cn", nativeName: "简体中文", scryfall: "zhs" },
+  { locale: "zh-Hant", flag: "tw", nativeName: "繁體中文", scryfall: "zht" },
 ] as const;
 
 export type AppLocale = (typeof languageRegistry)[number]["locale"];
