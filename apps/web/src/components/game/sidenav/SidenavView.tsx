@@ -556,19 +556,15 @@ export const SidenavView: React.FC<SidenavController> = ({
 
             <NavIcon
               icon={
-                <span
+                <i
                   aria-hidden="true"
-                  className="grid size-8 place-items-center rounded-full border border-zinc-600 bg-zinc-800/80 text-zinc-200 transition-colors group-hover:border-blue-400/60 group-hover:bg-blue-500/15 group-hover:text-blue-200 group-active:bg-blue-500/25"
-                >
-                  <i
-                    className="ms ms-untap"
-                    style={{ fontSize: 22, lineHeight: 1 }}
-                  />
-                </span>
+                  className="ms ms-untap h-5 w-5"
+                  style={{ display: "block", fontSize: 20, lineHeight: 1 }}
+                />
               }
               label={m.sidenav_view_untap_all()}
               onClick={handleUntapAll}
-              className="group grid size-11 place-items-center rounded-full p-0 hover:text-blue-400 active:text-blue-400"
+              className="hover:text-blue-400 active:text-blue-400"
               disabled={isSpectator}
               hideTooltip={isHorizontal}
               compact={isHorizontal}
