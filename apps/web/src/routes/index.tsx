@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { agentDiscoveryLinks, landingContent } from "@/content/publicPages";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -168,7 +169,7 @@ export const LandingPage = () => {
     const playerId = state.playerIdsBySession[sessionId];
     const leaveToken = readRoomTokensFromStorage(sessionId)?.leaveToken;
     if (!leaveToken || !playerId) {
-      toast.error("Unable to verify your player identity for this Room.");
+      toast.error(m.index_unable_to_verify_your_player_identity_for_this_room());
       return;
     }
 
@@ -183,7 +184,7 @@ export const LandingPage = () => {
       });
       await clearLocalRoom(sessionId);
     } catch (_error) {
-      toast.error("Unable to leave the Room. Please try again.");
+      toast.error(m.index_unable_to_leave_the_room_please_try_again());
     } finally {
       setIsLeaving(false);
     }
@@ -239,10 +240,10 @@ export const LandingPage = () => {
                   />
                 )}
                 {isCreating
-                  ? "Starting game"
+                  ? m.index_starting_game()
                   : resumeSessionId
-                    ? "Start a new game"
-                    : "Start a game"}
+                    ? m.index_start_a_new_game()
+                    : m.index_start_a_game()}
               </span>
             </button>
           }
@@ -268,25 +269,20 @@ export const Route = createFileRoute("/")({
   head: () => ({
     links: [
       ...agentDiscoveryLinks("/"),
-      ...(import.meta.env.VITE_ENV === "production"
-        ? [{ rel: "canonical", href: new URL("/", origins.web).href }]
-        : []),
+
     ],
     meta: [
-      { title: "Magic: The Gathering Virtual Tabletop | Drawspell" },
+      { title: m.index_magic_the_gathering_virtual_tabletop_drawspell() },
       {
         name: "description",
         content:
-          "Drawspell is a web-based virtual tabletop simulator for playing Magic: The Gathering. No login, no downloads required.",
+          m.index_drawspell_is_a_web_based_virtual_tabletop_simulator_for_playing_m(),
       },
       {
         name: "og:image",
         content: `${origins.web}/og_image.png`,
       },
-      {
-        name: "og:url",
-        content: origins.web,
-      },
+
     ],
   }),
 });

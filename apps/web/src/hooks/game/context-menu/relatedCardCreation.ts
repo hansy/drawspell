@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type { Card, PlayerId, ViewerRole, Zone, ZoneId } from "@/types";
 import type { ScryfallCard, ScryfallRelatedCard } from "@/types/scryfall";
 
@@ -39,7 +40,7 @@ export const planRelatedBattlefieldCardCreation = async (params: {
     return {
       ok: false,
       reason: "permission_denied",
-      message: permission.reason ?? "Not allowed to create related card here",
+      message: permission.reason ?? m.related_card_creation_not_allowed_to_create_related_card_here(),
     };
   }
 
@@ -50,7 +51,7 @@ export const planRelatedBattlefieldCardCreation = async (params: {
     return {
       ok: false,
       reason: "fetch_failed",
-      message: "Failed to fetch related card",
+      message: m.related_card_creation_failed_to_fetch_related_card(),
       error,
     };
   }

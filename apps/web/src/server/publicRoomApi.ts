@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { verifyDeveloperApiKey, type DeveloperAuth } from "@mtg/auth";
 import {
   parseCreateRoomRequest,
@@ -265,7 +266,7 @@ export async function handlePublicRoomRequest(
         error: {
           code: "service_unavailable",
           message:
-            "Room creation is temporarily unavailable. Retry using the same Idempotency-Key.",
+            m.public_room_api_room_creation_is_temporarily_unavailable_retry_using_the_same_ide(),
         },
       },
       503,

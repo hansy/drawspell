@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { createServerFn } from "@tanstack/react-start";
 
 import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
@@ -18,7 +19,7 @@ export const leaveRoom = createServerFn({ method: "POST" })
     const playerId = ctx.data?.playerId?.trim();
     const leaveToken = ctx.data?.leaveToken?.trim();
     if (!roomId || !playerId || !leaveToken) {
-      throw new Error("missing Leave Room credentials");
+      throw new Error(m.leave_room_missing_leave_room_credentials());
     }
 
     const response = await fetch(`${origins.server}/rooms/leave`, {
@@ -27,6 +28,6 @@ export const leaveRoom = createServerFn({ method: "POST" })
       body: JSON.stringify({ roomId, playerId, leaveToken }),
     });
     if (!response.ok) {
-      throw new Error(`Leave Room request failed (${response.status})`);
+      throw new Error(m.leave_room_leave_room_request_failed({ status: response.status }));
     }
   });

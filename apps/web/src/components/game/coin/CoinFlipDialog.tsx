@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Input } from "../../ui/input";
@@ -48,10 +49,9 @@ export const CoinFlipDialog: React.FC<CoinFlipDialogProps> = ({ open, onClose, o
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="ds-dialog-size-xs bg-zinc-950 border-zinc-800 text-zinc-100">
         <DialogHeader>
-          <DialogTitle>Flip Coin</DialogTitle>
+          <DialogTitle>{m.coin_flip_dialog_flip_coin()}</DialogTitle>
           <DialogDescription className="text-zinc-400">
-            Choose how many coins to flip. Each coin will land on heads or tails.
-          </DialogDescription>
+            {m.coin_flip_dialog_choose_how_many_coins_to_flip_each_coin_will_land_on_heads_or_tai()}</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
@@ -60,8 +60,7 @@ export const CoinFlipDialog: React.FC<CoinFlipDialogProps> = ({ open, onClose, o
               htmlFor={countId}
               className="block text-sm font-medium text-zinc-300"
             >
-              Number of coins
-            </label>
+              {m.coin_flip_dialog_number_of_coins()}</label>
             <Input
               id={countId}
               ref={countRef}
@@ -87,14 +86,12 @@ export const CoinFlipDialog: React.FC<CoinFlipDialogProps> = ({ open, onClose, o
             intent="secondary"
             onClick={onClose}
           >
-            Cancel
-          </GameDialogActionButton>
+            {m.cancel()}</GameDialogActionButton>
           <GameDialogActionButton
             onClick={handleSubmit}
             disabled={!isValid}
           >
-            Flip
-          </GameDialogActionButton>
+            {m.coin_flip_dialog_flip()}</GameDialogActionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

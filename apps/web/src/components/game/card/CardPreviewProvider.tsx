@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { Card as CardType } from "@/types";
 import { useDragStore } from "@/store/dragStore";
@@ -177,7 +178,7 @@ export const CardPreviewProvider: React.FC<{ children: React.ReactNode }> = ({
 export const useCardPreview = () => {
   const ctx = React.useContext(CardPreviewContext);
   if (!ctx) {
-    throw new Error("useCardPreview must be used within CardPreviewProvider");
+    throw new Error(m.card_preview_provider_usecardpreview_must_be_used_within_cardpreviewprovider());
   }
   return ctx;
 };

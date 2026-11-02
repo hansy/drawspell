@@ -1,3 +1,5 @@
+import { m } from "@/paraglide/messages.js";
+import { getLocale } from "@/paraglide/runtime.js";
 import * as React from "react";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
@@ -32,7 +34,7 @@ export const useTokenCreationController = ({
   const addCards = useGameStore((state) => state.addCards);
   const viewerRole = useGameStore((state) => state.viewerRole);
 
-  const [debouncedSearch] = React.useState(() => createDebouncedTokenSearch());
+  const [debouncedSearch] = React.useState(() => createDebouncedTokenSearch({ locale: getLocale() }));
 
   const resetState = React.useCallback(() => {
     setQuery("");
@@ -121,7 +123,7 @@ export const useTokenCreationController = ({
     addCards(planned);
 
     toast.success(
-      `Created ${quantity} ${selectedToken.name} token${quantity > 1 ? "s" : ""}`
+      m.use_token_creation_controller_created_token({ quantity: quantity, name: selectedToken.name })
     );
     handleClose();
   }, [addCards, handleClose, playerId, quantity, selectedToken, viewerRole]);

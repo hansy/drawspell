@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { createFileRoute } from "@tanstack/react-router";
 export const Route = createFileRoute("/api/v1/rooms")({
   server: {
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/api/v1/rooms")({
             {
               error: {
                 code: "service_unavailable",
-                message: "Room creation is temporarily unavailable.",
+                message: m.api_v1_rooms_room_creation_is_temporarily_unavailable(),
               },
             },
             { status: 503, headers: { "Cache-Control": "no-store" } },

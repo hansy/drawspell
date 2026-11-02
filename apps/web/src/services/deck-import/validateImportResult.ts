@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type { FetchScryfallResult, ParsedCard } from "./types";
 import { formatMissingCards } from "./formatMissingCards";
 import { formatScryfallErrors } from "@/services/scryfall/scryfallErrors";
@@ -17,9 +18,7 @@ export const validateImportResult = (
     if (result.missing.length) {
       return {
         ok: false,
-        error: `${errorMessage} Also could not find: ${formatMissingCards(
-          result.missing
-        )}.`,
+        error: m.deck_missing_with_error({ errorMessage, cards: formatMissingCards(result.missing) }),
       };
     }
 
@@ -29,14 +28,14 @@ export const validateImportResult = (
 
     return {
       ok: false,
-      error: `${errorMessage} Requested ${expectedCount} cards but Scryfall returned ${result.cards.length}.`,
+      error: m.deck_count_with_error({ errorMessage, expectedCount, actualCount: result.cards.length }),
     };
   }
 
   if (result.missing.length) {
     return {
       ok: false,
-      error: `Could not find: ${formatMissingCards(result.missing)}. Please check spelling or set codes.`,
+      error: m.deck_missing({ cards: formatMissingCards(result.missing) }),
     };
   }
 
@@ -44,14 +43,14 @@ export const validateImportResult = (
     return {
       ok: false,
       error:
-        "Scryfall returned 0 cards. Please check your decklist for typos or set codes.",
+        m.deck_empty(),
     };
   }
 
   if (result.cards.length !== expectedCount) {
     return {
       ok: false,
-      error: `Requested ${expectedCount} cards but Scryfall returned ${result.cards.length}. Please check for typos or ambiguous printings.`,
+      error: m.deck_count({ expectedCount, actualCount: result.cards.length }),
     };
   }
 

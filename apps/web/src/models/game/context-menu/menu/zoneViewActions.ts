@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type {
   LibraryTopRevealMode,
   PlayerId,
@@ -52,7 +53,6 @@ interface ZoneActionBuilderParams {
 
 type CountPromptHandler = NonNullable<ZoneActionBuilderParams["openCountPrompt"]>;
 
-const PROMPT_UNAVAILABLE_REASON = "Prompt unavailable";
 
 const buildCountPromptAction = ({
   label,
@@ -71,7 +71,7 @@ const buildCountPromptAction = ({
     if (!openCountPrompt) return;
     openCountPrompt(buildPromptOptions());
   },
-  disabledReason: openCountPrompt ? undefined : PROMPT_UNAVAILABLE_REASON,
+  disabledReason: openCountPrompt ? undefined : m.prompt_unavailable(),
   shortcut,
 });
 
@@ -87,18 +87,18 @@ const buildLibraryDrawMenu = ({
   const submenu: ContextMenuItem[] = [
     {
       type: "action",
-      label: "Draw 1",
+      label: m.zone_view_actions_draw_1(),
       onSelect: () => drawCard(myPlayerId),
       shortcut: getShortcutLabel("game.drawOne"),
     },
     buildCountPromptAction({
-      label: "Draw X...",
+      label: m.zone_view_actions_draw_x(),
       openCountPrompt,
       buildPromptOptions: () => ({
-        title: "Draw cards",
-        message: "How many cards to draw?",
-        inputLabel: "Cards to draw",
-        confirmLabel: "Draw",
+        title: m.model_draw_cards(),
+        message: m.model_how_many_cards_to_draw(),
+        inputLabel: m.model_cards_to_draw(),
+        confirmLabel: m.model_draw(),
         onSubmit: (count) => {
           for (let i = 0; i < count; i++) {
             drawCard(myPlayerId);
@@ -111,7 +111,7 @@ const buildLibraryDrawMenu = ({
 
   return {
     type: "action",
-    label: "Draw ...",
+    label: m.zone_view_actions_draw(),
     onSelect: () => {},
     submenu,
   };
@@ -129,18 +129,18 @@ const buildLibraryDiscardMenu = ({
   const submenu: ContextMenuItem[] = [
     {
       type: "action",
-      label: "Mill 1",
+      label: m.zone_view_actions_mill_1(),
       onSelect: () => discardFromLibrary(myPlayerId, 1),
       shortcut: getShortcutLabel("game.discardOne"),
     },
     buildCountPromptAction({
-      label: "Mill X...",
+      label: m.zone_view_actions_mill_x(),
       openCountPrompt,
       buildPromptOptions: () => ({
-        title: "Mill cards",
-        message: "How many cards to mill?",
-        inputLabel: "Cards to mill",
-        confirmLabel: "Mill",
+        title: m.model_mill_cards(),
+        message: m.zone_view_actions_how_many_cards_to_mill(),
+        inputLabel: m.model_cards_to_mill(),
+        confirmLabel: m.model_mill(),
         onSubmit: (count) => discardFromLibrary(myPlayerId, count),
         minValue: 1,
       }),
@@ -150,7 +150,7 @@ const buildLibraryDiscardMenu = ({
 
   return {
     type: "action",
-    label: "Mill ...",
+    label: m.zone_view_actions_mill(),
     onSelect: () => {},
     submenu,
   };
@@ -174,42 +174,42 @@ const buildLibraryExileMenu = ({
   const buildQuantityMenu = (faceDown: boolean): ContextMenuItem[] => [
     {
       type: "action",
-      label: "Exile 1",
+      label: m.zone_view_actions_exile_1(),
       onSelect: () => exileFromLibrary(myPlayerId, 1, { faceDown }),
       shortcut: faceDown ? undefined : getShortcutLabel("game.exileOne"),
     },
     buildCountPromptAction({
-      label: "Exile Top X...",
+      label: m.zone_view_actions_exile_top_x(),
       shortcut: faceDown ? undefined : getShortcutLabel("game.exileX"),
       openCountPrompt,
       buildPromptOptions: () => ({
-        title: "Exile cards",
-        message: "How many cards from the top of your library?",
-        inputLabel: "Cards to exile",
+        title: m.model_exile_cards(),
+        message: m.zone_view_actions_how_many_cards_from_the_top_of_your_library(),
+        inputLabel: m.model_cards_to_exile(),
         onSubmit: (count) => exileFromLibrary(myPlayerId, count, { faceDown }),
         minValue: 1,
         ...(typeof libraryCount === "number" && libraryCount > 0
           ? { maxValue: libraryCount, showMaxButton: true }
           : null),
-        confirmLabel: "Exile",
+        confirmLabel: m.model_exile(),
       }),
     }),
   ];
 
   return {
     type: "action",
-    label: "Exile ...",
+    label: m.zone_view_actions_exile(),
     onSelect: () => {},
     submenu: [
       {
         type: "action",
-        label: "Face up ...",
+        label: m.zone_view_actions_face_up(),
         onSelect: () => {},
         submenu: buildQuantityMenu(false),
       },
       {
         type: "action",
-        label: "Face down ...",
+        label: m.move_to_menu_face_down(),
         onSelect: () => {},
         submenu: buildQuantityMenu(true),
       },
@@ -229,16 +229,16 @@ const buildLibraryViewMenu = ({
   const submenu: ContextMenuItem[] = [
     {
       type: "action",
-      label: "View all",
+      label: m.zone_view_actions_view_all(),
       onSelect: () => onViewZone(zoneId),
       shortcut: getShortcutLabel("zone.viewLibraryAll"),
     },
     buildCountPromptAction({
-      label: "View top X...",
+      label: m.zone_view_actions_view_top_x(),
       openCountPrompt,
       buildPromptOptions: () => ({
-        title: "View Top",
-        message: "How many cards from top?",
+        title: m.model_view_top(),
+        message: m.model_how_many_cards_from_top(),
         onSubmit: (count) => onViewZone(zoneId, count),
       }),
       shortcut: getShortcutLabel("zone.viewLibraryTop"),
@@ -247,7 +247,7 @@ const buildLibraryViewMenu = ({
 
   return {
     type: "action",
-    label: "View ...",
+    label: m.zone_view_actions_view(),
     onSelect: () => {},
     submenu,
   };
@@ -300,7 +300,7 @@ export const buildZoneViewActions = ({
     );
     items.push({
       type: "action",
-      label: "Put bottom card into hand",
+      label: m.zone_view_actions_put_bottom_card_into_hand(),
       onSelect: () => moveBottomLibraryCardToHand(myPlayerId),
     });
 
@@ -334,7 +334,7 @@ export const buildZoneViewActions = ({
       const submenu: ContextMenuItem[] = [
         {
           type: "action",
-          label: "To me",
+          label: m.zone_view_actions_to_me(),
           checked: selectedIdSet.has(myPlayerId),
           onSelect: () => {
             const nextSelectedIds = selectedIdSet.has(myPlayerId)
@@ -347,7 +347,7 @@ export const buildZoneViewActions = ({
       otherPlayers.forEach((player) => {
         submenu.push({
           type: "action",
-          label: `To ${player.name || player.id}`,
+          label: m.zone_view_actions_to({ value_1: player.name || player.id }),
           checked: selectedIdSet.has(player.id),
           onSelect: () => {
             const nextSelectedIds = selectedIdSet.has(player.id)
@@ -361,7 +361,7 @@ export const buildZoneViewActions = ({
         submenu.push({ type: "separator" });
         submenu.push({
           type: "action",
-          label: "To all players",
+          label: m.zone_view_actions_to_all_players(),
           checked: allPlayerIds.every((id) => selectedIdSet.has(id)),
           onSelect: () => {
             const isChecked = allPlayerIds.every((id) => selectedIdSet.has(id));
@@ -371,7 +371,7 @@ export const buildZoneViewActions = ({
       }
       items.push({
         type: "action",
-        label: "Top card reveal ...",
+        label: m.zone_view_actions_top_card_reveal(),
         onSelect: () => {},
         submenu,
       });
@@ -379,17 +379,17 @@ export const buildZoneViewActions = ({
 
     items.push({
       type: "action",
-      label: "Shuffle",
+      label: m.zone_view_actions_shuffle(),
       onSelect: () => shuffleLibrary(myPlayerId),
       shortcut: getShortcutLabel("game.shuffleLibrary"),
     });
     items.push(
       buildCountPromptAction({
-        label: "Mulligan",
+        label: m.model_mulligan(),
         openCountPrompt,
         buildPromptOptions: () => ({
-          title: "Mulligan",
-          message: "Reset deck and draw new cards. How many cards to draw?",
+          title: m.model_mulligan(),
+          message: m.model_reset_deck_and_draw_new_cards_how_many_cards_to_draw(),
           initialValue: 7,
           onSubmit: (count) => {
             mulligan(myPlayerId, count);
@@ -401,13 +401,13 @@ export const buildZoneViewActions = ({
     items.push({ type: "separator" });
     items.push({
       type: "action",
-      label: "Reset",
+      label: m.zone_view_actions_reset(),
       onSelect: () => resetDeck(myPlayerId),
       shortcut: getShortcutLabel("deck.reset"),
     });
     items.push({
       type: "action",
-      label: "Unload",
+      label: m.zone_view_actions_unload(),
       onSelect: () => unloadDeck(myPlayerId),
       danger: true,
       shortcut: getShortcutLabel("deck.unload"),
@@ -420,7 +420,7 @@ export const buildZoneViewActions = ({
     if (viewPermission.allowed && onViewZone)
       items.push({
         type: "action",
-        label: "View All",
+        label: m.zone_view_actions_view_all_2(),
         onSelect: () => onViewZone(zone.id),
         shortcut:
           zone.ownerId === myPlayerId

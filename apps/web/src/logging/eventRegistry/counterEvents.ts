@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { buildCardPart, buildPlayerPart, getLogZone } from "../helpers";
 import type { LogEventDefinition, PartialLogEventRegistry } from "@/logging/types";
 import type { ZoneType } from "@/types";
@@ -34,10 +35,10 @@ const formatCounterAdd: LogEventDefinition<CounterPayload>["format"] = (payload,
     actor,
     {
       kind: "text",
-      text: ` added ${payload.delta} ${payload.counterType} counter${payload.delta === 1 ? "" : "s"} to `,
+      text: m.counter_events_added_counter_to({ delta: payload.delta, counterType: payload.counterType }),
     },
     cardPart,
-    { kind: "text", text: ` (now ${payload.newTotal})` },
+    { kind: "text", text: m.counter_events_now({ newTotal: payload.newTotal }) },
   ];
 };
 
@@ -50,16 +51,16 @@ const formatCounterRemove: LogEventDefinition<CounterPayload>["format"] = (paylo
     actor,
     {
       kind: "text",
-      text: ` removed ${absDelta} ${payload.counterType} counter${absDelta === 1 ? "" : "s"} from `,
+      text: m.counter_events_removed_counter_from({ absDelta: absDelta, counterType: payload.counterType }),
     },
     cardPart,
-    { kind: "text", text: ` (now ${payload.newTotal})` },
+    { kind: "text", text: m.counter_events_now({ newTotal: payload.newTotal }) },
   ];
 };
 
 const formatGlobalCounterAdd: LogEventDefinition<GlobalCounterPayload>["format"] = (payload, _ctx) => {
   const colorSuffix = payload.color ? ` (${payload.color})` : "";
-  return [{ kind: "text", text: `Added global counter type ${payload.counterType}${colorSuffix}` }];
+  return [{ kind: "text", text: m.counter_events_added_global_counter_type({ counterType: payload.counterType, colorSuffix: colorSuffix }) }];
 };
 
 export const counterEvents = {

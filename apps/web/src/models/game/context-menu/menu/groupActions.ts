@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type {
   Card,
   CardId,
@@ -95,7 +96,7 @@ const buildGroupRevealMenu = ({
   const submenu: ContextMenuItem[] = [
     {
       type: "action",
-      label: "Everyone",
+      label: m.card_face_reveal_badge_everyone(),
       onSelect: () => setCardsReveal({ toAll: true }),
     },
   ];
@@ -115,13 +116,13 @@ const buildGroupRevealMenu = ({
     { type: "separator" },
     {
       type: "action",
-      label: "Hide from everyone",
+      label: m.group_actions_hide_from_everyone(),
       onSelect: () => setCardsReveal(null),
     },
   );
   return {
     type: "action",
-    label: "Reveal to...",
+    label: m.group_actions_reveal_to(),
     onSelect: () => {},
     submenu,
   };
@@ -158,22 +159,22 @@ const buildGroupMoveMenu = (
   if (playerZones.battlefield && canMoveAllTo(playerZones.battlefield)) {
     submenu.push({
       type: "action",
-      label: `${ZONE_LABEL.battlefield}...`,
+      label: m.group_actions({ battlefield: ZONE_LABEL.battlefield }),
       onSelect: () => {},
       submenu: [
         {
           type: "action",
-          label: "Face up",
+          label: m.move_to_menu_face_up(),
           onSelect: () => moveCards(movesTo(playerZones.battlefield!)),
         },
         {
           type: "action",
-          label: "Face down...",
+          label: m.group_actions_face_down(),
           onSelect: () => {},
           submenu: [
             {
               type: "action",
-              label: "with morph (2/2)",
+              label: m.move_to_menu_with_morph_2_2(),
               onSelect: () =>
                 moveCards(
                   movesTo(playerZones.battlefield!, {
@@ -183,7 +184,7 @@ const buildGroupMoveMenu = (
             },
             {
               type: "action",
-              label: "without morph",
+              label: m.move_to_menu_without_morph(),
               onSelect: () =>
                 moveCards(
                   movesTo(playerZones.battlefield!, {
@@ -210,17 +211,17 @@ const buildGroupMoveMenu = (
   if (playerZones.exile && canMoveAllTo(playerZones.exile)) {
     submenu.push({
       type: "action",
-      label: `${ZONE_LABEL.exile}...`,
+      label: m.group_actions_2({ exile: ZONE_LABEL.exile }),
       onSelect: () => {},
       submenu: [
         {
           type: "action",
-          label: "Face up",
+          label: m.move_to_menu_face_up(),
           onSelect: () => moveCards(movesTo(playerZones.exile!)),
         },
         {
           type: "action",
-          label: "Face down",
+          label: m.move_to_menu_face_down_2(),
           onSelect: () =>
             moveCards(
               movesTo(playerZones.exile!, { opts: { faceDown: true } }),
@@ -233,12 +234,12 @@ const buildGroupMoveMenu = (
   if (playerZones.library && canMoveAllTo(playerZones.library)) {
     submenu.push({
       type: "action",
-      label: `${ZONE_LABEL.library}...`,
+      label: m.group_actions_3({ library: ZONE_LABEL.library }),
       onSelect: () => {},
       submenu: [
         {
           type: "action",
-          label: "Bottom in random order",
+          label: m.group_actions_bottom_in_random_order(),
           onSelect: () =>
             moveCards(
               shuffle(cards).map((card) => ({
@@ -254,7 +255,7 @@ const buildGroupMoveMenu = (
   }
 
   return submenu.length
-    ? { type: "action", label: "Move to...", onSelect: () => {}, submenu }
+    ? { type: "action", label: m.move_to_menu_move_to(), onSelect: () => {}, submenu }
     : null;
 };
 
@@ -270,7 +271,7 @@ export const buildGroupActions = (
     params.removeCards && params.cards.every((card) => card.isToken)
       ? {
           type: "action" as const,
-          label: "Remove Cards",
+          label: m.group_actions_remove_cards(),
           onSelect: params.removeCards,
           danger: true,
         }

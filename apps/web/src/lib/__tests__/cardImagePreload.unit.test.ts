@@ -53,3 +53,12 @@ describe("preloadCardPreviewImage", () => {
     });
   });
 });
+
+
+it("does not create image or translation requests for a hidden identity", () => {
+  const image = vi.fn();
+  vi.stubGlobal("Image", image);
+  preloadCardPreviewImage({ ...buildCard("hidden", "https://example.com/hidden.jpg"), scryfallId: "private-printing" }, "high", { locale: "fr", canSeeIdentity: false });
+  expect(image).not.toHaveBeenCalled();
+  vi.unstubAllGlobals();
+});

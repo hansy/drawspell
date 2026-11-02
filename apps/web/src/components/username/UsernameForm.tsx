@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from 'react';
 import { GameDialogActionButton } from '@/components/game/dialog/GameDialogActionButton';
 import { Input } from '../ui/input';
@@ -25,10 +26,10 @@ export function UsernameForm({
   autoFocusSelect = true,
   highlightInitial = true,
   showRandomize = false,
-  randomizeLabel = 'Randomize',
+  randomizeLabel = m.username_form_randomize(),
   onRandomize,
   showCancel = false,
-  cancelLabel = 'Cancel',
+  cancelLabel = m.cancel(),
   onCancel,
 }: UsernameFormProps) {
   const fieldId = React.useId();
@@ -63,8 +64,7 @@ export function UsernameForm({
       <div className="space-y-2">
         <div className="flex items-end justify-between gap-4">
           <label className="text-sm font-medium text-zinc-200" htmlFor={fieldId}>
-            Username
-          </label>
+            {m.username_form_username()}</label>
           <div className="text-xs text-zinc-400 tabular-nums">
             {Math.min(draft.length, USERNAME_MAX_LENGTH)}/{USERNAME_MAX_LENGTH}
           </div>
@@ -78,7 +78,7 @@ export function UsernameForm({
             setDraft(e.target.value);
           }}
           maxLength={USERNAME_MAX_LENGTH}
-          placeholder="Your name"
+          placeholder={m.username_form_your_name()}
           className={cn(
             'h-11',
             highlighted && 'ring-2 ring-indigo-500/40 border-indigo-500/60'

@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React, { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Textarea } from "../../ui/textarea";
@@ -45,16 +46,14 @@ export const TextPromptDialog: React.FC<TextPromptDialogProps> = ({
                         onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setValue(e.target.value)}
                         maxLength={280}
                         className="bg-zinc-900 border-zinc-800 text-zinc-100 min-h-[100px] resize-none"
-                        placeholder="Enter text..."
+                        placeholder={m.text_prompt_dialog_enter_text()}
                     />
                 </div>
                 <DialogFooter>
                     <GameDialogActionButton intent="secondary" onClick={onClose}>
-                        Cancel
-                    </GameDialogActionButton>
+                        {m.cancel()}</GameDialogActionButton>
                     <GameDialogActionButton onClick={handleSubmit}>
-                        Save
-                    </GameDialogActionButton>
+                        {m.save()}</GameDialogActionButton>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

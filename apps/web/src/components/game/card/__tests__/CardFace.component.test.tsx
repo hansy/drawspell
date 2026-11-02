@@ -315,7 +315,7 @@ describe("CardFace", () => {
 
     render(<CardFace card={card} faceDown={false} />);
 
-    fireEvent.focus(screen.getByTitle("Revealed to: 2 player(s)"));
+    fireEvent.focus(screen.getByTitle("Revealed to players: 2"));
 
     expect(screen.getByText("You")).toBeTruthy();
     expect(screen.getByText("Opponent")).toBeTruthy();

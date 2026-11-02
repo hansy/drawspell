@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { scryfallRequest, type ScryfallRequest } from "@/services/scryfall/scryfallRequest";
 import type { Card } from "@/types";
 import type { ScryfallCard, ScryfallIdentifier } from "@/types/scryfall";
@@ -241,7 +242,7 @@ const parseCollectionResponse = async (
       error: buildScryfallInvalidResponseError({
         endpoint: "collection",
         url,
-        error: new Error("Missing data array"),
+        error: new Error(m.fetch_scryfall_cards_missing_data_array()),
       }),
     };
   }

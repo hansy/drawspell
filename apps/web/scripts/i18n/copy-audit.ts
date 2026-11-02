@@ -14,13 +14,15 @@ export type CopyBaseline = { version: 1; entries: Record<string, number> };
 const copyAttributes = new Set([
   "alt", "title", "placeholder", "aria-label", "aria-description",
   "label", "description", "emptyMessage", "loadingText", "confirmLabel", "cancelLabel",
-  "subtitle", "heading", "tooltip", "helperText", "caption", "updatedAt",
+  "subtitle", "heading", "tooltip", "helperText", "caption", "updatedAt", "content",
+  "primaryActionLabel", "secondaryActionLabel", "submitLabel", "randomizeLabel", "pendingLabel",
 ]);
 const copyProperties = new Set([
   "label", "title", "description", "message", "badge", "subtitle", "heading",
   "confirmLabel", "cancelLabel", "emptyMessage", "loadingText", "tooltip",
-  "text", "caption", "hint", "helperText", "content",
+  "text", "caption", "hint", "helperText", "content", "subject", "gesture", "error",
 ]);
+const isCopyProperty = (name: string) => copyProperties.has(name) || /(?:Label|Title|Description|Message|Text|Tooltip|Hint)$/.test(name);
 const copySetters = new Set(["setMessage", "setError", "setStatusMessage", "setCopyMessage"]);
 
 // Match human text in known presentation contexts, never arbitrary protocol strings.
@@ -34,6 +36,8 @@ export function auditSource(file: string, source: string): CopyFinding[] {
   const recorded = new Set<number>();
   const add = (node: ts.Node, kind: CopyFinding["kind"], text: string) => {
     const value = normalize(text);
+    // Addresses and machine-readable metadata are protocol data, not prose.
+    if (/^(?:https?:\/\/|\/api\/|\$\{origins\.web\}\/|width=device-width|feedback@drawspell\.space$)/.test(value)) return;
     if (!hasText(value) || recorded.has(node.getStart(ast))) return;
     recorded.add(node.getStart(ast));
     findings.push({ file, line: ast.getLineAndCharacterOfPosition(node.getStart(ast)).line + 1, kind, text: value });
@@ -44,7 +48,9 @@ export function auditSource(file: string, source: string): CopyFinding[] {
       add(node, kind, node.text);
     } else if (ts.isTemplateExpression(node)) {
       // Expressions are retained in the fingerprint: copy changes and variable changes need review.
-      add(node, kind, node.getText(ast).slice(1, -1));
+      const staticText = node.head.text + node.templateSpans.map((span) => span.literal.text).join("");
+      if (hasText(staticText)) add(node, kind, node.getText(ast).slice(1, -1));
+      else node.templateSpans.forEach((span) => display(span.expression, kind));
     } else if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) {
       display(node.expression, kind);
     } else if (ts.isConditionalExpression(node)) {
@@ -63,20 +69,46 @@ export function auditSource(file: string, source: string): CopyFinding[] {
   };
   const visit = (node: ts.Node) => {
     if (ts.isJsxText(node)) add(node, "text", node.text);
-    if (ts.isJsxAttribute(node) && copyAttributes.has(node.name.getText(ast))) {
+    if (ts.isJsxAttribute(node) && (copyAttributes.has(node.name.getText(ast)) || isCopyProperty(node.name.getText(ast)))) {
       display(node.initializer, "attribute");
     }
     if (ts.isJsxExpression(node) && !ts.isJsxAttribute(node.parent)) {
       display(node.expression, "text");
     }
-    if (ts.isPropertyAssignment(node) && copyProperties.has(node.name.getText(ast).replace(/^["']|["']$/g, ""))) {
+    if (ts.isPropertyAssignment(node) && isCopyProperty(node.name.getText(ast).replace(/^["']|["']$/g, ""))) {
+      const protocolMeta = node.name.getText(ast) === "content" && ts.isObjectLiteralExpression(node.parent) && node.parent.properties.some((property) =>
+        ts.isPropertyAssignment(property) && property.name.getText(ast) === "name" &&
+        ts.isStringLiteral(property.initializer) && ["viewport", "robots", "og:url", "og:image"].includes(property.initializer.text));
+      const diagnostic = ts.isCallExpression(node.parent.parent) && node.parent.parent.expression.getText(ast) === "handoffDebugLog";
+      if (!protocolMeta && !diagnostic) display(node.initializer, "property");
+    }
+    if ((ts.isVariableDeclaration(node) || ts.isBindingElement(node) || ts.isParameter(node)) &&
+        ts.isIdentifier(node.name) && (isCopyProperty(node.name.text) || /(?:Label|Text|Message|Title|Description|Placeholder|Tooltip|Hint)$/.test(node.name.text))) {
       display(node.initializer, "property");
     }
+    if (ts.isPropertyAssignment(node)) {
+      let parent: ts.Node | undefined = node.parent;
+      while (parent && !ts.isVariableDeclaration(parent) && !ts.isFunctionLike(parent)) parent = parent.parent;
+      if (parent && ts.isVariableDeclaration(parent) && /^(?:ZONE_LABEL|MANA_NAMES|OUT_REASON_TEXT)$/.test(parent.name.getText(ast))) {
+        display(node.initializer, "property");
+      }
+    }
+    if (ts.isNewExpression(node) && node.expression.getText(ast) === "Error") display(node.arguments?.[0], "notification");
     if (ts.isCallExpression(node)) {
       const callee = node.expression;
+      if (ts.isPropertyAccessExpression(callee) && callee.expression.getText(ast) === "m" && node.arguments[0] && ts.isObjectLiteralExpression(node.arguments[0])) {
+        for (const property of node.arguments[0].properties) if (ts.isPropertyAssignment(property)) display(property.initializer, "text");
+      }
       const isNotification = (ts.isIdentifier(callee) && (copySetters.has(callee.text) || callee.text === "toast")) ||
-        (ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression) && callee.expression.text === "toast");
+        (ts.isPropertyAccessExpression(callee) && (callee.expression.getText(ast) === "toast" || callee.expression.getText(ast).endsWith(".toast")));
       if (isNotification) display(node.arguments[0], "notification");
+    }
+    if (ts.isReturnStatement(node)) {
+      let parent: ts.Node | undefined = node.parent;
+      while (parent && !ts.isFunctionLike(parent)) parent = parent.parent;
+      const name = parent && ts.isFunctionDeclaration(parent) ? parent.name?.text :
+        parent && ts.isArrowFunction(parent) && ts.isVariableDeclaration(parent.parent) ? parent.parent.name.getText(ast) : "";
+      if (name && !name.endsWith("ClassName") && /(?:Label|Name|Text|Message|Title|Description|Tooltip|Hint|Verb|Errors)$/.test(name)) display(node.expression, "text");
     }
     ts.forEachChild(node, visit);
   };

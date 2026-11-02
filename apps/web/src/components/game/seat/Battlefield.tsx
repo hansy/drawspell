@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { getBattlefieldCameraPan } from "@/lib/battlefieldCamera";
 import {
   BASE_CARD_HEIGHT,
@@ -394,7 +395,7 @@ const BattlefieldInner: React.FC<BattlefieldProps> = ({
       {cards.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
           <span className="text-4xl font-bold uppercase tracking-widest">
-            {player.name || (isMe ? "Me" : "")}
+            {player.name || (isMe ? m.life_box_view_me() : "")}
           </span>
         </div>
       )}

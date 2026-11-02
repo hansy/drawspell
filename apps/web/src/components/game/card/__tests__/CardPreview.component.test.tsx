@@ -144,7 +144,7 @@ describe("CardPreview", () => {
 
     fireEvent.mouseEnter(cardElement);
 
-    expect(preloadCardPreviewImage).toHaveBeenCalledWith(card, "high");
+    expect(preloadCardPreviewImage).toHaveBeenCalledWith(card, "high", { locale: "en", canSeeIdentity: true });
   });
 
   it("toggles own-hand card selection on successive single activations", () => {
@@ -1664,7 +1664,7 @@ describe("CardPreview", () => {
       );
     });
 
-    expect(preloadCardPreviewImage).toHaveBeenCalledWith(card, "high");
+    expect(preloadCardPreviewImage).toHaveBeenCalledWith(card, "high", { locale: "en", canSeeIdentity: true });
     expect(document.querySelector("[data-card-preview]")).not.toBeNull();
   });
 

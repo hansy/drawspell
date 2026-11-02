@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { Loader2 } from "lucide-react";
 
@@ -23,7 +24,7 @@ const CuratedDeckPicker = React.lazy(() =>
 export const CuratedDeckPickerLoading = () => (
   <section
     role="status"
-    aria-label="Loading curated decks"
+    aria-label={m.load_deck_modal_view_loading_curated_decks()}
     className="grid h-[min(18rem,42dvh)] grid-rows-[auto_minmax(0,1fr)] gap-3 sm:h-64"
   >
     <div className="h-5 w-28 rounded bg-zinc-800 motion-safe:animate-pulse" />
@@ -65,10 +66,9 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="ds-dialog-size-lg grid h-[100dvh] grid-rows-[auto_minmax(0,1fr)_auto] bg-zinc-950 border-zinc-800 text-zinc-100 lg:h-auto">
         <DialogHeader>
-          <DialogTitle>Load Deck</DialogTitle>
+          <DialogTitle>{m.load_deck_modal_view_load_deck()}</DialogTitle>
           <DialogDescription className="text-zinc-400">
-            Paste a decklist (e.g., &quot;4 Lightning Bolt&quot;) or an Archidekt deck link.
-          </DialogDescription>
+            {m.load_deck_modal_view_paste_a_decklist_e_g_4_lightning_bolt_or_an_archidekt_deck_link()}</DialogDescription>
         </DialogHeader>
 
         <div className="ds-dialog-scroll grid gap-4 py-1 sm:py-4">
@@ -83,7 +83,7 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
                 ref={textareaRef}
                 value={importText}
                 onChange={(e) => handleImportTextChange(e.target.value)}
-                placeholder={"4 Lightning Bolt\n20 Mountain..."}
+                placeholder={m.load_deck_modal_view_4_lightning_bolt_20_mountain()}
                 aria-describedby={textareaDescriptionId}
                 aria-invalid={Boolean(error)}
                 className={cn(
@@ -97,8 +97,7 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
                   id={prefilledHintId}
                   className="w-fit rounded-full border border-zinc-700 bg-zinc-900/70 px-2.5 py-1 text-xs text-zinc-300"
                 >
-                  Last import loaded. Edit or paste a new decklist.
-                </div>
+                  {m.load_deck_modal_view_last_import_loaded_edit_or_paste_a_new_decklist()}</div>
               )}
             </div>
 
@@ -131,8 +130,7 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
             onClick={handleClose}
             disabled={isImporting}
           >
-            Cancel
-          </GameDialogActionButton>
+            {m.cancel()}</GameDialogActionButton>
           <GameDialogActionButton
             onClick={handleImport}
             disabled={isImporting || !importText.trim()}
@@ -144,10 +142,9 @@ export const LoadDeckModalView: React.FC<LoadDeckController> = ({
                   aria-hidden="true"
                   className="motion-safe:animate-spin"
                 />
-                Loading deck
-              </>
+                {m.load_deck_modal_view_loading_deck()}</>
             ) : (
-              "Load Deck"
+              m.load_deck_modal_view_load_deck()
             )}
           </GameDialogActionButton>
         </DialogFooter>

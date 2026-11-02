@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import {
   autoUpdate,
@@ -92,7 +93,7 @@ export const TurnMenu: React.FC<TurnMenuProps> = ({
         }}
         style={floatingStyles}
         role="menu"
-        aria-label="Turn"
+        aria-label={m.turn_menu_turn()}
         data-no-seat-swipe="true"
         className="z-[70] flex w-56 flex-col gap-0.5 rounded-lg border border-zinc-800 bg-zinc-900 p-1 shadow-xl"
       >
@@ -104,15 +105,13 @@ export const TurnMenu: React.FC<TurnMenuProps> = ({
           className={itemClassName}
         >
           <Forward size={16} />
-          End turn
-          <span className="ml-auto hidden text-[10px] text-zinc-500 desktop:inline">⇧ Space</span>
+          {m.seat_view_end_turn()}<span className="ml-auto hidden text-[10px] text-zinc-500 desktop:inline">{m.turn_menu_space()}</span>
         </button>
 
         {isMyTurn && onPassTurnTo && others.length > 1 && (
           <>
             <div className="px-2 pb-0.5 pt-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-              Pass to
-            </div>
+              {m.turn_menu_pass_to()}</div>
             {others.map((player) => (
               <button
                 key={player.id}
@@ -129,11 +128,10 @@ export const TurnMenu: React.FC<TurnMenuProps> = ({
                     PLAYER_DOT_CLASS_NAMES[player.color ?? ""] ?? "bg-zinc-400",
                   )}
                 />
-                <span className="min-w-0 flex-1 truncate">{player.name.trim() || "Player"}</span>
+                <span className="min-w-0 flex-1 truncate">{player.name.trim() || m.portrait_seat_toolbar_player()}</span>
                 {player.out && (
                   <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-                    Out
-                  </span>
+                    {m.seat_view_out()}</span>
                 )}
               </button>
             ))}
@@ -150,7 +148,7 @@ export const TurnMenu: React.FC<TurnMenuProps> = ({
           className={itemClassName}
         >
           <Flag size={16} />
-          {isOut ? "I'm back in" : "I'm out (skip my turns)"}
+          {isOut ? m.turn_menu_i_m_back_in() : m.turn_menu_i_m_out_skip_my_turns()}
         </button>
       </div>
     </FloatingPortal>

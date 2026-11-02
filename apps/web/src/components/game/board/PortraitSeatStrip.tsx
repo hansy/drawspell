@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { Eye, Heart, RectangleVertical } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
@@ -98,7 +99,7 @@ export const PortraitSeatStrip: React.FC<{
 
   return (
     <nav
-      aria-label="Players"
+      aria-label={m.portrait_seat_strip_players()}
       data-portrait-seat-strip
       data-no-seat-swipe="true"
       className="flex h-12 shrink-0 items-stretch gap-1 overflow-x-auto border-b border-zinc-800 bg-zinc-950 px-1.5 py-1 scrollbar-none"
@@ -111,7 +112,7 @@ export const PortraitSeatStrip: React.FC<{
             key={seat.playerId}
             type="button"
             aria-pressed={active}
-            aria-label={`${active ? "Viewing" : "View"} ${seat.label}: ${summary?.life ?? 0} life, ${summary?.handCount ?? 0} cards in hand${summary?.hasReveal ? ", has revealed cards" : ""}${summary?.hasMana ? ", has floating mana" : ""}`}
+            aria-label={m.portrait_seat_strip_life_cards_in_hand({ value_1: active ? m.portrait_seat_strip_viewing() : m.portrait_seat_strip_view(), label: seat.label, value_3: summary?.life ?? 0, value_4: summary?.handCount ?? 0, value_5: summary?.hasReveal ? m.portrait_seat_strip_has_revealed_cards() : "", value_6: summary?.hasMana ? m.portrait_seat_strip_has_floating_mana() : "" })}
             data-portrait-seat-chip={seat.playerId}
             onClick={() => {
               if (!active) onSelectSeat(seat.playerId);

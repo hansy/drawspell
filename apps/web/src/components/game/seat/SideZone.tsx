@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { Card as CardType, Zone as ZoneType, ZoneId } from "@/types";
 import { Zone } from "../zone/Zone";
@@ -270,7 +271,7 @@ export const SideZone: React.FC<SideZoneProps> = ({
     return (
       <div
         data-side-zone-variant="chip"
-        title={`${label}: ${count}`}
+        title={m.side_zone({ label: label, count: count })}
         className="group/chip-zone relative h-full min-w-0 touch-manipulation select-none"
         onContextMenu={handleContextMenu}
         onClick={handleClick}

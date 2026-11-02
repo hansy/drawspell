@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type { Card, CardId, CardReveal, Player, PlayerId } from "@/types";
 import { getPlayerLabel } from "@/lib/playerLabel";
 
@@ -26,7 +27,7 @@ export const buildRevealMenu = (opts: {
 
   revealItems.push({
     type: "action",
-    label: audienceMode === "allPlayers" ? "Everyone" : "Reveal to all",
+    label: audienceMode === "allPlayers" ? m.card_face_reveal_badge_everyone() : m.reveal_reveal_to_all(),
     checked: card.revealedToAll,
     onSelect: () => setCardReveal(card.id, { toAll: true }),
   });
@@ -68,13 +69,13 @@ export const buildRevealMenu = (opts: {
 
   revealItems.push({
     type: "action",
-    label: audienceMode === "allPlayers" ? "Hide from everyone" : "Hide for all",
+    label: audienceMode === "allPlayers" ? m.group_actions_hide_from_everyone() : m.reveal_hide_for_all(),
     onSelect: () => setCardReveal(card.id, null),
   });
 
   return {
     type: "action",
-    label: "Reveal to ...",
+    label: m.reveal_reveal_to(),
     onSelect: () => {},
     submenu: revealItems,
   };

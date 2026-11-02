@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type { Card, CardId, PlayerId, ViewerRole, Zone, ZoneId } from "@/types";
 
 import { ZONE, ZONE_LABEL } from "@/constants/zones";
@@ -59,22 +60,22 @@ export const buildMoveToMenuItem = ({
   if (canMoveTo(playerZones.battlefield)) {
     submenu.push({
       type: "action",
-      label: `${ZONE_LABEL.battlefield} ...`,
+      label: m.move_to_menu({ battlefield: ZONE_LABEL.battlefield }),
       onSelect: () => {},
       submenu: [
         {
           type: "action",
-          label: "Face up",
+          label: m.move_to_menu_face_up(),
           onSelect: () => moveCard(card.id, playerZones.battlefield!.id),
         },
         {
           type: "action",
-          label: "Face down ...",
+          label: m.move_to_menu_face_down(),
           onSelect: () => {},
           submenu: [
             {
               type: "action",
-              label: "with morph (2/2)",
+              label: m.move_to_menu_with_morph_2_2(),
               onSelect: () =>
                 moveCard(
                   card.id,
@@ -87,7 +88,7 @@ export const buildMoveToMenuItem = ({
             },
             {
               type: "action",
-              label: "without morph",
+              label: m.move_to_menu_without_morph(),
               onSelect: () =>
                 moveCard(
                   card.id,
@@ -113,17 +114,17 @@ export const buildMoveToMenuItem = ({
   if (canMoveTo(playerZones.exile)) {
     submenu.push({
       type: "action",
-      label: `${ZONE_LABEL.exile} ...`,
+      label: m.move_to_menu_2({ exile: ZONE_LABEL.exile }),
       onSelect: () => {},
       submenu: [
         {
           type: "action",
-          label: "Face up",
+          label: m.move_to_menu_face_up(),
           onSelect: () => moveCard(card.id, playerZones.exile!.id),
         },
         {
           type: "action",
-          label: "Face down",
+          label: m.move_to_menu_face_down_2(),
           onSelect: () =>
             moveCard(
               card.id,
@@ -150,23 +151,23 @@ export const buildMoveToMenuItem = ({
     const libraryItems: ContextMenuItem[] = [
       {
         type: "action",
-        label: "Top",
+        label: m.opponent_library_reveals_modal_view_top(),
         onSelect: () => moveCard(card.id, playerZones.library!.id),
       },
     ];
     if (openCountPrompt && finalLibraryCount > 1) {
       libraryItems.push({
         type: "action",
-        label: "Nth from Top...",
+        label: m.move_to_menu_nth_from_top(),
         onSelect: () =>
           openCountPrompt({
-            title: "Move to Nth from Top",
-            message: "Choose the card's final position, counting from the top of the library.",
-            inputLabel: "Position from top",
+            title: m.move_to_menu_move_to_nth_from_top(),
+            message: m.move_to_menu_choose_the_card_s_final_position_counting_from_the_top_of_the_lib(),
+            inputLabel: m.move_to_menu_position_from_top(),
             initialValue: Math.min(2, finalLibraryCount),
             minValue: 1,
             maxValue: finalLibraryCount,
-            confirmLabel: "Move card",
+            confirmLabel: m.move_to_menu_move_card(),
             onSubmit: (positionFromTop) =>
               moveCard(
                 card.id,
@@ -182,13 +183,13 @@ export const buildMoveToMenuItem = ({
     if (moveCardToBottom) {
       libraryItems.push({
         type: "action",
-        label: "Bottom",
+        label: m.move_to_menu_bottom(),
         onSelect: () => moveCardToBottom(card.id, playerZones.library!.id),
       });
     }
     submenu.push({
       type: "action",
-      label: `${ZONE_LABEL.library} ...`,
+      label: m.move_to_menu_3({ library: ZONE_LABEL.library }),
       onSelect: () => {},
       submenu: libraryItems,
     });
@@ -198,7 +199,7 @@ export const buildMoveToMenuItem = ({
 
   return {
     type: "action",
-    label: "Move to...",
+    label: m.move_to_menu_move_to(),
     onSelect: () => {},
     submenu,
   };

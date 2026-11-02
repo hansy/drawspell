@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -11,102 +12,102 @@ interface ShortcutsDrawerProps {
 const MOUSE_CONTROLS = [
     {
         id: "mouse.activateCard",
-        title: "Activate Card",
-        description: "Tap or untap a battlefield card; select or deselect a card in hand or a zone viewer.",
-        gesture: "Click",
+        get title() { return m.shortcuts_drawer_activate_card(); },
+        get description() { return m.shortcuts_drawer_tap_or_untap_a_battlefield_card_select_or_deselect_a_card_in_hand(); },
+        get gesture() { return m.gesture_click(); },
     },
     {
         id: "mouse.previewCard",
-        title: "Preview Card",
-        description: "Open and lock a card preview.",
-        gesture: "Double click",
+        get title() { return m.shortcuts_drawer_preview_card(); },
+        get description() { return m.shortcuts_drawer_open_and_lock_a_card_preview(); },
+        get gesture() { return m.gesture_double_click(); },
     },
     {
         id: "mouse.moveCard",
-        title: "Move Card",
-        description: "Drag a card to reposition or move it. A library's top card stays hidden until dropped.",
-        gesture: "Drag",
+        get title() { return m.shortcuts_drawer_move_card(); },
+        get description() { return m.shortcuts_drawer_drag_a_card_to_reposition_or_move_it_a_library_s_top_card_stays_h(); },
+        get gesture() { return m.gesture_drag(); },
     },
     {
         id: "mouse.openContextMenu",
-        title: "Open Context Menu",
-        description: "Use on cards, zones, and life.",
-        gesture: "Right click",
+        get title() { return m.shortcuts_drawer_open_context_menu(); },
+        get description() { return m.shortcuts_drawer_use_on_cards_zones_and_life(); },
+        get gesture() { return m.gesture_right_click(); },
     },
     {
         id: "mouse.panBattlefield",
-        title: "Pan Battlefield",
-        description: "Hold the right mouse button on empty battlefield space and drag. Scroll to zoom; Default resets the view.",
-        gesture: "Right drag",
+        get title() { return m.shortcuts_drawer_pan_battlefield(); },
+        get description() { return m.shortcuts_drawer_hold_the_right_mouse_button_on_empty_battlefield_space_and_drag_s(); },
+        get gesture() { return m.gesture_right_drag(); },
     },
     {
         id: "mouse.adjustMana",
-        title: "Adjust Floating Mana",
-        description: "Left-click a mana orb to add one; right-click removes one. Hover for -/+ controls. Clear removes all floating mana.",
-        gesture: "Click",
+        get title() { return m.shortcuts_drawer_adjust_floating_mana(); },
+        get description() { return m.shortcuts_drawer_left_click_a_mana_orb_to_add_one_right_click_removes_one_hover_fo(); },
+        get gesture() { return m.gesture_click(); },
     },
 ] as const;
 
 const TOUCH_CONTROLS = [
     {
         id: "touch.moveCard",
-        title: "Move Card",
-        description: "Drag a card to reposition or move it. A library's top card stays hidden until dropped.",
-        gesture: "Tap + drag",
+        get title() { return m.shortcuts_drawer_move_card(); },
+        get description() { return m.shortcuts_drawer_drag_a_card_to_reposition_or_move_it_a_library_s_top_card_stays_h(); },
+        get gesture() { return m.gesture_tap_drag(); },
     },
     {
         id: "touch.tapUntapCard",
-        title: "Tap / Untap Battlefield Card",
-        description: "Toggle a battlefield card's tapped state.",
-        gesture: "Tap",
+        get title() { return m.shortcuts_drawer_tap_untap_battlefield_card(); },
+        get description() { return m.shortcuts_drawer_toggle_a_battlefield_card_s_tapped_state(); },
+        get gesture() { return m.gesture_tap(); },
     },
     {
         id: "touch.selectCards",
-        title: "Select Cards",
-        description: "Select or deselect cards in hand or a zone viewer for group actions.",
-        gesture: "Tap",
+        get title() { return m.shortcuts_drawer_select_cards(); },
+        get description() { return m.shortcuts_drawer_select_or_deselect_cards_in_hand_or_a_zone_viewer_for_group_actio(); },
+        get gesture() { return m.gesture_tap(); },
     },
     {
         id: "touch.previewCard",
-        title: "Preview Card",
-        description: "Open and lock a card preview.",
-        gesture: "Double tap",
+        get title() { return m.shortcuts_drawer_preview_card(); },
+        get description() { return m.shortcuts_drawer_open_and_lock_a_card_preview(); },
+        get gesture() { return m.gesture_double_tap(); },
     },
     {
         id: "touch.openGraveyardOrExile",
-        title: "Open Graveyard / Exile",
-        description: "View cards in graveyard or exile.",
-        gesture: "Tap",
+        get title() { return m.shortcuts_drawer_open_graveyard_exile(); },
+        get description() { return m.shortcuts_drawer_view_cards_in_graveyard_or_exile(); },
+        get gesture() { return m.gesture_tap(); },
     },
     {
         id: "touch.drawFromLibrary",
-        title: "Draw From Library",
-        description: "Draw one card from your library.",
-        gesture: "Double tap",
+        get title() { return m.shortcuts_drawer_draw_from_library(); },
+        get description() { return m.shortcuts_drawer_draw_one_card_from_your_library(); },
+        get gesture() { return m.gesture_double_tap(); },
     },
     {
         id: "touch.openContextMenu",
-        title: "Open Context Menu",
-        description: "Use on cards, zones, life, and battlefield.",
-        gesture: "Long press",
+        get title() { return m.shortcuts_drawer_open_context_menu(); },
+        get description() { return m.shortcuts_drawer_use_on_cards_zones_life_and_battlefield(); },
+        get gesture() { return m.gesture_long_press(); },
     },
     {
         id: "touch.adjustMana",
-        title: "Adjust Floating Mana",
-        description: "Tap an orb, then use -/+. Tap elsewhere to close; Clear removes all floating mana.",
-        gesture: "Tap orb",
+        get title() { return m.shortcuts_drawer_adjust_floating_mana(); },
+        get description() { return m.shortcuts_drawer_tap_an_orb_then_use_tap_elsewhere_to_close_clear_removes_all_floa(); },
+        get gesture() { return m.gesture_tap_orb(); },
     },
     {
         id: "touch.zoomBattlefield",
-        title: "Zoom Battlefield",
-        description: "Adjust battlefield zoom level.",
-        gesture: "Pinch",
+        get title() { return m.shortcuts_drawer_zoom_battlefield(); },
+        get description() { return m.shortcuts_drawer_adjust_battlefield_zoom_level(); },
+        get gesture() { return m.gesture_pinch(); },
     },
     {
         id: "touch.switchFocusedSeat",
-        title: "Switch Focused Seat",
-        description: "Cycle the active seat while spectating/rotating views.",
-        gesture: "Two-finger swipe",
+        get title() { return m.shortcuts_drawer_switch_focused_seat(); },
+        get description() { return m.shortcuts_drawer_cycle_the_active_seat_while_spectating_rotating_views(); },
+        get gesture() { return m.gesture_two_finger_swipe(); },
     },
 ] as const;
 
@@ -132,8 +133,7 @@ export const ShortcutsDrawer: React.FC<ShortcutsDrawerProps> = ({ isOpen, onClos
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-zinc-800/50 bg-zinc-900/50 rounded-tl-md rounded-tr-xl">
                     <h2 className="font-bold text-zinc-100 uppercase tracking-wider text-sm flex items-center gap-2">
-                        Controls
-                    </h2>
+                        {m.shortcuts_drawer_controls()}</h2>
                     <button
                         onClick={onClose}
                         className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-zinc-100 transition-colors"
@@ -150,8 +150,7 @@ export const ShortcutsDrawer: React.FC<ShortcutsDrawerProps> = ({ isOpen, onClos
                                 id="mouse-controls-heading"
                                 className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                             >
-                                Mouse Controls
-                            </h3>
+                                {m.shortcuts_drawer_mouse_controls()}</h3>
                             <div className="space-y-1">
                                 {MOUSE_CONTROLS.map((control) => (
                                     <div
@@ -180,8 +179,7 @@ export const ShortcutsDrawer: React.FC<ShortcutsDrawerProps> = ({ isOpen, onClos
                                 id="keyboard-shortcuts-heading"
                                 className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500"
                             >
-                                Keyboard Shortcuts
-                            </h3>
+                                {m.shortcuts_drawer_keyboard_shortcuts()}</h3>
                             <div className="space-y-1">
                                 {GAME_SHORTCUTS.map((shortcut) => {
                                     const label = formatShortcutBinding(shortcut.binding);

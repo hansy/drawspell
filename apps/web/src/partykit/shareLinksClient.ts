@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { v4 as uuidv4 } from "uuid";
 
 import type {
@@ -87,7 +88,7 @@ export const requestShareLinks = ({
       resolve,
       reject,
       timeoutId: setTimeout(() => {
-        fail("Unable to load invite links.");
+        fail(m.share_room_dialog_unable_to_load_invite_links());
       }, timeoutMs),
       retryId: null,
       abortListener: null,
@@ -116,11 +117,11 @@ export const handleShareLinksResponse = (message: ShareLinksResponseMessage) => 
     pending.resolve(message.payload);
     return;
   }
-  pending.reject(new Error(message.error || "Unable to load invite links."));
+  pending.reject(new Error(message.error || m.share_room_dialog_unable_to_load_invite_links()));
 };
 
 export const resetShareLinksRequestsForTests = () => {
   for (const requestId of [...pendingRequests.keys()]) {
-    rejectPendingRequest(requestId, new Error("reset"));
+    rejectPendingRequest(requestId, new Error(m.share_links_client_reset()));
   }
 };

@@ -1,3 +1,5 @@
+import { formatDate } from "@/i18n/format";
+import { m } from "@/paraglide/messages.js";
 import type { ReactNode } from "react";
 import { SiteLayout } from "@/components/landing/SiteLayout";
 
@@ -17,7 +19,7 @@ export function LegalLayout({ title, updatedAt, children }: LegalLayoutProps) {
               <h1 className="text-3xl font-semibold tracking-tight text-zinc-50 sm:text-4xl">
                 {title}
               </h1>
-              <p className="text-sm text-zinc-400">Last updated: {updatedAt}</p>
+              <p className="text-sm text-zinc-400">{m.legal_updated({ date: formatDate(updatedAt) })}</p>
             </div>
           </div>
           <article className="space-y-6 text-sm leading-6 text-zinc-200 sm:text-base">

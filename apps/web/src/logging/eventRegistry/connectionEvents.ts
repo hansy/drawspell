@@ -1,3 +1,5 @@
+import { formatNumber } from "@/i18n/format";
+import { m } from "@/paraglide/messages.js";
 import type { LogEventDefinition } from "../types";
 import type { BackoffReason } from "@/hooks/game/multiplayer-sync/connectionBackoff";
 
@@ -16,24 +18,24 @@ export type ConnectionAuthFailurePayload = {
 };
 
 const formatDelay = (delayMs: number) => {
-  if (delayMs < 1000) return `${delayMs}ms`;
+  if (delayMs < 1000) return formatNumber(delayMs, { style: "unit", unit: "millisecond", unitDisplay: "narrow" });
   const seconds = Math.round(delayMs / 100) / 10;
-  return `${seconds}`.replace(/\.0$/, "") + "s";
+  return formatNumber(seconds, { style: "unit", unit: "second", unitDisplay: "narrow" });
 };
 
 const formatReconnectReason = (reason: BackoffReason) => {
   switch (reason) {
     case "room-reset":
-      return "room reset";
+      return m.reconnect_room_reset();
     case "resume":
-      return "resume";
+      return m.reconnect_resume();
     case "rate-limit":
-      return "rate limited";
+      return m.reconnect_rate_limited();
     case "join-token":
-      return "join token unavailable";
+      return m.reconnect_join_token();
     case "close":
     default:
-      return "connection closed";
+      return m.reconnect_closed();
   }
 };
 
@@ -44,21 +46,21 @@ export const connectionEvents: Record<
   "connection.reconnect": {
     format: (payload: ConnectionReconnectPayload) => [{
       kind: "text",
-      text: `Reconnecting after ${formatReconnectReason(payload.reason)} (attempt ${payload.attempt}) in ${formatDelay(payload.delayMs)}`,
+      text: m.connection_events_reconnecting_after_attempt_in({ value_1: formatReconnectReason(payload.reason), attempt: payload.attempt, value_3: formatDelay(payload.delayMs) }),
     }],
   },
   "connection.reconnectAbandoned": {
     format: (payload: ConnectionReconnectAbandonedPayload) => [{
       kind: "text",
-      text: `Stopped reconnecting after ${payload.attempt} attempts`,
+      text: m.connection_events_stopped_reconnecting_after_attempts({ attempt: payload.attempt }),
     }],
   },
   "connection.authFailure": {
     format: (payload: ConnectionAuthFailurePayload) => [{
       kind: "text",
       text: payload.reason
-        ? `Connection auth failed (${payload.reason})`
-        : "Connection auth failed",
+        ? m.connection_events_connection_auth_failed({ reason: payload.reason })
+        : m.connection_events_connection_auth_failed_2(),
     }],
   },
 };

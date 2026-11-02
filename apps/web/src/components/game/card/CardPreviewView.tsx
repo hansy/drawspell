@@ -1,3 +1,5 @@
+import { LocalizedCardRules } from "./LocalizedCardRules";
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { Eye, RotateCw, X } from "lucide-react";
 
@@ -92,10 +94,9 @@ export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewP
               content={
                 <div className="flex flex-col gap-1 min-w-[140px]">
                   <div className="font-bold border-b border-zinc-700 pb-1">
-                    Revealed to:
-                  </div>
+                    {m.card_face_reveal_badge_revealed_to()}</div>
                   {controllerRevealToAll ? (
-                    <div>Everyone</div>
+                    <div>{m.card_face_reveal_badge_everyone()}</div>
                   ) : (
                     <div className="flex flex-col gap-0.5">
                       {controllerRevealNames.map((name, idx) => (
@@ -112,9 +113,9 @@ export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewP
             </Tooltip>
           )}
           {hasMultipleFaces && (
-            <Tooltip content="Preview transform/flip" placement="left">
+            <Tooltip content={m.card_preview_view_preview_transform_flip()} placement="left">
               <button
-                aria-label="Preview transform/flip"
+                aria-label={m.card_preview_view_preview_transform_flip()}
                 onClick={onFlip}
                 className="p-1.5 bg-zinc-950/90 hover:bg-zinc-800 rounded-full text-zinc-300 hover:text-white transition-colors border border-zinc-700 shadow-lg"
                 type="button"
@@ -123,9 +124,9 @@ export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewP
               </button>
             </Tooltip>
           )}
-          <Tooltip content="Close preview" placement="left">
+          <Tooltip content={m.card_preview_view_close_preview()} placement="left">
             <button
-              aria-label="Close preview"
+              aria-label={m.card_preview_view_close_preview()}
               onClick={(e) => {
                 e.stopPropagation();
                 onClose?.();
@@ -142,8 +143,7 @@ export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewP
       {/* Token Label */}
       {currentCard.isToken && (
         <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-900/90 text-zinc-400 text-xs font-bold px-3 py-1 rounded-full border border-zinc-700 shadow-lg z-40 uppercase tracking-wider">
-          Token
-        </div>
+          {m.card_preview_view_token()}</div>
       )}
 
       <CardFace
@@ -170,6 +170,8 @@ export const CardPreviewView = React.forwardRef<HTMLDivElement, CardPreviewViewP
         customTextPosition="sidebar"
         customTextNode={customTextNode}
       />
+
+      {showLockedControls && <LocalizedCardRules card={previewCard} faceDown={faceDown} />}
 
       {/* External Power/Toughness (Always rendered, but buttons only accessible when locked) */}
       {showAncillary && showPT && (

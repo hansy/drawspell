@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
@@ -85,13 +86,13 @@ export const useGameContextMenu = (
         (handCount: number) => {
             if (handCount <= 0) return;
             openCountPrompt({
-                title: "Discard random card from hand",
+                title: m.use_game_context_menu_discard_random_card_from_hand(),
                 initialValue: 1,
                 minValue: 1,
                 maxValue: handCount,
-                inputLabel: "How many cards to discard?",
+                inputLabel: m.use_game_context_menu_how_many_cards_to_discard(),
                 showMaxButton: true,
-                confirmLabel: "Discard",
+                confirmLabel: m.use_game_context_menu_discard(),
                 onSubmit: (count) => {
                     useGameStore
                         .getState()
@@ -347,7 +348,7 @@ export const useGameContextMenu = (
         // the player's other deck actions in the library menu.
         const sideboard = getPlayerZones(store.zones, myPlayerId).sideboard;
         if (zone.type === ZONE.LIBRARY && zone.ownerId === myPlayerId && sideboard && onViewZone) {
-            items.push({ type: "action", label: "View Sideboard", onSelect: () => onViewZone(sideboard.id) });
+            items.push({ type: "action", label: m.use_game_context_menu_view_sideboard(), onSelect: () => onViewZone(sideboard.id) });
         }
         if (items.length > 0) {
             contextMenuRequestRef.current += 1;
@@ -373,7 +374,7 @@ export const useGameContextMenu = (
         openContextMenu(e, [
             {
                 type: "action",
-                label: "Discard random card",
+                label: m.use_game_context_menu_discard_random_card(),
                 onSelect: () => openRandomDiscardPrompt(handCount),
                 danger: true,
             },
@@ -392,7 +393,7 @@ export const useGameContextMenu = (
             if (onCoinFlip) {
               items.push({
                 type: "action",
-                label: "Flip Coin",
+                label: m.coin_flip_dialog_flip_coin(),
                 onSelect: onCoinFlip,
                 shortcut: getShortcutLabel("ui.openCoinFlipper"),
               });
@@ -400,7 +401,7 @@ export const useGameContextMenu = (
             if (onDiceRoll) {
               items.push({
                 type: "action",
-                label: "Roll Dice",
+                label: m.dice_roll_dialog_roll_dice(),
                 onSelect: onDiceRoll,
                 shortcut: getShortcutLabel("ui.openDiceRoller"),
               });
@@ -408,13 +409,13 @@ export const useGameContextMenu = (
             if (playerZones.sideboard && onViewZone) {
               items.push({
                 type: "action",
-                label: "View Sideboard",
+                label: m.use_game_context_menu_view_sideboard(),
                 onSelect: () => onViewZone(playerZones.sideboard!.id),
               });
             }
             items.push({
               type: "action",
-              label: "Create Token",
+              label: m.sidenav_view_create_token(),
               onSelect: actions.onCreateToken,
                 shortcut: getShortcutLabel("ui.openTokenModal"),
             });
@@ -436,14 +437,14 @@ export const useGameContextMenu = (
             openContextMenu(e, [
                 {
                     type: "action",
-                    label: "Set life total",
+                    label: m.use_game_context_menu_set_life_total(),
                     onSelect: () => {
                         openCountPrompt({
-                            title: "Set life total",
-                            message: "Enter the new life total.",
+                            title: m.use_game_context_menu_set_life_total(),
+                            message: m.use_game_context_menu_enter_the_new_life_total(),
                             initialValue: Math.max(0, player.life),
                             minValue: 0,
-                            confirmLabel: "Set life",
+                            confirmLabel: m.use_game_context_menu_set_life(),
                             onSubmit: (value) => {
                                 const nextLife = Number.isFinite(value)
                                     ? Math.max(0, Math.min(MAX_PLAYER_LIFE, Math.floor(value)))
@@ -457,7 +458,7 @@ export const useGameContextMenu = (
                 },
                 {
                     type: "action",
-                    label: player.out ? "I'm back in" : "I'm out (skip my turns)",
+                    label: player.out ? m.turn_menu_i_m_back_in() : m.turn_menu_i_m_out_skip_my_turns(),
                     onSelect: () => {
                         useGameStore.getState().setPlayerOut(player.id, !player.out);
                     },

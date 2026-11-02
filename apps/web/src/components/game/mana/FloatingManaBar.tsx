@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import {
   autoUpdate,
@@ -24,12 +25,12 @@ import {
 } from "@/types";
 
 const MANA_NAMES: Record<ManaType, string> = {
-  W: "White",
-  U: "Blue",
-  B: "Black",
-  R: "Red",
-  G: "Green",
-  C: "Colorless",
+  get W() { return m.floating_mana_bar_white(); },
+  get U() { return m.floating_mana_bar_blue(); },
+  get B() { return m.floating_mana_bar_black(); },
+  get R() { return m.floating_mana_bar_red(); },
+  get G() { return m.floating_mana_bar_green(); },
+  get C() { return m.floating_mana_bar_colorless(); },
 };
 
 const MANA_GLOW: Record<ManaType, string> = {
@@ -138,7 +139,7 @@ const ManaOrb: React.FC<ManaOrbProps> = ({
           },
           disabled: !editable,
           title: editable
-            ? "Left-click to add mana; right-click to remove mana"
+            ? m.floating_mana_bar_left_click_to_add_mana_right_click_to_remove_mana()
             : undefined,
           "aria-label": `${MANA_NAMES[manaType]} mana: ${amount}${editable ? ". Open controls" : ""}`,
           "aria-expanded": editable ? open : undefined,
@@ -163,7 +164,7 @@ const ManaOrb: React.FC<ManaOrbProps> = ({
             data-floating-mana-stepper={manaType}
             className="pointer-events-auto z-[10000] flex h-8 items-center gap-1 rounded-full border border-zinc-600/90 bg-zinc-950/95 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
             role="group"
-            aria-label={`${MANA_NAMES[manaType]} mana controls`}
+            aria-label={m.floating_mana_bar_mana_controls({ value_1: MANA_NAMES[manaType] })}
             style={floatingStyles}
           >
             <button
@@ -171,7 +172,7 @@ const ManaOrb: React.FC<ManaOrbProps> = ({
               className="flex h-6 w-6 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/80 disabled:opacity-30"
               onClick={() => onAdjust?.(manaType, -1)}
               disabled={amount <= 0}
-              aria-label={`Remove one ${MANA_NAMES[manaType].toLowerCase()} mana`}
+              aria-label={m.floating_mana_bar_remove_one_mana({ value_1: MANA_NAMES[manaType].toLowerCase() })}
             >
               <Minus size={13} strokeWidth={2.5} />
             </button>
@@ -183,7 +184,7 @@ const ManaOrb: React.FC<ManaOrbProps> = ({
               className="flex h-6 w-6 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/80 disabled:opacity-30"
               onClick={() => onAdjust?.(manaType, 1)}
               disabled={amount >= MAX_FLOATING_MANA_PER_TYPE}
-              aria-label={`Add one ${MANA_NAMES[manaType].toLowerCase()} mana`}
+              aria-label={m.floating_mana_bar_add_one_mana({ value_1: MANA_NAMES[manaType].toLowerCase() })}
             >
               <Plus size={13} strokeWidth={2.5} />
             </button>
@@ -252,7 +253,7 @@ export const FloatingManaBar: React.FC<FloatingManaBarProps> = ({
         className,
       )}
       data-no-seat-swipe="true"
-      aria-label={editable ? "Floating mana controls" : "Floating mana"}
+      aria-label={editable ? m.floating_mana_bar_floating_mana_controls() : m.floating_mana_bar_floating_mana()}
     >
       {MANA_TYPES.filter(
         (manaType) => !hideEmpty || (manaPool[manaType] ?? 0) > 0,
@@ -285,10 +286,9 @@ export const FloatingManaBar: React.FC<FloatingManaBarProps> = ({
             className="w-full rounded px-1 py-1 text-[10px] font-semibold tracking-wide text-zinc-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/80 disabled:cursor-default disabled:text-zinc-500"
             onClick={onClear}
             disabled={total === 0}
-            aria-label="Clear all floating mana"
+            aria-label={m.floating_mana_bar_clear_all_floating_mana()}
           >
-            Clear
-          </button>
+            {m.floating_mana_bar_clear()}</button>
         )}
       </div>
       )}

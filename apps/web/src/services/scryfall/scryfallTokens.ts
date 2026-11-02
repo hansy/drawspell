@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { toScryfallLanguage, type AppLocale } from "@/i18n/locales";
 import { scryfallRequest, type ScryfallRequest } from "@/services/scryfall/scryfallRequest";
 import { ScryfallCard, ScryfallListResult } from "@/types/scryfall";
@@ -74,7 +75,7 @@ export async function searchScryfallTokens(
   }
   if (!response.ok) {
     throw new Error(
-      `Scryfall token search failed (${response.status} ${response.statusText})`
+      m.scryfall_tokens_scryfall_token_search_failed({ status: response.status, statusText: response.statusText })
     );
   }
 

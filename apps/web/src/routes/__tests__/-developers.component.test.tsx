@@ -32,11 +32,11 @@ describe("key deletion", () => {
     expect(screen.queryByText("Test key")).toBeNull();
   });
 
-  it("keeps the key and restores its action when deletion fails", async () => {
+  it("keeps the key and restores its action with a translated error when deletion fails", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error: { message: "Please retry." } }, { status: 503 })));
     render(<DeveloperDashboard keys={keys} />);
     fireEvent.click(screen.getByRole("button", { name: "Delete Test key" }));
-    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Please retry."));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Unable to update API keys."));
     expect(screen.getByRole("button", { name: "Delete Test key" }).hasAttribute("disabled")).toBe(false);
     expect(invalidate).not.toHaveBeenCalled();
   });

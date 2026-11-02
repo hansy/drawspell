@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type {
   Card,
   CardId,
@@ -133,7 +134,7 @@ export const buildCardActions = ({
     ) {
       items.push({
         type: "action",
-        label: "Inspect",
+        label: m.card_actions_inspect(),
         onSelect: () => lockPreview(card, previewAnchorEl),
       });
     }
@@ -197,7 +198,7 @@ export const buildCardActions = ({
     ) {
       items.push({
         type: "action",
-        label: "Play",
+        label: m.card_actions_play(),
         onSelect: () => moveCard(card.id, battlefield.id),
         shortcut: getShortcutLabel("game.playSelected"),
       });
@@ -220,7 +221,7 @@ export const buildCardActions = ({
   if (canTap.allowed) {
     items.push({
       type: "action",
-      label: "Tap/Untap",
+      label: m.card_actions_tap_untap(),
       onSelect: () => tapCard(card.id),
     });
   }
@@ -235,10 +236,10 @@ export const buildCardActions = ({
   ) {
     items.push({
       type: "action",
-      label: card.customText ? "Edit Text" : "Add Text",
+      label: card.customText ? m.card_actions_edit_text() : m.card_actions_add_text(),
       onSelect: () => {
         openTextPrompt({
-          title: card.customText ? "Edit Text" : "Add Text",
+          title: card.customText ? m.card_actions_edit_text() : m.card_actions_add_text(),
           initialValue: card.customText,
           onSubmit: (value) => updateCard(card.id, { customText: value }),
         });
@@ -256,7 +257,7 @@ export const buildCardActions = ({
       const verb = getTransformVerb(card);
       items.push({
         type: "action",
-        label: `${verb}: ${nextFace.face.name}`,
+        label: m.card_actions({ verb: verb, name: nextFace.face.name }),
         onSelect: () => transformCard(card.id, nextFace.nextIndex),
       });
     }
@@ -266,7 +267,7 @@ export const buildCardActions = ({
     if (canModify.allowed) {
       items.push({
         type: "action",
-        label: "Duplicate",
+        label: m.card_actions_duplicate(),
         onSelect: () => duplicateCard(card.id),
       });
     }
@@ -277,7 +278,7 @@ export const buildCardActions = ({
       const relatedItems: ContextMenuItem[] = relatedParts.map(
         (part: ScryfallRelatedCard) => {
           const isToken = part.component === "token";
-          const label = `Create ${part.name}${isToken ? " token" : ""}`;
+          const label = m.card_actions_create({ name: part.name, value_2: isToken ? m.card_actions_token() : "" });
           return {
             type: "action",
             label,
@@ -291,7 +292,7 @@ export const buildCardActions = ({
       } else {
         items.push({
           type: "action",
-          label: "Create related",
+          label: m.card_actions_create_related(),
           onSelect: () => {},
           submenu: relatedItems,
         });
@@ -303,7 +304,7 @@ export const buildCardActions = ({
     if (openCardEditor && card.controllerId === myPlayerId) {
       items.push({
         type: "action",
-        label: "Edit counters and P/T",
+        label: m.card_actions_edit_counters_and_p_t(),
         onSelect: () => openCardEditor(card.id),
       });
     }
@@ -319,7 +320,7 @@ export const buildCardActions = ({
   if (card.isCommander && updateCard && card.ownerId === myPlayerId) {
     items.push({
       type: "action",
-      label: "Remove Commander status",
+      label: m.card_actions_remove_commander_status(),
       onSelect: () => updateCard(card.id, { isCommander: false }),
     });
   }
@@ -327,7 +328,7 @@ export const buildCardActions = ({
   if (card.isToken && removeCard) {
     items.push({
       type: "action",
-      label: "Remove Card",
+      label: m.card_actions_remove_card(),
       onSelect: () => removeCard(card),
       danger: true,
     });
@@ -352,7 +353,7 @@ export const buildCardActions = ({
   ) {
     items.push({
       type: "action",
-      label: "Turn face up",
+      label: m.card_actions_turn_face_up(),
       onSelect: () => turnExiledCardFaceUp(card.id),
     });
   }
@@ -375,7 +376,7 @@ export const buildCardActions = ({
   if (currentZone?.type === ZONE.BATTLEFIELD && card.faceDown) {
     items.push({
       type: "action",
-      label: "Turn face up",
+      label: m.card_actions_turn_face_up(),
       onSelect: () => {
         if (updateCard) {
           updateCard(card.id, { faceDown: false, faceDownMode: undefined });

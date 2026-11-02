@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type { ConfirmationRequest } from "@/hooks/shared/useConfirmationDialog";
 
 type ConfirmationCopy = Pick<
@@ -7,30 +8,29 @@ type ConfirmationCopy = Pick<
 
 export const DESTRUCTIVE_ACTION_CONFIRMATIONS = {
   resetDeck: {
-    title: "Reset this deck?",
-    message:
-      "Cards will return to their starting zones, tokens will be removed, card state will be cleared, and the Library will be shuffled.",
-    confirmLabel: "Reset",
+    get title() { return m.destructive_actions_reset_this_deck(); },
+    get message() { return m.destructive_actions_cards_will_return_to_their_starting_zones_tokens_will_be_removed(); },
+    get confirmLabel() { return m.zone_view_actions_reset(); },
   },
   unloadDeck: {
-    title: "Unload this deck?",
-    message: "All of its cards and tokens will be removed from the Room.",
-    confirmLabel: "Unload",
+    get title() { return m.destructive_actions_unload_this_deck(); },
+    get message() { return m.destructive_actions_all_of_its_cards_and_tokens_will_be_removed_from_the_room(); },
+    get confirmLabel() { return m.zone_view_actions_unload(); },
   },
   leaveRoom: {
-    title: "Leave this Room?",
-    message: "Your player and cards will be removed from the Room.",
-    confirmLabel: "Leave Room",
+    get title() { return m.destructive_actions_leave_this_room(); },
+    get message() { return m.destructive_actions_your_player_and_cards_will_be_removed_from_the_room(); },
+    get confirmLabel() { return m.resume_card_leave_room(); },
   },
   shuffleLibrary: {
-    title: "Shuffle this Library?",
-    message: "Its current card order will be lost.",
-    confirmLabel: "Shuffle",
+    get title() { return m.destructive_actions_shuffle_this_library(); },
+    get message() { return m.destructive_actions_its_current_card_order_will_be_lost(); },
+    get confirmLabel() { return m.zone_view_actions_shuffle(); },
   },
 } satisfies Record<string, ConfirmationCopy>;
 
 export const removeTokensConfirmation = (count: number): ConfirmationCopy => ({
-  title: `Remove these ${count} tokens?`,
-  message: "This cannot be undone.",
-  confirmLabel: "Remove tokens",
+  title: m.destructive_actions_remove_these_tokens({ count: count }),
+  message: m.destructive_actions_this_cannot_be_undone(),
+  confirmLabel: m.destructive_actions_remove_tokens(),
 });

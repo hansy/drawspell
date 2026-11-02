@@ -1,3 +1,5 @@
+import { getLocale } from "@/paraglide/runtime.js";
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 
 import type { Card, ViewerRole, ZoneType } from "@/types";
@@ -11,7 +13,7 @@ import { useOptionalCardPreview } from "../card/CardPreviewProvider";
 import { getSelectedCardIdSet, useSelectionStore } from "@/store/selectionStore";
 import { preloadCardPreviewImage } from "@/lib/cardImagePreload";
 import { getCoverFlowVisuals, useHorizontalCoverFlow } from "./coverFlow";
-import { shouldRenderFaceDown } from "@/lib/reveal";
+import { canViewerSeeCardIdentity, shouldRenderFaceDown } from "@/lib/reveal";
 
 const TOUCH_CONTEXT_MENU_LONG_PRESS_MS = 500;
 const TOUCH_MOVE_TOLERANCE_PX = 10;
@@ -120,7 +122,7 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
       getKey: ({ card }) => card.id,
       onSingle: ({ card }) => toggleCardSelection(card.id, card.zoneId),
       onDouble: ({ card, target }) => {
-        preloadCardPreviewImage(card, "high");
+        preloadCardPreviewImage(card, "high", { locale: getLocale(), canSeeIdentity: canViewerSeeCardIdentity(card, zoneType, viewerPlayerId, viewerRole) });
         preview?.toggleLock(card, target);
       },
     });
@@ -611,8 +613,7 @@ export const ZoneViewerLinearView: React.FC<ZoneViewerLinearViewProps> = ({
               />
               {showTopCardLabel && (
                 <div className="pointer-events-none absolute left-1/2 top-1.5 z-[101] -translate-x-1/2 rounded-full border border-indigo-300/60 bg-indigo-500/95 px-2 py-0.5 text-[10px] font-bold text-white shadow-md">
-                  Top card
-                </div>
+                  {m.zone_viewer_linear_view_top_card()}</div>
               )}
             </div>
           </div>

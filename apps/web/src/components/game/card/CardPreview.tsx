@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React, { useEffect, useState } from "react";
 import {
   autoUpdate,
@@ -415,7 +416,7 @@ const CustomTextEditor: React.FC<{ card: CardType; locked?: boolean }> = ({
       }}
     >
       {card.customText || (
-        <span className="text-zinc-500 italic">Add text...</span>
+        <span className="text-zinc-500 italic">{m.card_preview_add_text()}</span>
       )}
     </div>
   );

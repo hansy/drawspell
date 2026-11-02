@@ -77,6 +77,19 @@ export const canViewerSeeCardIdentity = (
   return true;
 };
 
+/** Includes a specifically revealed library top, without granting access to other library identities. */
+export const canViewerSeeCardInZone = (
+  card: Card,
+  zone: Zone | undefined,
+  viewerId: PlayerId,
+  viewerRole?: ViewerRole,
+  libraryTopReveal?: LibraryTopRevealMode | null,
+) => Boolean(zone) && (
+  canViewerSeeCardIdentity(card, zone?.type, viewerId, viewerRole) ||
+  (zone?.type === ZONE.LIBRARY && zone.cardIds.at(-1) === card.id &&
+    canViewerSeeLibraryTopCard({ viewerId, ownerId: zone.ownerId, viewerRole, mode: libraryTopReveal }))
+);
+
 export const canManageFaceDownExileReveal = (params: {
   card: Pick<
     Card,

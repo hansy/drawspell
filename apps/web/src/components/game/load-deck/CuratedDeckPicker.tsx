@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { ManaSymbols } from "../mana/ManaSymbols";
 import { cn } from "@/lib/utils";
 import {
@@ -26,11 +27,11 @@ export const CuratedDeckPicker = ({
 
   return (
     <section
-      aria-label="Curated decks"
+      aria-label={m.curated_deck_picker_curated_decks()}
       className="grid h-[min(18rem,42dvh)] grid-rows-[auto_minmax(0,1fr)] gap-3 sm:h-64"
     >
       <div>
-        <h3 className="text-sm font-semibold text-zinc-100">Curated Decks</h3>
+        <h3 className="text-sm font-semibold text-zinc-100">{m.curated_deck_picker_curated_decks_2()}</h3>
       </div>
 
       <div className="grid min-h-0 content-start gap-3 overflow-y-auto px-0.5 pt-2 pr-1">
@@ -40,7 +41,7 @@ export const CuratedDeckPicker = ({
             <button
               key={deck.id}
               type="button"
-              aria-label={`Load ${deck.name}`}
+              aria-label={m.curated_deck_picker_load({ name: deck.name })}
               onClick={() => onSelectDeck(deck)}
               disabled={disabled}
               className={cn(

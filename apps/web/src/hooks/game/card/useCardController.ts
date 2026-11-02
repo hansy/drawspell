@@ -1,3 +1,4 @@
+import { getLocale } from "@/paraglide/runtime.js";
 import React from "react";
 import { useDraggable } from "@dnd-kit/core";
 
@@ -303,7 +304,7 @@ export const useCardController = (props: CardProps): CardController => {
       if (Date.now() < suppressMouseHoverPreviewUntilRef.current) return;
       const policy = resolvePreviewPolicy();
       if (policy.kind === "none") return;
-      preloadCardPreviewImage(card, "high");
+      preloadCardPreviewImage(card, "high", { locale: getLocale(), canSeeIdentity: canPeek });
 
       clearHoverTimeout();
 
@@ -322,6 +323,7 @@ export const useCardController = (props: CardProps): CardController => {
       card,
       clearHoverTimeout,
       resolvePreviewPolicy,
+      canPeek,
       showPreview,
     ]
   );
@@ -622,7 +624,7 @@ export const useCardController = (props: CardProps): CardController => {
       suppressMouseHoverPreviewUntilRef.current =
         Date.now() + SUPPRESS_MOUSE_HOVER_AFTER_TOUCH_MS;
       if (resolvePreviewPolicy().kind !== "none") {
-        preloadCardPreviewImage(card, "high");
+        preloadCardPreviewImage(card, "high", { locale: getLocale(), canSeeIdentity: canPeek });
       }
 
       touchPointsRef.current.set(event.pointerId, {
@@ -652,6 +654,7 @@ export const useCardController = (props: CardProps): CardController => {
       card,
       interactionsDisabled,
       isLocked,
+      canPeek,
       resolvePreviewPolicy,
     ]
   );

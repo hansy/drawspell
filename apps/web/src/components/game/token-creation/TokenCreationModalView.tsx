@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { Search, Plus, Minus, Loader2 } from "lucide-react";
 
@@ -13,7 +14,16 @@ import { CARD_CORNER_CLASS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 
-const COMMON_TOKENS = ["Treasure", "Clue", "Food", "Soldier", "Zombie", "Spirit", "Goblin", "Blood"];
+const commonTokens = () => [
+  { query: "Treasure", label: m.token_treasure() },
+  { query: "Clue", label: m.token_clue() },
+  { query: "Food", label: m.token_food() },
+  { query: "Soldier", label: m.token_soldier() },
+  { query: "Zombie", label: m.token_zombie() },
+  { query: "Spirit", label: m.token_spirit() },
+  { query: "Goblin", label: m.token_goblin() },
+  { query: "Blood", label: m.token_blood() }
+];
 
 export const TokenCreationModalView: React.FC<TokenCreationController> = ({
   isOpen,
@@ -44,14 +54,14 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="ds-dialog-size-lg ds-dialog-inset flex min-h-0 flex-col bg-zinc-950 border-zinc-800 text-zinc-100">
         <DialogHeader className="border-b border-zinc-800 px-4 py-3 lg:px-6 lg:py-4">
-          <DialogTitle>Create Token</DialogTitle>
+          <DialogTitle>{m.sidenav_view_create_token()}</DialogTitle>
         </DialogHeader>
 
         <div className="border-b border-zinc-800 bg-zinc-900/50 px-4 py-3 lg:px-6">
           <div className="flex items-center gap-2 bg-zinc-900 rounded-lg border border-zinc-700 px-4 py-3">
             <Search className="h-5 w-5 text-zinc-400" />
             <Input
-              placeholder="Search for tokens (e.g. 'Treasure', 'Goblin')..."
+              placeholder={m.token_creation_modal_view_search_for_tokens_e_g_treasure_goblin()}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-100 placeholder:text-zinc-500"
@@ -65,8 +75,8 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
             {query.length > 0 && (
               <>
                 {isLoading
-                  ? "Searching"
-                  : `${results.length} result${results.length !== 1 ? "s" : ""} found`}
+                  ? m.token_creation_modal_view_searching()
+                  : m.token_creation_modal_view_result_found({ length: results.length })}
               </>
             )}
           </div>
@@ -75,12 +85,12 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-full gap-4">
                 <Loader2 className="h-8 w-8 text-indigo-400 motion-safe:animate-spin" />
-                <div className="text-zinc-400">Searching tokens</div>
+                <div className="text-zinc-400">{m.token_creation_modal_view_searching_tokens()}</div>
               </div>
             ) : results.length > 0 ? (
               <div
                 role="list"
-                aria-label="Token search results"
+                aria-label={m.token_creation_modal_view_token_search_results()}
                 className="grid gap-3 xs:gap-4 items-start"
                 style={{
                   gridTemplateColumns: `repeat(auto-fill, minmax(${previewWidthPx}px, 1fr))`,
@@ -108,7 +118,7 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
                       {imageUrl ? (
                         <img
                           src={imageUrl}
-                          alt={token.name}
+                          alt={(token.printed_name || token.name)}
                           data-card-face-artwork="token-result"
                           className={cn(
                             "block w-full h-full object-cover",
@@ -122,12 +132,11 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
                             CARD_CORNER_CLASS,
                           )}
                         >
-                          No Image Available
-                        </div>
+                          {m.token_creation_modal_view_no_image_available()}</div>
                       )}
 
                       <div className="absolute inset-x-0 bottom-0 bg-black/80 p-2 text-xs truncate text-center">
-                        {token.name}
+                        {(token.printed_name || token.name)}
                       </div>
                     </div>
                   );
@@ -139,11 +148,9 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
                   <Search size={17} />
                 </div>
                 <div className="text-sm font-medium text-zinc-300">
-                  No tokens found
-                </div>
+                  {m.token_creation_modal_view_no_tokens_found()}</div>
                 <div className="max-w-52 text-xs leading-snug text-zinc-500">
-                  Check the spelling or try a different token name.
-                </div>
+                  {m.token_creation_modal_view_check_the_spelling_or_try_a_different_token_name()}</div>
               </div>
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
@@ -151,20 +158,19 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
                   <Search size={17} />
                 </div>
                 <div className="text-sm font-medium text-zinc-300">
-                  Search for a token, or pick a common one
-                </div>
+                  {m.token_creation_modal_view_search_for_a_token_or_pick_a_common_one()}</div>
                 <div
                   data-token-quick-picks
                   className="flex max-w-sm flex-wrap justify-center gap-1.5"
                 >
-                  {COMMON_TOKENS.map((name) => (
+                  {commonTokens().map(({ query: name, label }) => (
                     <button
                       key={name}
                       type="button"
                       onClick={() => setQuery(name)}
                       className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
                     >
-                      {name}
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -176,12 +182,12 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
         <div className="border-t border-zinc-800 bg-zinc-900/50 px-4 py-3 lg:px-6">
           <div className="flex flex-col gap-3 xs:flex-row xs:items-center xs:justify-between">
             <div className="flex items-center gap-3 xs:gap-4">
-              <label className="text-zinc-400 text-sm font-medium">Quantity:</label>
+              <label className="text-zinc-400 text-sm font-medium">{m.token_creation_modal_view_quantity()}</label>
               <div className="flex items-center gap-2 bg-zinc-900 rounded-md border border-zinc-700 p-1">
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label="Decrease quantity"
+                  aria-label={m.token_creation_modal_view_decrease_quantity()}
                   className="h-6 w-6 rounded-sm border border-zinc-700 bg-zinc-950/60 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
                   onClick={decrementQuantity}
                 >
@@ -191,7 +197,7 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label="Increase quantity"
+                  aria-label={m.token_creation_modal_view_increase_quantity()}
                   className="h-6 w-6 rounded-sm border border-zinc-700 bg-zinc-950/60 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
                   onClick={incrementQuantity}
                 >
@@ -205,15 +211,13 @@ export const TokenCreationModalView: React.FC<TokenCreationController> = ({
                 intent="secondary"
                 onClick={handleClose}
               >
-                Cancel
-              </GameDialogActionButton>
+                {m.cancel()}</GameDialogActionButton>
               <GameDialogActionButton
                 onClick={handleCreate}
                 disabled={!selectedToken}
                 className="min-w-[100px]"
               >
-                Create
-              </GameDialogActionButton>
+                {m.token_creation_modal_view_create()}</GameDialogActionButton>
             </div>
           </div>
         </div>

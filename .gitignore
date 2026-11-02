@@ -23,3 +23,6 @@ todos.json
 
 worker-configuration.d.ts
 .impeccable/
+
+# Generated Paraglide runtime and typed message functions.
+apps/web/src/paraglide/

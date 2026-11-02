@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import * as React from "react";
 import { toast } from "sonner";
 
@@ -103,7 +104,7 @@ export const useLoadDeckController = ({
       const handles = getYDocHandles();
       const provider = getYProvider();
       if (!isMultiplayerProviderReady({ handles, provider })) {
-        toast.error("Connecting to multiplayer, please wait a moment then try again.");
+        toast.error(m.use_load_deck_controller_connecting_to_multiplayer_please_wait_a_moment_then_try_again());
         return;
       }
 
@@ -124,7 +125,7 @@ export const useLoadDeckController = ({
         });
 
         if (planned.warnings.length) {
-          toast.warning("Imported with warnings", {
+          toast.warning(m.use_load_deck_controller_imported_with_warnings(), {
             description: planned.warnings.join("\n"),
           });
         }
@@ -160,7 +161,7 @@ export const useLoadDeckController = ({
         shuffleLibrary(playerId, playerId);
         await waitForIntentAcknowledgement(setDeckLoaded(playerId, true));
 
-        toast.success("Deck successfully loaded");
+        toast.success(m.use_load_deck_controller_deck_successfully_loaded());
         if (options?.saveAsLastImport !== false) {
           setLastImportedDeckText(deckText);
         }
@@ -168,7 +169,7 @@ export const useLoadDeckController = ({
         onClose();
       } catch (err: any) {
         console.error("[LoadDeckModal] Import failed:", err);
-        setError(err?.message || "Failed to import deck. Please check the format.");
+        setError(err?.message || m.use_load_deck_controller_failed_to_import_deck_please_check_the_format());
       } finally {
         setIsImporting(false);
       }
@@ -212,7 +213,7 @@ export const useLoadDeckController = ({
       try {
         ({ decklist } = await fetchArchidektDeck({ data: { url: importText.trim() } }));
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Couldn't load that Archidekt deck.");
+        setError(err instanceof Error ? err.message : m.use_load_deck_controller_couldn_t_load_that_archidekt_deck());
         setIsImporting(false);
         return;
       }

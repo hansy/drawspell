@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { ZONE_LABEL } from '@/constants/zones';
 import { Card, CardId, PlayerId, Zone, ZoneType } from '@/types';
 import { LogContext, LogMessagePart } from './types';
@@ -38,22 +39,22 @@ const resolveCardName = (card: Card) =>
   card.name ||
   card.scryfall?.card_faces?.[card.currentFaceIndex ?? 0]?.name ||
   card.scryfall?.card_faces?.[0]?.name ||
-  'Card';
+  m.card_label();
 
 export const getPlayerName = (ctx: LogContext, playerId?: PlayerId) => {
-  if (!playerId) return 'Unknown player';
-  return ctx.players[playerId]?.name || 'Player';
+  if (!playerId) return m.unknown_player();
+  return ctx.players[playerId]?.name || m.player_label();
 };
 
 export const getZoneLabel = (ctx: LogContext, zoneId?: string) => {
-  if (!zoneId) return 'Unknown zone';
+  if (!zoneId) return m.unknown_zone();
   const zone = ctx.zones[zoneId];
-  if (!zone) return 'Unknown zone';
+  if (!zone) return m.unknown_zone();
   return ZONE_LABEL[zone.type] || zone.type;
 };
 
 export const getZoneLabelFromType = (zoneType?: ZoneType) =>
-  zoneType ? ZONE_LABEL[zoneType] || zoneType : 'Unknown zone';
+  zoneType ? ZONE_LABEL[zoneType] || zoneType : m.unknown_zone();
 
 export const getLogZone = (
   ctx: LogContext,
@@ -83,21 +84,21 @@ export const getCardDisplayName = (
   fallbackName?: string,
   forceHidden?: boolean,
 ) => {
-  if (forceHidden) return 'a card';
+  if (forceHidden) return m.hidden_card();
 
   const card = cardId ? ctx.cards[cardId] : undefined;
 
   if (!card) {
     if (hasPublicLogZone(fromZone, toZone)) {
-      return fallbackName || 'a card';
+      return fallbackName || m.hidden_card();
     }
-    return 'a card';
+    return m.hidden_card();
   }
 
   const hideName = shouldHideCardName(card, fromZone, toZone);
   if (hideName) {
     if (fallbackName && hasPublicLogZone(fromZone, toZone)) return fallbackName;
-    return 'a card';
+    return m.hidden_card();
   }
 
   return resolveCardName(card);

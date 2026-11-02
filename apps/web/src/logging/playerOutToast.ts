@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { toast } from "sonner";
 
 import { useGameStore } from "@/store/gameStore";
@@ -24,7 +25,7 @@ export const announcePlayerOut = (
     id: `player-out-${outPayload.playerId}`,
     action: canStayIn
       ? {
-          label: "Stay in",
+          label: m.player_out_toast_stay_in(),
           onClick: () => useGameStore.getState().setPlayerOut(outPayload.playerId, false),
         }
       : undefined,

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ZONE } from "@/constants/zones";
 import {
   canViewerSeeCardIdentity,
+  canViewerSeeCardInZone,
   canViewerSeeLibraryTopCard,
   shouldRenderFaceDown,
 } from "../reveal";
@@ -205,4 +206,14 @@ describe("reveal", () => {
       )
     ).toBe(true);
   });
+});
+
+
+it("allows translation of only the specifically revealed library top", () => {
+  const card = { id: "top", ownerId: "owner", controllerId: "owner", zoneId: "library", faceDown: false } as import("@/types").Card;
+  const zone = { id: "library", type: ZONE.LIBRARY, ownerId: "owner", cardIds: ["hidden", "top"] } as import("@/types").Zone;
+  expect(canViewerSeeCardInZone(card, zone, "viewer", "player", "all")).toBe(true);
+  expect(canViewerSeeCardInZone({ ...card, id: "hidden" }, zone, "viewer", "player", "all")).toBe(false);
+  expect(canViewerSeeCardInZone(card, zone, "viewer", "player", "self")).toBe(false);
+  expect(canViewerSeeCardInZone(card, undefined, "viewer", "player", "all")).toBe(false);
 });

@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import * as React from "react";
 import {
   snapBattlefieldZoom,
@@ -65,7 +66,7 @@ export function BattlefieldZoomIndicator({
           ))}
         </div>
         <input
-          aria-label={`Zoom ${playerName} battlefield`}
+          aria-label={m.battlefield_zoom_indicator_zoom_battlefield({ playerName: playerName })}
           type="range"
           min={-1}
           max={1}

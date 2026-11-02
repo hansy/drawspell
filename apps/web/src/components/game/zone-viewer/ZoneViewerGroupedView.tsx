@@ -1,3 +1,8 @@
+import { getLocale } from "@/paraglide/runtime.js";
+import { useGameStore } from "@/store/gameStore";
+import { canViewerSeeCardIdentity } from "@/lib/reveal";
+import { LocalizedCardName } from "../card/LocalizedCardName";
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 
 import type { Card } from "@/types";
@@ -47,6 +52,11 @@ const LibraryCardRow: React.FC<LibraryCardRowProps> = ({
   onCardContextMenu,
 }) => {
   const preview = useOptionalCardPreview();
+  const viewerId = useGameStore((state) => state.myPlayerId);
+  const role = useGameStore((state) => state.viewerRole);
+  const zoneType = useGameStore((state) => state.zones[group.representative.zoneId]?.type);
+  const visible = canViewerSeeCardIdentity(group.representative, zoneType, viewerId, role);
+  const locale = getLocale();
   const rowRef = React.useRef<HTMLDivElement>(null);
   const holdTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointersRef = React.useRef<Map<number, PointerState>>(new Map());
@@ -65,7 +75,7 @@ const LibraryCardRow: React.FC<LibraryCardRowProps> = ({
     if (!row) return;
 
     if (typeof IntersectionObserver === "undefined") {
-      preloadCardPreviewImage(group.representative);
+      preloadCardPreviewImage(group.representative, "low", { locale, canSeeIdentity: visible });
       return;
     }
 
@@ -75,14 +85,14 @@ const LibraryCardRow: React.FC<LibraryCardRowProps> = ({
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
-        preloadCardPreviewImage(group.representative);
+        preloadCardPreviewImage(group.representative, "low", { locale, canSeeIdentity: visible });
         observer.disconnect();
       },
       { root: scrollRoot, rootMargin: "320px" },
     );
     observer.observe(row);
     return () => observer.disconnect();
-  }, [group.representative]);
+  }, [group.representative, locale, visible]);
 
   const openContextMenu = React.useCallback(
     (event: React.MouseEvent) => {
@@ -182,7 +192,7 @@ const LibraryCardRow: React.FC<LibraryCardRowProps> = ({
         }
       }}
       onContextMenu={openContextMenu}
-      onPointerEnter={() => preloadCardPreviewImage(group.representative, "high")}
+      onPointerEnter={() => preloadCardPreviewImage(group.representative, "high", { locale, canSeeIdentity: visible })}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
@@ -195,7 +205,7 @@ const LibraryCardRow: React.FC<LibraryCardRowProps> = ({
         {group.count}×
       </span>
       <span className="library-card-name min-w-0 text-sm font-medium leading-5 text-zinc-200">
-        {group.name}
+        <LocalizedCardName card={group.representative} />
       </span>
       <ManaCost manaCost={group.manaCost} className="justify-self-end text-[0.95rem]" />
     </div>
@@ -213,9 +223,8 @@ const LibrarySection: React.FC<{
     <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/95 px-3 py-2.5 backdrop-blur-sm">
       <h3 className="text-sm font-semibold tracking-wide text-zinc-200">{section.label}</h3>
       <p className="mt-0.5 text-[11px] tabular-nums text-zinc-500">
-        {section.cardCount} {section.cardCount === 1 ? "card" : "cards"} · {section.uniqueCount}{" "}
-        unique
-      </p>
+        {section.cardCount} {section.cardCount === 1 ? m.zone_viewer_grouped_view_card() : m.zone_viewer_grouped_view_cards()} · {section.uniqueCount}{" "}
+        {m.zone_viewer_grouped_view_unique()}</p>
     </header>
     <div>
       {section.groups.map((group) => (

@@ -1,3 +1,5 @@
+import { localeHref } from "@/i18n/navigation";
+import { m } from "@/paraglide/messages.js";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { LoaderCircle } from "lucide-react";
@@ -14,7 +16,7 @@ export function LoginPage() {
   return (
     <SiteLayout>
       <main className="mx-auto max-w-xl px-6 py-16 text-zinc-100 space-y-6">
-        <h1 className="text-3xl font-semibold">Sign in to Drawspell</h1>
+        <h1 className="text-3xl font-semibold">{m.auth_login_sign_in_to_drawspell()}</h1>
         <form
           className="space-y-4"
           onSubmit={async (event) => {
@@ -28,19 +30,19 @@ export function LoginPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   email,
-                  callbackURL: "/developers",
-                  newUserCallbackURL: "/developers",
-                  errorCallbackURL: "/auth/login",
+                  callbackURL: localeHref("/developers"),
+                  newUserCallbackURL: localeHref("/developers"),
+                  errorCallbackURL: localeHref("/auth/login"),
                 }),
               });
               setMessage(
                 response.ok
-                  ? "Check your email for a sign-in link. It expires in ten minutes."
-                  : "Unable to send a sign-in link. Please try again later.",
+                  ? m.auth_login_check_your_email_for_a_sign_in_link_it_expires_in_ten_minutes()
+                  : m.auth_login_unable_to_send_a_sign_in_link_please_try_again_later(),
               );
             } catch {
               setMessage(
-                "Unable to send a sign-in link. Please try again later.",
+                m.auth_login_unable_to_send_a_sign_in_link_please_try_again_later(),
               );
             } finally {
               setBusy(false);
@@ -48,8 +50,7 @@ export function LoginPage() {
           }}
         >
           <label className="block">
-            Email
-            <input
+            {m.auth_login_email()}<input
               className="mt-2 block w-full rounded border border-zinc-700 bg-zinc-900 p-3 transition-colors duration-200 disabled:text-zinc-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300"
               disabled={!ready || busy}
               type="email"
@@ -64,15 +65,13 @@ export function LoginPage() {
             className="inline-grid min-h-12 min-w-48 place-items-center rounded bg-indigo-600 px-4 py-3 text-sm font-medium transition-colors duration-200 hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-600/60 disabled:text-indigo-100/80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-300 motion-reduce:transition-none"
             disabled={!ready || busy}
             aria-busy={busy}
-            aria-label={busy ? "Sending sign-in link" : "Send sign-in link"}
+            aria-label={busy ? m.auth_login_sending_sign_in_link() : m.auth_login_send_sign_in_link()}
           >
             <span aria-hidden="true" className={`col-start-1 row-start-1 transition-opacity duration-150 motion-reduce:transition-none ${busy ? "opacity-0" : "opacity-100"}`}>
-              Send sign-in link
-            </span>
+              {m.auth_login_send_sign_in_link()}</span>
             <span aria-hidden="true" className={`col-start-1 row-start-1 inline-flex items-center gap-2 transition-opacity duration-150 motion-reduce:transition-none ${busy ? "opacity-100" : "opacity-0"}`}>
               <LoaderCircle size={16} className={busy ? "animate-spin motion-reduce:animate-none" : undefined} />
-              Sending…
-            </span>
+              {m.auth_login_sending()}</span>
           </button>
         </form>
         <p role="status" className="min-h-6 text-sm text-zinc-400">{message}</p>

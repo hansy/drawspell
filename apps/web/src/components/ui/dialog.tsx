@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { XIcon } from "lucide-react"
@@ -70,7 +71,7 @@ function DialogContent({
             className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-[max(0.5rem,env(safe-area-inset-top))] right-[max(0.5rem,env(safe-area-inset-right))] z-10 inline-flex h-10 w-10 items-center justify-center rounded-md border border-zinc-700/80 bg-zinc-900/90 text-zinc-300 opacity-90 shadow-sm transition-colors hover:bg-zinc-800 hover:text-zinc-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none lg:top-4 lg:right-4 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5"
           >
             <XIcon />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{m.close()}</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>

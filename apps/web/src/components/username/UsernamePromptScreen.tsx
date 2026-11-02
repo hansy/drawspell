@@ -1,3 +1,5 @@
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { m } from "@/paraglide/messages.js";
 import { useEffect, useState } from 'react';
 
 import { resolveInviteTokenFromUrl } from '@/lib/partyKitToken';
@@ -37,12 +39,9 @@ const useInviteContext = (sessionId?: string): InviteContext | null => {
 };
 
 const describeInvite = ({ hostName, playerCount, spectator }: InviteContext) => {
-  const game = hostName ? `${hostName}'s game` : 'a game';
-  const players =
-    typeof playerCount === 'number' && playerCount > 0
-      ? ` · ${playerCount} ${playerCount === 1 ? 'player' : 'players'} at the table`
-      : '';
-  return `${spectator ? 'Watching' : 'Joining'} ${game}${players}`;
+  const game = hostName ? m.invite_host_game({ name: hostName }) : m.invite_a_game();
+  const players = typeof playerCount === "number" && playerCount > 0 ? m.invite_players_at_table({ count: playerCount }) : "";
+  return spectator ? m.invite_watching({ game, players }) : m.invite_joining({ game, players });
 };
 
 export function UsernamePromptScreen({ sessionId }: { sessionId?: string }) {
@@ -51,6 +50,7 @@ export function UsernamePromptScreen({ sessionId }: { sessionId?: string }) {
 
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center bg-zinc-950 px-4 text-zinc-100">
+      <div className="absolute right-4 top-4"><LanguageSelector /></div>
       <div className="max-w-xl w-full px-8 py-12 rounded-2xl border border-zinc-800 bg-zinc-900/60 shadow-lg">
         {invite && (
           <p
@@ -60,14 +60,13 @@ export function UsernamePromptScreen({ sessionId }: { sessionId?: string }) {
             {describeInvite(invite)}
           </p>
         )}
-        <h1 className="text-3xl font-semibold tracking-tight mb-4">Choose a username</h1>
+        <h1 className="text-3xl font-semibold tracking-tight mb-4">{m.username_prompt_screen_choose_a_username()}</h1>
         <p className="text-zinc-300 mb-6">
-          This name is saved on this device and used for future games.
-        </p>
+          {m.username_prompt_screen_this_name_is_saved_on_this_device_and_used_for_future_games()}</p>
 
         <UsernameForm
           initialValue={createSuggestedUsername()}
-          submitLabel="Continue"
+          submitLabel={m.username_prompt_screen_continue()}
           showRandomize
           onRandomize={createSuggestedUsername}
           onSubmit={(username) => setUsername(username)}

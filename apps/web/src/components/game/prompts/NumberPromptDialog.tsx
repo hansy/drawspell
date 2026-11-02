@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React, { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Input } from "../../ui/input";
@@ -36,7 +37,7 @@ export const NumberPromptDialog: React.FC<NumberPromptDialogProps> = ({
   initialValue = 1,
   minValue = 1,
   maxValue,
-  inputLabel = "Value",
+  inputLabel = m.number_prompt_dialog_value(),
   showMaxButton = false,
   confirmLabel,
   onSubmit,
@@ -111,17 +112,15 @@ export const NumberPromptDialog: React.FC<NumberPromptDialogProps> = ({
                 }}
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-200 hover:bg-zinc-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-300"
               >
-                Max
-              </button>
+                {m.number_prompt_dialog_max()}</button>
             )}
           </div>
         </div>
         <DialogFooter>
           <GameDialogActionButton intent="secondary" onClick={onClose}>
-            Cancel
-          </GameDialogActionButton>
+            {m.cancel()}</GameDialogActionButton>
           <GameDialogActionButton onClick={handleSubmit} disabled={!isValid}>
-            {confirmLabel ?? "Confirm"}
+            {confirmLabel ?? m.number_prompt_dialog_confirm()}
           </GameDialogActionButton>
         </DialogFooter>
       </DialogContent>

@@ -426,7 +426,7 @@ describe("logEventRegistry", () => {
     );
 
     expect(parts.map((part) => part.text).join("")).toBe(
-      "Alice moved a card from Graveyard to the 3rd position from the top of Library",
+      "Alice moved a card from Graveyard to the position 3 from the top of Library",
     );
   });
 

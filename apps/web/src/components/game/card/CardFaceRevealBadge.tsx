@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { Eye } from "lucide-react";
 
@@ -16,10 +17,9 @@ export const CardFaceRevealBadge: React.FC<{
       content={
         <div className="flex flex-col gap-1">
           <div className="font-bold border-b border-zinc-700 pb-1">
-            Revealed to:
-          </div>
+            {m.card_face_reveal_badge_revealed_to()}</div>
           {reveal.toAll ? (
-            <div>Everyone</div>
+            <div>{m.card_face_reveal_badge_everyone()}</div>
           ) : (
             <div className="flex flex-col gap-0.5">
               {reveal.playerNames.map((name, idx) => (

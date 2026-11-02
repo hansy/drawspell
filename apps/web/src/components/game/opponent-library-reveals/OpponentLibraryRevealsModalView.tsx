@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
@@ -17,7 +18,7 @@ export const OpponentLibraryRevealsModalView: React.FC<OpponentLibraryRevealsCon
   actualTopCardId,
 }) => {
   const ownerId = revealedCards[0]?.ownerId;
-  const cardLabel = revealedCards.length === 1 ? "card" : "cards";
+  const cardLabel = revealedCards.length === 1 ? m.zone_viewer_grouped_view_card() : m.zone_viewer_grouped_view_cards();
   const baseCardWidthPx = useGameStore((state) =>
     ownerId ? state.battlefieldGridSizing[ownerId]?.baseCardWidthPx : undefined
   );
@@ -33,8 +34,7 @@ export const OpponentLibraryRevealsModalView: React.FC<OpponentLibraryRevealsCon
       <DialogContent className="ds-dialog-size-lg ds-dialog-inset bg-zinc-950 border-zinc-800 text-zinc-100 flex min-h-0 flex-col">
         <DialogHeader className="px-4 py-3 lg:px-6 lg:py-4 border-b border-zinc-800">
           <DialogTitle className="text-xl capitalize">
-            Revealed cards in {ownerName}&apos;s library
-          </DialogTitle>
+            {m.opponent_library_reveals_modal_view_revealed_cards_in()}{ownerName}{m.opponent_library_reveals_modal_view_s_library()}</DialogTitle>
           <DialogDescription className="text-zinc-400">
             {revealedCards.length} {cardLabel}
           </DialogDescription>
@@ -64,7 +64,7 @@ export const OpponentLibraryRevealsModalView: React.FC<OpponentLibraryRevealsCon
                     />
                     {index === 0 && (
                       <div className="pointer-events-none absolute left-1/2 top-1.5 z-30 -translate-x-1/2 rounded-full border border-indigo-300/60 bg-indigo-500/95 px-2 py-0.5 text-[10px] font-bold text-white shadow-md">
-                        {isActualTop ? "Top" : "Topmost revealed"}
+                        {isActualTop ? m.opponent_library_reveals_modal_view_top() : m.opponent_library_reveals_modal_view_topmost_revealed()}
                       </div>
                     )}
                   </div>

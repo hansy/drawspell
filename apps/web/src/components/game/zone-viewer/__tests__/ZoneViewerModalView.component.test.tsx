@@ -197,7 +197,7 @@ describe("ZoneViewerModalView", () => {
       />
     );
 
-    expect(screen.getByText("graveyard Viewer")).toBeTruthy();
+    expect(screen.getByText("Graveyard Viewer")).toBeTruthy();
     expect(screen.getByText("Top card")).toBeTruthy();
     expect(screen.getByText("Card1")).toBeTruthy();
     expect(screen.getByText("Card2")).toBeTruthy();
@@ -322,7 +322,7 @@ describe("ZoneViewerModalView", () => {
     );
 
     expect(document.querySelector('[data-card-face-artwork="back"]')).toBeNull();
-    expect(screen.getByTitle("Revealed to: 1 player(s)")).toBeTruthy();
+    expect(screen.getByTitle("Revealed to players: 1")).toBeTruthy();
     expect(screen.queryByText("Face down")).toBeNull();
     expect(screen.queryByText("Top card")).toBeNull();
   });

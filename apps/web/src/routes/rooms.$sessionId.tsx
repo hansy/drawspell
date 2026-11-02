@@ -1,3 +1,5 @@
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { m } from "@/paraglide/messages.js";
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { lazy, Suspense, useEffect } from "react";
@@ -20,8 +22,8 @@ export const Route = createFileRoute("/rooms/$sessionId")({
   component: GameRoute,
   head: () => ({
     meta: [
-      { title: "Game | Drawspell" },
-      { name: "description", content: "Game in session" },
+      { title: m.rooms__session_id_game_drawspell() },
+      { name: "description", content: m.multiplayer_board_game_in_session() },
       {
         name: "og:image",
         content: `${origins.web}/og_image.png`,
@@ -60,6 +62,7 @@ export function GameRoute() {
 function RoomRouteLoadingScreen() {
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center bg-zinc-950 text-zinc-100">
+      <div className="absolute right-4 top-4"><LanguageSelector /></div>
       <div
         role="status"
         aria-live="polite"
@@ -70,7 +73,7 @@ function RoomRouteLoadingScreen() {
           size={16}
           className="text-zinc-400 motion-safe:animate-spin"
         />
-        <span>Loading game</span>
+        <span>{m.rooms__session_id_loading_game()}</span>
       </div>
     </div>
   );

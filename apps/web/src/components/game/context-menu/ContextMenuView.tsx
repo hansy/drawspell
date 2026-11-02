@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import {
   autoUpdate,
@@ -223,7 +224,7 @@ export const ContextMenuView: React.FC<ContextMenuViewProps> = ({
                   <button
                     type="button"
                     className="flex h-6 w-6 items-center justify-center rounded-md border border-zinc-600 bg-zinc-800 text-sm font-semibold text-zinc-100 transition-colors hover:bg-zinc-700"
-                    aria-label={`Remove ${item.label} counter`}
+                    aria-label={m.context_menu_view_remove_counter({ label: item.label })}
                     onClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
@@ -242,7 +243,7 @@ export const ContextMenuView: React.FC<ContextMenuViewProps> = ({
                   <button
                     type="button"
                     className="flex h-6 w-6 items-center justify-center rounded-md border border-zinc-600 bg-zinc-800 text-sm font-semibold text-zinc-100 transition-colors hover:bg-zinc-700"
-                    aria-label={`Add ${item.label} counter`}
+                    aria-label={m.context_menu_view_add_counter({ label: item.label })}
                     onClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();

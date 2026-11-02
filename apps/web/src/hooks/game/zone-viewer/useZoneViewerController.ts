@@ -1,3 +1,7 @@
+import { getLocale } from "@/paraglide/runtime.js";
+import { getLocalizedCard } from "@/services/scryfall/localizedCards";
+import { canViewerSeeCardIdentity } from "@/lib/reveal";
+import { m } from "@/paraglide/messages.js";
 import * as React from "react";
 
 import type { Card } from "@/types";
@@ -6,7 +10,7 @@ import { ZONE } from "@/constants/zones";
 import { useGameStore } from "@/store/gameStore";
 import { canViewZone } from "@/rules/permissions";
 import { actionRegistry } from "@/models/game/context-menu/actionsRegistry";
-import { getDisplayName } from "@/lib/cardDisplay";
+import { getLocalizedDisplayName as getDisplayName } from "@/i18n/cardDisplay";
 import type { ContextMenuItem } from "@/models/game/context-menu/menu";
 import type { OpenCountPrompt } from "@/models/game/context-menu/menu/types";
 import {
@@ -161,6 +165,29 @@ export const useZoneViewerController = ({
 
   const viewMode = React.useMemo(() => getZoneViewerMode(zone, count), [zone, count]);
 
+  const locale = getLocale();
+  const candidates = React.useMemo(() => !zone || !isOpen || !canView?.allowed || shouldDelayTopView ? [] : computeZoneViewerCards({
+    zone, cardsById: cards, count, frozenCardIds, filterText: "",
+  }).filter((card) => canViewerSeeCardIdentity(card, zone.type, myPlayerId, viewerRole)),
+  [zone, isOpen, canView?.allowed, shouldDelayTopView, cards, count, frozenCardIds, myPlayerId, viewerRole]);
+  const candidateKey = JSON.stringify(candidates.map((card) => [card.id, card.scryfallId]));
+  const [searchSnapshot, setSearchSnapshot] = React.useState<{ key: string; locale: string; text: Record<string, string> } | null>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    for (const card of candidates) {
+      if (!card.scryfallId) continue;
+      void getLocalizedCard(card.scryfallId, locale).then(({ card: translated }) => {
+        if (cancelled || !translated) return;
+        const text = [translated.printed_name, translated.printed_type_line, translated.printed_text,
+          ...(translated.card_faces ?? []).flatMap((face) => [face.printed_name, face.printed_type_line, face.printed_text])].filter(Boolean).join(" ");
+        setSearchSnapshot((current) => ({ key: candidateKey, locale, text: {
+          ...(current?.key === candidateKey && current.locale === locale ? current.text : {}), [card.id]: text,
+        } }));
+      }).catch(() => { /* Canonical search remains available during a transient outage. */ });
+    }
+    return () => { cancelled = true; };
+  }, [candidateKey, locale]);
+  const localizedSearch = searchSnapshot?.key === candidateKey && searchSnapshot.locale === locale ? searchSnapshot.text : undefined;
   const displayCards = React.useMemo(() => {
     if (!zone) return [];
     if (shouldDelayTopView) return [];
@@ -170,8 +197,9 @@ export const useZoneViewerController = ({
       count,
       frozenCardIds,
       filterText,
+      localizedSearch,
     });
-  }, [zone, cards, count, filterText, frozenCardIds, shouldDelayTopView]);
+  }, [zone, cards, count, filterText, localizedSearch, frozenCardIds, shouldDelayTopView]);
 
   const showSelectAll = Boolean(
     zone &&
@@ -380,7 +408,7 @@ export const useZoneViewerController = ({
           items,
           title:
             selectedIdSet.size > 1
-              ? `${selectedIdSet.size} cards selected`
+              ? m.use_zone_viewer_controller_cards_selected({ size: selectedIdSet.size })
               : getDisplayName(card),
           cardId: card.id,
         });

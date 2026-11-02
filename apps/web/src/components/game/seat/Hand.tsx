@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { cn } from "@/lib/utils";
 import { Zone as ZoneType, Card as CardType, ViewerRole } from "@/types";
@@ -672,7 +673,7 @@ const HandInner: React.FC<HandProps> = ({
       </Zone>
       {customScrollbarVisible && (
         <input
-          aria-label={`${ZONE_LABEL.hand} scroll`}
+          aria-label={m.hand_scroll({ hand: ZONE_LABEL.hand })}
           data-dnd-hand-scrollbar
           data-no-seat-swipe="true"
           type="range"

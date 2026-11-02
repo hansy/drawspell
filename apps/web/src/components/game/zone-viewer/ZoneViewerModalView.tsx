@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { Loader2, Search } from "lucide-react";
 import { Dialog, DialogContent } from "../../ui/dialog";
@@ -128,12 +129,12 @@ export const ZoneViewerModalView: React.FC<ZoneViewerController> = ({
                   )}
                 </div>
                 <div className="text-sm font-medium text-zinc-300">
-                  {isLoading ? "Loading cards" : "No cards found"}
+                  {isLoading ? m.zone_viewer_modal_view_loading_cards() : m.zone_viewer_modal_view_no_cards_found()}
                 </div>
                 <div className="max-w-56 text-xs leading-snug text-zinc-500">
                   {isLoading
-                    ? "Fetching the current zone contents."
-                    : "Try a different card name, type, or rules text."}
+                    ? m.zone_viewer_modal_view_fetching_the_current_zone_contents()
+                    : m.zone_viewer_modal_view_try_a_different_card_name_type_or_rules_text()}
                 </div>
               </div>
             ) : viewMode === "grouped" ? (

@@ -1,3 +1,5 @@
+import { languageRegistry } from "../src/i18n/locales.ts";
+import { canonicalPageUrl } from "../src/i18n/urls.ts";
 // Render public content at build time so Markdown and HTML share their source.
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -87,7 +89,7 @@ await writeFile(new URL('llms.txt', output), index);
 await writeFile(new URL('llms-full.txt', output), `${index}\n---\n\n${documents.join('\n---\n\n')}`);
 await writeFile(new URL('sitemap.xml', output), `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${publicPages.map(page => `  <url><loc>${origin}${page.path}</loc></url>`).join('\n')}
+${publicPages.flatMap(page => languageRegistry.map(({ locale }) => `  <url><loc>${canonicalPageUrl(new URL(page.path, origin), locale).href}</loc></url>`)).join('\n')}
 </urlset>
 `);
 await writeFile(new URL('_headers', output), `/*.md

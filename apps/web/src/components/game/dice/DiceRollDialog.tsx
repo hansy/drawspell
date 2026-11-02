@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Input } from "../../ui/input";
@@ -58,10 +59,9 @@ export const DiceRollDialog: React.FC<DiceRollDialogProps> = ({ open, onClose, o
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="ds-dialog-size-xs bg-zinc-950 border-zinc-800 text-zinc-100">
         <DialogHeader>
-          <DialogTitle>Roll Dice</DialogTitle>
+          <DialogTitle>{m.dice_roll_dialog_roll_dice()}</DialogTitle>
           <DialogDescription className="text-zinc-400">
-            Choose the number of sides and how many dice to roll. Defaults to a single d20.
-          </DialogDescription>
+            {m.dice_roll_dialog_choose_the_number_of_sides_and_how_many_dice_to_roll_defaults_to()}</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-1 sm:py-4">
@@ -71,8 +71,7 @@ export const DiceRollDialog: React.FC<DiceRollDialogProps> = ({ open, onClose, o
                 htmlFor={sidesId}
                 className="block text-sm font-medium text-zinc-300"
               >
-                Number of sides
-              </label>
+                {m.dice_roll_dialog_number_of_sides()}</label>
               <Input
                 id={sidesId}
                 ref={sidesRef}
@@ -97,8 +96,7 @@ export const DiceRollDialog: React.FC<DiceRollDialogProps> = ({ open, onClose, o
                 htmlFor={countId}
                 className="block text-sm font-medium text-zinc-300"
               >
-                Dice count
-              </label>
+                {m.dice_roll_dialog_dice_count()}</label>
               <Input
                 id={countId}
                 inputMode="numeric"
@@ -123,14 +121,12 @@ export const DiceRollDialog: React.FC<DiceRollDialogProps> = ({ open, onClose, o
             intent="secondary"
             onClick={onClose}
           >
-            Cancel
-          </GameDialogActionButton>
+            {m.cancel()}</GameDialogActionButton>
           <GameDialogActionButton
             onClick={handleSubmit}
             disabled={!isValid}
           >
-            Roll
-          </GameDialogActionButton>
+            {m.dice_roll_dialog_roll()}</GameDialogActionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

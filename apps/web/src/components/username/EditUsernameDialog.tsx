@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { UsernameForm } from './UsernameForm';
 
@@ -13,16 +14,15 @@ export function EditUsernameDialog({ open, onClose, initialValue, onSubmit }: Ed
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="ds-dialog-size-xs bg-zinc-950 border-zinc-800 text-zinc-100">
         <DialogHeader>
-          <DialogTitle>Edit username</DialogTitle>
+          <DialogTitle>{m.edit_username_dialog_edit_username()}</DialogTitle>
           <DialogDescription className="text-zinc-400">
-            This updates your name in this room and saves it for future games.
-          </DialogDescription>
+            {m.edit_username_dialog_this_updates_your_name_in_this_room_and_saves_it_for_future_games()}</DialogDescription>
         </DialogHeader>
 
         <UsernameForm
           key={open ? initialValue : 'closed'}
           initialValue={initialValue}
-          submitLabel="Save"
+          submitLabel={m.save()}
           showCancel
           onCancel={onClose}
           onSubmit={onSubmit}

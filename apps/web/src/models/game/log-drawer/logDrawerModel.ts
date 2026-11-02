@@ -1,3 +1,5 @@
+import { getLocale } from "@/paraglide/runtime.js";
+import { m } from "@/paraglide/messages.js";
 import type { LogContext, LogEventId, LogMessage, LogMessagePart } from "@/logging/types";
 import { getCardDisplayName, isPublicLogZoneType } from "@/logging/helpers";
 import type { Zone, ZoneType } from "@/types";
@@ -94,7 +96,7 @@ export const resolveLogCardDisplayName = (params: {
   }
 
   if (params.cardContext.forceHidden) {
-    return "a card";
+    return m.hidden_card();
   }
 
   if (params.part.cardId) {
@@ -146,12 +148,12 @@ export const getBorderColorClass = (color?: string) => {
 
 export const formatTimeAgo = (timestamp: number, nowMs: number = Date.now()): string => {
   const seconds = Math.floor((nowMs - timestamp) / 1000);
-  if (seconds < 60) return "just now";
+  if (seconds < 60) return m.time_just_now();
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return new Intl.RelativeTimeFormat(getLocale(), { style: "narrow" }).format(-minutes, "minute");
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return "long ago";
+  if (hours < 24) return new Intl.RelativeTimeFormat(getLocale(), { style: "narrow" }).format(-hours, "hour");
+  return m.time_long_ago();
 };
 
 export const isPublicZoneType = (zoneType?: string): boolean => isPublicLogZoneType(zoneType);
@@ -162,7 +164,7 @@ export const computeVisibleCardName = (params: {
   fromZoneType?: string;
   toZoneType?: string;
 }): string => {
-  if (params.computedName !== "a card") return params.computedName;
+  if (params.computedName !== m.hidden_card()) return params.computedName;
 
   const fromPublic = isPublicZoneType(params.fromZoneType);
   const toPublic = isPublicZoneType(params.toZoneType);

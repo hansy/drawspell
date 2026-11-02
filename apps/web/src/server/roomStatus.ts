@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { createServerFn } from "@tanstack/react-start";
 import { resolveOriginsForEnv } from "@/lib/runtimeOrigins";
 
@@ -21,7 +22,7 @@ export const getRoomStatus = createServerFn({ method: "POST" })
     const roomId = ctx.data?.roomId?.trim();
     const accessToken = ctx.data?.accessToken?.trim();
     if (!roomId || !accessToken) {
-      throw new Error("missing room status credentials");
+      throw new Error(m.room_status_missing_room_status_credentials());
     }
 
     const response = await fetch(`${origins.server}/rooms/status`, {
@@ -30,11 +31,11 @@ export const getRoomStatus = createServerFn({ method: "POST" })
       body: JSON.stringify({ roomId, accessToken }),
     });
     if (!response.ok) {
-      throw new Error(`room status request failed (${response.status})`);
+      throw new Error(m.room_status_room_status_request_failed({ status: response.status }));
     }
     const result = (await response.json()) as Partial<RoomStatusResponse>;
     if (typeof result.exists !== "boolean") {
-      throw new Error("invalid room status response");
+      throw new Error(m.room_status_invalid_room_status_response());
     }
     return {
       exists: result.exists,

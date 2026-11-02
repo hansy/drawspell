@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 
 import type { CardStatKey } from "@/lib/cardPT";
@@ -55,7 +56,7 @@ const DesktopAdjustableStatValue: React.FC<{
         getStatClassName(displayValue, comparisonValue),
         canEdit && "cursor-pointer",
       )}
-      title={canEdit ? "Left-click to add; right-click to subtract" : undefined}
+      title={canEdit ? m.card_power_toughness_controls_left_click_to_add_right_click_to_subtract() : undefined}
       {...adjustment}
     >
       {displayValue}
@@ -87,7 +88,7 @@ export const CardPowerToughnessControls: React.FC<
       <div className={statGridClassName} data-card-preview-pt-increments>
         <button
           className={statButtonClassName}
-          aria-label="Increase power"
+          aria-label={m.card_face_ptbadge_increase_power()}
           onClick={(e) => {
             e.stopPropagation();
             onDelta("power", 1);
@@ -99,7 +100,7 @@ export const CardPowerToughnessControls: React.FC<
         <span aria-hidden="true" />
         <button
           className={statButtonClassName}
-          aria-label="Increase toughness"
+          aria-label={m.card_face_ptbadge_increase_toughness()}
           onClick={(e) => {
             e.stopPropagation();
             onDelta("toughness", 1);
@@ -141,7 +142,7 @@ export const CardPowerToughnessControls: React.FC<
       <div className={statGridClassName} data-card-preview-pt-decrements>
         <button
           className={statButtonClassName}
-          aria-label="Decrease power"
+          aria-label={m.card_face_ptbadge_decrease_power()}
           onClick={(e) => {
             e.stopPropagation();
             onDelta("power", -1);
@@ -153,7 +154,7 @@ export const CardPowerToughnessControls: React.FC<
         <span aria-hidden="true" />
         <button
           className={statButtonClassName}
-          aria-label="Decrease toughness"
+          aria-label={m.card_face_ptbadge_decrease_toughness()}
           onClick={(e) => {
             e.stopPropagation();
             onDelta("toughness", -1);

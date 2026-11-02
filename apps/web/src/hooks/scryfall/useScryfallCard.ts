@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 /**
  * Hook to fetch full Scryfall card data on-demand
  *
@@ -54,7 +55,7 @@ export function useScryfallCard(
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err : new Error('Failed to fetch card'));
+          setError(err instanceof Error ? err : new Error(m.use_scryfall_card_failed_to_fetch_card()));
           setIsLoading(false);
         }
       }
@@ -113,7 +114,7 @@ export function useScryfallCards(
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err : new Error('Failed to fetch cards'));
+          setError(err instanceof Error ? err : new Error(m.use_scryfall_card_failed_to_fetch_cards()));
           setIsLoading(false);
         }
       }

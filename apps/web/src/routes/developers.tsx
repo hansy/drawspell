@@ -1,3 +1,8 @@
+import { getLocale } from "@/paraglide/runtime.js";
+import { readLocalePath } from "@/i18n/urls";
+import { formatDate } from "@/i18n/format";
+import { localeHref } from "@/i18n/navigation";
+import { m } from "@/paraglide/messages.js";
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, ExternalLink, LoaderCircle } from "lucide-react";
@@ -14,10 +19,10 @@ export const Route = createFileRoute("/developers")({
   staleTime: 0,
   gcTime: 0,
   beforeLoad: ({ location }) => {
-    if (location.pathname.replace(/\/$/, "") !== "/developers")
+    if (readLocalePath(location.pathname).pathname.replace(/\/$/, "") !== "/developers")
       throw notFound();
   },
-  loader: () => getDeveloperDashboard(),
+  loader: () => getDeveloperDashboard({ data: { locale: getLocale() } }),
   server: { middleware: [developerResponseStatus] },
   headers: () => ({
     "Cache-Control": "private, no-store",
@@ -34,7 +39,7 @@ function DeveloperPage() {
         <DeveloperDashboard keys={data.keys} />
       ) : (
         <main className="mx-auto max-w-2xl px-6 py-16">
-          <h1 className="text-3xl font-semibold">Unable to load API keys</h1>
+          <h1 className="text-3xl font-semibold">{m.developers_unable_to_load_api_keys()}</h1>
           <p role="alert" className="mt-6">
             {data.message}
           </p>
@@ -96,11 +101,11 @@ export function DeveloperDashboard({
         key?: string;
       };
       if (response.status === 401) {
-        window.location.replace("/auth/login");
+        window.location.replace(localeHref("/auth/login"));
         return;
       }
       if (!response.ok) {
-        setMessage(result.error?.message ?? "Unable to update API keys.");
+        setMessage(m.developers_unable_to_update_api_keys());
         return;
       }
       if (result.key) {
@@ -116,14 +121,14 @@ export function DeveloperDashboard({
       }
       await router.invalidate();
     } catch {
-      setMessage("Unable to update API keys.");
+      setMessage(m.developers_unable_to_update_api_keys());
     } finally {
       setPending({ kind: "idle" });
     }
   }
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-12 text-zinc-100 sm:py-16">
-      <h1 className="mb-8 text-3xl font-semibold tracking-tight">Developer API keys</h1>
+      <h1 className="mb-8 text-3xl font-semibold tracking-tight">{m.developers_developer_api_keys()}</h1>
       <button
         ref={createButton}
         type="button"
@@ -136,8 +141,7 @@ export function DeveloperDashboard({
           setKeyDialog({ kind: "name" });
         }}
       >
-        Create key
-      </button>
+        {m.developers_create_key()}</button>
       <Dialog open={keyDialog.kind !== "closed"} onOpenChange={(open) => {
         if (!open && pending.kind !== "create") setKeyDialog({ kind: "closed" });
       }}>
@@ -152,11 +156,11 @@ export function DeveloperDashboard({
           <DialogHeader>
             <DialogTitle>
               <span key={keyDialog.kind} className="block animate-in fade-in slide-in-from-bottom-1 duration-300 motion-reduce:animate-none">
-                {keyDialog.kind === "secret" ? "Your API key" : "Create API key"}
+                {keyDialog.kind === "secret" ? m.developers_your_api_key() : m.developers_create_api_key()}
               </span>
             </DialogTitle>
             <DialogDescription className={keyDialog.kind === "secret" ? "text-zinc-400" : "sr-only"}>
-              {keyDialog.kind === "secret" ? "Copy this key before closing. It is only shown once." : "Give your API key a name."}
+              {keyDialog.kind === "secret" ? m.developers_copy_this_key_before_closing_it_is_only_shown_once() : m.developers_give_your_api_key_a_name()}
             </DialogDescription>
           </DialogHeader>
           <div className="grid min-w-0">
@@ -171,11 +175,11 @@ export function DeveloperDashboard({
               }}
             >
               <div className="space-y-2">
-                <label htmlFor="api-key-name" className="text-sm font-medium text-zinc-300">Key name</label>
+                <label htmlFor="api-key-name" className="text-sm font-medium text-zinc-300">{m.developers_key_name()}</label>
                 <Input
                   id="api-key-name"
                   disabled={busy}
-                  placeholder="e.g. My app"
+                  placeholder={m.developers_e_g_my_app()}
                   required
                   maxLength={64}
                   value={name}
@@ -189,11 +193,10 @@ export function DeveloperDashboard({
                 disabled={busy || !name.trim()}
                 className="inline-grid min-h-11 w-full place-items-center rounded-lg bg-indigo-600 px-5 text-sm font-medium transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <span className={`col-start-1 row-start-1 transition-opacity duration-150 motion-reduce:transition-none ${pending.kind === "create" ? "opacity-0" : "opacity-100"}`}>Create key</span>
+                <span className={`col-start-1 row-start-1 transition-opacity duration-150 motion-reduce:transition-none ${pending.kind === "create" ? "opacity-0" : "opacity-100"}`}>{m.developers_create_key()}</span>
                 <span aria-hidden="true" className={`col-start-1 row-start-1 inline-flex items-center gap-2 transition-opacity duration-150 motion-reduce:transition-none ${pending.kind === "create" ? "opacity-100" : "opacity-0"}`}>
                   <LoaderCircle className={`size-4 ${pending.kind === "create" ? "motion-safe:animate-spin" : ""}`} />
-                  Creating…
-                </span>
+                  {m.developers_creating()}</span>
               </button>
               {keyDialog.kind === "name" && message && <p role="alert" className="text-sm text-red-400">{message}</p>}
             </form>
@@ -205,7 +208,7 @@ export function DeveloperDashboard({
               <div className="relative min-w-0">
                 <Input
                   ref={keyInput}
-                  aria-label="API key"
+                  aria-label={m.developers_api_key()}
                   value={secret}
                   readOnly
                   autoComplete="off"
@@ -215,7 +218,7 @@ export function DeveloperDashboard({
                 />
                 <button
                   type="button"
-                  aria-label={copyStatus === "copied" ? "API key copied" : "Copy API key"}
+                  aria-label={copyStatus === "copied" ? m.developers_api_key_copied() : m.developers_copy_api_key()}
                   className="absolute right-1 top-1 flex size-10 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100 focus-visible:outline-2 focus-visible:outline-indigo-500"
                   onClick={async () => {
                     try {
@@ -230,7 +233,7 @@ export function DeveloperDashboard({
                 </button>
               </div>
               <p role="status" className="text-sm text-zinc-400 empty:hidden">
-                {copyStatus === "copied" ? "Copied to clipboard" : copyStatus === "error" ? "Unable to copy. Select the key and copy it manually." : ""}
+                {copyStatus === "copied" ? m.developers_copied_to_clipboard() : copyStatus === "error" ? m.developers_unable_to_copy_select_the_key_and_copy_it_manually() : ""}
               </p>
             </div>
           </div>
@@ -251,31 +254,30 @@ export function DeveloperDashboard({
               <p className="mt-1 text-xs text-zinc-500">
                 {key.prefix}… · {key.status}
               </p>
-              <time className="mt-1 block text-xs text-zinc-500" dateTime={key.createdAt}>{key.createdAt.slice(0, 10)}</time>
+              <time className="mt-1 block text-xs text-zinc-500" dateTime={key.createdAt}>{formatDate(key.createdAt)}</time>
             </div>
               <button
                 disabled={!ready || busy}
-                aria-label={pending.kind === "delete" && pending.id === key.id ? `Deleting ${key.name}` : `Delete ${key.name}`}
+                aria-label={pending.kind === "delete" && pending.id === key.id ? m.developers_deleting({ name: key.name }) : m.developers_delete({ name: key.name })}
                 className="relative inline-grid min-w-24 shrink-0 place-items-center rounded-md px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={() => {
                   setKeyDialog({ kind: "closed" });
                   void mutate({ kind: "delete", id: key.id });
                 }}
               >
-                <span className={`col-start-1 row-start-1 transition-opacity duration-150 motion-reduce:transition-none ${pending.kind === "delete" && pending.id === key.id ? "opacity-0" : "opacity-100"}`}>Delete</span>
+                <span className={`col-start-1 row-start-1 transition-opacity duration-150 motion-reduce:transition-none ${pending.kind === "delete" && pending.id === key.id ? "opacity-0" : "opacity-100"}`}>{m.developers_delete_2()}</span>
                 <span aria-hidden="true" className={`col-start-1 row-start-1 inline-flex items-center gap-2 transition-opacity duration-150 motion-reduce:transition-none ${pending.kind === "delete" && pending.id === key.id ? "opacity-100" : "opacity-0"}`}>
                   <LoaderCircle className={`size-3.5 ${pending.kind === "delete" && pending.id === key.id ? "motion-safe:animate-spin" : ""}`} />
-                  Deleting…
-                </span>
+                  {m.developers_deleting_2()}</span>
               </button>
             </div>
             </div>
           </li>
         ))}
       </ul>
-      <nav aria-label="Developer links" className="mt-8 flex items-center gap-6 text-sm text-zinc-400">
-      <a className="inline-flex items-center gap-1.5 transition-colors hover:text-zinc-100" href="/docs" target="_blank" rel="noopener noreferrer">
-        API documentation <ExternalLink aria-hidden="true" className="size-3.5" />
+      <nav aria-label={m.developers_developer_links()} className="mt-8 flex items-center gap-6 text-sm text-zinc-400">
+      <a className="inline-flex items-center gap-1.5 transition-colors hover:text-zinc-100" href={localeHref("/docs")} target="_blank" rel="noopener noreferrer">
+        {m.developers_api_documentation()}<ExternalLink aria-hidden="true" className="size-3.5" />
       </a>
       <button
         className="transition-colors hover:text-zinc-100 disabled:opacity-50"
@@ -288,16 +290,15 @@ export function DeveloperDashboard({
               headers: { "Content-Type": "application/json" },
               body: "{}",
             });
-            if (!response.ok) throw new Error("Sign out failed");
-            window.location.replace("/auth/login");
+            if (!response.ok) throw new Error(m.developers_sign_out_failed());
+            window.location.replace(localeHref("/auth/login"));
           } catch {
-            setMessage("Unable to sign out. Please try again.");
+            setMessage(m.developers_unable_to_sign_out_please_try_again());
             setPending({ kind: "idle" });
           }
         }}
       >
-        Sign out
-      </button>
+        {m.developers_sign_out()}</button>
       </nav>
     </main>
   );

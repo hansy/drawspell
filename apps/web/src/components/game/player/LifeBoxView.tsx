@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { Minus, Plus } from "lucide-react";
 import {
@@ -50,7 +51,7 @@ const DesktopCommanderDamageValue: React.FC<{
         color === "sky" && "text-sky-400",
         color === "amber" && "text-amber-400",
       )}
-      title={enabled ? "Left-click to add; right-click to subtract" : undefined}
+      title={enabled ? m.card_power_toughness_controls_left_click_to_add_right_click_to_subtract() : undefined}
       {...adjustment}
     >
       {damage}
@@ -263,7 +264,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
           <div
             data-desktop-life-total
             tabIndex={canEditLife || showCommanderDamageDrawer ? 0 : undefined}
-            aria-label={`${player.name || "Player"} life total ${player.life}`}
+            aria-label={m.life_box_view_life_total({ value_1: player.name || m.player_label(), life: player.life })}
             className={cn(
               "ds-seat-upright select-none font-mono text-xl font-bold leading-none text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70",
               canEditLife && onContextMenu
@@ -297,13 +298,12 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
             data-life-controls-label
             className="mb-2 text-center text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400"
           >
-            Life Total
-          </div>
+            {m.life_box_view_life_total_2()}</div>
           <div className="flex items-center justify-center gap-2">
             {canEditLife && (
               <button
                 type="button"
-                aria-label="Decrease life"
+                aria-label={m.life_box_view_decrease_life()}
                 onClick={() => handleLifeChange(-1)}
                 disabled={isAtMinLife}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-300 transition-colors hover:bg-red-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
@@ -317,7 +317,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
             {canEditLife && (
               <button
                 type="button"
-                aria-label="Increase life"
+                aria-label={m.life_box_view_increase_life()}
                 onClick={() => handleLifeChange(1)}
                 disabled={isAtMaxLife}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-300 transition-colors hover:bg-green-900/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
@@ -333,8 +333,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
               className="mt-3 border-t border-zinc-700 pt-3"
             >
               <div className="mb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-                Commander damage
-              </div>
+                {m.life_box_view_commander_damage()}</div>
               <div className="flex flex-col gap-2">
                 {commanderDamageEntries.map(({ opponentId, color, damage }) => (
                   <div
@@ -344,7 +343,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
                     {canEditCommanderDamage && (
                       <button
                         type="button"
-                        aria-label={`Decrease commander damage from ${opponentId}`}
+                        aria-label={m.life_box_view_decrease_commander_damage_from({ opponentId: opponentId })}
                         onClick={() => handleCommanderDamageChange(opponentId, -1)}
                         disabled={damage <= 0}
                         className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
@@ -362,7 +361,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
                     {canEditCommanderDamage && (
                       <button
                         type="button"
-                        aria-label={`Increase commander damage from ${opponentId}`}
+                        aria-label={m.life_box_view_increase_commander_damage_from({ opponentId: opponentId })}
                         onClick={() => handleCommanderDamageChange(opponentId, 1)}
                         className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-100"
                       >
@@ -404,7 +403,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
         )}
       >
         {isMe && onEditUsername ? (
-          <Tooltip content="Click to edit username" placement="top">
+          <Tooltip content={m.life_box_view_click_to_edit_username()} placement="top">
             <button
               type="button"
               onClick={onEditUsername}
@@ -413,12 +412,12 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
                 playerNameColorClass,
               )}
             >
-              {player.name || "Me"}
+              {player.name || m.life_box_view_me()}
             </button>
           </Tooltip>
         ) : (
           <span className={playerNameColorClass}>
-            {player.name || (isMe ? "Me" : "")}
+            {player.name || (isMe ? m.life_box_view_me() : "")}
           </span>
         )}
 
@@ -431,7 +430,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
           {canEditLife ? (
             <button
               type="button"
-              aria-label="Decrease life"
+              aria-label={m.life_box_view_decrease_life()}
               onClick={() => handleLifeChange(-1)}
               disabled={isAtMinLife}
               className={cn(
@@ -450,7 +449,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
 
           <div
             tabIndex={hasDisclosure ? 0 : undefined}
-            aria-label={`${player.name || "Player"} life total ${player.life}`}
+            aria-label={m.life_box_view_life_total({ value_1: player.name || m.player_label(), life: player.life })}
             className={cn(
               "ds-seat-life-total text-center font-mono leading-none text-zinc-100 select-none",
               hasDisclosure && "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900",
@@ -471,7 +470,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
           {canEditLife ? (
             <button
               type="button"
-              aria-label="Increase life"
+              aria-label={m.life_box_view_increase_life()}
               onClick={() => handleLifeChange(1)}
               disabled={isAtMaxLife}
               className={cn(
@@ -500,8 +499,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
             >
               <div>
                 <div className="mb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-                  Commander damage
-                </div>
+                  {m.life_box_view_commander_damage()}</div>
                 <div className="flex flex-col gap-2">
                   {commanderDamageEntries.map(
                     ({ opponentId, color, damage }) => (
@@ -512,7 +510,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
                           {canEditCommanderDamage && (
                             <button
                               type="button"
-                              aria-label={`Decrease commander damage from ${opponentId}`}
+                              aria-label={m.life_box_view_decrease_commander_damage_from({ opponentId: opponentId })}
                               onClick={() =>
                                 handleCommanderDamageChange(opponentId, -1)
                               }
@@ -536,7 +534,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
                           {canEditCommanderDamage && (
                             <button
                               type="button"
-                              aria-label={`Increase commander damage from ${opponentId}`}
+                              aria-label={m.life_box_view_increase_commander_damage_from({ opponentId: opponentId })}
                               onClick={() =>
                                 handleCommanderDamageChange(opponentId, 1)
                               }
@@ -571,7 +569,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
       {/* Player Name Label */}
       <div className="absolute -top-[18px] left-1/2 -translate-x-1/2 z-10">
         {isMe && onEditUsername ? (
-          <Tooltip content="Click to edit username" placement="top">
+          <Tooltip content={m.life_box_view_click_to_edit_username()} placement="top">
             <button
               type="button"
               onClick={onEditUsername}
@@ -580,12 +578,12 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
                 "appearance-none cursor-pointer hover:text-zinc-200 hover:border-zinc-500 transition-colors",
               )}
             >
-              {player.name || "Me"}
+              {player.name || m.life_box_view_me()}
             </button>
           </Tooltip>
         ) : (
           <div className={namePillClass}>
-            {player.name || (isMe ? "Me" : "")}
+            {player.name || (isMe ? m.life_box_view_me() : "")}
           </div>
         )}
       </div>
@@ -596,7 +594,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
           {canEditLife ? (
             <button
               type="button"
-              aria-label="Decrease life"
+              aria-label={m.life_box_view_decrease_life()}
               onClick={() => handleLifeChange(-1)}
               disabled={isAtMinLife}
               className={cn(
@@ -631,7 +629,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
           {canEditLife ? (
             <button
               type="button"
-              aria-label="Increase life"
+              aria-label={m.life_box_view_increase_life()}
               onClick={() => handleLifeChange(1)}
               disabled={isAtMaxLife}
               className={cn(
@@ -664,8 +662,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
           >
             {/* Label straddling top border */}
             <div className="absolute left-1/2 -translate-x-1/2 bg-zinc-900 px-2 text-xs font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap border border-zinc-700 rounded-full z-10 -top-2.5 shadow-sm">
-              CMDR DMG
-            </div>
+              {m.life_box_view_cmdr_dmg()}</div>
 
             {commanderDamageEntries.map(({ opponentId, color, damage }) => (
               <div
@@ -675,7 +672,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
                 {canEditCommanderDamage ? (
                   <button
                     type="button"
-                    aria-label={`Decrease commander damage from ${opponentId}`}
+                    aria-label={m.life_box_view_decrease_commander_damage_from({ opponentId: opponentId })}
                     onClick={() => handleCommanderDamageChange(opponentId, -1)}
                     disabled={damage <= 0}
                     className={cn(
@@ -706,7 +703,7 @@ export const LifeBoxView: React.FC<LifeBoxController> = ({
                 {canEditCommanderDamage ? (
                   <button
                     type="button"
-                    aria-label={`Increase commander damage from ${opponentId}`}
+                    aria-label={m.life_box_view_increase_commander_damage_from({ opponentId: opponentId })}
                     onClick={() => handleCommanderDamageChange(opponentId, 1)}
                     className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
                   >

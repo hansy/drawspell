@@ -15,7 +15,7 @@ describe("generated agent content", () => {
       expect(content).toContain(`# ${page.path === "/" ? "Just Magic" : page.title}`);
       expect(full).toContain(content);
       expect(agentDiscoveryLinks(page.path)).toContainEqual({
-        rel: "alternate", type: "text/markdown", href: page.markdown, title: "Markdown",
+        rel: "alternate", type: "text/markdown", href: page.markdown, title: "Markdown (English)",
       });
     }
   });

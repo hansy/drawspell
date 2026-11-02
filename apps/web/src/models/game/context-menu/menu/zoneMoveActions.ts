@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type {
   Card,
   CardId,
@@ -69,7 +70,7 @@ export const buildZoneMoveActions = (
     if (currentZone.ownerId === actorId && turnExiledCardFaceUp) {
       items.push({
         type: "action",
-        label: "Turn face up",
+        label: m.card_actions_turn_face_up(),
         onSelect: () => turnExiledCardFaceUp(card.id),
       });
     }

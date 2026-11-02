@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { ScrollText, X } from "lucide-react";
 
@@ -46,7 +47,7 @@ export const LogDrawerView: React.FC<LogDrawerViewProps> = ({
       )}
     >
       <div className="flex items-center justify-between p-4 border-b border-zinc-800/50 bg-zinc-900/50">
-        <h2 className="font-bold text-zinc-100 uppercase tracking-wider text-sm">Game Log</h2>
+        <h2 className="font-bold text-zinc-100 uppercase tracking-wider text-sm">{m.log_drawer_view_game_log()}</h2>
         <button
           onClick={handleClose}
           className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-zinc-100 transition-colors"
@@ -64,10 +65,9 @@ export const LogDrawerView: React.FC<LogDrawerViewProps> = ({
             <div className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-400">
               <ScrollText size={17} />
             </div>
-            <div className="text-sm font-medium text-zinc-300">No events yet</div>
+            <div className="text-sm font-medium text-zinc-300">{m.log_drawer_view_no_events_yet()}</div>
             <div className="max-w-40 text-xs leading-snug text-zinc-500">
-              Game actions will appear here.
-            </div>
+              {m.log_drawer_view_game_actions_will_appear_here()}</div>
           </div>
         ) : (
           entries.map((entry) => (

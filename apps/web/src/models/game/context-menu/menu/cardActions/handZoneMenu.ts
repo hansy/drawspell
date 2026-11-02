@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type { Card, PlayerId, ViewerRole, Zone, ZoneId } from "@/types";
 
 import { getPlayerZones } from "@/lib/gameSelectors";
@@ -43,7 +44,7 @@ export const buildHandZoneMenuItems = ({
     ) {
       items.push({
         type: "action",
-        label: "Discard random card",
+        label: m.use_game_context_menu_discard_random_card(),
         onSelect: () => openRandomDiscardPrompt(currentZone.cardIds.length),
         danger: true,
       });

@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import {
   autoUpdate,
@@ -41,7 +42,7 @@ const Stepper: React.FC<{
   >
     <button
       type="button"
-      aria-label={`Remove one ${label}`}
+      aria-label={m.card_edit_hud_remove_one({ label: label })}
       className={stepButtonClassName}
       onClick={onDecrement}
     >
@@ -50,7 +51,7 @@ const Stepper: React.FC<{
     {children}
     <button
       type="button"
-      aria-label={`Add one ${label}`}
+      aria-label={m.card_edit_hud_add_one({ label: label })}
       className={stepButtonClassName}
       onClick={onIncrement}
     >
@@ -165,7 +166,7 @@ export const CardEditHud: React.FC = () => {
         }}
         data-card-edit-hud={card.id}
         role="group"
-        aria-label={`Edit ${card.name}`}
+        aria-label={m.card_edit_hud_edit({ name: card.name })}
         style={floatingStyles}
         className="z-[60] flex w-max flex-col items-start gap-1 rounded-lg border border-zinc-700 bg-zinc-950/95 p-1 text-xs text-zinc-100 shadow-xl"
         onMouseEnter={cancelClose}
@@ -177,13 +178,12 @@ export const CardEditHud: React.FC = () => {
         <div className="flex w-full flex-col gap-1" data-card-edit-hud-counters>
           <div className="flex items-center justify-between gap-3 pl-1">
             <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-              Counters
-            </span>
+              {m.card_edit_hud_counters()}</span>
             {!pickerOpen && (
               <button
                 type="button"
-                aria-label="Add a counter"
-                title="Add a counter"
+                aria-label={m.card_edit_hud_add_a_counter()}
+                title={m.card_edit_hud_add_a_counter()}
                 onClick={() => setPickerOpen(true)}
                 className={cn(
                   "flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-zinc-500 text-zinc-300 transition-colors hover:border-zinc-300 hover:text-white",
@@ -197,7 +197,7 @@ export const CardEditHud: React.FC = () => {
           {counters.map((counter) => (
             <Stepper
               key={counter.type}
-              label={`${counter.type} counter`}
+              label={m.card_edit_hud_counter({ type: counter.type })}
               onDecrement={() => removeCounterFromCard(card.id, counter.type)}
               onIncrement={() => addCounter(counter.type, counter.color)}
               className="w-full justify-between"
@@ -232,8 +232,8 @@ export const CardEditHud: React.FC = () => {
                   setPickerOpen(false);
                 }
               }}
-              placeholder="Counter name"
-              aria-label="Counter name"
+              placeholder={m.add_counter_modal_view_counter_name()}
+              aria-label={m.add_counter_modal_view_counter_name()}
               className="h-7 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 text-[12px] text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <div className="flex max-h-40 flex-col overflow-y-auto">
@@ -251,7 +251,7 @@ export const CardEditHud: React.FC = () => {
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
                     style={{ backgroundColor: resolveCounterColor(trimmedQuery, globalCounters) }}
                   />
-                  Add “{trimmedQuery}”
+                  {m.card_edit_hud_add()}{trimmedQuery}”
                 </button>
               )}
               {options.map((type) => (
@@ -287,16 +287,15 @@ export const CardEditHud: React.FC = () => {
             data-card-edit-hud-pt
           >
             <span className="pl-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-              Power / Toughness
-            </span>
+              {m.card_edit_hud_power_toughness()}</span>
             <div className="flex items-center gap-1">
               <Stepper
-                label="power"
+                label={m.card_edit_hud_power()}
                 onDecrement={() => changeStat("power", -1)}
                 onIncrement={() => changeStat("power", 1)}
               >
                 <span
-                  title="Power"
+                  title={m.card_edit_hud_power_2()}
                   className="flex h-6 min-w-6 items-center justify-center rounded-md border border-zinc-600 bg-zinc-800 px-1 font-mono text-[11px] font-semibold"
                 >
                   {getDisplayPower(card) ?? "–"}
@@ -304,12 +303,12 @@ export const CardEditHud: React.FC = () => {
               </Stepper>
               <span aria-hidden="true" className="text-zinc-500">/</span>
               <Stepper
-                label="toughness"
+                label={m.card_edit_hud_toughness()}
                 onDecrement={() => changeStat("toughness", -1)}
                 onIncrement={() => changeStat("toughness", 1)}
               >
                 <span
-                  title="Toughness"
+                  title={m.card_edit_hud_toughness_2()}
                   className="flex h-6 min-w-6 items-center justify-center rounded-md border border-zinc-600 bg-zinc-800 px-1 font-mono text-[11px] font-semibold"
                 >
                   {getDisplayToughness(card) ?? "–"}

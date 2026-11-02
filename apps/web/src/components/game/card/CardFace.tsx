@@ -1,3 +1,7 @@
+import { getLocale } from "@/paraglide/runtime.js";
+import { useLocalizedScryfallCard } from "@/hooks/scryfall/useLocalizedScryfallCard";
+import { localizedCardPresentation } from "@/services/scryfall/localizedPresentation";
+import { canViewerSeeCardInZone } from "@/lib/reveal";
 import React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Card as CardType } from "@/types";
@@ -69,7 +73,17 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
   const globalCounters = useGameStore((state) => state.globalCounters);
   const myPlayerId = useGameStore((state) => state.myPlayerId);
   const viewerRole = useGameStore((state) => state.viewerRole);
-  const zoneType = useGameStore((state) => state.zones[card.zoneId]?.type);
+  const zone = useGameStore((state) => state.zones[card.zoneId]);
+  const zoneType = zone?.type;
+  const libraryTopReveal = useGameStore((state) => state.players[zone?.ownerId ?? card.ownerId]?.libraryTopReveal);
+  const localized = useLocalizedScryfallCard(
+    card.scryfallId,
+    getLocale(),
+    !faceDown && canViewerSeeCardInZone(card, zone, myPlayerId, viewerRole, libraryTopReveal),
+  );
+  const presentationForFace = (faceIndex: number) => localized.original
+    ? localizedCardPresentation(localized.original, localized.data, faceIndex)
+    : undefined;
   const desktopAdjustableCounters =
     card.controllerId === myPlayerId &&
     viewerRole !== "spectator" &&
@@ -133,6 +147,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
     () =>
       createCardFaceModel({
         card: frontCard,
+        presentation: presentationForFace(getCurrentFaceIndex(frontCard)),
         zoneType,
         faceDown: frontFaceDown,
         preferArtCrop,
@@ -145,6 +160,8 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
       }),
     [
       frontCard,
+      localized.original,
+      localized.data,
       frontFaceDown,
       globalCounters,
       hidePT,
@@ -172,6 +189,7 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
     () =>
       createCardFaceModel({
         card: backCard,
+        presentation: presentationForFace(getCurrentFaceIndex(backCard)),
         zoneType,
         faceDown: backFaceDown,
         preferArtCrop,
@@ -184,6 +202,8 @@ const CardFaceInner: React.FC<CardFaceProps> = ({
       }),
     [
       backCard,
+      localized.original,
+      localized.data,
       backFaceDown,
       globalCounters,
       hidePT,

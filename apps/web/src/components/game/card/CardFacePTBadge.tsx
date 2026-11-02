@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 
 import { cn } from "@/lib/utils";
@@ -42,7 +43,7 @@ export const CardFacePTBadge: React.FC<{
             <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex gap-1 opacity-0 group-hover/pt:opacity-100 transition-opacity bg-zinc-900 border border-zinc-700 rounded px-1">
               <button
                 type="button"
-                aria-label="Increase power"
+                aria-label={m.card_face_ptbadge_increase_power()}
                 className="text-xs hover:text-green-400 px-1"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -53,7 +54,7 @@ export const CardFacePTBadge: React.FC<{
               </button>
               <button
                 type="button"
-                aria-label="Decrease power"
+                aria-label={m.card_face_ptbadge_decrease_power()}
                 className="text-xs hover:text-red-400 px-1"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -75,7 +76,7 @@ export const CardFacePTBadge: React.FC<{
             <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex gap-1 opacity-0 group-hover/pt:opacity-100 transition-opacity bg-zinc-900 border border-zinc-700 rounded px-1">
               <button
                 type="button"
-                aria-label="Increase toughness"
+                aria-label={m.card_face_ptbadge_increase_toughness()}
                 className="text-xs hover:text-green-400 px-1"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -86,7 +87,7 @@ export const CardFacePTBadge: React.FC<{
               </button>
               <button
                 type="button"
-                aria-label="Decrease toughness"
+                aria-label={m.card_face_ptbadge_decrease_toughness()}
                 className="text-xs hover:text-red-400 px-1"
                 onClick={(e) => {
                   e.stopPropagation();

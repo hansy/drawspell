@@ -1,7 +1,47 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://drawspell.space/</loc></url>
+  <url><loc>https://drawspell.space/es</loc></url>
+  <url><loc>https://drawspell.space/fr</loc></url>
+  <url><loc>https://drawspell.space/de</loc></url>
+  <url><loc>https://drawspell.space/it</loc></url>
+  <url><loc>https://drawspell.space/pt</loc></url>
+  <url><loc>https://drawspell.space/ja</loc></url>
+  <url><loc>https://drawspell.space/ko</loc></url>
+  <url><loc>https://drawspell.space/ru</loc></url>
+  <url><loc>https://drawspell.space/zh-Hans</loc></url>
+  <url><loc>https://drawspell.space/zh-Hant</loc></url>
   <url><loc>https://drawspell.space/docs</loc></url>
+  <url><loc>https://drawspell.space/es/docs</loc></url>
+  <url><loc>https://drawspell.space/fr/docs</loc></url>
+  <url><loc>https://drawspell.space/de/docs</loc></url>
+  <url><loc>https://drawspell.space/it/docs</loc></url>
+  <url><loc>https://drawspell.space/pt/docs</loc></url>
+  <url><loc>https://drawspell.space/ja/docs</loc></url>
+  <url><loc>https://drawspell.space/ko/docs</loc></url>
+  <url><loc>https://drawspell.space/ru/docs</loc></url>
+  <url><loc>https://drawspell.space/zh-Hans/docs</loc></url>
+  <url><loc>https://drawspell.space/zh-Hant/docs</loc></url>
   <url><loc>https://drawspell.space/privacy</loc></url>
+  <url><loc>https://drawspell.space/es/privacy</loc></url>
+  <url><loc>https://drawspell.space/fr/privacy</loc></url>
+  <url><loc>https://drawspell.space/de/privacy</loc></url>
+  <url><loc>https://drawspell.space/it/privacy</loc></url>
+  <url><loc>https://drawspell.space/pt/privacy</loc></url>
+  <url><loc>https://drawspell.space/ja/privacy</loc></url>
+  <url><loc>https://drawspell.space/ko/privacy</loc></url>
+  <url><loc>https://drawspell.space/ru/privacy</loc></url>
+  <url><loc>https://drawspell.space/zh-Hans/privacy</loc></url>
+  <url><loc>https://drawspell.space/zh-Hant/privacy</loc></url>
   <url><loc>https://drawspell.space/tos</loc></url>
+  <url><loc>https://drawspell.space/es/tos</loc></url>
+  <url><loc>https://drawspell.space/fr/tos</loc></url>
+  <url><loc>https://drawspell.space/de/tos</loc></url>
+  <url><loc>https://drawspell.space/it/tos</loc></url>
+  <url><loc>https://drawspell.space/pt/tos</loc></url>
+  <url><loc>https://drawspell.space/ja/tos</loc></url>
+  <url><loc>https://drawspell.space/ko/tos</loc></url>
+  <url><loc>https://drawspell.space/ru/tos</loc></url>
+  <url><loc>https://drawspell.space/zh-Hans/tos</loc></url>
+  <url><loc>https://drawspell.space/zh-Hant/tos</loc></url>
 </urlset>

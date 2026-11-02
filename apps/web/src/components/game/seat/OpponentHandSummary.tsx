@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 
 import { ZONE } from "@/constants/zones";
@@ -37,12 +38,11 @@ export const OpponentHandSummary: React.FC<{
     >
       <div
         data-opponent-hand-count
-        aria-label={`Hand: ${cards.length} ${cards.length === 1 ? "card" : "cards"}`}
+        aria-label={m.opponent_hand_summary_hand({ length: cards.length })}
         className="ds-seat-upright flex h-full shrink-0 flex-col justify-center rounded-md border border-zinc-700/70 bg-zinc-900/80 px-2 leading-none"
       >
         <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
-          Hand
-        </span>
+          {m.opponent_hand_summary_hand_2()}</span>
         <span className="mt-0.5 font-mono text-sm font-bold tabular-nums text-zinc-100">
           {cards.length}
         </span>
@@ -50,7 +50,7 @@ export const OpponentHandSummary: React.FC<{
       {revealedCards.length > 0 && (
         <div
           data-opponent-hand-revealed
-          aria-label={`${revealedCards.length} revealed ${revealedCards.length === 1 ? "card" : "cards"} in hand`}
+          aria-label={m.opponent_hand_summary_revealed_in_hand({ length: revealedCards.length })}
           className="flex h-full min-w-0 items-center gap-1 overflow-x-auto overflow-y-hidden scrollbar-none"
         >
           {revealedCards.map((card) => (

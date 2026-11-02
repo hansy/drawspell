@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type { FC } from "react";
 
 import { useMultiplayerBoardController } from "@/hooks/game/board/useMultiplayerBoardController";
@@ -25,18 +26,18 @@ export const MultiplayerBoard: FC<MultiplayerBoardProps> = ({ sessionId }) => {
   if (joinBlockedReason === "room-unavailable") {
     return (
       <RoomFullScreen
-        title="Game no longer available"
-        description="This game has ended and the room was closed."
+        title={m.multiplayer_board_game_no_longer_available()}
+        description={m.multiplayer_board_this_game_has_ended_and_the_room_was_closed()}
         onLeave={handleCreateNewGame}
-        leaveLabel="Create new game"
+        leaveLabel={m.multiplayer_board_create_new_game()}
       />
     );
   }
   if (roomOverCapacity) {
     return (
       <RoomFullScreen
-        title="Room over capacity"
-        description="This room has more than the supported number of players."
+        title={m.multiplayer_board_room_over_capacity()}
+        description={m.multiplayer_board_this_room_has_more_than_the_supported_number_of_players()}
         onLeave={viewProps.handleLeave}
       />
     );
@@ -45,8 +46,8 @@ export const MultiplayerBoard: FC<MultiplayerBoardProps> = ({ sessionId }) => {
     if (joinBlockedReason === "device-link-invalid") {
       return (
         <RoomFullScreen
-          title="Invalid or already-used device link"
-          description="Copy a new device link from the active game and try again."
+          title={m.multiplayer_board_invalid_or_already_used_device_link()}
+          description={m.multiplayer_board_copy_a_new_device_link_from_the_active_game_and_try_again()}
           onLeave={viewProps.handleLeave}
         />
       );
@@ -54,8 +55,8 @@ export const MultiplayerBoard: FC<MultiplayerBoardProps> = ({ sessionId }) => {
     if (joinBlockedReason === "invite") {
       return (
         <RoomFullScreen
-          title="Game in session"
-          description="You need to be invited to join this game."
+          title={m.multiplayer_board_game_in_session()}
+          description={m.multiplayer_board_you_need_to_be_invited_to_join_this_game()}
           onLeave={viewProps.handleLeave}
         />
       );

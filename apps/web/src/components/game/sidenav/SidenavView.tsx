@@ -1,3 +1,5 @@
+import { m } from "@/paraglide/messages.js";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import React from "react";
 import "mana-font/css/mana.css";
 import {
@@ -152,8 +154,8 @@ const EndTurnButton: React.FC<{
     >
       <NavIcon
         icon={<Forward size={20} />}
-        label="End turn"
-        tooltip={isMyTurn ? "End turn (Shift+Space)" : "Turn options"}
+        label={m.seat_view_end_turn()}
+        tooltip={isMyTurn ? m.seat_view_end_turn_shift_space() : m.seat_view_turn_options()}
         onClick={() => (canEndTurn ? onEndTurn() : setOpen((value) => !value))}
         className={cn(
           "hover:text-amber-300 active:text-amber-300",
@@ -165,7 +167,7 @@ const EndTurnButton: React.FC<{
       />
       <button
         type="button"
-        aria-label="Turn options"
+        aria-label={m.seat_view_turn_options()}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
@@ -234,7 +236,7 @@ const RandomizeButton: React.FC<{
     <span ref={(node) => { rootRef.current = node; refs.setReference(node); }} className="inline-flex">
       <NavIcon
         icon={<Dices size={20} />}
-        label="Coin or dice"
+        label={m.sidenav_view_coin_or_dice()}
         onClick={() => setOpen((value) => !value)}
         className={cn(
           "hover:text-yellow-400 active:text-yellow-400",
@@ -258,8 +260,7 @@ const RandomizeButton: React.FC<{
             className="flex items-center gap-3 rounded p-2 text-left text-sm text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
           >
             <Coins size={16} />
-            Flip a coin
-            <span className="ml-auto hidden text-[10px] text-zinc-500 desktop:inline">C</span>
+            {m.sidenav_view_flip_a_coin()}<span className="ml-auto hidden text-[10px] text-zinc-500 desktop:inline">{m.sidenav_view_c()}</span>
           </button>
           <button
             type="button"
@@ -268,8 +269,7 @@ const RandomizeButton: React.FC<{
             className="flex items-center gap-3 rounded p-2 text-left text-sm text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
           >
             <Dice5 size={16} />
-            Roll dice
-            <span className="ml-auto hidden text-[10px] text-zinc-500 desktop:inline">R</span>
+            {m.sidenav_view_roll_dice()}<span className="ml-auto hidden text-[10px] text-zinc-500 desktop:inline">{m.sidenav_view_r()}</span>
           </button>
         </div>
       )}
@@ -328,28 +328,22 @@ export const SidenavView: React.FC<SidenavController> = ({
   const peerCountLabel = React.useMemo(() => {
     const parts: string[] = [];
     if (peerCounts.players > 0) {
-      parts.push(
-        `${peerCounts.players} ${peerCounts.players === 1 ? "player" : "players"}`,
-      );
+      parts.push(m.players_count({ count: peerCounts.players }));
     }
     if (peerCounts.spectators > 0) {
-      parts.push(
-        `${peerCounts.spectators} ${
-          peerCounts.spectators === 1 ? "spectator" : "spectators"
-        }`,
-      );
+      parts.push(m.spectators_count({ count: peerCounts.spectators }));
     }
     if (parts.length === 0) {
-      return "0 players";
+      return m.players_count({ count: 0 });
     }
     return parts.join(", ");
   }, [peerCounts.players, peerCounts.spectators]);
   const shareDisabled = !canShareRoom;
   const shareTooltip = canShareRoom
-    ? "Share room"
+    ? m.share_room_dialog_share_room()
     : syncStatus !== "connected"
-      ? "Connecting to room"
-      : "Share links are only available to players";
+      ? m.sidenav_view_connecting_to_room()
+      : m.sidenav_view_share_links_are_only_available_to_players();
   const { refs: menuRefs, floatingStyles: menuFloatingStyles } = useFloating({
     open: isMenuOpen,
     onOpenChange: (next) => {
@@ -382,7 +376,7 @@ export const SidenavView: React.FC<SidenavController> = ({
       {!isSpectator && (
         <NavIcon
           icon={<Share2 size={20} />}
-          label="Share room"
+          label={m.share_room_dialog_share_room()}
           tooltip={shareTooltip}
           onClick={onOpenShareDialog}
           className="hover:text-indigo-400 active:text-indigo-400"
@@ -406,8 +400,8 @@ export const SidenavView: React.FC<SidenavController> = ({
       >
         <button
           type="button"
-          aria-label="Open menu"
-          title={syncStatus === "connected" ? "Connected" : "Connecting"}
+          aria-label={m.sidenav_view_open_menu()}
+          title={syncStatus === "connected" ? m.sidenav_view_connected() : m.multiplayer_board_view_connecting()}
           aria-expanded={isMenuOpen}
           onClick={handleMenuToggle}
           ref={menuRefs.setReference}
@@ -447,6 +441,7 @@ export const SidenavView: React.FC<SidenavController> = ({
                   : "slide-in-from-left-2",
               )}
             >
+              <div className="p-2"><LanguageSelector /></div>
               {!isSpectator && (
                 <>
                   <div className="flex items-center gap-3 p-2 text-sm">
@@ -454,8 +449,7 @@ export const SidenavView: React.FC<SidenavController> = ({
                       <>
                         <Wifi size={16} className="text-emerald-400" />
                         <span className="text-zinc-300">
-                          Connected
-                          <span className="text-zinc-500 ml-1">
+                          {m.sidenav_view_connected()}<span className="text-zinc-500 ml-1">
                             ({peerCountLabel})
                           </span>
                         </span>
@@ -466,7 +460,7 @@ export const SidenavView: React.FC<SidenavController> = ({
                           size={16}
                           className="text-amber-400 motion-safe:animate-spin"
                         />
-                        <span className="text-amber-400">Connecting</span>
+                        <span className="text-amber-400">{m.multiplayer_board_view_connecting()}</span>
                       </>
                     )}
                   </div>
@@ -482,10 +476,8 @@ export const SidenavView: React.FC<SidenavController> = ({
                     className="flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                   >
                     <Undo2 size={16} />
-                    Undo last action
-                    <span className="ml-auto hidden text-[10px] text-zinc-500 desktop:inline">
-                      Ctrl/⌘ Z
-                    </span>
+                    {m.sidenav_view_undo_last_action()}<span className="ml-auto hidden text-[10px] text-zinc-500 desktop:inline">
+                      {m.sidenav_view_ctrl_z()}</span>
                   </button>
 
                   <button
@@ -493,15 +485,13 @@ export const SidenavView: React.FC<SidenavController> = ({
                     className="hidden desktop:flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
                   >
                     <Keyboard size={16} />
-                    Controls
-                  </button>
+                    {m.shortcuts_drawer_controls()}</button>
                   <button
                     onClick={handleOpenShortcuts}
                     className="flex desktop:hidden items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
                   >
                     <Smartphone size={16} />
-                    Controls
-                  </button>
+                    {m.shortcuts_drawer_controls()}</button>
                 </>
               )}
 
@@ -510,15 +500,14 @@ export const SidenavView: React.FC<SidenavController> = ({
                 className="flex items-center gap-3 p-2 rounded hover:bg-zinc-800 text-left text-sm text-zinc-300 hover:text-zinc-100 transition-colors"
               >
                 <Mail size={16} />
-                Send Feedback!
-              </a>
+                {m.sidenav_view_send_feedback()}</a>
 
               <button
                 onClick={onLeaveGame}
                 className="flex items-center gap-3 p-2 rounded hover:bg-red-900/20 text-left text-sm text-red-400 hover:text-red-300 transition-colors"
               >
-                {isSpectator ? "Leave Game" : <LogOut size={16} />}
-                {isSpectator ? null : "Leave Game"}
+                {isSpectator ? m.sidenav_view_leave_game() : <LogOut size={16} />}
+                {isSpectator ? null : m.sidenav_view_leave_game()}
               </button>
             </div>
           </div>
@@ -541,7 +530,7 @@ export const SidenavView: React.FC<SidenavController> = ({
           <>
             <NavIcon
               icon={<ScrollText size={20} />}
-              label="Game Log"
+              label={m.log_drawer_view_game_log()}
               onClick={onToggleLog}
               className={cn(
                 "hover:text-amber-400 active:text-amber-400",
@@ -572,7 +561,7 @@ export const SidenavView: React.FC<SidenavController> = ({
                   className="ms ms-untap block h-5 w-5 text-[20px] leading-5"
                 />
               }
-              label="Untap All"
+              label={m.sidenav_view_untap_all()}
               onClick={handleUntapAll}
               className="hover:text-blue-400 active:text-blue-400"
               disabled={isSpectator}
@@ -582,7 +571,7 @@ export const SidenavView: React.FC<SidenavController> = ({
 
             <NavIcon
               icon={<Plus size={20} />}
-              label="Create Token"
+              label={m.sidenav_view_create_token()}
               onClick={onCreateToken}
               className="hover:text-emerald-400 active:text-emerald-400"
               disabled={isSpectator}
@@ -599,7 +588,7 @@ export const SidenavView: React.FC<SidenavController> = ({
 
             <NavIcon
               icon={<ScrollText size={20} />}
-              label="Game Log"
+              label={m.log_drawer_view_game_log()}
               onClick={onToggleLog}
               className={cn(
                 "hover:text-amber-400 active:text-amber-400",

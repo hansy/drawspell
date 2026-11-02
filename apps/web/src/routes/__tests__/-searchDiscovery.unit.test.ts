@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { createMemoryHistory, createRouter } from "@tanstack/react-router";
 import { ORIGINS } from "@mtg/shared/constants/hosts";
+import { languageRegistry } from "../../i18n/locales";
+import { pageUrlForLocale } from "../../i18n/urls";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => {
@@ -20,7 +22,7 @@ const loadRoute = async (path: string) => {
 
 describe("search discovery", () => {
   it.each(["production", "staging", "development"])(
-    "adds a homepage canonical only in production, with no inherited canonical in %s",
+    "adds public-page canonicals only in production without inheriting them into rooms in %s",
     async (environment) => {
       vi.resetModules();
       vi.stubEnv("VITE_ENV", environment);
@@ -44,13 +46,24 @@ describe("search discovery", () => {
           .flatMap((match) => match.links ?? [])
           .filter((link) => link?.rel === "canonical");
         expect(canonicals).toEqual(
-          environment === "production" && pathname === "/"
-            ? [{ rel: "canonical", href: "https://drawspell.space/" }]
+          environment === "production" && pathname !== "/rooms/example"
+            ? [{ rel: "canonical", href: new URL(pathname, "https://drawspell.space").href }]
             : [],
         );
       }
     },
   );
+
+  it("does not publish homepage canonicals on unknown paths", async () => {
+    vi.resetModules();
+    vi.stubEnv("VITE_ENV", "production");
+    for (const path of ["/missing", "/docs/missing"]) {
+      const router = await loadRoute(path);
+      const links = router.state.matches.flatMap((match) => match.links ?? []);
+      expect(links.filter((link) => link?.rel === "canonical")).toEqual([]);
+      expect(router.state.matches.flatMap((match) => match.meta ?? []).some((meta) => meta?.name === "robots" && meta.content?.includes("noindex"))).toBe(true);
+    }
+  });
 
   it("publishes a valid sitemap containing only real public page routes on the trusted production origin", async () => {
     vi.resetModules();
@@ -71,16 +84,18 @@ describe("search discovery", () => {
       "https://drawspell.space/docs",
       "https://drawspell.space/privacy",
       "https://drawspell.space/tos",
-    ]);
+    ].flatMap((url) => languageRegistry.map(({ locale }) => pageUrlForLocale(new URL(url), locale).href)));
     for (const location of locations) {
       const url = new URL(location ?? "");
       expect(url.origin).toBe(ORIGINS.production.web);
       expect(url.search).toBe("");
       expect(url.hash).toBe("");
-      const router = await loadRoute(url.pathname);
+      const { readLocalePath } = await import("../../i18n/urls");
+      const pathname = readLocalePath(url.pathname).pathname;
+      const router = await loadRoute(pathname);
       const pageMatch = router.state.matches.at(-1);
       expect(pageMatch?.status).toBe("success");
-      expect(pageMatch?.routeId).toBe(url.pathname);
+      expect(pageMatch?.routeId).toBe(pathname);
       const robots = router.state.matches
         .flatMap((match) => match.meta ?? [])
         .filter((meta) => meta?.name === "robots");

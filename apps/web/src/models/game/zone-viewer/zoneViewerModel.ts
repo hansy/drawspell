@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type { Card, Zone } from "@/types";
 import { peekCachedCard } from "@/services/scryfall/scryfallCache";
 import { toScryfallCardLite } from "@/types/scryfallLite";
@@ -129,6 +130,7 @@ export const computeZoneViewerCards = (params: {
   count?: number;
   frozenCardIds?: string[] | null;
   filterText: string;
+  localizedSearch?: Record<string, string>;
 }): Card[] => {
   let cardIds = [...params.zone.cardIds];
 
@@ -149,7 +151,7 @@ export const computeZoneViewerCards = (params: {
     if (getZoneViewerMode(params.zone, params.count) === "grouped") {
       const matchingGroupKeys = new Set(
         currentCards
-          .filter((card) => matchesZoneViewerFilter(card, normalizedFilter))
+          .filter((card) => (matchesZoneViewerFilter(card, normalizedFilter) || Boolean(params.localizedSearch?.[card.id]?.toLowerCase().includes(normalizedFilter))))
           .map(getCanonicalNameKey)
       );
       currentCards = currentCards.filter((card) =>
@@ -157,7 +159,7 @@ export const computeZoneViewerCards = (params: {
       );
     } else {
       currentCards = currentCards.filter((card) =>
-        matchesZoneViewerFilter(card, normalizedFilter)
+        (matchesZoneViewerFilter(card, normalizedFilter) || Boolean(params.localizedSearch?.[card.id]?.toLowerCase().includes(normalizedFilter)))
       );
     }
   }
@@ -180,7 +182,7 @@ export const buildLibraryManaSections = (cards: Card[]): LibraryManaSection[] =>
 
     return {
       key,
-      label: isLands ? "Lands" : `${manaValue}-mana`,
+      label: isLands ? m.zone_viewer_model_lands() : m.zone_viewer_model_mana({ manaValue: manaValue ?? 0 }),
       manaValue,
       isLands,
       groups,

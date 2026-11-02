@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type { Card, GameState, PlayerId, ViewerRole } from "@/types";
 import type { ScryfallCard, ScryfallRelatedCard } from "@/types/scryfall";
 
@@ -42,7 +43,7 @@ export const createRelatedCardHandler = (params: {
     if (!planned.ok) {
       if (planned.reason === "permission_denied") {
         params.toast.error(
-          planned.message ?? "Not allowed to create related card here"
+          planned.message ?? m.related_card_creation_not_allowed_to_create_related_card_here()
         );
       }
 
@@ -50,7 +51,7 @@ export const createRelatedCardHandler = (params: {
         if (planned.error) {
           logger.error("Failed to fetch related card from Scryfall", planned.error);
         }
-        params.toast.error("Failed to create related card");
+        params.toast.error(m.related_create_failed());
       }
 
       return;
@@ -58,7 +59,7 @@ export const createRelatedCardHandler = (params: {
 
     state.addCard(planned.card);
     params.toast.success(
-      `Created ${related.name}${planned.card.isToken ? " token" : ""}`
+      m.related_created({ name: related.name, token: planned.card.isToken ? m.card_actions_token() : "" })
     );
   };
 };

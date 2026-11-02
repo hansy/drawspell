@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type { StoreApi } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
@@ -28,11 +29,11 @@ const acknowledgementWaiters = new Map<string, { resolve: () => void; reject: (e
 // Actions expose their own intent ID, so awaiting an import never captures an
 // unrelated action dispatched by another UI interaction.
 export const waitForIntentAcknowledgement = (intentId: string | null | undefined): Promise<void> => {
-  if (!intentId) return Promise.reject(new Error("Connecting to multiplayer, please try again."));
+  if (!intentId) return Promise.reject(new Error(m.dispatch_intent_connecting_to_multiplayer_please_try_again()));
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       acknowledgementWaiters.delete(intentId);
-      reject(new Error("The server did not confirm the deck import. Please try again."));
+      reject(new Error(m.dispatch_intent_the_server_did_not_confirm_the_deck_import_please_try_again()));
     }, 15_000);
     acknowledgementWaiters.set(intentId, {
       resolve: () => { clearTimeout(timer); resolve(); },
@@ -75,7 +76,7 @@ const warnIntentDropped = () => {
   const now = Date.now();
   if (now - lastDropToastAt < DROP_TOAST_COOLDOWN_MS) return;
   lastDropToastAt = now;
-  toast.warning("Reconnecting to multiplayer, please wait a moment then try again.");
+  toast.warning(m.dispatch_intent_reconnecting_to_multiplayer_please_wait_a_moment_then_try_again());
 };
 
 const applyLocalPatch = (
@@ -106,7 +107,7 @@ export const getAuthoritativeState = () => lastAuthoritativeState;
 export const getPublicAuthoritativeState = () => lastPublicState;
 
 export const resetIntentState = () => {
-  acknowledgementWaiters.forEach((waiter) => waiter.reject(new Error("Disconnected during deck import. Please try again.")));
+  acknowledgementWaiters.forEach((waiter) => waiter.reject(new Error(m.dispatch_intent_disconnected_during_deck_import_please_try_again())));
   acknowledgementWaiters.clear();
   pendingIntents.splice(0, pendingIntents.length);
   lastAuthoritativeState = null;
@@ -123,7 +124,7 @@ export const handleIntentAck = (
   if (waiter) {
     acknowledgementWaiters.delete(ack.intentId);
     if (ack.ok) waiter.resolve();
-    else waiter.reject(new Error(ack.error || "Deck import rejected"));
+    else waiter.reject(new Error(ack.error || m.dispatch_intent_deck_import_rejected()));
   }
   const index = pendingIntents.findIndex((pending) => pending.id === ack.intentId);
   if (index === -1) return null;
@@ -135,7 +136,7 @@ export const handleIntentAck = (
   }
 
   if (!ack.ok) {
-    return ack.error || "Action rejected";
+    return ack.error || m.action_rejected();
   }
 
   return null;

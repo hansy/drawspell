@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 export type ScryfallFetchErrorKind = "network" | "http" | "invalid-response";
 
 export type ScryfallEndpoint = "collection" | "named" | "card" | "translation";
@@ -31,16 +32,16 @@ const formatStatus = (error: ScryfallFetchError): string | null => {
 
 export const formatScryfallErrors = (errors: ScryfallFetchError[]): string => {
   if (errors.length === 0) {
-    return "Scryfall request failed. Please try again.";
+    return m.scryfall_request_failed({ status: "" });
   }
 
   const rateLimit = errors.find((error) => error.kind === "http" && error.status === 429);
   if (rateLimit) {
     if (rateLimit.retryAfterMs) {
       const seconds = Math.max(1, Math.ceil(rateLimit.retryAfterMs / 1000));
-      return `Scryfall rate limited the request. Please wait ${seconds} seconds and try again.`;
+      return m.scryfall_retry_seconds({ seconds });
     }
-    return "Scryfall rate limited the request. Please wait a moment and try again.";
+    return m.scryfall_rate_limited();
   }
 
   const serverError = errors.find(
@@ -48,26 +49,26 @@ export const formatScryfallErrors = (errors: ScryfallFetchError[]): string => {
   );
   if (serverError) {
     const status = formatStatus(serverError);
-    return `Scryfall is temporarily unavailable${status ? ` (${status})` : ""}. Please try again.`;
+    return m.scryfall_unavailable({ status: status ? ` (${status})` : "" });
   }
 
   const networkError = errors.find((error) => error.kind === "network");
   if (networkError) {
-    return "Network error while contacting Scryfall. Please check your connection and try again.";
+    return m.scryfall_network_error();
   }
 
   const invalidResponse = errors.find((error) => error.kind === "invalid-response");
   if (invalidResponse) {
-    return "Received an unexpected response from Scryfall. Please try again.";
+    return m.scryfall_invalid_response();
   }
 
   const httpError = errors.find((error) => error.kind === "http");
   if (httpError) {
     const status = formatStatus(httpError);
-    return `Scryfall request failed${status ? ` (${status})` : ""}. Please try again.`;
+    return m.scryfall_request_failed({ status: status ? ` (${status})` : "" });
   }
 
-  return "Scryfall request failed. Please try again.";
+  return m.scryfall_request_failed({ status: "" });
 };
 
 export const buildScryfallHttpError = (params: {
@@ -110,6 +111,6 @@ export const buildScryfallInvalidResponseError = (params: {
     kind: "invalid-response",
     endpoint: params.endpoint,
     url: params.url,
-    message: message || "Invalid response payload",
+    message: message || m.scryfall_errors_invalid_response_payload(),
   };
 };

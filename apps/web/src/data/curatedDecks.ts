@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 export type FormatTag = "commander" | "starter" | "standard";
 export type ManaColor = "W" | "U" | "B" | "R" | "G" | "C";
 
@@ -55,7 +56,7 @@ export const curatedDecks: CuratedDeck[] = [
     formatTags: ["commander"],
     colorIdentity: ["W", "U", "R"],
     cardCount: 100,
-    description: "Hero creatures and team-wide counters.",
+    get description() { return m.curated_decks_hero_creatures_and_team_wide_counters(); },
     sortDate: "2026-06-26",
     decklist: `Commander:
 Captain America, Team Leader
@@ -159,7 +160,7 @@ Rescue, Pepper Potts
     formatTags: ["commander"],
     colorIdentity: ["W", "G"],
     cardCount: 100,
-    description: "Artifacts, tokens, and Wakandan synergy.",
+    get description() { return m.curated_decks_artifacts_tokens_and_wakandan_synergy(); },
     sortDate: "2026-06-26",
     decklist: `Commander:
 T'Challa, the Black Panther
@@ -254,7 +255,7 @@ Terramorphic Expanse
     formatTags: ["commander"],
     colorIdentity: ["W", "U", "R", "G"],
     cardCount: 100,
-    description: "Four-color spells and Marvel's First Family.",
+    get description() { return m.curated_decks_four_color_spells_and_marvel_s_first_family(); },
     sortDate: "2026-06-26",
     decklist: `Commander:
 Mister Fantastic
@@ -358,7 +359,7 @@ Path of Ancestry
     formatTags: ["commander"],
     colorIdentity: ["U", "B", "R"],
     cardCount: 100,
-    description: "Villains, connive, and ruthless value.",
+    get description() { return m.curated_decks_villains_connive_and_ruthless_value(); },
     sortDate: "2026-06-26",
     decklist: `Commander:
 Doctor Doom, King of Latveria
@@ -463,7 +464,7 @@ Unclaimed Territory
     formatTags: ["starter"],
     colorIdentity: ["W"],
     cardCount: 40,
-    description: "Dwarves, riders, and protective white magic.",
+    get description() { return m.curated_decks_dwarves_riders_and_protective_white_magic(); },
     sortDate: "2026-08-14",
     decklist: `16 Plains
 2 Dwarven Provisioner
@@ -497,7 +498,7 @@ Bofur, Reliable Guardian`,
     formatTags: ["starter"],
     colorIdentity: ["U"],
     cardCount: 40,
-    description: "Bilbo's tricks, card draw, and evasive creatures.",
+    get description() { return m.curated_decks_bilbo_s_tricks_card_draw_and_evasive_creatures(); },
     sortDate: "2026-08-14",
     decklist: `16 Island
 2 Bilbo Baggins, Burglar
@@ -532,7 +533,7 @@ Stern Scolding`,
     formatTags: ["starter"],
     colorIdentity: ["B"],
     cardCount: 40,
-    description: "Gollum, Goblins, and ruthless removal.",
+    get description() { return m.curated_decks_gollum_goblins_and_ruthless_removal(); },
     sortDate: "2026-08-14",
     decklist: `16 Swamp
 2 Front Porch Sentries
@@ -568,7 +569,7 @@ Stony-Voiced Goblins`,
     formatTags: ["starter"],
     colorIdentity: ["R"],
     cardCount: 40,
-    description: "Goblins, burn spells, and Smaug's fire.",
+    get description() { return m.curated_decks_goblins_burn_spells_and_smaug_s_fire(); },
     sortDate: "2026-08-14",
     decklist: `16 Mountain
 2 Wayfarer's Bauble
@@ -600,7 +601,7 @@ Fire of Orthanc`,
     formatTags: ["starter"],
     colorIdentity: ["G"],
     cardCount: 40,
-    description: "Elves, forest guidance, and growing creatures.",
+    get description() { return m.curated_decks_elves_forest_guidance_and_growing_creatures(); },
     sortDate: "2026-08-14",
     decklist: `16 Forest
 2 Guardian of the Halls

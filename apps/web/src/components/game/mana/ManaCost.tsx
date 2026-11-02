@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import "mana-font/css/mana.css";
 
 import { cn } from "@/lib/utils";
@@ -19,7 +20,7 @@ export type ManaCostProps = {
 export const ManaCost = ({ manaCost, className, symbolClassName }: ManaCostProps) => {
   if (!manaCost?.trim()) {
     return (
-      <span className={cn("text-zinc-600", className)} aria-label="No mana cost">
+      <span className={cn("text-zinc-600", className)} aria-label={m.mana_cost_no_mana_cost()}>
         —
       </span>
     );
@@ -31,7 +32,7 @@ export const ManaCost = ({ manaCost, className, symbolClassName }: ManaCostProps
     <span
       className={cn("inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap", className)}
       role="img"
-      aria-label={`Mana cost ${manaCost}`}
+      aria-label={m.mana_cost_mana_cost({ manaCost: manaCost })}
       title={manaCost}
     >
       {parts.map((part, partIndex) => {

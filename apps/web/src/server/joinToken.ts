@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { createServerFn } from "@tanstack/react-start";
 import { createJoinToken } from "@mtg/shared/security/joinToken";
 import {
@@ -29,7 +30,7 @@ export const getJoinToken = createServerFn({ method: "POST" })
       const roomId = payload?.roomId?.trim();
       if (!roomId) {
         console.error("[joinToken] missing room");
-        throw new Error("missing room");
+        throw new Error(m.join_token_missing_room());
       }
 
       const env = process.env;
@@ -38,7 +39,7 @@ export const getJoinToken = createServerFn({ method: "POST" })
       const allowedOrigin = normalizeOrigin(origins.web);
       if (!isDevelopmentEnv(import.meta.env.VITE_ENV) && !isOriginAllowed(origin, allowedOrigin)) {
         console.error("[joinToken] origin not allowed", { origin, roomId });
-        throw new Error("origin not allowed");
+        throw new Error(m.join_token_origin_not_allowed());
       }
 
       const secret = env.JOIN_TOKEN_SECRET;
@@ -47,7 +48,7 @@ export const getJoinToken = createServerFn({ method: "POST" })
           roomId,
           hasContextEnv: Boolean(env),
         });
-        throw new Error("join token secret missing");
+        throw new Error(m.join_token_join_token_secret_missing());
       }
       const exp = Date.now() + JOIN_TOKEN_TTL_MS;
       const token = await createJoinToken({ roomId, exp }, secret);
@@ -60,7 +61,7 @@ export const getJoinToken = createServerFn({ method: "POST" })
             ? error
             : typeof error === "object" && error && "message" in error
               ? String((error as { message?: unknown }).message)
-              : "unknown",
+              : m.join_token_unknown(),
       });
       throw error;
     }

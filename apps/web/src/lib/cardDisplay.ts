@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type { Card, ZoneType } from "@/types";
 import { ZONE } from "@/constants/zones";
 import { parsePTCounterType } from "@mtg/shared/counters";
@@ -170,7 +171,7 @@ export const getFlipRotation = (card: Card): number => {
 
 export const getTransformVerb = (card: Card): string => {
   const layout = resolveScryfallLite(card)?.layout;
-  return layout === "flip" ? "Flip" : "Transform";
+  return layout === "flip" ? m.card_flip() : m.card_transform();
 };
 
 export const syncCardStatsToFace = (

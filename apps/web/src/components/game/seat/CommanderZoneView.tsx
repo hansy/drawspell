@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { useDndContext, useDroppable } from "@dnd-kit/core";
 import { MAX_COMMANDER_ZONE_CARDS } from "@mtg/shared/constants/limits";
@@ -35,7 +36,7 @@ const CommanderTaxValue: React.FC<{
   });
 
   return (
-    <Tooltip content="Commander tax" placement="top">
+    <Tooltip content={m.commander_zone_view_commander_tax()} placement="top">
       <div
         data-testid={`commander-tax-value-${card.id}`}
         className={cn(
@@ -43,7 +44,7 @@ const CommanderTaxValue: React.FC<{
           isOwner && "cursor-pointer",
           active && "border-indigo-300 ring-indigo-300/70",
         )}
-        title={isOwner ? "Left-click to add tax; right-click to subtract" : undefined}
+        title={isOwner ? m.commander_zone_view_left_click_to_add_tax_right_click_to_subtract() : undefined}
         onPointerDown={(event) => {
           adjustment.onPointerDown(event);
           if (event.pointerType !== "touch") return;
@@ -245,7 +246,7 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
         data-commander-drop-target="true"
         data-drag-overlay-scale={ZONE_DRAG_OVERLAY_SCALE}
         data-drop-active={commanderDrop.isOver ? "true" : "false"}
-        aria-label="Open commander zone"
+        aria-label={m.commander_zone_view_open_commander_zone()}
         aria-expanded={touchExpanded}
         onClick={() => setTouchExpanded((expanded) => !expanded)}
         className={cn(
@@ -322,8 +323,7 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
               "ds-seat-upright ds-seat-vertical-label whitespace-nowrap leading-none [writing-mode:vertical-rl]",
             )}
           >
-            Commander
-          </span>
+            {m.commander_zone_view_commander()}</span>
         )}
       </button>
 
@@ -388,10 +388,10 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
                     >
                       <div className="min-w-0 overflow-hidden">
                         {isOwner && (
-                          <Tooltip content="Subtract commander tax" placement="top">
+                          <Tooltip content={m.commander_zone_view_subtract_commander_tax()} placement="top">
                             <button
                               type="button"
-                              aria-label={`Decrease commander tax for ${card.name}`}
+                              aria-label={m.commander_zone_view_decrease_commander_tax_for({ name: card.name })}
                               className={cn(
                                 "flex h-5 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white",
                                 !canDecrement && "cursor-not-allowed opacity-40",
@@ -417,10 +417,10 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
                       />
                       <div className="min-w-0 overflow-hidden">
                         {isOwner && (
-                          <Tooltip content="Add commander tax" placement="top">
+                          <Tooltip content={m.commander_zone_view_add_commander_tax()} placement="top">
                             <button
                               type="button"
-                              aria-label={`Increase commander tax for ${card.name}`}
+                              aria-label={m.commander_zone_view_increase_commander_tax_for({ name: card.name })}
                               className="flex h-5 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -442,8 +442,7 @@ export const CommanderZoneView: React.FC<CommanderZoneViewProps> = ({
               data-commander-zone-empty
               className="ds-seat-upright flex h-full min-w-[calc(var(--commander-drawer-height)*0.733)] items-center justify-center px-5 text-xs font-medium uppercase tracking-widest text-zinc-600"
             >
-              Empty
-            </div>
+              {m.commander_zone_view_empty()}</div>
           )}
         </Zone>
       </div>

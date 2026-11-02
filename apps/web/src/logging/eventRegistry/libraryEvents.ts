@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { buildPlayerPart } from "../helpers";
 import type { LogEventDefinition, PartialLogEventRegistry } from "@/logging/types";
 
@@ -27,20 +28,20 @@ const mergeLoggedCardCounts = <T extends CountedLibraryPayload>(existing: T, inc
 const formatDraw: LogEventDefinition<DrawPayload>["format"] = (payload, ctx) => {
   const player = buildPlayerPart(ctx, payload.playerId);
   const count = getLoggedCardCount(payload);
-  const cardText = `drew ${count} card${count === 1 ? "" : "s"}`;
+  const cardText = m.library_events_drew_card({ count: count });
   return [player, { kind: "text", text: ` ${cardText}` }];
 };
 
 const formatDiscard: LogEventDefinition<DiscardPayload>["format"] = (payload, ctx) => {
   const player = buildPlayerPart(ctx, payload.playerId);
   const count = getLoggedCardCount(payload);
-  const cardText = `milled ${count} card${count === 1 ? "" : "s"}`;
+  const cardText = m.library_events_milled_card({ count: count });
   return [player, { kind: "text", text: ` ${cardText}` }];
 };
 
 const formatShuffle: LogEventDefinition<ShufflePayload>["format"] = (payload, ctx) => {
   const player = buildPlayerPart(ctx, payload.playerId);
-  return [player, { kind: "text", text: " shuffled Library" }];
+  return [player, { kind: "text", text: m.library_events_shuffled_library() }];
 };
 
 const formatLibraryBottomToHand: LogEventDefinition<LibraryBottomToHandPayload>["format"] = (
@@ -50,7 +51,7 @@ const formatLibraryBottomToHand: LogEventDefinition<LibraryBottomToHandPayload>[
   const player = buildPlayerPart(ctx, payload.playerId);
   return [
     player,
-    { kind: "text", text: " put the bottom card of Library into Hand" },
+    { kind: "text", text: m.library_events_put_the_bottom_card_of_library_into_hand() },
   ];
 };
 
@@ -58,10 +59,10 @@ const formatLibraryView: LogEventDefinition<LibraryViewPayload>["format"] = (pay
   const player = buildPlayerPart(ctx, payload.playerId);
   const count = typeof payload.count === "number" ? payload.count : 0;
   if (count > 0) {
-    const cardText = `viewed top ${count} card${count === 1 ? "" : "s"} of Library`;
+    const cardText = m.library_events_viewed_top_card_of_library({ count: count });
     return [player, { kind: "text", text: ` ${cardText}` }];
   }
-  return [player, { kind: "text", text: " viewed all cards of Library" }];
+  return [player, { kind: "text", text: m.library_events_viewed_all_cards_of_library() }];
 };
 
 const formatLibraryTopReveal: LogEventDefinition<LibraryTopRevealPayload>["format"] = (
@@ -71,15 +72,15 @@ const formatLibraryTopReveal: LogEventDefinition<LibraryTopRevealPayload>["forma
   const player = buildPlayerPart(ctx, payload.playerId);
   const recipientIds = payload.recipientIds ?? [];
   if (recipientIds.length === 0) {
-    return [player, { kind: "text", text: " hid top card reveal" }];
+    return [player, { kind: "text", text: m.library_events_hid_top_card_reveal() }];
   }
   if (payload.toAllPlayers) {
-    return [player, { kind: "text", text: " revealed top card to all players" }];
+    return [player, { kind: "text", text: m.library_events_revealed_top_card_to_all_players() }];
   }
   const audience = recipientIds
-    .map((id) => (id === payload.playerId ? "self" : ctx.players[id]?.name ?? id))
+    .map((id) => (id === payload.playerId ? m.log_self() : ctx.players[id]?.name ?? id))
     .join(", ");
-  return [player, { kind: "text", text: ` revealed top card to ${audience}` }];
+  return [player, { kind: "text", text: m.library_events_revealed_top_card_to({ audience: audience }) }];
 };
 
 export const libraryEvents = {

@@ -80,9 +80,9 @@ describe("ZoneViewerGroupedView", () => {
     );
     const row = container.querySelector(".library-card-row") as HTMLDivElement;
 
-    expect(preloadCardPreviewImage).toHaveBeenCalledWith(first);
+    expect(preloadCardPreviewImage).toHaveBeenCalledWith(first, "low", { locale: "en", canSeeIdentity: true });
     fireEvent.pointerEnter(row);
-    expect(preloadCardPreviewImage).toHaveBeenCalledWith(first, "high");
+    expect(preloadCardPreviewImage).toHaveBeenCalledWith(first, "high", { locale: "en", canSeeIdentity: true });
   });
 
   it("suppresses long press and tap activation for a multi-touch gesture", () => {

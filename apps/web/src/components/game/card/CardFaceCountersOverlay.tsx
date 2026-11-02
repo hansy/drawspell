@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 
 import { Tooltip } from "@/components/ui/tooltip";
@@ -34,7 +35,7 @@ const DesktopAdjustableCounterValue: React.FC<{
       data-testid={`card-counter-value-${counter.type}`}
       className={cn(className, enabled && "cursor-pointer")}
       style={{ ...style, fontSize: "var(--battlefield-counter-font, 10px)", minWidth: "var(--battlefield-counter-size, 24px)", minHeight: "var(--battlefield-counter-size, 24px)" }}
-      title={enabled ? "Left-click to add; right-click to remove" : undefined}
+      title={enabled ? m.card_face_counters_overlay_left_click_to_add_right_click_to_remove() : undefined}
       {...adjustment}
     >
       {counter.count}
@@ -121,7 +122,7 @@ export const CardFaceCountersOverlay: React.FC<{
               {interactive && (
                 <button
                   type="button"
-                  aria-label={`Decrement ${counter.type} counter`}
+                  aria-label={m.card_face_counters_overlay_decrement_counter({ type: counter.type })}
                   className={cn(
                     counterButtonClassName(
                       shouldAlwaysShowCounterControls,
@@ -147,7 +148,7 @@ export const CardFaceCountersOverlay: React.FC<{
                 {interactive && (
                   <button
                     type="button"
-                    aria-label={`Increment ${counter.type} counter`}
+                    aria-label={m.card_face_counters_overlay_increment_counter({ type: counter.type })}
                     className={counterButtonClassName(
                       shouldAlwaysShowCounterControls,
                     )}

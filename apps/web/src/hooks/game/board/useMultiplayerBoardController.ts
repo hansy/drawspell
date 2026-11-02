@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import * as React from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -136,7 +137,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
     }
     if (!takeoverNoticeShownRef.current) {
       takeoverNoticeShownRef.current = true;
-      toast.info("You were disconnected because this game resumed on another device.");
+      toast.info(m.use_multiplayer_board_controller_you_were_disconnected_because_this_game_resumed_on_another_device());
     }
     navigate({ to: "/" });
   }, [joinBlockedReason, navigate]);
@@ -375,7 +376,7 @@ export const useMultiplayerBoardController = (sessionId: string) => {
         const nextErrorMessage =
           error instanceof Error && error.message
             ? error.message
-            : "Unable to load invite links.";
+            : m.share_room_dialog_unable_to_load_invite_links();
         if (shouldRefreshLoadedLinks) {
           setShareDialogStatus("ready");
           setShareDialogError(nextErrorMessage);

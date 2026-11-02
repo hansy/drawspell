@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { Minus, Plus } from "lucide-react";
 import { useDndContext } from "@dnd-kit/core";
@@ -61,8 +62,7 @@ export const PortraitCommanderDrawer: React.FC<PortraitCommanderDrawerProps> = (
           onContextMenu={(e) => onZoneContextMenu?.(e, zone.id)}
         >
           <div className="pointer-events-none absolute left-2 top-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-500">
-            Commander Zone
-          </div>
+            {m.portrait_commander_drawer_commander_zone()}</div>
           {visibleCards.length > 0 ? (
             <div className="flex h-full w-full items-center justify-center gap-[var(--cmdr-slot-gap)]">
               {visibleCards.map((card) => {
@@ -89,7 +89,7 @@ export const PortraitCommanderDrawer: React.FC<PortraitCommanderDrawerProps> = (
                           {isOwner && (
                             <button
                               type="button"
-                              aria-label={`Decrease commander tax for ${card.name}`}
+                              aria-label={m.commander_zone_view_decrease_commander_tax_for({ name: card.name })}
                               onClick={() => handleTaxDelta(card, -2)}
                               disabled={taxValue <= 0}
                               className={cn(
@@ -107,7 +107,7 @@ export const PortraitCommanderDrawer: React.FC<PortraitCommanderDrawerProps> = (
                           {isOwner && (
                             <button
                               type="button"
-                              aria-label={`Increase commander tax for ${card.name}`}
+                              aria-label={m.commander_zone_view_increase_commander_tax_for({ name: card.name })}
                               onClick={() => handleTaxDelta(card, 2)}
                               className={cn(
                                 "h-6 w-6 rounded-full border border-zinc-700 bg-zinc-900 text-zinc-300",
@@ -127,14 +127,13 @@ export const PortraitCommanderDrawer: React.FC<PortraitCommanderDrawerProps> = (
             </div>
           ) : (
             <div className="flex h-full items-center justify-center rounded-md border border-dashed border-zinc-700/70 px-4 text-center text-xs uppercase tracking-wider text-zinc-500">
-              {isOwner ? "Drop cards here" : "Cmdr"}
+              {isOwner ? m.portrait_commander_drawer_drop_cards_here() : m.portrait_commander_drawer_cmdr()}
             </div>
           )}
         </Zone>
       ) : (
         <div className="flex h-full items-center justify-center rounded-md border border-zinc-800 bg-zinc-900/40 text-xs uppercase tracking-wider text-zinc-500">
-          Commander zone unavailable
-        </div>
+          {m.portrait_commander_drawer_commander_zone_unavailable()}</div>
       )}
     </div>
   );

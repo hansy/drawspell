@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import "mana-font/css/mana.css";
 
 import { cn } from "@/lib/utils";
@@ -31,7 +32,7 @@ export const ManaSymbols = ({ colors, className, symbolClassName }: ManaSymbolsP
     <span
       className={cn("inline-flex items-center gap-1", className)}
       role="img"
-      aria-label={label ? `${label} mana` : "no color identity"}
+      aria-label={label ? m.mana_symbols_mana({ label: label }) : m.mana_symbols_no_color_identity()}
     >
       {normalized.map((color) => (
         <i

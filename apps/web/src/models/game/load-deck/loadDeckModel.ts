@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type { Card, PlayerId, Zone, ZoneId } from "@/types";
 import { MAX_COMMANDER_ZONE_CARDS } from "@mtg/shared/constants/limits";
 
@@ -92,12 +93,12 @@ export const planDeckImport = async (params: {
   chunkSize?: number;
 }): Promise<{ chunks: DeckImportCardPlan[][]; warnings: string[]; startingLife: 20 | 40 }> => {
   if (params.targetDeckLoaded) {
-    throw new Error("Unload your current deck before importing another.");
+    throw new Error(m.load_deck_model_unload_your_current_deck_before_importing_another());
   }
 
   const parsedDeck = params.parseDeckList(params.importText);
   if (parsedDeck.length === 0) {
-    throw new Error("No valid cards found in the list.");
+    throw new Error(m.load_deck_model_no_valid_cards_found_in_the_list());
   }
 
   const sizeValidation = params.validateDeckListLimits(parsedDeck);
@@ -123,7 +124,7 @@ export const planDeckImport = async (params: {
 
     if (existingCommanderCards + requestedCounts.commander > MAX_COMMANDER_ZONE_CARDS) {
       throw new Error(
-        `Commander zone capacity exceeded: ${existingCommanderCards} currently in zone + ${requestedCounts.commander} importing, limit is ${MAX_COMMANDER_ZONE_CARDS}.`
+        m.load_deck_model_commander_zone_capacity_exceeded_currently_in_zone_importing_limi({ existingCommanderCards: existingCommanderCards, commander: requestedCounts.commander, MAX_COMMANDER_ZONE_CARDS: MAX_COMMANDER_ZONE_CARDS })
       );
     }
   }

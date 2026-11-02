@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { create } from "zustand";
 
 import { ZONE } from "@/constants/zones";
@@ -71,7 +72,7 @@ export const withUndo = (
       if (!isLocalActor(actorId, isRemote) || !before || !after) return;
       if (after.tapped === before.tapped) return;
       record({
-        label: `${after.tapped ? "tap" : "untap"} ${after.name}`,
+        label: `${after.tapped ? m.undo_tap() : m.undo_untap()} ${after.name}`,
         undo: () => {
           const current = get().cards[cardId];
           if (!current || current.tapped === before.tapped) return false;
@@ -90,7 +91,7 @@ export const withUndo = (
       actions.untapAll(playerId, isRemote);
       if (!isLocalActor(playerId, isRemote) || tappedIds.length === 0) return;
       record({
-        label: "untap all",
+        label: m.undo_untap_all(),
         undo: () => {
           const untapped = tappedIds.filter((id) => get().cards[id]?.tapped === false);
           untapped.forEach((id) => actions.tapCard(id));
@@ -119,7 +120,7 @@ export const withUndo = (
       }
       const movedZoneId = after.zoneId;
       record({
-        label: toZone.type === ZONE.BATTLEFIELD ? `move ${before.name}` : `${before.name} to ${toZone.type}`,
+        label: toZone.type === ZONE.BATTLEFIELD ? m.undo_move({ name: before.name }) : m.undo_to({ name: before.name, type: toZone.type }),
         undo: () => {
           const current = get().cards[cardId];
           if (!current || current.zoneId !== movedZoneId) return false;
@@ -136,7 +137,7 @@ export const withUndo = (
       if (!isLocalActor(actorId, isRemote) || !before || !after) return;
       if (typeof updates.life !== "number" || after.life === before.life) return;
       record({
-        label: `life ${before.life} → ${after.life}`,
+        label: m.undo_life({ life: before.life, life_1: after.life }),
         undo: () => {
           if (get().players[id]?.life !== after.life) return false;
           actions.updatePlayer(id, { life: before.life });
@@ -152,7 +153,7 @@ export const withUndo = (
       const after = amount(playerId);
       if (!isLocalActor(actorId, isRemote) || after === before) return;
       record({
-        label: `${manaType} mana`,
+        label: m.undo_mana({ manaType: manaType }),
         undo: () => {
           if (amount(playerId) !== after) return false;
           const step = before > after ? 1 : -1;
@@ -172,7 +173,7 @@ export const withUndo = (
       const after = count(cardId);
       if (!isLocalActor(actorId, isRemote) || after <= before) return;
       record({
-        label: `${counter.type} counter`,
+        label: m.card_edit_hud_counter({ type: counter.type }),
         undo: () => {
           if (count(cardId) !== after) return false;
           actions.removeCounterFromCard(cardId, counter.type, undefined, undefined, after - before);
@@ -189,7 +190,7 @@ export const withUndo = (
       const after = existing()?.count ?? 0;
       if (!isLocalActor(actorId, isRemote) || !beforeCounter || after >= before) return;
       record({
-        label: `${counterType} counter`,
+        label: m.undo_counter({ counterType: counterType }),
         undo: () => {
           if ((existing()?.count ?? 0) !== after) return false;
           actions.addCounterToCard(cardId, { ...beforeCounter, count: before - after });

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { overwriteGetLocale, getLocale } from "@/paraglide/runtime.js";
+import { locales } from "@/i18n/locales";
 
 import type { Card } from "@/types";
 import { ZONE } from "@/constants/zones";
@@ -199,4 +201,22 @@ describe("createCardFaceModel", () => {
     });
     expect(hidden.reveal).toBeNull();
   });
+});
+
+
+it("keeps stat styling as valid CSS classes in every language", () => {
+  const previous = getLocale();
+  try {
+    for (const locale of locales) {
+      overwriteGetLocale(() => locale);
+      const params = { zoneType: ZONE.BATTLEFIELD, myPlayerId: "p1", globalCounters: {}, revealToNames: [] };
+      const changed = createCardFaceModel({ ...params, card: makeCard({ power: "4", toughness: "2", basePower: "3", baseToughness: "3" }) });
+      expect(changed.powerClassName).toBe("text-green-500");
+      expect(changed.toughnessClassName).toBe("text-red-500");
+      const unchanged = createCardFaceModel({ ...params, card: makeCard({ power: "3", toughness: "3", basePower: "3", baseToughness: "3" }) });
+      expect(unchanged.powerClassName).toBe("text-white");
+    }
+  } finally {
+    overwriteGetLocale(() => previous);
+  }
 });

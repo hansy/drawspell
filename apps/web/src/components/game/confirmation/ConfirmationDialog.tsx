@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
@@ -64,8 +65,7 @@ export const ConfirmationDialog = ({
             className="border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800 hover:text-white"
             onClick={onCancel}
           >
-            Cancel
-          </Button>
+            {m.cancel()}</Button>
           <Button type="button" variant="destructive" onClick={confirmOnce}>
             {confirmLabel}
           </Button>

@@ -27,6 +27,9 @@ export interface ScryfallImageUrisLite {
  */
 export interface ScryfallCardFaceLite {
   name: string;
+  printed_name?: string;
+  printed_type_line?: string;
+  printed_text?: string;
   image_uris?: ScryfallImageUrisLite;
   power?: string;
   toughness?: string;
@@ -39,6 +42,9 @@ export interface ScryfallCardFaceLite {
 export interface ScryfallCardLite {
   id: string;
   layout: ScryfallLayout;
+  printed_name?: string;
+  printed_type_line?: string;
+  printed_text?: string;
   cmc?: number; // Mana value - useful for grouping
   image_uris?: ScryfallImageUrisLite;
   card_faces?: ScryfallCardFaceLite[];
@@ -53,6 +59,9 @@ export const toScryfallCardLite = (
   const lite: ScryfallCardLite = {
     id: card.id,
     layout: card.layout,
+    ...(card.printed_name ? { printed_name: card.printed_name } : {}),
+    ...(card.printed_type_line ? { printed_type_line: card.printed_type_line } : {}),
+    ...(card.printed_text ? { printed_text: card.printed_text } : {}),
   };
 
   // Include CMC if present (useful for grouping)
@@ -73,6 +82,9 @@ export const toScryfallCardLite = (
     lite.card_faces = card.card_faces.map((face) => {
       const liteFace: ScryfallCardFaceLite = {
         name: face.name,
+        ...(face.printed_name ? { printed_name: face.printed_name } : {}),
+        ...(face.printed_type_line ? { printed_type_line: face.printed_type_line } : {}),
+        ...(face.printed_text ? { printed_text: face.printed_text } : {}),
       };
 
       if (face.image_uris) {

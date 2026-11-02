@@ -5,7 +5,7 @@
   "scripts": {
     "generate:og-image": "bun scripts/generate-og-image.ts",
     "dev": "portless ds bun run dev:app",
-    "dev:app": "bun run docs:generate && sh -c 'vite dev --mode localhost --host \"$HOST\" --port \"$PORT\"'",
+    "dev:app": "bun run i18n:compile && bun run docs:generate && sh -c 'vite dev --mode localhost --host \"$HOST\" --port \"$PORT\"'",
     "deploy": "bun run build:production && wrangler deploy --config dist/server/wrangler.json",
     "deploy:staging": "bun run build:staging && wrangler deploy --config dist/server/wrangler.json",
     "preview": "bun run build:production && vite preview",
@@ -16,13 +16,16 @@
     "serve": "vite preview",
     "perf:bench": "bun scripts/perf-bench.ts",
     "perf:browser": "bun scripts/browser-bench.ts",
-    "test": "vitest run",
+    "test": "bun run i18n:compile && vitest run",
     "typecheck": "bun run i18n:check && tsc -p tsconfig.json --noEmit",
     "test:e2e:public-api": "node --experimental-strip-types test/e2e/public-room-api.ts",
     "docs:generate": "bun scripts/generate-doc-examples.mjs && bun scripts/generate-agent-content.mjs",
-    "i18n:check": "bun scripts/i18n/catalog-check.ts && bun scripts/i18n/copy-audit.ts --check",
+    "i18n:check": "bun scripts/i18n/catalog-check.ts && bun run i18n:compile && inlang check --project ./project.inlang --source ./src --missing-translations --empty-translations --empty-variants --missing-variables --unknown-variables --missing-markup --missing-variants --missing-selectors && bun scripts/i18n/copy-audit.ts --check",
     "i18n:audit": "bun scripts/i18n/copy-audit.ts --report",
-    "i18n:prune": "bun scripts/i18n/copy-audit.ts --prune"
+    "i18n:prune": "bun scripts/i18n/copy-audit.ts --prune",
+    "i18n:compile": "bun scripts/i18n/compile.ts",
+    "i18n:record": "bun scripts/i18n/revisions.ts",
+    "test:e2e:i18n": "bun test/e2e/i18n.ts"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.15.3",
@@ -58,6 +61,10 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20251202.0",
+    "@inlang/cli": "3.4.5",
+    "@inlang/paraglide-js": "2.29.3",
+    "@inlang/plugin-m-function-matcher": "2.3.0",
+    "@inlang/plugin-message-format": "4.5.0",
     "@tanstack/devtools-vite": "0.3.12",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.2.0",

@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 
 import { Button } from "../../ui/button";
@@ -30,8 +31,8 @@ export const AddCounterModalView: React.FC<AddCounterController> = ({
         <DialogHeader>
           <DialogTitle>
             {targetCardCount > 1
-              ? `Add Counters to ${targetCardCount} Cards`
-              : "Add Counter"}
+              ? m.add_counter_modal_view_add_counters_to_cards({ targetCardCount: targetCardCount })
+              : m.add_counter_modal_view_add_counter()}
           </DialogTitle>
         </DialogHeader>
 
@@ -42,15 +43,14 @@ export const AddCounterModalView: React.FC<AddCounterController> = ({
                 htmlFor={counterNameId}
                 className="mb-2 block text-sm font-medium text-zinc-300"
               >
-                Counter name
-              </label>
+                {m.add_counter_modal_view_counter_name()}</label>
               <Input
                 id={counterNameId}
                 value={counterType}
                 onChange={(e) => handleCounterTypeChange(e.target.value)}
                 maxLength={64}
                 className="bg-zinc-800 border-zinc-700 w-full"
-                placeholder="e.g. +1/+1, Poison"
+                placeholder={m.add_counter_modal_view_e_g_1_1_poison()}
                 autoFocus
               />
             </div>
@@ -60,8 +60,7 @@ export const AddCounterModalView: React.FC<AddCounterController> = ({
                 htmlFor={countId}
                 className="mb-2 block text-sm font-medium text-zinc-300"
               >
-                Count
-              </label>
+                {m.add_counter_modal_view_count()}</label>
               <Input
                 id={countId}
                 type="number"
@@ -75,8 +74,7 @@ export const AddCounterModalView: React.FC<AddCounterController> = ({
 
           <div>
             <div className="mb-2 text-sm font-medium text-zinc-300">
-              Quick select
-            </div>
+              {m.add_counter_modal_view_quick_select()}</div>
             <div className="flex flex-wrap gap-2 max-h-[200px] overflow-y-auto p-1">
               {quickSelect.map((item) => (
                 <Button
@@ -106,13 +104,12 @@ export const AddCounterModalView: React.FC<AddCounterController> = ({
             intent="secondary"
             onClick={handleClose}
           >
-            Cancel
-          </GameDialogActionButton>
+            {m.cancel()}</GameDialogActionButton>
           <GameDialogActionButton
             onClick={handleAdd}
             disabled={!canSubmit}
           >
-            {targetCardCount > 1 ? "Add Counters" : "Add Counter"}
+            {targetCardCount > 1 ? m.add_counter_modal_view_add_counters() : m.add_counter_modal_view_add_counter()}
           </GameDialogActionButton>
         </DialogFooter>
       </DialogContent>

@@ -1,3 +1,5 @@
+import { formatNumber } from "@/i18n/format";
+import { m } from "@/paraglide/messages.js";
 import {
   buildCardPart,
   buildPlayerPart,
@@ -96,37 +98,23 @@ const formatMove: LogEventDefinition<MovePayload>["format"] = (payload, ctx) => 
   const fromZone = getLogZone(ctx, payload.fromZoneId, payload.fromZoneType);
   const toZone = getLogZone(ctx, payload.toZoneId, payload.toZoneType);
   const forceHidden = payload.forceHidden || payload.faceDown;
-  const fallbackCardName = forceHidden ? "a card" : payload.cardName;
+  const fallbackCardName = forceHidden ? m.hidden_card() : payload.cardName;
   const cardPart = buildCardPart(ctx, payload.cardId, fromZone, toZone, fallbackCardName, forceHidden);
 
   const fromLabel = getLogZoneLabel(ctx, payload.fromZoneId, payload.fromZoneType);
   const toLabel = getLogZoneLabel(ctx, payload.toZoneId, payload.toZoneType);
-  const ordinal = (value: number) => {
-    const remainder100 = value % 100;
-    const suffix =
-      remainder100 >= 11 && remainder100 <= 13
-        ? "th"
-        : value % 10 === 1
-          ? "st"
-          : value % 10 === 2
-            ? "nd"
-            : value % 10 === 3
-              ? "rd"
-              : "th";
-    return `${value}${suffix}`;
-  };
   const placementLabel =
     typeof payload.libraryPositionFromTop === "number" &&
     Number.isFinite(payload.libraryPositionFromTop) &&
     payload.libraryPositionFromTop >= 1
-      ? `${ordinal(Math.floor(payload.libraryPositionFromTop))} position from the top`
+      ? m.card_events_position_from_the_top({ value_1: formatNumber(Math.floor(payload.libraryPositionFromTop)) })
       : payload.placement === "top" || payload.placement === "bottom"
-        ? payload.placement
+        ? payload.placement === "top" ? m.position_top() : m.position_bottom()
         : null;
 
   if (payload.gainsControlBy && toZone?.type === "battlefield") {
     const controller = buildPlayerPart(ctx, payload.gainsControlBy);
-    return [controller, { kind: "text", text: " gains control of " }, cardPart];
+    return [controller, { kind: "text", text: m.card_events_gains_control_of() }, cardPart];
   }
 
   // Within the same zone: treat as a reorder/move inside the zone
@@ -134,59 +122,59 @@ const formatMove: LogEventDefinition<MovePayload>["format"] = (payload, ctx) => 
     if (toZone?.type === "library" && placementLabel) {
       return [
         actor,
-        { kind: "text", text: " moved " },
+        { kind: "text", text: m.card_events_moved() },
         cardPart,
-        { kind: "text", text: ` to the ${placementLabel} of ${toLabel}` },
+        { kind: "text", text: m.card_events_to_the_of({ placementLabel: placementLabel, toLabel: toLabel }) },
       ];
     }
     return [
       actor,
-      { kind: "text", text: " moved " },
+      { kind: "text", text: m.card_events_moved() },
       cardPart,
-      { kind: "text", text: ` within ${toLabel}` },
+      { kind: "text", text: m.card_events_within({ toLabel: toLabel }) },
     ];
   }
 
   if (toZone?.type === "library" && placementLabel) {
     return [
       actor,
-      { kind: "text", text: " moved " },
+      { kind: "text", text: m.card_events_moved() },
       cardPart,
-      { kind: "text", text: ` from ${fromLabel} to the ${placementLabel} of ${toLabel}` },
+      { kind: "text", text: m.card_events_from_to_the_of({ fromLabel: fromLabel, placementLabel: placementLabel, toLabel: toLabel }) },
     ];
   }
 
   if (toZone?.type === "battlefield") {
-    return [actor, { kind: "text", text: " played " }, cardPart, { kind: "text", text: ` from ${fromLabel}` }];
+    return [actor, { kind: "text", text: m.card_events_played() }, cardPart, { kind: "text", text: m.card_events_from({ fromLabel: fromLabel }) }];
   }
 
   if (toZone?.type === "exile") {
-    return [actor, { kind: "text", text: " exiled " }, cardPart, { kind: "text", text: ` from ${fromLabel}` }];
+    return [actor, { kind: "text", text: m.card_events_exiled() }, cardPart, { kind: "text", text: m.card_events_from({ fromLabel: fromLabel }) }];
   }
 
   if (toZone?.type === "graveyard") {
     return [
       actor,
-      { kind: "text", text: payload.random ? " randomly sent " : " sent " },
+      { kind: "text", text: payload.random ? m.card_events_randomly_sent() : m.card_events_sent() },
       cardPart,
-      { kind: "text", text: ` from ${fromLabel} to ${toLabel}` },
+      { kind: "text", text: m.card_events_from_to({ fromLabel: fromLabel, toLabel: toLabel }) },
     ];
   }
 
   if (toZone?.type === "commander") {
     return [
       actor,
-      { kind: "text", text: " returned commander " },
+      { kind: "text", text: m.card_events_returned_commander() },
       cardPart,
-      { kind: "text", text: ` from ${fromLabel}` },
+      { kind: "text", text: m.card_events_from({ fromLabel: fromLabel }) },
     ];
   }
 
   return [
     actor,
-    { kind: "text", text: " moved " },
+    { kind: "text", text: m.card_events_moved() },
     cardPart,
-    { kind: "text", text: ` from ${fromLabel} to ${toLabel}` },
+    { kind: "text", text: m.card_events_from_to({ fromLabel: fromLabel, toLabel: toLabel }) },
   ];
 };
 
@@ -194,28 +182,27 @@ const formatTap: LogEventDefinition<TapPayload>["format"] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = getLogZone(ctx, payload.zoneId, payload.zoneType);
   const card = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
-  const verb = payload.tapped ? "tapped" : "untapped";
+  const verb = payload.tapped ? m.log_tapped() : m.log_untapped();
   return [actor, { kind: "text", text: ` ${verb} ` }, card];
 };
 
 const formatUntapAll: LogEventDefinition<UntapAllPayload>["format"] = (payload, ctx) => {
   const player = buildPlayerPart(ctx, payload.playerId);
-  return [player, { kind: "text", text: " untapped all permanents" }];
+  return [player, { kind: "text", text: m.card_events_untapped_all_permanents() }];
 };
 
 const formatTransform: LogEventDefinition<TransformPayload>["format"] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = getLogZone(ctx, payload.zoneId, payload.zoneType);
   const cardPart = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
-  const includeFace = cardPart.text !== "a card" && payload.toFaceName;
+  const includeFace = cardPart.text !== m.hidden_card() && payload.toFaceName;
   const verb =
-    payload.verb ??
-    (ctx.cards[payload.cardId]?.scryfall?.layout === "flip" ? "flipped" : "transformed");
+    (payload.verb ?? (ctx.cards[payload.cardId]?.scryfall?.layout === "flip" ? "flipped" : "transformed")) === "flipped" ? m.log_flipped() : m.log_transformed();
   return [
     actor,
     { kind: "text" as const, text: ` ${verb} ` },
     cardPart,
-    ...(includeFace ? [{ kind: "text" as const, text: ` to ${payload.toFaceName}` }] : []),
+    ...(includeFace ? [{ kind: "text" as const, text: m.card_events_to({ toFaceName: payload.toFaceName ?? "" }) }] : []),
   ];
 };
 
@@ -223,14 +210,14 @@ const formatDuplicate: LogEventDefinition<DuplicatePayload>["format"] = (payload
   const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = getLogZone(ctx, payload.zoneId, payload.zoneType);
   const cardPart = buildCardPart(ctx, payload.sourceCardId, zone, zone, payload.cardName);
-  return [actor, { kind: "text", text: " created a token copy of " }, cardPart];
+  return [actor, { kind: "text", text: m.card_events_created_a_token_copy_of() }, cardPart];
 };
 
 const formatRemove: LogEventDefinition<RemoveCardPayload>["format"] = (payload, ctx) => {
   const actor = buildPlayerPart(ctx, payload.actorId);
   const zone = getLogZone(ctx, payload.zoneId, payload.zoneType);
   const cardPart = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
-  return [actor, { kind: "text", text: " removed " }, cardPart];
+  return [actor, { kind: "text", text: m.card_events_removed() }, cardPart];
 };
 
 const formatPT: LogEventDefinition<PTPayload>["format"] = (payload, ctx) => {
@@ -239,15 +226,14 @@ const formatPT: LogEventDefinition<PTPayload>["format"] = (payload, ctx) => {
   const cardPart = buildCardPart(ctx, payload.cardId, zone, zone, payload.cardName);
   const from = `${payload.fromPower ?? "?"} / ${payload.fromToughness ?? "?"}`;
   const to = `${payload.toPower ?? "?"} / ${payload.toToughness ?? "?"}`;
-  return [actor, { kind: "text", text: " set " }, cardPart, { kind: "text", text: ` P/T to ${to} (was ${from})` }];
+  return [actor, { kind: "text", text: m.card_events_set() }, cardPart, { kind: "text", text: m.card_events_p_t_to_was({ to: to, from: from }) }];
 };
 
 const formatTokenCreate: LogEventDefinition<TokenCreatePayload>["format"] = (payload, ctx) => {
   const player = buildPlayerPart(ctx, payload.playerId);
   const count = payload.count ?? 1;
-  const tokenName = payload.tokenName?.trim() || "Token";
-  const suffix = count === 1 ? "" : "s";
-  return [player, { kind: "text", text: ` created ${count} ${tokenName} token${suffix}` }];
+  const tokenName = payload.tokenName?.trim() || m.card_preview_view_token();
+  return [player, { kind: "text", text: m.card_events_created_token({ count: count, tokenName: tokenName }) }];
 };
 
 const formatFaceUp: LogEventDefinition<FaceUpPayload>["format"] = (payload, ctx) => {
@@ -257,16 +243,16 @@ const formatFaceUp: LogEventDefinition<FaceUpPayload>["format"] = (payload, ctx)
   if (payload.zoneType === ZONE.EXILE || zone?.type === ZONE.EXILE) {
     return [
       actor,
-      { kind: "text", text: " turned " },
+      { kind: "text", text: m.card_events_turned() },
       cardPart,
-      { kind: "text", text: " face up in Exile" },
+      { kind: "text", text: m.card_events_face_up_in_exile() },
     ];
   }
   return [
     actor,
-    { kind: "text", text: " revealed " },
+    { kind: "text", text: m.card_events_revealed() },
     cardPart,
-    { kind: "text", text: " from facedown" },
+    { kind: "text", text: m.card_events_from_facedown() },
   ];
 };
 
@@ -278,26 +264,26 @@ const formatExileReveal: LogEventDefinition<ExileRevealPayload>["format"] = (
   if (payload.audience === "nobody") {
     return [
       actor,
-      { kind: "text", text: " hid the identity of a face-down exiled card from everyone" },
+      { kind: "text", text: m.card_events_hid_the_identity_of_a_face_down_exiled_card_from_everyone() },
     ];
   }
   if (payload.audience === "everyone") {
     return [
       actor,
-      { kind: "text", text: " revealed the identity of a face-down exiled card to everyone" },
+      { kind: "text", text: m.card_events_revealed_the_identity_of_a_face_down_exiled_card_to_everyone() },
     ];
   }
 
   const playerIds = payload.playerIds ?? [];
   const audienceParts = playerIds.flatMap((playerId, index) => [
     ...(index > 0
-      ? [{ kind: "text" as const, text: index === playerIds.length - 1 ? " and " : ", " }]
+      ? [{ kind: "text" as const, text: index === playerIds.length - 1 ? m.card_events_and() : ", " }]
       : []),
     buildPlayerPart(ctx, playerId),
   ]);
   return [
     actor,
-    { kind: "text", text: " revealed the identity of a face-down exiled card to " },
+    { kind: "text", text: m.card_events_revealed_the_identity_of_a_face_down_exiled_card_to() },
     ...audienceParts,
   ];
 };
@@ -343,7 +329,7 @@ export const cardEvents = {
     format: formatTokenCreate,
     aggregate: {
       key: (payload: TokenCreatePayload) => {
-        const name = payload.tokenName?.trim() || "Token";
+        const name = payload.tokenName?.trim() || m.card_preview_view_token();
         return `token:${payload.playerId}:${name}`;
       },
       mergePayload: (existing: TokenCreatePayload, incoming: TokenCreatePayload) => {

@@ -1,3 +1,7 @@
+import { localeMetadata } from "@/i18n/metadata";
+import { getLocale } from "@/paraglide/runtime.js";
+import { m } from "@/paraglide/messages.js";
+import { localeHref } from "@/i18n/navigation";
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { Toaster } from "sonner";
@@ -8,12 +12,12 @@ function NotFoundPage() {
   return (
     <SiteLayout>
       <main className="mx-auto max-w-2xl px-6 py-20 text-center">
-        <h1 className="text-3xl font-semibold">Page not found</h1>
+        <h1 className="text-3xl font-semibold">{m.not_found_title()}</h1>
         <p className="mt-4 text-zinc-400">
-          The page you’re looking for doesn’t exist.
+          {m.not_found_description()}
         </p>
-        <a href="/" className="mt-8 inline-block text-indigo-300 underline">
-          Back to Drawspell
+        <a href={localeHref("/")} className="mt-8 inline-block text-indigo-300 underline">
+          {m.back_to_drawspell()}
         </a>
       </main>
     </SiteLayout>
@@ -22,7 +26,7 @@ function NotFoundPage() {
 
 export const RootDocument = ({ children }: { children: React.ReactNode }) => {
   return (
-    <html lang="en" style={{ backgroundColor: "#09090b", colorScheme: "dark" }}>
+    <html lang={getLocale()} style={{ backgroundColor: "#09090b", colorScheme: "dark" }}>
       <head>
         <HeadContent />
       </head>
@@ -37,8 +41,21 @@ export const RootDocument = ({ children }: { children: React.ReactNode }) => {
 
 export const Route = createRootRoute({
   notFoundComponent: NotFoundPage,
-  head: () => ({
+  errorComponent: ({ reset }) => (
+    <SiteLayout>
+      <main className="mx-auto max-w-2xl px-6 py-20 text-center">
+        <h1 className="text-3xl font-semibold">{m.error_page_title()}</h1>
+        <p className="mt-4 text-zinc-400">{m.error_page_description()}</p>
+        <button className="mt-8 rounded bg-indigo-600 px-4 py-2" onClick={reset}>{m.error_page_retry()}</button>
+      </main>
+    </SiteLayout>
+  ),
+  head: ({ matches }) => {
+    const missing = matches.some((match) => match._notFound || match.status === "notFound" || match.status === "error");
+    const localized = localeMetadata(missing ? "" : matches.at(-1)?.pathname ?? "");
+    return ({
     meta: [
+      ...localized.meta,
       {
         charSet: "utf-8",
       },
@@ -49,6 +66,7 @@ export const Route = createRootRoute({
       },
     ],
     links: [
+      ...localized.links,
       {
         rel: "preconnect",
         href: "https://cards.scryfall.io",
@@ -62,7 +80,8 @@ export const Route = createRootRoute({
         href: appCss,
       },
     ],
-  }),
+  });
+  },
 
   shellComponent: RootDocument,
 });

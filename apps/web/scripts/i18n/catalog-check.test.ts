@@ -34,3 +34,36 @@ describe("translation catalog gate", () => {
     expect(() => parseCatalog('{"close":', "es.json")).toThrow();
   });
 });
+
+it("validates declared inputs and locale-specific plural categories", () => {
+  const plural = (other = "{count} cards") => [{
+    declarations: ["input count", "local countPlural = count: plural"],
+    selectors: ["countPlural"],
+    match: { "countPlural=one": "{count} card", "countPlural=other": other },
+  }];
+  expect(validateCatalogs({ en: { cards: plural() }, de: { cards: plural("{count} Karten") } }, ["en", "de"], "en")).toEqual([]);
+  expect(validateCatalogs({ en: { cards: plural() }, ru: { cards: plural("{count} карт") } }, ["en", "ru"], "en").join()).toContain("missing plural category few");
+  expect(check({ en: { cards: plural() }, es: { cards: [{ match: { "count=*": "{other} cartas" } }] } }).join()).toContain("placeholders must match");
+});
+
+
+it("invalidates target translations when existing English copy changes", async () => {
+  const { sourceRevision, validateRevisions } = await import("./revisions");
+  const source = { greeting: "Hello" };
+  const revisions = { es: { greeting: sourceRevision(source.greeting) }, fr: { greeting: sourceRevision(source.greeting) } };
+  expect(validateRevisions(source, revisions, ["es", "fr"])).toEqual([]);
+  expect(validateRevisions({ greeting: "Welcome" }, revisions, ["es", "fr"])).toHaveLength(2);
+  revisions.es.greeting = sourceRevision("Welcome");
+  expect(validateRevisions({ greeting: "Welcome" }, revisions, ["es", "fr"])).toEqual([
+    "fr.greeting: translation needs updating for the current English source",
+  ]);
+});
+
+
+it("rejects translations of API syntax and fixed keyboard bindings", () => {
+  const source = { ...good().en, create_room_docs_application_json: "application/json", sidenav_view_ctrl_z: "Ctrl/⌘ Z" };
+  const translated = { ...good().es, create_room_docs_application_json: "application/json", sidenav_view_ctrl_z: "Ctrl/⌘ Z" };
+  expect(check({ en: source, es: translated })).toEqual([]);
+  expect(check({ en: source, es: { ...translated, create_room_docs_application_json: "aplicación/json" } }).join()).toContain("protocol syntax");
+  expect(check({ en: source, es: { ...translated, sidenav_view_ctrl_z: "Ctrl/⌘ Y" } }).join()).toContain("key bindings");
+});

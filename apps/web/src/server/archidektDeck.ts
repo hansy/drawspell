@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { createServerFn } from "@tanstack/react-start";
 
 import {
@@ -17,16 +18,16 @@ export const fetchArchidektDeck = createServerFn({ method: "POST" })
   .inputValidator(archidektDeckValidator)
   .handler(async (ctx): Promise<ArchidektDeckResponse> => {
     const deckId = parseArchidektDeckId(ctx.data?.url ?? "");
-    if (!deckId) throw new Error("That isn't an Archidekt deck link.");
+    if (!deckId) throw new Error(m.archidekt_deck_that_isn_t_an_archidekt_deck_link());
 
     const response = await fetch(`https://archidekt.com/api/decks/${deckId}/`, {
       headers: { accept: "application/json" },
     });
     if (response.status === 404) {
-      throw new Error("Archidekt couldn't find that deck. Check it's public.");
+      throw new Error(m.archidekt_deck_archidekt_couldn_t_find_that_deck_check_it_s_public());
     }
     if (!response.ok) {
-      throw new Error(`Archidekt didn't respond (${response.status}). Try again or paste the list.`);
+      throw new Error(m.archidekt_deck_archidekt_didn_t_respond_try_again_or_paste_the_list({ status: response.status }));
     }
     const deck = (await response.json()) as ArchidektDeck;
     return {

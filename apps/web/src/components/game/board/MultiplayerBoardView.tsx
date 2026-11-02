@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { useGameStore } from "@/store/gameStore";
 import { Loader2 } from "lucide-react";
@@ -138,9 +139,9 @@ const getSeatDisplayName = (
   player: OccupiedSeatSlot["player"],
   myPlayerId: string,
 ) => {
-  if (player.id === myPlayerId) return "You";
+  if (player.id === myPlayerId) return m.player_you();
   const trimmed = player.name.trim();
-  return trimmed.length > 0 ? trimmed : "Player";
+  return trimmed.length > 0 ? trimmed : m.player_label();
 };
 
 const resolveSwipeTargetSeat = (
@@ -735,8 +736,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
       return (
         <div key={key} className="relative h-full w-full border-zinc-800/50">
           <div className="w-full h-full flex items-center justify-center text-zinc-800 font-bold text-2xl uppercase tracking-widest select-none">
-            Empty Seat
-          </div>
+            {m.multiplayer_board_view_empty_seat()}</div>
         </div>
       );
     }
@@ -875,8 +875,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
               className="pointer-events-none absolute left-1/2 top-4 z-[70] flex -translate-x-1/2 items-center gap-2 rounded-full border border-amber-500/40 bg-zinc-950/80 px-3 py-1.5 text-sm text-amber-200 shadow-lg backdrop-blur"
             >
               <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
-              Connecting
-            </div>
+              {m.multiplayer_board_view_connecting()}</div>
           )}
           {seatSwitchBanner && (
             <div
@@ -927,8 +926,7 @@ export const MultiplayerBoardView: React.FC<MultiplayerBoardViewProps> = ({
                       )
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-zinc-800 font-bold text-2xl uppercase tracking-widest select-none">
-                        Empty Seat
-                      </div>
+                        {m.multiplayer_board_view_empty_seat()}</div>
                     )}
                   </div>
                   </div>

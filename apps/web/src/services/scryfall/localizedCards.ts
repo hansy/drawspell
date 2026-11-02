@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { toScryfallLanguage, type AppLocale, type ScryfallLanguage } from "@/i18n/locales";
 import type { ScryfallCard } from "@/types/scryfall";
 import { cacheCards, getCard } from "./scryfallCache";
@@ -43,7 +44,7 @@ const matchesIdentity = (source: ScryfallCard, candidate: ScryfallCard, language
 /** Viewer-local data only. Never write a localized printing or its name to game state. */
 export function createLocalizedCardResolver({
   request = scryfallRequest,
-  onResolved = cacheCards,
+  onResolved = (cards) => cacheCards(cards),
   now = () => Date.now(),
   maxEntries = 500,
   positiveTtlMs = 30 * DAY,
@@ -80,7 +81,7 @@ export function createLocalizedCardResolver({
     const fallback = (status: "unavailable" | "temporary", errors: ScryfallFetchError[] = []): LocalizedCardResult =>
       ({ card: original, status, printing: "original", errors });
     const invalid = (url: string) => fallback("temporary", [
-      buildScryfallInvalidResponseError({ endpoint: "translation", url, error: new Error("Unexpected localized card identity or faces") }),
+      buildScryfallInvalidResponseError({ endpoint: "translation", url, error: new Error(m.localized_cards_unexpected_localized_card_identity_or_faces()) }),
     ]);
     const resolved = async (card: ScryfallCard, printing: LocalizedCardResult["printing"]): Promise<LocalizedCardResult> => {
       // The ordinary card cache is keyed by the translated card's actual printing ID.
@@ -147,10 +148,15 @@ export function createLocalizedCardResolver({
     return promise;
   };
 
-  return { resolve };
+  const peek = (sourceId: string, locale: AppLocale) => {
+    const entry = entries.get(`${sourceId}:${toScryfallLanguage(locale)}`);
+    return entry && entry.expiresAt > now() ? entry.result.card : null;
+  };
+  return { resolve, peek };
 }
 
 const localizedCards = createLocalizedCardResolver();
+export const peekLocalizedCard = localizedCards.peek;
 
 /** Call only for identities the viewer is permitted to see. Locale is explicit for SSR isolation. */
 export async function getLocalizedCard(scryfallId: string, locale: AppLocale) {

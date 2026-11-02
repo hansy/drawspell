@@ -1,3 +1,5 @@
+import { readLocalePath } from "@/i18n/urls";
+import { m } from "@/paraglide/messages.js";
 import { env } from "cloudflare:workers";
 import { createAuth, handleAuthRequest } from "@mtg/auth";
 import type { DeveloperEnv } from "./developerEnv";
@@ -27,12 +29,15 @@ export function developerAuth(bindings = getDeveloperEnv()) {
           .run();
         return;
       }
+      const callback = new URL(url).searchParams.get("callbackURL");
+      const locale = readLocalePath(new URL(callback || "/", bindings.AUTH_URL).pathname).locale;
+      const text = m.developer_auth_sign_in_to_drawspell_this_link_expires_in_10_minutes_if_you_did_n({ url }, { locale });
       await bindings.EMAIL.send({
         from: { email: bindings.EMAIL_FROM, name: "Drawspell" },
         to: email,
-        subject: "Sign in to Drawspell",
-        text: `Sign in to Drawspell:\n\n${url}\n\nThis link expires in 10 minutes. If you did not request it, ignore this email.`,
-        html: `<p><a href="${escapeHtml(url)}">Sign in to Drawspell</a></p><p>This link expires in 10 minutes. If you did not request it, ignore this email.</p>`,
+        subject: m.auth_login_sign_in_to_drawspell({}, { locale }),
+        text,
+        html: `<pre>${escapeHtml(text)}</pre>`,
       });
     },
   });
@@ -50,7 +55,7 @@ export async function developerAuthHandler(request: Request) {
       {
         error: {
           code: "server_error",
-          message: "Authentication is temporarily unavailable.",
+          message: m.developer_auth_authentication_is_temporarily_unavailable(),
         },
       },
       { status: 503, headers: { "Cache-Control": "no-store" } },

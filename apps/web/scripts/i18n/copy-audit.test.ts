@@ -56,3 +56,18 @@ describe("copy migration guard", () => {
     expect(compareBaseline(original, migrated).added).toHaveLength(1);
   });
 });
+
+it("guards defaults, helper returns, tooltip content, and embedded translation arguments", () => {
+  const found = scan(`
+    function getPlayerLabel() { return "Unknown player"; }
+    const Help = ({ title = "Help" }) => <Tooltip content="Open help">{m.count({ noun: count === 1 ? "card" : "cards" })}</Tooltip>;
+    throw new Error("Unable to import deck.");
+  `).map(({ text }) => text);
+  expect(found).toEqual(expect.arrayContaining(["Unknown player", "Help", "Open help", "card", "cards", "Unable to import deck."]));
+});
+
+
+it("covers gesture labels, returned error copy and injected toast adapters", () => {
+  const findings = auditSource("src/example.ts", `const action = { gesture: "Double click" }; function formatScryfallErrors() { return "Please retry"; } params.toast.error("Unable to create"); const result = { error: "Deck too large" };`);
+  expect(findings.map((finding) => finding.text)).toEqual(["Deck too large", "Double click", "Please retry", "Unable to create"]);
+});

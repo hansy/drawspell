@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { getNormalizedCounterTotal, normalizeCounterType } from "@mtg/shared/counters";
 import type { Card } from "@/types";
 import { resolveCounterColor } from "@/lib/counters";
@@ -49,7 +50,7 @@ export const buildCounterMenu = ({
   const submenu: ContextMenuItem[] = [
     {
       type: "action",
-      label: "Add a new counter...",
+      label: m.counter_menu_add_a_new_counter(),
       onSelect: openAddCounterModal,
     },
   ];
@@ -58,7 +59,7 @@ export const buildCounterMenu = ({
     .filter((type) => !activeCounters.has(normalizeCounterType(type)))
     .reverse();
   if (recentCounterTypes.length > 0) {
-    submenu.push({ type: "label", label: "Recently used counters:" });
+    submenu.push({ type: "label", label: m.counter_menu_recently_used_counters() });
     submenu.push(
       ...recentCounterTypes.map((type): ContextMenuItem => ({
         type: "action",
@@ -103,7 +104,7 @@ export const buildCounterMenu = ({
 
   return {
     type: "action",
-    label: "Add/remove counters",
+    label: m.counter_menu_add_remove_counters(),
     onSelect: () => {},
     submenu,
   };

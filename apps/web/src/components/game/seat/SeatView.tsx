@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import { ChevronDown, Eye, Plus } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
@@ -253,8 +254,8 @@ export const SeatView: React.FC<SeatViewProps> = ({
     }
   }, [isActiveTurn]);
   const activeTurnLabel = isMe
-    ? "Your turn"
-    : `${player.name || "Player"}'s turn`;
+    ? m.seat_view_your_turn()
+    : m.seat_view_s_turn({ value_1: player.name || m.player_label() });
   const activeTurnBadgeClassName =
     "absolute left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full border border-amber-200/70 bg-zinc-950/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.35)] backdrop-blur-md motion-safe:animate-pulse";
   const renderActiveTurnBadge = (positionClassName: string) => {
@@ -279,21 +280,20 @@ export const SeatView: React.FC<SeatViewProps> = ({
         >
           <button
             type="button"
-            aria-label="End your turn"
-            title="End turn (Shift+Space)"
+            aria-label={m.seat_view_end_your_turn()}
+            title={m.seat_view_end_turn_shift_space()}
             onClick={onEndTurnClick}
             className="rounded-l-full py-1 pl-3 pr-2 uppercase transition-colors hover:bg-amber-200/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
           >
-            End turn
-          </button>
+            {m.seat_view_end_turn()}</button>
           <span aria-hidden="true" className="h-3 w-px bg-amber-200/40" />
           <button
             ref={setTurnMenuAnchor}
             type="button"
-            aria-label="Turn options"
+            aria-label={m.seat_view_turn_options()}
             aria-haspopup="menu"
             aria-expanded={turnMenuOpen}
-            title="Choose who goes next, or sit out"
+            title={m.seat_view_choose_who_goes_next_or_sit_out()}
             onClick={() => setTurnMenuOpen((value) => !value)}
             className="flex items-center rounded-r-full py-1 pl-1.5 pr-2 transition-colors hover:bg-amber-200/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
           >
@@ -313,7 +313,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
     }
 
     if (onSkipTurnClick) {
-      const playerName = player.name || "Player";
+      const playerName = player.name || m.player_label();
       return (
         <div
           data-testid="active-turn-badge"
@@ -327,8 +327,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
           {confirmSkip ? (
             <>
               <span className="whitespace-nowrap py-1 pl-3 pr-2 normal-case tracking-normal">
-                Skip {playerName} and mark them out?
-              </span>
+                {m.seat_view_skip()}{playerName} {m.seat_view_and_mark_them_out()}</span>
               <button
                 type="button"
                 onClick={() => {
@@ -337,16 +336,14 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 }}
                 className="py-1 px-2 uppercase transition-colors hover:bg-amber-200/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
               >
-                Skip
-              </button>
+                {m.seat_view_skip_2()}</button>
               <span aria-hidden="true" className="h-3 w-px bg-amber-200/40" />
               <button
                 type="button"
                 onClick={() => setConfirmSkip(false)}
                 className="rounded-r-full py-1 pl-2 pr-3 uppercase text-amber-100/70 transition-colors hover:bg-amber-200/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
               >
-                Cancel
-              </button>
+                {m.cancel()}</button>
             </>
           ) : (
             <>
@@ -354,13 +351,12 @@ export const SeatView: React.FC<SeatViewProps> = ({
               <span aria-hidden="true" className="h-3 w-px bg-amber-200/40" />
               <button
                 type="button"
-                aria-label={`Skip ${playerName}'s turn`}
-                title={`Skip ${playerName}'s turn if they've left the game`}
+                aria-label={m.seat_view_skip_s_turn({ playerName: playerName })}
+                title={m.seat_view_skip_s_turn_if_they_ve_left_the_game({ playerName: playerName })}
                 onClick={() => setConfirmSkip(true)}
                 className="rounded-r-full py-1 pl-2 pr-3 uppercase text-amber-100/70 transition-colors hover:bg-amber-200/15 hover:text-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
               >
-                Skip
-              </button>
+                {m.seat_view_skip_2()}</button>
             </>
           )}
         </div>
@@ -386,22 +382,20 @@ export const SeatView: React.FC<SeatViewProps> = ({
     if (onBackInClick) {
       return (
         <div data-player-out-badge data-no-seat-swipe="true" className={cn(className, "flex items-center gap-0 p-0")}>
-          <span className="py-1 pl-3 pr-2">You're out</span>
+          <span className="py-1 pl-3 pr-2">{m.seat_view_you_re_out()}</span>
           <span aria-hidden="true" className="h-3 w-px bg-zinc-600" />
           <button
             type="button"
             onClick={onBackInClick}
             className="rounded-r-full py-1 pl-2 pr-3 uppercase text-zinc-100 transition-colors hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
           >
-            Back in
-          </button>
+            {m.seat_view_back_in()}</button>
         </div>
       );
     }
     return (
       <div data-player-out-badge className={cn(className, "pointer-events-none")}>
-        Out
-      </div>
+        {m.seat_view_out()}</div>
     );
   };
   const libraryCount = player.libraryCount ?? library?.cardIds.length ?? 0;
@@ -742,11 +736,10 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 }}
                 disabled={!commander}
                 data-no-seat-swipe="true"
-                aria-label="Toggle commander drawer"
+                aria-label={m.seat_view_toggle_commander_drawer()}
                 aria-expanded={isCommanderDrawerOpen}
               >
-                CMDR
-              </button>
+                {m.seat_view_cmdr()}</button>
               <div className="min-w-0" />
               <div
                 data-mobile-mana-bar
@@ -780,7 +773,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 data-mobile-hand-count-pill
                 className="pointer-events-none absolute right-2 top-2 z-40 select-none whitespace-nowrap rounded-full border border-zinc-700/80 bg-zinc-950/85 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-300 shadow-[0_2px_10px_rgba(0,0,0,0.45)] backdrop-blur-sm"
               >
-                Hand - {handCards.length}
+                {m.seat_view_hand()}{handCards.length}
               </div>
               {hand && (
                 <Hand
@@ -928,7 +921,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
               <button
                 type="button"
                 data-desktop-side-player-name
-                aria-label="Edit player name"
+                aria-label={m.seat_view_edit_player_name()}
                 onClick={onEditUsername}
                 className={cn(
                   "max-h-full cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.16em] transition-colors [writing-mode:vertical-rl] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70",
@@ -939,7 +932,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                   color === "amber" && "text-amber-400",
                 )}
               >
-                {player.name || "Me"}
+                {player.name || m.life_box_view_me()}
               </button>
             ) : onToggleSpotlight ? (
               <button
@@ -948,10 +941,10 @@ export const SeatView: React.FC<SeatViewProps> = ({
                 aria-pressed={isSpotlit}
                 aria-label={
                   isSpotlit
-                    ? `Return ${player.name || "player"}'s seat to normal size`
-                    : `Enlarge ${player.name || "player"}'s seat`
+                    ? m.seat_view_return_s_seat_to_normal_size({ value_1: player.name || m.seat_view_player() })
+                    : m.seat_view_enlarge_s_seat({ value_1: player.name || m.seat_view_player() })
                 }
-                title={isSpotlit ? "Click to shrink" : "Click to enlarge"}
+                title={isSpotlit ? m.seat_view_click_to_shrink() : m.seat_view_click_to_enlarge()}
                 onClick={onToggleSpotlight}
                 className={cn(
                   "max-h-full cursor-zoom-in overflow-hidden text-ellipsis whitespace-nowrap rounded text-[10px] font-bold uppercase tracking-[0.16em] transition-colors [writing-mode:vertical-rl] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70",
@@ -963,7 +956,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                   color === "amber" && "text-amber-400",
                 )}
               >
-                {player.name || "Player"}
+                {player.name || m.portrait_seat_toolbar_player()}
               </button>
             ) : (
               <span
@@ -977,7 +970,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                   color === "amber" && "text-amber-400",
                 )}
               >
-                {player.name || (isMe ? "Me" : "")}
+                {player.name || (isMe ? m.life_box_view_me() : "")}
               </span>
             )}
           </div>
@@ -1060,7 +1053,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                   rightIndicator={
                     opponentLibraryRevealCount > 0 ? (
                       <div
-                        aria-label={`${opponentLibraryRevealCount} revealed in library`}
+                        aria-label={m.seat_view_revealed_in_library({ opponentLibraryRevealCount: opponentLibraryRevealCount })}
                         className="flex h-5 w-5 items-center justify-center rounded-full border border-zinc-600 bg-zinc-950"
                       >
                         <Eye size={12} className="text-white" />
@@ -1207,8 +1200,7 @@ export const SeatView: React.FC<SeatViewProps> = ({
                           >
                             <Plus size={18} />
                             <span className="whitespace-nowrap text-[10px] font-medium">
-                              Load Deck
-                            </span>
+                              {m.load_deck_modal_view_load_deck()}</span>
                           </span>
                         </Button>
                       ) : undefined

@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import * as React from "react";
 import { toast } from "sonner";
 
@@ -7,14 +8,14 @@ import { undoLastAction, useUndoStore } from "@/store/gameStore/undo";
 export const performUndo = () => {
   const result = undoLastAction();
   if (!result.label) {
-    toast("Nothing to undo");
+    toast(m.use_undo_nothing_to_undo());
     return;
   }
   if (!result.undone) {
-    toast.error(`Can't undo ${result.label}: it changed since`);
+    toast.error(m.use_undo_can_t_undo_it_changed_since({ label: result.label }));
     return;
   }
-  toast(`Undid ${result.label}`);
+  toast(m.use_undo_undid({ label: result.label }));
 };
 
 // Cmd+Z / Ctrl+Z, ignored while typing. The undo history belongs to one room.

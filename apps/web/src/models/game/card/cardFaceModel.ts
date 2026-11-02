@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import type { Card, ZoneType } from "@/types";
 
 import {
@@ -58,11 +59,15 @@ export const createCardFaceModel = (params: {
   myPlayerId: string;
   globalCounters: Record<string, string>;
   revealToNames: string[];
+  presentation?: { name: string; imageUris: { normal?: string; art_crop?: string } };
 }): CardFaceModel => {
-  const displayImageUrl = getDisplayImageUrl(params.card, {
+  const localizedImage = params.preferArtCrop
+    ? params.presentation?.imageUris.art_crop ?? params.presentation?.imageUris.normal
+    : params.presentation?.imageUris.normal ?? params.presentation?.imageUris.art_crop;
+  const displayImageUrl = localizedImage ?? getDisplayImageUrl(params.card, {
     preferArtCrop: params.preferArtCrop ?? false,
   });
-  const displayName = getDisplayName(params.card);
+  const displayName = params.presentation?.name ?? getDisplayName(params.card);
 
   const isBattlefield = params.zoneType === ZONE.BATTLEFIELD;
   const isFaceDown = Boolean(params.faceDown && isBattlefield);
@@ -126,14 +131,14 @@ export const createCardFaceModel = (params: {
     ? []
     : params.revealToNames.length > 0
       ? params.revealToNames
-      : ["Spectators"];
+      : [m.spectators_label()];
 
   const reveal: CardFaceRevealModel | null = shouldShowReveal
     ? {
         toAll: revealToAll,
         title: revealToAll
-          ? "Revealed to everyone"
-          : `Revealed to: ${revealPlayerNames.length} player(s)`,
+          ? m.card_face_model_revealed_to_everyone()
+          : m.card_face_model_revealed_to_player_s({ length: revealPlayerNames.length }),
         playerNames: revealPlayerNames,
       }
     : null;

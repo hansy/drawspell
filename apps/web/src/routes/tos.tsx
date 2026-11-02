@@ -1,75 +1,56 @@
+import { richText, messageSlot } from "@/i18n/richText";
+import { m } from "@/paraglide/messages.js";
 import { agentDiscoveryLinks } from "@/content/publicPages";
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalLayout } from "@/components/legal/LegalLayout";
 
 function TermsOfServicePage() {
   return (
-    <LegalLayout title="Terms of Service" updatedAt="March 1, 2026">
+    <LegalLayout title={m.public_pages_terms_of_service()} updatedAt="2026-03-01">
       <section className="space-y-2">
-        <h2 className="text-xl font-semibold text-zinc-50">Use of Drawspell</h2>
+        <h2 className="text-xl font-semibold text-zinc-50">{m.tos_use_of_drawspell()}</h2>
         <p>
-          These Terms govern use of the hosted Drawspell service at
-          drawspell.space.
-        </p>
+          {m.tos_these_terms_govern_use_of_the_hosted_drawspell_service_at_drawspe()}</p>
         <p>
-          The Drawspell source code repository is licensed separately under the
-          LICENSE file in the repository and is not governed by these Terms.
-        </p>
+          {m.tos_the_drawspell_source_code_repository_is_licensed_separately_under()}</p>
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-xl font-semibold text-zinc-50">Commercial Use</h2>
+        <h2 className="text-xl font-semibold text-zinc-50">{m.tos_commercial_use()}</h2>
         <p>
-          We may monetize the hosted service, including through paid plans,
-          sponsorships, or other commercial models.
-        </p>
+          {m.tos_we_may_monetize_the_hosted_service_including_through_paid_plans_s()}</p>
         <p>
-          You may not resell, sublicense, or commercially exploit the hosted
-          service without prior written permission from Drawspell.
-        </p>
+          {m.tos_you_may_not_resell_sublicense_or_commercially_exploit_the_hosted()}</p>
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-xl font-semibold text-zinc-50">Acceptable Behavior</h2>
+        <h2 className="text-xl font-semibold text-zinc-50">{m.tos_acceptable_behavior()}</h2>
         <p>
-          Do not use Drawspell to abuse, harass, disrupt games, or interfere
-          with other users.
-        </p>
+          {m.tos_do_not_use_drawspell_to_abuse_harass_disrupt_games_or_interfere_w()}</p>
         <p>
-          We may suspend or block access if behavior harms the service or other
-          people.
-        </p>
+          {m.tos_we_may_suspend_or_block_access_if_behavior_harms_the_service_or_o()}</p>
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-xl font-semibold text-zinc-50">Service Availability</h2>
+        <h2 className="text-xl font-semibold text-zinc-50">{m.tos_service_availability()}</h2>
         <p>
-          Drawspell is offered on an "as is" and "as available" basis. We may
-          change, pause, or discontinue features at any time.
-        </p>
+          {m.tos_drawspell_is_offered_on_an_as_is_and_as_available_basis_we_may_ch()}</p>
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-xl font-semibold text-zinc-50">Liability</h2>
+        <h2 className="text-xl font-semibold text-zinc-50">{m.tos_liability()}</h2>
         <p>
-          To the maximum extent allowed by law, Drawspell is not liable for
-          indirect, incidental, or consequential damages from use of the
-          service.
-        </p>
+          {m.tos_to_the_maximum_extent_allowed_by_law_drawspell_is_not_liable_for()}</p>
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-xl font-semibold text-zinc-50">Contact</h2>
-        <p>
-          Questions about these terms can be sent to{" "}
-          <a
+        <h2 className="text-xl font-semibold text-zinc-50">{m.privacy_contact()}</h2>
+        <p>{richText(m.rich_tos_questions_about_these_terms_can_be_sent_to({ a_0: messageSlot("a_0") }), { a_0: (<a
             className="underline decoration-zinc-500 underline-offset-4 transition hover:decoration-zinc-200"
             href="mailto:feedback@drawspell.space"
           >
             feedback@drawspell.space
-          </a>
-          .
-        </p>
+          </a>) })}</p>
       </section>
     </LegalLayout>
   );
@@ -80,10 +61,10 @@ export const Route = createFileRoute("/tos")({
   head: () => ({
     links: agentDiscoveryLinks("/tos"),
     meta: [
-      { title: "Terms of Service | Drawspell" },
+      { title: m.tos_terms_of_service_drawspell() },
       {
         name: "description",
-        content: "Terms of Service for Drawspell.",
+        content: m.tos_terms_of_service_for_drawspell(),
       },
     ],
   }),

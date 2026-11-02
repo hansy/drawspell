@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import React from "react";
 import {
   Heart,
@@ -313,11 +314,10 @@ const MobileLifeDialog: React.FC<{
       >
         <DialogHeader className="gap-1">
           <DialogTitle className="sr-only">
-            {player.name ? `${player.name} life controls` : "Player life controls"}
+            {player.name ? m.portrait_seat_toolbar_life_controls({ name: player.name }) : m.portrait_seat_toolbar_player_life_controls()}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Adjust life total and commander damage values.
-          </DialogDescription>
+            {m.portrait_seat_toolbar_adjust_life_total_and_commander_damage_values()}</DialogDescription>
           {isEditingName ? (
             <div className="flex items-center gap-2">
               <Input
@@ -338,8 +338,7 @@ const MobileLifeDialog: React.FC<{
                 className="h-8 rounded-md border border-zinc-700 px-2 text-xs hover:bg-zinc-800"
                 onClick={submitName}
               >
-                Save
-              </button>
+                {m.save()}</button>
             </div>
           ) : (
             <button
@@ -354,7 +353,7 @@ const MobileLifeDialog: React.FC<{
               }}
               disabled={!isMe}
             >
-              {player.name || (isMe ? "Me" : "Player")}
+              {player.name || (isMe ? m.life_box_view_me() : m.portrait_seat_toolbar_player())}
             </button>
           )}
         </DialogHeader>
@@ -364,7 +363,7 @@ const MobileLifeDialog: React.FC<{
             {canEditLife ? (
               <button
                 type="button"
-                aria-label="Decrease life"
+                aria-label={m.life_box_view_decrease_life()}
                 onClick={() => handleLifeChange(-1)}
                 disabled={player.life <= MIN_PLAYER_LIFE}
                 className="h-9 w-9 rounded-full border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
@@ -380,7 +379,7 @@ const MobileLifeDialog: React.FC<{
             {canEditLife ? (
               <button
                 type="button"
-                aria-label="Increase life"
+                aria-label={m.life_box_view_increase_life()}
                 onClick={() => handleLifeChange(1)}
                 disabled={player.life >= MAX_PLAYER_LIFE}
                 className="h-9 w-9 rounded-full border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
@@ -396,8 +395,7 @@ const MobileLifeDialog: React.FC<{
         {commanderDamageEntries.length > 0 && (
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
             <div className="mb-2 text-[10px] uppercase tracking-wider text-zinc-500">
-              Commander Damage
-            </div>
+              {m.portrait_seat_toolbar_commander_damage()}</div>
             <div className="flex flex-col gap-2">
               {commanderDamageEntries.map((entry) => {
                 const sourceName =
@@ -418,7 +416,7 @@ const MobileLifeDialog: React.FC<{
                     {canEditCommanderDamage ? (
                       <button
                         type="button"
-                        aria-label={`Decrease commander damage from ${sourceName}`}
+                        aria-label={m.portrait_seat_toolbar_decrease_commander_damage_from({ sourceName: sourceName })}
                         onClick={() =>
                           handleCommanderDamageChange(entry.opponentId, -1)
                         }
@@ -436,7 +434,7 @@ const MobileLifeDialog: React.FC<{
                     {canEditCommanderDamage ? (
                       <button
                         type="button"
-                        aria-label={`Increase commander damage from ${sourceName}`}
+                        aria-label={m.portrait_seat_toolbar_increase_commander_damage_from({ sourceName: sourceName })}
                         onClick={() =>
                           handleCommanderDamageChange(entry.opponentId, 1)
                         }
@@ -470,7 +468,7 @@ export const PortraitSeatToolbar: React.FC<PortraitSeatToolbarProps> = ({
   const lifeButton = (
     <ZoneButton
       icon={<Heart size={16} />}
-      label="Open life details"
+      label={m.portrait_seat_toolbar_open_life_details()}
       value={player.life}
       onClick={() => setLifeDialogOpen(true)}
     />
@@ -494,7 +492,7 @@ export const PortraitSeatToolbar: React.FC<PortraitSeatToolbarProps> = ({
               onClick={onLoadDeck}
               disabled={!onLoadDeck}
               data-no-seat-swipe="true"
-              aria-label="Load Library"
+              aria-label={m.portrait_seat_toolbar_load_library()}
               className={cn(
                 "h-full w-full rounded-lg border border-indigo-500/40 bg-indigo-600/30",
                 "flex items-center justify-center gap-2 px-2 text-indigo-100",
@@ -502,7 +500,7 @@ export const PortraitSeatToolbar: React.FC<PortraitSeatToolbarProps> = ({
               )}
             >
               <Plus size={16} />
-              <span className="text-sm font-semibold">Load Library</span>
+              <span className="text-sm font-semibold">{m.portrait_seat_toolbar_load_library()}</span>
             </button>
           </div>
         )}

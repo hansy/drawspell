@@ -1,3 +1,4 @@
+import { m } from "@/paraglide/messages.js";
 import { getPlayerZones } from "@/lib/gameSelectors";
 import type { Player, PlayerId, Zone, ZoneId } from "@/types";
 import type {
@@ -203,11 +204,11 @@ export const runGameShortcut = (params: {
       return true;
     case "game.drawX":
       params.openCountPrompt({
-        title: "Draw cards",
-        message: "How many cards to draw?",
+        title: m.model_draw_cards(),
+        message: m.model_how_many_cards_to_draw(),
         initialValue: 1,
-        inputLabel: "Cards to draw",
-        confirmLabel: "Draw",
+        inputLabel: m.model_cards_to_draw(),
+        confirmLabel: m.model_draw(),
         onSubmit: (count) => {
           for (let i = 0; i < count; i++) params.actions.drawOne();
         },
@@ -218,12 +219,12 @@ export const runGameShortcut = (params: {
       return true;
     case "game.discardX":
       params.openCountPrompt({
-        title: "Mill cards",
-        message: "How many cards to mill from the top of your library?",
+        title: m.model_mill_cards(),
+        message: m.model_how_many_cards_to_mill_from_the_top_of_your_library(),
         initialValue: 1,
         minValue: 1,
-        inputLabel: "Cards to mill",
-        confirmLabel: "Mill",
+        inputLabel: m.model_cards_to_mill(),
+        confirmLabel: m.model_mill(),
         onSubmit: (count) => params.actions.discard(count),
       });
       return true;
@@ -232,12 +233,12 @@ export const runGameShortcut = (params: {
       return true;
     case "game.exileX":
       params.openCountPrompt({
-        title: "Exile cards",
-        message: "How many cards to exile from the top of your library?",
+        title: m.model_exile_cards(),
+        message: m.model_how_many_cards_to_exile_from_the_top_of_your_library(),
         initialValue: 1,
         minValue: 1,
-        inputLabel: "Cards to exile",
-        confirmLabel: "Exile",
+        inputLabel: m.model_cards_to_exile(),
+        confirmLabel: m.model_exile(),
         onSubmit: (count) => params.actions.exile(count),
       });
       return true;
@@ -281,8 +282,8 @@ export const runGameShortcut = (params: {
       const library = myZones.library;
       if (!library) return false;
       params.openCountPrompt({
-        title: "View Top",
-        message: "How many cards from top?",
+        title: m.model_view_top(),
+        message: m.model_how_many_cards_from_top(),
         initialValue: 1,
         onSubmit: (count) => params.handleViewZone(library.id, count),
       });
@@ -290,8 +291,8 @@ export const runGameShortcut = (params: {
     }
     case "game.mulligan":
       params.openCountPrompt({
-        title: "Mulligan",
-        message: "Reset deck and draw new cards. How many cards to draw?",
+        title: m.model_mulligan(),
+        message: m.model_reset_deck_and_draw_new_cards_how_many_cards_to_draw(),
         initialValue: 7,
         onSubmit: (count) => {
           params.actions.mulligan(count);
